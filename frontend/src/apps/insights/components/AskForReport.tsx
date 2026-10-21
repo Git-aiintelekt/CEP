@@ -4,13 +4,16 @@
  * remembered per browser) and presses Generate. What comes back is a draft (in words, with a preview count; Open in Editor
  * makes it a private report and opens it), one question with its answers as buttons, or "no field for this" with the
  * closest prompts. The model sees the prompt and the field names, never customer rows. Only a draft counts against the month.
+ * The prompt may run to 4,000 characters over several lines, and up to three images may go with it (Add Images, or paste or drop
+ * them on the box): a sketch of the report, a screenshot of a chart or a table. They go to the model and are not kept.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { ChevronDown, ImagePlus, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { buttonPrimary, buttonSecondary, TextArea } from '@/components/Form'
+import { IconButton } from '@/components/Button'
+import { buttonPrimary, buttonSecondary, Counter, TextArea } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
 import { Popover } from '@/components/Popover'
 import { Spinner } from '@/components/States'
@@ -19,10 +22,13 @@ import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { assistantApi, keys, useAssistant, useCatalog } from '../api'
+import { IMAGE_BYTES_MAX, IMAGE_TYPES, IMAGES_MAX, isImage, shrink } from '../askImages'
 import { columnWords, ruleWords } from '../editor/definition'
 import type { AskResult, AssistantModel, CatalogDataset, ReportSummary } from '../types'
 
 const MODEL_KEY = 'insights.ai.model'
+const PROMPT_MAX = 4000
+type Attached = { file: File; url: string }
 const VIEW_LABEL: Record<ReportSummary['view_type'], string> = { grid: 'Grid', chart: 'Chart', pivot: 'Pivot', hierarchy: 'Hierarchy', influencers: 'Key Influencers', decomposition: 'Decomposition Tree' }
 
 function readModel(): string | null {
@@ -47,13 +53,20 @@ export function AskForReport() {
   const client = useQueryClient()
   const navigate = useNavigate()
   const box = useRef<HTMLTextAreaElement>(null)
+  const picker = useRef<HTMLInputElement>(null)
   const [prompt, setPrompt] = useState('')
+  const [images, setImages] = useState<Attached[]>([])
+  const [imageError, setImageError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const shown = useRef<Attached[]>([])                                                     // the previews to let go of when the box goes
+  useEffect(() => { shown.current = images }, [images])
+  useEffect(() => () => shown.current.forEach((image) => URL.revokeObjectURL(image.url)), [])
   const [modelId, setModelId] = useState<string | null>(readModel)
   const [result, setResult] = useState<AskResult | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const menu = useSingleDropdown<'model'>()
   const ask = useMutation({
-    mutationFn: (body: { prompt: string; model: string; answer_to?: string }) => assistantApi.ask(body),
+    mutationFn: ({ body, files }: { body: { prompt: string; model: string; answer_to?: string }; files: File[] }) => assistantApi.ask(body, files),
     onMutate: () => setFailure(null),
     onSuccess: (reply) => { setResult(reply); void client.invalidateQueries({ queryKey: keys.assistant }) },
     onError: (error) => setFailure(error instanceof ApiError ? error.message : 'The request did not go through.'),
@@ -69,22 +82,69 @@ export function AskForReport() {
   const models = data.models
   const model = models.find((m) => m.id === modelId) ?? models.find((m) => m.id === data.default_model) ?? models[0]
   const pick = (id: string) => { setModelId(id); try { window.localStorage.setItem(MODEL_KEY, id) } catch { /* no memory of the choice */ } menu.close({ restoreFocus: true }) }
-  const send = (text: string, answerTo?: string) => { if (text.trim() && model) ask.mutate({ prompt: text.trim(), model: model.id, ...(answerTo ? { answer_to: answerTo } : {}) }) }
+  const send = (text: string, answerTo?: string) => {
+    if (text.trim() && model) ask.mutate({ body: { prompt: text.trim(), model: model.id, ...(answerTo ? { answer_to: answerTo } : {}) }, files: images.map((image) => image.file) })
+  }
+  const attach = async (files: File[]) => {
+    setImageError(null)
+    const room = IMAGES_MAX - images.length
+    const wrong = files.find((file) => !isImage(file))
+    if (wrong) setImageError(`${wrong.name || 'That file'} is not a PNG, JPEG, GIF or WebP image.`)
+    const taken = files.filter(isImage)
+    if (taken.length > room) setImageError(`Add up to ${IMAGES_MAX} images.`)
+    const ready = await Promise.all(taken.slice(0, Math.max(0, room)).map(shrink))
+    const big = ready.find((file) => file.size > IMAGE_BYTES_MAX)
+    if (big) setImageError(`${big.name} is ${(big.size / 1_000_000).toFixed(1)} MB; an image may be up to ${(IMAGE_BYTES_MAX / 1_000_000).toFixed(1)} MB.`)
+    const fits = ready.filter((file) => file.size <= IMAGE_BYTES_MAX).map((file) => ({ file, url: URL.createObjectURL(file) }))
+    if (fits.length) setImages((now) => [...now, ...fits].slice(0, IMAGES_MAX))
+  }
+  const detach = (image: Attached) => { URL.revokeObjectURL(image.url); setImages((now) => now.filter((other) => other !== image)); setImageError(null) }
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData.files)
+    if (files.length) { event.preventDefault(); void attach(files) }
+  }
+  const onDrop = (event: DragEvent<HTMLElement>) => {
+    if (!event.dataTransfer.files.length) return
+    event.preventDefault()
+    setDragging(false)
+    void attach(Array.from(event.dataTransfer.files))
+  }
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send(prompt) } }
   const edit = (text: string) => { setPrompt(text); setResult(null); box.current?.focus() }
   const dataset = (key: string | undefined) => catalog.data?.datasets.find((d) => d.key === key) ?? null
   const showExamples = !result && data.recent.length === 0
 
   return (
-    <section aria-label="Ask for a Report" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
+    <section aria-label="Ask for a Report" className={`flex flex-col gap-3 rounded-lg border bg-surface p-4 ${dragging ? 'border-focus' : 'border-line'}`}
+      onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
       <div className="flex flex-wrap items-center gap-2">
         <AiPill />
         <h2 className="text-sm font-semibold text-ink-900">Ask for a Report</h2>
         {data.usage && <span className="ml-auto text-xs text-ink-800">{data.usage.words}</span>}
       </div>
       <label className="sr-only" htmlFor="ai-prompt">What do you want to see?</label>
-      <TextArea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={onKey} rows={2} maxLength={1000}
-        placeholder="e.g. Revenue by channel and month for the last quarter, as a pivot" className="!mt-0 min-h-16 resize-y" />
+      <TextArea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={5} maxLength={PROMPT_MAX}
+        placeholder={'e.g. Revenue by channel and month for the last quarter, as a pivot.\nAdd the details on more lines: the filters, the order, what to compare.'} className="!mt-0 min-h-32 resize-y" />
+      <div className="flex flex-wrap items-center gap-2">
+        <input ref={picker} type="file" accept={IMAGE_TYPES.join(',')} multiple hidden aria-hidden tabIndex={-1}
+          onChange={(event) => { void attach(Array.from(event.target.files ?? [])); event.target.value = '' }} />
+        <button type="button" className={`${buttonSecondary} h-8 px-2.5 text-sm`} onClick={() => picker.current?.click()} disabled={images.length >= IMAGES_MAX}>
+          <ImagePlus size={16} strokeWidth={1.5} aria-hidden />Add Images
+        </button>
+        <span className="text-xs text-ink-800">{images.length ? `${images.length} of ${IMAGES_MAX}` : `Up to ${IMAGES_MAX}: a sketch, or a screenshot of a chart or a table. Paste or drop them here too.`}</span>
+        <span className="ml-auto"><Counter used={prompt.length} max={PROMPT_MAX} /></span>
+      </div>
+      {images.length > 0 && (
+        <ul className="flex flex-wrap gap-2" aria-label="Images">
+          {images.map((image) => (
+            <li key={image.url} className="relative">
+              <img src={image.url} alt={image.file.name} className="h-16 w-16 rounded-md border border-line object-cover" />
+              <IconButton label={`Remove ${image.file.name}`} icon={X} size="sm" onClick={() => detach(image)} className="absolute -top-2 -right-2 border border-line bg-surface" />
+            </li>
+          ))}
+        </ul>
+      )}
+      {imageError && <p role="alert" className="text-sm text-danger-text">{imageError}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <button type="button" {...menu.triggerProps('model')} className="flex h-8 min-w-56 items-center gap-2 rounded-control-md border border-line-control bg-surface px-2.5 text-sm text-ink-900 hover:bg-surface-hover">
@@ -105,7 +165,7 @@ export function AskForReport() {
             </Popover>
           )}
         </div>
-        <span className="text-xs text-ink-800">Sends your prompt and the field names, never your data.</span>
+        <span className="text-xs text-ink-800">{images.length ? 'Sends your prompt, the images and the field names, never your data. The images are not kept.' : 'Sends your prompt and the field names, never your data.'}</span>
         <button type="button" className={`${buttonPrimary} ml-auto`} onClick={() => send(prompt)} disabled={!prompt.trim() || !model || ask.isPending}>
           {ask.isPending ? <><Spinner size="sm" /> Thinking</> : 'Generate Report'}
         </button>
@@ -136,7 +196,7 @@ export function AskForReport() {
               {data.recent.map((item) => (
                 <tr key={item.id} className="border-t border-line-subtle">
                   <td className="py-1.5 pr-3">
-                    <button type="button" onClick={() => edit(item.prompt)} className="text-left text-ink-900 hover:underline">{item.prompt}</button>
+                    <button type="button" onClick={() => edit(item.prompt)} className="line-clamp-3 text-left whitespace-pre-line text-ink-900 hover:underline">{item.prompt}</button>
                     <span className="block text-xs text-ink-800">{item.model} · {item.report_id && item.report_name ? <>saved as <Link to={`/insights/reports/${item.report_id}`} className="hover:underline">{item.report_name}</Link></> : item.outcome === 'DRAFT' ? 'not saved' : item.outcome === 'QUESTION' ? 'asked a question' : item.outcome === 'NO_FIELD' ? 'no field for it' : 'did not answer'}</span>
                   </td>
                   <td className="cep-num py-1.5 text-right text-xs whitespace-nowrap text-ink-800">{formatDateTime(item.created_at)}</td>

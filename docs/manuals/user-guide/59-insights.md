@@ -440,9 +440,10 @@ Insights → Reports lists every report you can open, grouped by the component w
 
 When your platform has switched on an AI provider and your workspace allows it (Settings → AI Assistant), a prompt box sits above the report list for people who can build reports.
 
-1. Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start.
+1. Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start. The box takes up to 4,000 characters; put the details on more lines (the filters, the order, what to compare). The counter under it shows how much is used.
+   **Images:** press **Add Images**, or paste or drop them on the box, to send up to three with the prompt: a sketch of the report you want, or a screenshot of a chart, a table or a spreadsheet. PNG, JPEG, GIF or WebP; a large image is scaled down before it is sent. Remove one with its ✕. The images go to the model with your prompt and are not kept; only the prompt is saved with the draft.
 2. Pick a model beside Generate: Claude or OpenAI, whichever your platform offers, each with a "best for reports" and a "fastest" model. Your last choice is remembered.
-3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt and the names of the fields you may use, never customer rows, and answers in one of three ways:
+3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt, any images you added and the names of the fields you may use, never customer rows, and answers in one of three ways:
    - **A draft**, in words: its name, view, data, rows, columns, values and filter, with how many rows the preview gives. **Open in Editor** makes it a private report of yours and opens it in the editor; nothing is shared until you save and share it. **Try Again** asks once more; **Edit Prompt** puts your words back in the box.
    - **One question first**, when the prompt has two readings ("which period is last month?"), with the answers as buttons. Answering does not use another prompt.
    - **No field for this**, when no dataset holds what you asked for, with the closest prompts the catalogue can answer. The model never makes a field up; ask your platform team to map the data if you need it.

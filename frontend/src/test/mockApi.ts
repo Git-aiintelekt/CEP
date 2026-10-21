@@ -18,6 +18,8 @@ export interface Call {
   method: string
   headers: Record<string, string>
   body: Record<string, unknown> | null
+  /** a multipart body (a file upload, Ask for a Report with images) */
+  form?: FormData
 }
 
 export { makeStep }
@@ -1040,7 +1042,7 @@ export function installMockApi(options: MockOptions = {}) {
     const method = init.method ?? 'GET'
     const headers = (init.headers ?? {}) as Record<string, string>
     const body = init.body && !(init.body instanceof FormData) ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null
-    const call = { url, method, headers, body }
+    const call = { url, method, headers, body, ...(init.body instanceof FormData ? { form: init.body } : {}) }
     calls.push(call)
     const path = url.split('?')[0]
 
@@ -1652,7 +1654,8 @@ export function installMockApi(options: MockOptions = {}) {
         return json({ kind: 'draft', counted: true, view: { type: 'chart', chart: 'bar' }, definition: { ...asked.definition, columns: [{ field: 'channel' }, ...asked.definition.columns.filter((c) => c.aggregate)], view: { type: 'chart', chart: 'bar' } } })
       }
       if (path.endsWith('/insights/assistant/ask/')) {
-        const asked = (body ?? {}) as { prompt: string; model: string }
+        const form = init.body instanceof FormData ? init.body : null                          // with images it comes as multipart
+        const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')) } : body ?? {}) as { prompt: string; model: string }
         return json(assistantReply(asked.prompt, asked.model))
       }
       const opened = /\/insights\/assistant\/([\w-]+)\/open\/$/.exec(path)

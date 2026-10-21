@@ -131,3 +131,34 @@ test('a workspace adds its own key for a provider: the form, one PUT with the ke
   expect(calls.find((call) => call.url.endsWith('/workspace/ai-assistant/check/'))?.body).toEqual({ provider: 'openai' })
   expect(within(screen.getByRole('listitem', { name: 'OpenAI' })).getByRole('button', { name: 'Use the Platform’s Key' })).toBeTruthy()
 })
+
+test('a long prompt over several lines with images: Add Images takes up to three PNG, JPEG, GIF or WebP files, refuses others, shows them to remove, and Generate sends them with the prompt', async () => {
+  const calls = await renderAppAt('/insights/reports')
+  const user = userEvent.setup({ applyAccept: false })
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  const prompt = within(box).getByRole('textbox', { name: 'What do you want to see?' }) as HTMLTextAreaElement
+  expect(prompt.maxLength).toBe(4000)
+  await user.type(prompt, 'Net sales by store, like the sketch{Shift>}{Enter}{/Shift}- one bar per store{Shift>}{Enter}{/Shift}- last quarter')
+  expect(prompt.value).toBe('Net sales by store, like the sketch\n- one bar per store\n- last quarter')
+  expect(within(box).getByText('70 / 4,000')).toBeTruthy()
+
+  const picker = box.querySelector('input[type="file"]') as HTMLInputElement
+  const png = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
+  await user.upload(picker, [new File(['notes'], 'notes.txt', { type: 'text/plain' })])
+  expect(within(box).getByRole('alert').textContent).toBe('notes.txt is not a PNG, JPEG, GIF or WebP image.')
+  await user.upload(picker, [png('sketch.png'), png('chart.png'), png('table.png'), png('fourth.png')])
+  expect(within(box).getByRole('alert').textContent).toBe('Add up to 3 images.')
+  const shown = within(box).getByRole('list', { name: 'Images' })
+  expect(within(shown).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['sketch.png', 'chart.png', 'table.png'])
+  expect((within(box).getByRole('button', { name: 'Add Images' }) as HTMLButtonElement).disabled).toBe(true)
+  await user.click(within(shown).getByRole('button', { name: 'Remove chart.png' }))
+  expect(within(shown).getAllByRole('img')).toHaveLength(2)
+  expect(within(box).getByText(/Sends your prompt, the images and the field names/)).toBeTruthy()
+
+  await user.click(within(box).getByRole('button', { name: 'Generate Report' }))
+  await screen.findByRole('region', { name: 'Draft Report' })
+  const sent = calls.find((call) => call.url.endsWith('/insights/assistant/ask/'))?.form
+  expect(sent?.get('prompt')).toBe('Net sales by store, like the sketch\n- one bar per store\n- last quarter')
+  expect(sent?.get('model')).toBe('anthropic:claude-sonnet-5-5')
+  expect(((sent?.getAll('images') ?? []) as File[]).map((file) => file.name)).toEqual(['sketch.png', 'table.png'])
+})
