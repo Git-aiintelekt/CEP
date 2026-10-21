@@ -149,9 +149,36 @@ Every question about a bulk send has one place to be answered, on the campaign p
 | Why did *this* message fail, and did the engine ever confirm it? | A recipient's row opens its timeline (queued, handed to the engine, every callback the engine sent, opens and clicks with the link, the address's standing today) — `GET …/recipients/{execution_id}/` |
 | What does the engine itself say about the message? | **Check with the Engine** on the row: Postal's own record, read now — status, held or not, the last delivery attempt, every attempt with the receiving server's answer (`POST …/recipients/{execution_id}/check/`, `PostalProvider.message_status`; Postal's messages API takes the numeric id the send answered with, found in the call log by the Message-ID) |
 | Who on this campaign's lists cannot be sent to, why, from where, since when? | Campaign → Recipients → **Blocked & Unsubscribed**: the Suppressions rows kept to this campaign's people (attached lists and every frozen run list), with the group chips (Unsubscribed / Bounced / Complained / Blocked), channel, search and CSV — `GET /campaigns/{id}/suppressions/`, `…/export.csv` |
+| Is the engine healthy at all? | Settings → Sending Engines → **Health** (and back-office → Engine Health across workspaces): callbacks, refused calls, speed, bounces or failed texts, receipts and the daily Check, every 10 minutes (section 6.2) |
 | Is the engine calling back at all? | Settings → Sending Engines → Callbacks: "Last received … · N in 24 h", or "No callback has ever arrived" — a dead webhook otherwise looks like a send that never delivers (`last_callback_at`, `callbacks_24h` on the provider) |
 
 Reading the picture: a row **Sent** with no delivered time and "No callback from the engine has reached this message" while *Check with the Engine* says **Sent** = the send worked and the webhook is not registered (or points at the wrong Postal mail server). **Failed** with a reason = the engine refused the message (the reason is Postal's own words). **Bounced** / **Marked as Spam** = the callback arrived and the address is now blocked for every campaign (see Blocked & Unsubscribed).
+
+### 6.2 Engine Health (`apps/delivery/health.py`, patch 0069)
+
+The check-engine-health job (every 10 minutes) judges each active engine of every workspace, in the workspace's own
+row-level-security scope, from the integration log (calls out, callbacks in, timings, status codes), the breaker state
+mirrored on `integration`, the last day's `mailer_execution` rows (by `delivery_provider_id`) or `sms_execution` rows (through
+the campaign's sender), and the engine's last Check. One row per engine is kept in `delivery_provider_health`.
+
+| Check | Window | Raises |
+|---|---|---|
+| Callbacks | messages since the last callback, within a day | **Failing**: messages went out (each given 10 minutes) and no callback for `engine_health.callback_silence_minutes` (60) |
+| Refused Calls | last hour, calls that reached the engine | **Failing**: a 401/403 after the last good call, or the breaker open; **Attention**: more than `rejection_rate_pct` (1%) refused or failed |
+| API Speed | last hour | **Attention**: p95 above `p95_ms` (5,000), judged from 10 calls |
+| Bounces · Complaints (email) | last day | **Attention** above `hard_bounce_pct` (2) or `complaint_pct` (0.1); **Failing** at twice either |
+| Failed Texts (texts) | last day's receipts | **Attention** above `sms_failure_pct` (5); **Failing** at twice |
+| Receipts (texts) | last two hours | **Attention**: more than `missing_receipt_pct` (1%) without a receipt after `receipt_wait_minutes` (15) |
+| Daily Check | the engine's last Check | **Failing** when it failed |
+
+A rate needs `engine_health.min_sample` (50) messages or calls in its window; below it the check reads **Quiet** and shows
+the counts ("1 of 1"), not a share. An engine with nothing sent in a day is Quiet overall. A text engine that has never
+called back (Digivize today) is not judged on Callbacks or Receipts: one standing **No Receipts Yet** warning, whose alert
+opens acknowledged (emailed once). The first receipt switches the real checks on.
+
+Alerts: `apps/platform_ops/alerts.py` adds one per engine and failing check ("Engine · NWA · Postal Marketing ·
+Callbacks"), notified, re-notified and resolved like every other alert. The check-engines-daily job runs each engine's
+Check (`health.run_check`, the same code as the Check button); Check also refreshes the engine's health at once.
 
 ## 7. Who is left out of a run (`engine/audience.py`)
 
@@ -317,6 +344,7 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 |---|---|
 | Celery queues | `campaign` (start / finalize runs), `email` and `sms` (send batches): `celery -A config worker -Q default,events,maintenance,campaign,email,sms,imports` |
 | Scheduled job | `dispatch-campaign-runs` every minute: starts due runs (also the ones scheduled for later), closes finished ones. Shown on the back-office health page. |
+| Engine Health | `check-engine-health` every 10 minutes, `check-engines-daily` once a day (section 6.2); by hand `python manage.py run_job check-engine-health` |
 | Without Celery | `python manage.py send_campaign_runs` (everything due) or `--run <uuid>` |
 | Pace | `delivery_provider.rate_limit_per_minute` |
 | Test send | **Send a test** on the campaign page / `POST /api/v1/campaigns/{id}/send-test/ {"to": [...]}`: sample values, no execution rows |
@@ -327,8 +355,8 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 | Endpoint | Permission | |
 |---|---|---|
 | `GET /delivery-providers/catalogue/` | `provider.edit` | installed adapters and their form fields |
-| `GET, POST /delivery-providers/` · `PATCH, DELETE /delivery-providers/{id}/` | `provider.edit` | `secret` and `transactional_secret` write-only, `drop_transactional_secret`; `webhook_url`, `has_secret`, `has_transactional_secret`, last check |
-| `POST /delivery-providers/{id}/check/` | `provider.edit` | validates address + credential(s) |
+| `GET, POST /delivery-providers/` · `PATCH, DELETE /delivery-providers/{id}/` | `provider.edit` | `secret` and `transactional_secret` write-only, `drop_transactional_secret`; `webhook_url`, `has_secret`, `has_transactional_secret`, last check, `health` (status, summary, standing, checked_at, checks; null before the first pass) |
+| `POST /delivery-providers/{id}/check/` | `provider.edit` | validates address + credential(s), then refreshes the engine's health |
 | `GET, POST /delivery-senders/` · `PATCH, DELETE /delivery-senders/{id}/` | `provider.edit` | From name / address / reply-to per provider |
 | `POST /delivery-senders/{id}/verify/` | `provider.edit` | sends a real message from the address; accepted = `VERIFIED` (required to publish) |
 | `GET /sender-profiles/` | `campaign.edit` | what the campaign form lists |
@@ -344,6 +372,7 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 ## 13. Not in this version
 
 * Digivize's reply and callback shapes, once a first real batch has been sent: the adapter reads the plausible fields (section 10).
+  Digivize has not posted a delivery receipt yet, so its texts stay Sent and Engine Health shows No Receipts Yet (section 6.2).
 * Link shortening and click tracking in texts; automatic HELP / STOP confirmation texts (left to the aggregator).
 * Open pixel and click redirect of our own (`services/tracking`): opens and clicks currently come from the provider's
   tracking through webhooks, so SMTP sends report neither.

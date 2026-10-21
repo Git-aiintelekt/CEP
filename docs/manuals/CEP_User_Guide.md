@@ -1226,7 +1226,7 @@ A campaign picks a sender when it is set up; the sender decides the engine. Unti
 | Receipts (texts) | Texts that have had no delivery receipt 15 minutes after they were sent. | **Attention** when more than 1% of the last two hours' texts are still waiting. |
 | Daily Check | The engine's last Check: key and address, nothing sent. | **Failing** when it failed. |
 
-A rate is judged only from 50 messages or calls in its window, so a few test sends never raise it. A text engine that has never sent a receipt shows **No Receipts Yet** instead of a Callbacks and a Receipts problem: Digivize, for example, accepts texts but does not post delivery receipts yet, so its texts read Sent, not Delivered. This clears by itself with the first receipt.
+A rate is judged only from 50 messages or calls in its window, so a few test sends never raise it: below that the check reads Quiet and shows the counts (*1 of 1*) instead of a share. A text engine that has never sent a receipt shows **No Receipts Yet** instead of a Callbacks and a Receipts problem: Digivize, for example, accepts texts but does not post delivery receipts yet, so its texts read Sent, not Delivered. This clears by itself with the first receipt.
 
 ### The engine form (Add Engine, Edit)
 

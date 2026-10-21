@@ -80,6 +80,7 @@ the last-call fields.
 | Back-office → Integrations | platform staff | Every tenant's records; edit throttle, retries, breaker and log policy; pause / resume / close the circuit. |
 | Back-office → Integration log | platform staff | Every call across tenants, searchable by correlation id, reference or URL. |
 | Back-office home → Integrations check; `alerts` | platform staff | Warns when an integration has its circuit open or a quarter of its calls failed in the last 15 minutes. |
+| Back-office → Engine Health; Settings → Sending Engines → Health | platform staff; tenant administrator | The sending engines judged every 10 minutes from this log: callbacks, refused calls, p95, bounces or failed texts, receipts, the daily Check; one alert per engine and failing check (DELIVERY_PROVIDERS.md §6.2). |
 
 Endpoints: `GET /api/v1/integrations/`, `GET /api/v1/integrations/log/?integration=&direction=&outcome=&failed=1&q=&page=&page_size=`
 (`count`, `page`, `page_size`; 10, 25, 50 or 100 rows a page, 25 unless chosen; the page's Rows per Page choice is remembered per browser), `GET /api/v1/integrations/log/{id}/`, `GET /api/v1/integrations/{id}/metrics/?hours=`,
