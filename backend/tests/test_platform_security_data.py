@@ -9,6 +9,7 @@ from django.conf import settings
 from django.db import connections
 from django.utils import timezone
 
+from apps.delivery import domain_health
 from apps.platform_ops import security, security_data
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -93,14 +94,14 @@ def test_sending_domains(check):
         pytest.skip("no email sender in this database")
     _run("UPDATE sender_profile SET deleted_at = now() WHERE channel = 'EMAIL' AND id <> %s", [sender[0][0]])
     _run("UPDATE sender_profile SET from_address = 'news@mail.example' WHERE id = %s", [sender[0][0]])
-    with mock.patch.object(security_data, "_txt", side_effect=AssertionError("a reserved domain is never looked up")):
+    with mock.patch.object(domain_health, "txt", side_effect=AssertionError("a reserved domain is never looked up")):
         findings, passed = security_data.mail_findings()
     check("a domain reserved for examples is not looked up", not findings and any("reserved for examples" in p for p in passed), str(passed))
 
     _run("UPDATE sender_profile SET from_address = 'news@shop.co' WHERE id = %s", [sender[0][0]])
 
     def answers(spf, dmarc):
-        return mock.patch.object(security_data, "_txt", side_effect=lambda name: dmarc if name.startswith("_dmarc.") else spf)
+        return mock.patch.object(domain_health, "txt", side_effect=lambda name: dmarc if name.startswith("_dmarc.") else spf)
 
     for label, spf, dmarc, expect in (
             ("no SPF and no DMARC", [], [], {"MAIL:shop.co:spf": "HIGH", "MAIL:shop.co:dmarc": "MEDIUM"}),

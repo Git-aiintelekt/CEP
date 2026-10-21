@@ -6,7 +6,9 @@ import { Outlet, Route, Routes, useSearchParams } from 'react-router-dom'
 import { SettingsMenuPanel } from '@/apps/cep/pages/settings/SettingsMenu'
 import { WorkspaceSetupPage } from '@/apps/cep/pages/settings/WorkspaceSetupPage'
 import { AttributionPage } from '@/apps/cep/pages/settings/AttributionPage'
-import type { AttributedOrder, AttributionSettings } from '@/lib/types'
+import { SendingDomainsSection } from '@/apps/cep/pages/settings/SendingDomainsSection'
+import { DOMAINS } from '@/apps/cep/pages/settings/sendingDomains'
+import type { AttributedOrder, AttributionSettings, SendingDomains } from '@/lib/types'
 import { SETTINGS_GROUPS, pageAt } from '@/apps/cep/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/apps/cep/features/setup/sampleSetup'
@@ -73,6 +75,33 @@ function SampleAttribution() {
   return <QueryClientProvider client={client}><AttributionPage canEdit /></QueryClientProvider>
 }
 
+const SAMPLE_DOMAINS: SendingDomains = {
+  checked_at: '2026-10-21T06:00:00Z', ready: true, domains: [
+    { domain: 'mail.northwindapparel.com', dkim_selector: null, checked_at: '2026-10-21T06:00:00Z',
+      senders: [{ id: 's1', display_name: 'Northwind News', from_address: 'news@mail.northwindapparel.com' }, { id: 's2', display_name: 'Northwind Offers', from_address: 'offers@mail.northwindapparel.com' }],
+      result: { lookup: 'OK', changes: 2, spf: { status: 'MISSING', found: [], publish: 'v=spf1 include:spf.emsb.lynxs.ai ~all' },
+                dmarc: { status: 'MISSING', found: [], name: '_dmarc.mail.northwindapparel.com', publish: 'v=DMARC1; p=quarantine; rua=mailto:dmarc@mail.northwindapparel.com' },
+                dkim: { status: 'NOT_CHECKED', found: [], name: null } } },
+    { domain: 'e.aiintelekt.com', dkim_selector: 'postal-Xa71Qd', checked_at: '2026-10-21T06:00:00Z', senders: [{ id: 's3', display_name: 'C360 Updates', from_address: 'hello@e.aiintelekt.com' }],
+      result: { lookup: 'OK', changes: 1, spf: { status: 'PASS', found: ['v=spf1 include:spf.emsb.lynxs.ai ~all'] },
+                dmarc: { status: 'MONITOR', found: ['v=DMARC1; p=none; rua=mailto:dmarc@aiintelekt.com'], name: '_dmarc.e.aiintelekt.com', publish: 'v=DMARC1; p=quarantine; rua=mailto:dmarc@aiintelekt.com' },
+                dkim: { status: 'PASS', found: ['v=DKIM1; k=rsa; p=MIIBIjANBgkq…'], name: 'postal-Xa71Qd._domainkey.e.aiintelekt.com' } } },
+    { domain: 'northwindapparel.com', dkim_selector: null, checked_at: '2026-10-21T06:00:00Z', senders: [{ id: 's4', display_name: 'Receipts', from_address: 'receipts@northwindapparel.com' }],
+      result: { lookup: 'OK', changes: 0, spf: { status: 'PASS', found: ['v=spf1 include:spf.emsb.lynxs.ai -all'] },
+                dmarc: { status: 'PASS', found: ['v=DMARC1; p=reject'], name: '_dmarc.northwindapparel.com' }, dkim: { status: 'NOT_CHECKED', found: [] } } },
+  ],
+}
+
+/** Delivery → Sending Domains on sample data: three domains, the first open; Check Now and the selector have no API here */
+function SampleSendingDomains() {
+  const [client] = useState(() => {
+    const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchInterval: false } } })
+    seeded.setQueryData(DOMAINS, SAMPLE_DOMAINS)
+    return seeded
+  })
+  return <QueryClientProvider client={client}><SendingDomainsSection onNotice={() => undefined} /></QueryClientProvider>
+}
+
 export default function SettingsPlayground() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -84,7 +113,8 @@ export default function SettingsPlayground() {
             <Route element={<Outlet />}>
               <Route path="setup" element={<SampleSetup />} />
               <Route path="attribution" element={<SampleAttribution />} />
-              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => page.to !== '/settings/setup' && page.to !== '/settings/attribution').map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
+              <Route path="delivery" element={<SampleSendingDomains />} />
+              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
               <Route index element={<StandIn path="/settings/users" />} />
             </Route>
           </Routes>

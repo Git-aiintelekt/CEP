@@ -1287,6 +1287,23 @@ The Sandbox accepts every text and sends none, and is not metered against the pl
 | Sender Number (texts) | The number texts come from: a short code (`55123`), a long number with the country code (`+14045550155`) or an alphanumeric sender id where the aggregator allows one. | The number on every text; replies and STOP messages come back to it. |
 | Default | One sender per channel is the default. | Offered first when a campaign is set up. |
 
+### Sending Domains
+
+One row per domain your email senders send from, with what inboxes read before they trust its mail. C360 looks the records up every day and when you press **Check Now**; it never changes your DNS.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Domain | The domain, and how many DNS changes it needs (*Nothing to change* when all is well). A sender whose domain needs a change says so under its address, with a link here. | |
+| Used By | How many of your senders use the domain (point at it for their addresses). | |
+| SPF | **Passes**, **Missing**, **Two Records** (the check fails outright: merge them) or **Lets Anyone Send** (the record ends in +all). | Names the servers allowed to send for the domain. Without it, mail is filtered more often and is easier to forge. |
+| DMARC | **Passes** (quarantine or reject), **Monitor Only** (p=none: reports, no protection) or **Missing**. | Tells inboxes what to do with mail that fails SPF and DKIM. |
+| DKIM | **Not Checked** until you give the selector, then **Passes** or **Missing**. | Proves a message was not changed on the way. |
+| The open row | For each record: why it matters, the record found, and the record to publish (name and value) with **Copy**. | Nothing: you publish the record at your DNS provider. |
+| Selector, Save and Check | The DKIM selector your engine shows for the domain (Postal: on the domain's DNS page, e.g. `postal-Xa71Qd`). Letters, digits, dots, hyphens and underscores. Empty it to stop checking DKIM. | The domain is looked up again with it at once. |
+| Check Now | Looks up all your domains again. Once a minute at most. | |
+
+A domain reserved for examples (`.example`, `.test`) is not looked up. A new or changed sender's domain is looked up as soon as you save the sender.
+
 ### Deliverability Testing
 
 | Control | What it is | What it changes |
@@ -1308,6 +1325,8 @@ Mailgun Inspect Basic covers client previews; the spam verdict and inbox placeme
 
 **Keep receipts out of the campaign queue (Postal).** Edit the engine and enter the API key of a second Postal mail server as the Transactional Server API Key. Receipts and transactional campaigns then use it in their own lane. One engine, one callback address, two keys.
 
+**Make inboxes trust a domain.** Under Sending Domains, open the domain's row. For each record marked Missing, Two Records, Lets Anyone Send or Monitor Only, press **Copy** and add or change that TXT record at your DNS provider (for DMARC, copy the Name too). Add the DKIM selector from your engine's DNS page and press **Save and Check**. DNS changes can take up to an hour to appear; then press **Check Now** until the domain reads *Nothing to change*. Start DMARC at quarantine; move to reject once its reports show only your own mail.
+
 **Replace a leaked key.** Edit the engine, type the new key over the stored one, save, press Check. For the callback address, press **Rotate Address** and register the new address with the provider; the old one answers nothing from the moment you rotate.
 
 **Try texts without an aggregator.** Add the Sandbox engine and a sender on it. Text campaigns then run end to end and nothing is sent. The Sandbox can even play back deliveries and STOP replies when a developer posts to its callback address.
@@ -1326,6 +1345,7 @@ The campaign's **Recipients** tab shows each message's story, and **Check with t
 
 - A sent message with no delivered time, and *No callback has ever arrived* on the engine, means the callback address is not registered with the provider. The send worked; the news is not coming back.
 - Verification is per address. Changing a sender's From Address resets it to Not Verified Yet.
+- Verified and Sending Domains answer different questions: Verified means the engine accepted a message from the address; Sending Domains means inboxes can tell the mail is really yours.
 - Removing an engine removes its senders. Switch it off instead when you may need it again.
 - Keys are stored encrypted and are never shown, exported or written to the audit trail.
 - The platform's own mail server (used for password links and notifications) is never a campaign engine. Your workspace's own mail server can be, from Settings → Email Server.

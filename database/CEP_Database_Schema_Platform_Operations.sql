@@ -2862,6 +2862,35 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('security.site_address', '""', 'STRING', 'Security', 'The public address of this server''s app (https://…), whose headers the security check reads; empty: headers not checked')
 ON CONFLICT (key) DO NOTHING;
 
+-- ---- sending domains (patch 0068): SPF, DMARC and DKIM of the domains a workspace's email senders use, looked up daily by the
+-- check-sending-domains job and on Check Now (apps/delivery/domain_health.py); the DKIM selector is the workspace's to give
+CREATE TABLE IF NOT EXISTS sending_domain (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    domain              CITEXT NOT NULL,
+    dkim_selector       VARCHAR(63),                                       -- as the engine shows it, e.g. postal-Xa71Qd; NULL: DKIM not checked
+    result              JSONB NOT NULL DEFAULT '{}',                       -- evaluate(): lookup, spf, dmarc, dkim (status, found, publish), changes
+    checked_at          TIMESTAMPTZ,
+    updated_by          UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    UNIQUE (tenant_id, domain)
+);
+COMMENT ON TABLE sending_domain IS 'The DNS records inboxes read before they trust a workspace''s mail (SPF, DMARC, DKIM), as last looked up; never changed by C360';
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['sending_domain'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON sending_domain TO cep_app;
+GRANT ALL ON sending_domain TO cep_admin;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.
