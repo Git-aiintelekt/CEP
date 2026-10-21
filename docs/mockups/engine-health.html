@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine Health: where it shows</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* the app's tokens (.claude/skills/cep-design/tokens/colors.css), inlined so the file renders on its own */
+  :root {
+    --font-body:'IBM Plex Sans'; --white:#FFFFFF; --gray-75:#F9FAFB; --gray-100:#EEEFF5; --gray-150:#E7E8EF; --gray-800:#4B4F5B; --gray-900:#17181C; --brand-600:#3863DB;
+    --bg-page:var(--white); --bg-surface:var(--white); --bg-surface-subtle:var(--gray-75); --border-default:var(--gray-150); --text-primary:var(--gray-900); --text-secondary:var(--gray-800);
+    --status-warning-text:#87451D; --status-error-plain-text:#C93A32; --callout-bg:#EEF2FE; --callout-text:#312E7C;
+    --tag-active-bg:#D8F1E7; --tag-active-text:#0C5F43; --tag-paused-bg:#FAF0C6; --tag-paused-text:#6F5300; --tag-failed-bg:#FADCE1; --tag-failed-text:#9C1C33;
+  }
+  /* the back-office's own palette (django-unfold with CEP's primary blue, static/cep_admin/admin.css), as in deliverability-allowance.html */
+  :root {
+    --base-50:#f9fafb; --base-100:#f3f4f6; --base-200:#e5e7eb; --base-300:#d1d5db; --base-400:#9ca3af; --base-500:#6b7280; --base-600:#4b5563; --base-700:#374151; --base-900:#111827;
+    --p-600:#2f5be0; --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2; --info:#1d4ed8; --info-soft:#dbeafe;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--base-700); font:400 14px/1.5 Inter, ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing:antialiased }
+  h1,h2,h3,h4 { margin:0 } p { margin:0 }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px }
+  .note { margin-top:24px; font-size:14px; color:var(--base-700); max-width:1080px } .note strong { color:var(--base-900) }
+  .plan { margin-top:16px; background:#fff; border:1px solid var(--base-300); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .plan h2 { font-size:16px; font-weight:600; color:var(--base-900); margin:0 0 8px } .plan h3 { font-size:13px; font-weight:600; color:var(--base-900); margin:16px 0 4px }
+  .plan ol, .plan ul { margin:0; padding-left:20px } .plan li { margin:3px 0; font-size:13px } .plan code { font:500 12px ui-monospace, Consolas, monospace; background:var(--base-100); padding:1px 5px; border-radius:4px }
+  .plan table { border-collapse:collapse; font-size:13px; margin-top:4px } .plan td, .plan th { text-align:left; padding:4px 12px 4px 0; border-bottom:1px solid var(--base-200) } .plan th { font-weight:600; color:var(--base-900) }
+  .part { margin-top:40px; font:600 20px/1.3 Inter, sans-serif; color:var(--base-900) }
+  .part small { display:block; font:400 14px/1.5 Inter, sans-serif; color:var(--base-600); margin-top:4px; max-width:1080px }
+  .label { margin:20px 0 8px; font:600 15px/1.3 Inter, sans-serif; color:var(--base-900) }
+  .label span { display:block; font:400 13px/1.45 Inter, sans-serif; color:var(--base-600); margin-top:2px; max-width:1080px }
+  .case { font:600 12px/1 Inter, sans-serif; text-transform:uppercase; letter-spacing:.04em; color:var(--base-600); margin:12px 0 8px 2px }
+  .frame { border:1px solid var(--base-300); border-radius:8px; overflow:hidden; background:#fff }
+  .frame .cap { font-size:12px; color:var(--base-600); padding:8px 16px; border-bottom:1px solid var(--base-200); background:#fff }
+
+  /* ---------------- back-office (Unfold look) */
+  .bo { background:var(--base-50); padding:16px 20px }
+  .bo .crumbs { font-size:12px; color:var(--base-500); margin-bottom:8px } .bo .crumbs b { color:var(--base-700); font-weight:500 }
+  .bo h1 { font-size:20px; font-weight:600; color:var(--base-900); letter-spacing:-0.01em } .bo .sub { font-size:13px; color:var(--base-600); margin:2px 0 12px }
+  .bo .card { background:#fff; border:1px solid var(--base-200); border-radius:8px }
+  .bo .card .head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--base-200) } .bo .card .head h2 { font-size:14px; font-weight:600; color:var(--base-900) }
+  .bo table { width:100%; border-collapse:collapse; font-size:13px } .bo th, .bo td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--base-200); vertical-align:top }
+  .bo th { font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--base-500); font-weight:600; background:var(--base-50); white-space:nowrap }
+  .bo tr:last-child td { border-bottom:0 } .bo td.num, .bo th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap }
+  .bo .who b { color:var(--base-900); font-weight:600 } .bo .who small { display:block; color:var(--base-500); font-size:12px }
+  .bo .why { font-size:12px; color:var(--base-600); margin-top:2px; max-width:360px }
+  .bo .over { color:var(--bad); font-weight:600 } .bo .near { color:var(--warn); font-weight:600 } .bo .dim { color:var(--base-400) }
+  .pill { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap }
+  .pill.ok { background:var(--ok-soft); color:var(--ok) } .pill.warn { background:var(--warn-soft); color:var(--warn) } .pill.bad { background:var(--bad-soft); color:var(--bad) } .pill.grey { background:var(--base-100); color:var(--base-600) }
+  .btn { height:30px; padding:0 10px; border-radius:6px; border:1px solid var(--base-300); background:#fff; font:500 12px Inter, sans-serif; display:inline-flex; align-items:center; color:var(--base-900); white-space:nowrap }
+  .bo .kpis { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:12px }
+  .bo .kpi { background:#fff; border:1px solid var(--base-200); border-radius:8px; padding:10px 14px } .bo .kpi small { font-size:12px; color:var(--base-500) } .bo .kpi b { display:block; font-size:20px; font-weight:600; color:var(--base-900); font-variant-numeric:tabular-nums }
+  .bo .alerts td { font-size:13px } .bo .tools { display:flex; gap:8px }
+
+  /* ---------------- the app (CEP tokens) */
+  .app { font-family:var(--font-body, 'IBM Plex Sans'), sans-serif; background:var(--bg-page); color:var(--text-primary); padding:24px 32px }
+  .app h2 { font-size:18px; line-height:24px; font-weight:600 } .app .lead { font-size:15px; line-height:22px; color:var(--text-secondary); margin:4px 0 16px; max-width:820px }
+  .app table { width:100%; border-collapse:collapse; border:1px solid var(--border-default); border-radius:8px; overflow:hidden; font-size:15px; line-height:22px }
+  .app th { background:var(--bg-surface-subtle); text-align:left; font-size:13px; line-height:18px; font-weight:500; color:var(--text-primary); padding:10px 16px; border-bottom:1px solid var(--border-default) }
+  .app td { padding:12px 16px; border-bottom:1px solid var(--border-default); vertical-align:top } .app tr:last-child td { border-bottom:0 }
+  .app .name { font-weight:500 } .app .meta { font-size:12px; line-height:16px; color:var(--text-secondary); letter-spacing:.01em }
+  .app .chip { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:500; letter-spacing:.01em; background:var(--gray-100); color:var(--gray-800); margin-left:8px; vertical-align:1px }
+  .tag { display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 8px; border-radius:4px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.01em; white-space:nowrap }
+  .tag.healthy { background:var(--tag-active-bg); color:var(--tag-active-text) }
+  .tag.attention { background:var(--tag-paused-bg); color:var(--tag-paused-text) }
+  .tag.failing { background:var(--tag-failed-bg); color:var(--tag-failed-text) }
+  .tag.quiet { background:var(--gray-100); color:var(--gray-800) }
+  .app .link { color:var(--brand-600); font-weight:500; font-size:14px; background:none; border:0; padding:0; font-family:inherit; cursor:pointer }
+  .app .reason { font-size:13px; line-height:18px; color:var(--text-secondary); margin-top:4px; max-width:340px }
+  .app .warnline { font-size:13px; line-height:18px; color:var(--status-warning-text); font-weight:500 }
+  .signals { background:var(--bg-surface-subtle); }
+  .signals td { padding:0 }
+  .sig { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); border-top:1px solid var(--border-default) }
+  .sig > div { padding:12px 16px; border-right:1px solid var(--border-default) } .sig > div:last-child { border-right:0 }
+  .sig h4 { font-size:13px; line-height:18px; font-weight:500; color:var(--text-secondary) }
+  .sig .v { font-size:15px; line-height:22px; font-weight:600; font-variant-numeric:tabular-nums; margin-top:2px }
+  .sig .v.bad { color:var(--status-error-plain-text) } .sig .v.warn { color:var(--status-warning-text) }
+  .sig p { font-size:12px; line-height:16px; color:var(--text-secondary); letter-spacing:.01em; margin-top:2px }
+  .callout { background:var(--callout-bg); color:var(--callout-text); border-radius:8px; padding:12px 16px; font-size:13px; line-height:18px; margin-bottom:16px; max-width:900px }
+  .drawer-row { display:grid; grid-template-columns:1fr 480px; gap:0; border-top:1px solid var(--border-default) }
+  .drawer-row .page { padding:24px 32px; background:var(--bg-page); position:relative }
+  .drawer-row .page::after { content:''; position:absolute; inset:0; background:rgba(19,21,27,0.45) }
+  .drawer { background:var(--bg-surface); border-left:1px solid var(--border-default); padding:0; font-family:var(--font-body, 'IBM Plex Sans'), sans-serif; color:var(--text-primary) }
+  .drawer .dh { padding:16px 24px; border-bottom:1px solid var(--border-default); display:flex; justify-content:space-between; align-items:flex-start; gap:12px }
+  .drawer .dh h3 { font-size:16px; line-height:24px; font-weight:600 } .drawer .dh p { font-size:13px; line-height:18px; color:var(--text-secondary) }
+  .drawer .db { padding:8px 24px 24px }
+  .drawer .line { display:grid; grid-template-columns:1fr auto; gap:2px 12px; padding:12px 0; border-bottom:1px solid var(--border-default) } .drawer .line:last-child { border-bottom:0 }
+  .drawer .line b { font-size:15px; line-height:22px; font-weight:500 } .drawer .line .v { font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right }
+  .drawer .line .v.bad { color:var(--status-error-plain-text) } .drawer .line .v.warn { color:var(--status-warning-text) }
+  .drawer .line p { grid-column:1 / -1; font-size:13px; line-height:18px; color:var(--text-secondary) }
+  .drawer .x { width:32px; height:32px; border-radius:6px; border:0; background:none; color:var(--text-secondary); font-size:18px }
+  .rec { margin:40px 0 64px; background:#fff; border:1px solid var(--base-300); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .rec h2 { font-size:16px; font-weight:600; color:var(--base-900); margin-bottom:6px } .rec p { font-size:14px; margin-top:6px }
+  @media (max-width:900px) { .sig { grid-template-columns:1fr 1fr } .drawer-row { grid-template-columns:1fr } .bo .kpis { grid-template-columns:1fr 1fr } .app { padding:16px } .frame { overflow-x:auto } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="note"><strong>Engine Health — watching Postal and Digivize for you. Mockup, not the product.</strong> C360 already records every call to a sending engine (how long it took, what came back) and every callback, but nobody is told when an engine stops answering, stops calling back or starts bouncing. Engine Health checks each active engine of each workspace every 10 minutes and raises an alert through the existing alert channels (email to the platform team, the webhook). Below: the plan in words, then three options for where it shows, each drawn busy and sparse. Back-office parts use the back-office's own look; workspace parts use the app's tokens.</p>
+
+<div class="plan">
+  <h2>The plan in words</h2>
+  <h3>Five checks per engine, every 10 minutes</h3>
+  <table>
+    <tr><th>Check</th><th>Raises when</th><th>Severity</th></tr>
+    <tr><td>Callbacks</td><td>The engine took messages in the last hour, but no callback has arrived for more than 60 minutes</td><td>Failing</td></tr>
+    <tr><td>Rejections</td><td>More than 1% of calls in the last hour were refused; any 401 or 403 (the key was refused); the circuit breaker is open</td><td>Failing (key refused, breaker); Attention (rate)</td></tr>
+    <tr><td>API speed</td><td>The engine's 95th-percentile answer time over the last hour is above 5 s</td><td>Attention</td></tr>
+    <tr><td>Bounces and complaints</td><td>Email, last 24 h: hard bounces above 2% or complaints above 0.1%. Texts: failures above 5% of receipts</td><td>Attention; Failing at twice the line</td></tr>
+    <tr><td>Receipts (texts)</td><td>Texts still without a delivery receipt 15 minutes after they were sent</td><td>Attention</td></tr>
+  </table>
+  <ul style="margin-top:8px">
+    <li><b>Rates need enough traffic:</b> a rate only counts from 50 messages (or calls) in its window, so one bounce out of three test sends never alerts.</li>
+    <li><b>Digivize, said plainly:</b> Digivize accepts texts but has never posted a delivery receipt from its sandbox. Until an engine has sent its first receipt, the Receipts check does not count missing receipts; it shows one standing line, <i>“Digivize has not sent delivery receipts yet: texts show Sent, not Delivered”</i>, and opens one alert that is emailed once and not repeated. The first receipt that arrives switches the real check on by itself.</li>
+    <li><b>An idle engine is Quiet, not Failing:</b> no traffic in the window means nothing to judge.</li>
+    <li><b>Daily Check:</b> a new job runs each active engine's Check once a day (the same call as the Check link: key and address, nothing sent); a failed Check is an alert.</li>
+    <li><b>Alerts:</b> one alert per engine and check, e.g. <i>Engine · NWA · Postal Marketing · Callbacks</i>, through the existing alert evaluator: notified at once, again every 4 h while it lasts (unless acknowledged), resolved with a notice when it clears.</li>
+    <li><b>Thresholds are Global Parameters</b> under <code>engine_health.*</code> (callback silence minutes, rejection %, p95 ms, hard-bounce %, complaint %, SMS failure %, receipt wait minutes, minimum sample), so the platform team tunes them without a release.</li>
+    <li><b>Storage:</b> the latest result per engine in one small table (<code>delivery_provider_health</code>), so pages read it instead of recounting. Its patch file goes in <code>database/patches/</code> and is applied only on your “apply patch”.</li>
+    <li><b>Jobs:</b> <code>check-engine-health</code> (every 10 minutes) and <code>check-engines-daily</code> (once a day), registered like the others, so Home's Scheduled jobs watches them too.</li>
+  </ul>
+</div>
+
+<!-- =================================================================== OPTION A -->
+<p class="part">Option A · Back-office only<small>A new page, Operations → Engine Health, lists every active engine of every workspace with the five checks; problems also appear on Overview → Alerts and in Home's “Needs attention”. Workspaces see nothing new. Best if engines are run for the workspaces by the platform team.</small></p>
+
+<p class="case">Busy: six workspaces, problems on four engines</p>
+<div class="frame"><div class="cap">Back-office · Operations · Engine Health</div><div class="bo">
+  <p class="crumbs">Operations › <b>Engine Health</b></p>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px">
+    <div><h1>Engine Health</h1><p class="sub">Every active sending engine, checked every 10 minutes · last pass 14:20 UTC · thresholds under Global Parameters → engine_health</p></div>
+    <div class="tools"><span class="btn">Run Checks Now</span><span class="btn">Run Daily Check</span></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><small>Engines</small><b>11</b></div>
+    <div class="kpi"><small>Failing</small><b style="color:var(--bad)">2</b></div>
+    <div class="kpi"><small>Attention</small><b style="color:var(--warn)">3</b></div>
+    <div class="kpi"><small>Healthy or Quiet</small><b>6</b></div>
+  </div>
+  <div class="card">
+    <table>
+      <tr><th>Workspace · Engine</th><th>Health</th><th class="num">Sent, 1 h</th><th>Callbacks</th><th class="num">Refused, 1 h</th><th class="num">API p95</th><th class="num">Bounces · Complaints, 24 h</th><th>Daily Check</th></tr>
+      <tr><td class="who"><b>NWA · Postal Marketing</b><small>Email · postal.nwa.com</small></td>
+          <td><span class="pill bad">Failing</span><p class="why">No callback for 2 h 10 min while 1,240 messages were sent. Is the webhook still registered in Postal?</p></td>
+          <td class="num">1,240</td><td><span class="over">2 h 10 min ago</span></td><td class="num">0.1%</td><td class="num">420 ms</td><td class="num">0.4% · 0.01%</td><td>Passed 06:00</td></tr>
+      <tr><td class="who"><b>BLUE · Postal</b><small>Email · mail.bluebird.io</small></td>
+          <td><span class="pill bad">Failing</span><p class="why">Key refused: 14 calls answered 401 since 12:58. Sends to this engine are failing.</p></td>
+          <td class="num">0</td><td>38 min ago</td><td class="num"><span class="over">401 × 14</span></td><td class="num">180 ms</td><td class="num">0.6% · 0%</td><td><span class="over">Failed 06:00</span></td></tr>
+      <tr><td class="who"><b>ACME · SendGrid</b><small>Email</small></td>
+          <td><span class="pill warn">Attention</span><p class="why">Hard bounces 3.4% of 18,200 in the last day (line 2%). Most from one list: Spring Import.</p></td>
+          <td class="num">2,050</td><td>1 min ago</td><td class="num">0.2%</td><td class="num">650 ms</td><td class="num"><span class="near">3.4%</span> · 0.03%</td><td>Passed 06:00</td></tr>
+      <tr><td class="who"><b>RETAIL · Postal</b><small>Email · postal.retail.com</small></td>
+          <td><span class="pill warn">Attention</span><p class="why">Slow: the engine's p95 answer time is 6.8 s over the last hour (line 5 s).</p></td>
+          <td class="num">960</td><td>3 min ago</td><td class="num">0%</td><td class="num"><span class="near">6.8 s</span></td><td class="num">0.5% · 0%</td><td>Passed 06:00</td></tr>
+      <tr><td class="who"><b>NWA · Digivize</b><small>Texts</small></td>
+          <td><span class="pill warn">Attention</span><p class="why">Digivize has not sent delivery receipts yet: 318 texts in the last day show Sent, not Delivered. Standing warning, emailed once.</p></td>
+          <td class="num">42</td><td><span class="dim">Never</span></td><td class="num">0%</td><td class="num">1.2 s</td><td class="num dim">No receipts</td><td>Passed 06:00</td></tr>
+      <tr><td class="who"><b>NWA · Postal Receipts</b><small>Email · postal.nwa.com</small></td>
+          <td><span class="pill ok">Healthy</span></td><td class="num">88</td><td>4 min ago</td><td class="num">0%</td><td class="num">310 ms</td><td class="num">0.2% · 0%</td><td>Passed 06:00</td></tr>
+      <tr><td class="who"><b>ACME · Postal Receipts</b><small>Email</small></td>
+          <td><span class="pill ok">Healthy</span></td><td class="num">412</td><td>1 min ago</td><td class="num">0%</td><td class="num">290 ms</td><td class="num">0.1% · 0%</td><td>Passed 06:00</td></tr>
+      <tr><td class="who"><b>OAK · SMTP</b><small>Email · smtp.oak.org</small></td>
+          <td><span class="pill grey">Quiet</span><p class="why">Nothing sent in the last day.</p></td><td class="num">0</td><td class="dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td>Passed 06:00</td></tr>
+    </table>
+  </div>
+  <p class="case" style="margin-top:16px">Overview → Alerts, the same problems</p>
+  <div class="card alerts">
+    <table>
+      <tr><th>Opened</th><th>Check</th><th>Severity</th><th>Summary</th><th class="num">Notified</th><th></th></tr>
+      <tr><td>12:10</td><td>Engine · NWA · Postal Marketing · Callbacks</td><td><span class="pill bad">Failing</span></td><td>No callback for 2 h 10 min while 1,240 messages were sent</td><td class="num">1</td><td><span class="btn">Acknowledge</span></td></tr>
+      <tr><td>13:00</td><td>Engine · BLUE · Postal · Rejections</td><td><span class="pill bad">Failing</span></td><td>Key refused: 401 on 14 calls since 12:58</td><td class="num">1</td><td><span class="btn">Acknowledge</span></td></tr>
+      <tr><td>Oct 20</td><td>Engine · NWA · Digivize · Receipts</td><td><span class="pill warn">Attention</span></td><td>Digivize has not sent delivery receipts yet</td><td class="num">1</td><td><span class="pill grey">Standing</span></td></tr>
+    </table>
+  </div>
+</div></div>
+
+<p class="case">Sparse: one workspace, one engine, nothing wrong</p>
+<div class="frame"><div class="cap">Back-office · Operations · Engine Health</div><div class="bo">
+  <p class="crumbs">Operations › <b>Engine Health</b></p>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px">
+    <div><h1>Engine Health</h1><p class="sub">Every active sending engine, checked every 10 minutes · last pass 14:20 UTC</p></div>
+    <div class="tools"><span class="btn">Run Checks Now</span><span class="btn">Run Daily Check</span></div>
+  </div>
+  <div class="card">
+    <table>
+      <tr><th>Workspace · Engine</th><th>Health</th><th class="num">Sent, 1 h</th><th>Callbacks</th><th class="num">Refused, 1 h</th><th class="num">API p95</th><th class="num">Bounces · Complaints, 24 h</th><th>Daily Check</th></tr>
+      <tr><td class="who"><b>NWA · Postal</b><small>Email · postal.nwa.com</small></td><td><span class="pill ok">Healthy</span></td><td class="num">35</td><td>12 min ago</td><td class="num">0%</td><td class="num">340 ms</td><td class="num">0.3% · 0%</td><td>Passed 06:00</td></tr>
+    </table>
+  </div>
+</div></div>
+
+<!-- =================================================================== OPTION B -->
+<p class="part">Option B · The workspace's Sending Engines page only<small>The engine table gets a Health column (it takes the place of State and keeps the last Check in its line). A row with a problem opens its five checks underneath in plain words, with what to do. Alerts still go to the platform team, but there is no back-office page to compare workspaces. Best if each workspace runs its own engines.</small></p>
+
+<p class="case">Busy: NWA with three engines, one failing, one standing warning</p>
+<div class="frame"><div class="cap">Settings · Sending Engines</div><div class="app">
+  <h2>Sending Engines</h2>
+  <p class="lead">The services that carry this workspace's email, e-receipts and text messages. C360 checks each one every 10 minutes and tells the platform team when one stops answering, stops calling back or starts bouncing.</p>
+  <table>
+    <tr><th style="width:28%">Provider</th><th style="width:30%">Health</th><th>Callbacks</th><th style="text-align:right">Actions</th></tr>
+    <tr><td><p class="name">Postal Marketing<span class="chip">Email</span><span class="chip">Default</span></p><p class="meta">Postal · postal.nwa.com</p></td>
+        <td><span class="tag failing">Failing</span><p class="reason">No callback for 2 h 10 min while 1,240 messages were sent.</p></td>
+        <td><button class="link">Copy Webhook URL</button>&nbsp;&nbsp;<button class="link">Rotate Address</button><p class="meta" style="margin-top:4px">Last received Oct 21, 12:10 · 3,410 in 24 h</p></td>
+        <td style="text-align:right"><button class="link">Check</button>&nbsp;&nbsp;<button class="link">Edit</button></td></tr>
+    <tr class="signals"><td colspan="4"><div class="sig">
+        <div><h4>Callbacks</h4><p class="v bad">2 h 10 min</p><p>since the last one. Open Postal → the server → Webhooks and check that the C360 address is there and enabled.</p></div>
+        <div><h4>Refused, 1 h</h4><p class="v">0.1%</p><p>1 of 1,240 calls. Line 1%.</p></div>
+        <div><h4>API Speed, 1 h</h4><p class="v">420 ms</p><p>95% of calls answered faster. Line 5 s.</p></div>
+        <div><h4>Bounces · Complaints, 24 h</h4><p class="v">0.4% · 0.01%</p><p>Of 9,860 sent. Lines 2% and 0.1%.</p></div>
+        <div><h4>Daily Check</h4><p class="v">Passed</p><p>Today 06:00: key and address accepted.</p></div>
+    </div></td></tr>
+    <tr><td><p class="name">Postal Receipts<span class="chip">Email</span></p><p class="meta">Postal · postal.nwa.com · separate key for receipts</p></td>
+        <td><span class="tag healthy">Healthy</span><p class="reason">Checked 14:20 · Daily Check passed 06:00</p></td>
+        <td><button class="link">Copy Webhook URL</button>&nbsp;&nbsp;<button class="link">Rotate Address</button><p class="meta" style="margin-top:4px">Last received Oct 21, 14:16 · 260 in 24 h</p></td>
+        <td style="text-align:right"><button class="link">Check</button>&nbsp;&nbsp;<button class="link">Edit</button></td></tr>
+    <tr><td><p class="name">Digivize<span class="chip">Texts</span><span class="chip">Default</span></p><p class="meta">Digivize · api.digivize.com</p></td>
+        <td><span class="tag attention">No Receipts Yet</span><p class="reason">Digivize has not sent delivery receipts yet, so texts show Sent, not Delivered. This clears by itself with the first receipt.</p></td>
+        <td><button class="link">Copy Webhook URL</button>&nbsp;&nbsp;<button class="link">Rotate Address</button><p class="warnline" style="margin-top:4px">No callback has ever arrived.</p></td>
+        <td style="text-align:right"><button class="link">Check</button>&nbsp;&nbsp;<button class="link">Edit</button></td></tr>
+  </table>
+</div></div>
+
+<p class="case">Sparse: one engine, quiet</p>
+<div class="frame"><div class="cap">Settings · Sending Engines</div><div class="app">
+  <h2>Sending Engines</h2>
+  <p class="lead">The services that carry this workspace's email, e-receipts and text messages. C360 checks each one every 10 minutes and tells the platform team when one stops answering, stops calling back or starts bouncing.</p>
+  <table>
+    <tr><th style="width:28%">Provider</th><th style="width:30%">Health</th><th>Callbacks</th><th style="text-align:right">Actions</th></tr>
+    <tr><td><p class="name">Postal<span class="chip">Email</span><span class="chip">Default</span></p><p class="meta">Postal · postal.nwa.com</p></td>
+        <td><span class="tag quiet">Quiet</span><p class="reason">Nothing sent in the last day, so there is nothing to judge. Daily Check passed 06:00.</p></td>
+        <td><button class="link">Copy Webhook URL</button>&nbsp;&nbsp;<button class="link">Rotate Address</button><p class="meta" style="margin-top:4px">Last received Oct 19, 16:42 · 0 in 24 h</p></td>
+        <td style="text-align:right"><button class="link">Check</button>&nbsp;&nbsp;<button class="link">Edit</button></td></tr>
+  </table>
+</div></div>
+
+<!-- =================================================================== OPTION C -->
+<p class="part">Option C · Both: the back-office page from A, and a lighter Health column in the workspace<small>The platform team gets Option A's page and alerts. The workspace's Sending Engines page shows a Health tag with one line of reason; See Health opens a 480px drawer with the five checks in plain words. Healthy rows stay one line, so the page looks as it does today when nothing is wrong.</small></p>
+
+<p class="case">Busy: the workspace page with the drawer open on Postal Marketing (back-office as in Option A, busy)</p>
+<div class="frame"><div class="cap">Settings · Sending Engines · See Health</div>
+  <div class="drawer-row">
+    <div class="page app" style="padding:24px 32px">
+      <h2>Sending Engines</h2>
+      <p class="lead">The services that carry this workspace's email, e-receipts and text messages.</p>
+      <table>
+        <tr><th>Provider</th><th>Health</th><th style="text-align:right">Actions</th></tr>
+        <tr><td><p class="name">Postal Marketing<span class="chip">Email</span></p><p class="meta">Postal · postal.nwa.com</p></td><td><span class="tag failing">Failing</span><p class="reason">No callback for 2 h 10 min.</p><button class="link">See Health</button></td><td style="text-align:right"><button class="link">Check</button></td></tr>
+        <tr><td><p class="name">Postal Receipts<span class="chip">Email</span></p><p class="meta">Postal · postal.nwa.com</p></td><td><span class="tag healthy">Healthy</span></td><td style="text-align:right"><button class="link">Check</button></td></tr>
+        <tr><td><p class="name">Digivize<span class="chip">Texts</span></p><p class="meta">Digivize · api.digivize.com</p></td><td><span class="tag attention">No Receipts Yet</span><p class="reason">Texts show Sent, not Delivered.</p><button class="link">See Health</button></td><td style="text-align:right"><button class="link">Check</button></td></tr>
+      </table>
+    </div>
+    <aside class="drawer">
+      <div class="dh"><div><h3>Postal Marketing · Health</h3><p>Checked 14:20 · every 10 minutes</p></div><button class="x" aria-label="Close">×</button></div>
+      <div class="db">
+        <div class="line"><b>Callbacks</b><span class="v bad">Failing</span><p>1,240 messages went out in the last hour, but Postal has not called back for 2 h 10 min, so deliveries, bounces, opens and clicks are not coming in. In Postal, open the server → Webhooks and check that the C360 address is there and enabled; Copy Webhook URL gives it to you.</p></div>
+        <div class="line"><b>Refused Calls, 1 h</b><span class="v">0.1%</span><p>1 of 1,240. Alerts above 1%, or at once if the key is refused.</p></div>
+        <div class="line"><b>API Speed, 1 h</b><span class="v">420 ms</span><p>95% of calls answered faster than this. Alerts above 5 s.</p></div>
+        <div class="line"><b>Bounces · Complaints, 24 h</b><span class="v">0.4% · 0.01%</span><p>Of 9,860 sent. Alerts above 2% hard bounces or 0.1% complaints.</p></div>
+        <div class="line"><b>Daily Check</b><span class="v">Passed</span><p>Today at 06:00: the key and address were accepted. Nothing was sent.</p></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<p class="case">Sparse: one engine, healthy (the page as today, plus one tag)</p>
+<div class="frame"><div class="cap">Settings · Sending Engines</div><div class="app">
+  <h2>Sending Engines</h2>
+  <p class="lead">The services that carry this workspace's email, e-receipts and text messages.</p>
+  <table>
+    <tr><th>Provider</th><th>Health</th><th>Callbacks</th><th style="text-align:right">Actions</th></tr>
+    <tr><td><p class="name">Postal<span class="chip">Email</span><span class="chip">Default</span></p><p class="meta">Postal · postal.nwa.com</p></td><td><span class="tag healthy">Healthy</span><p class="reason">Checked 14:20</p></td>
+        <td><button class="link">Copy Webhook URL</button>&nbsp;&nbsp;<button class="link">Rotate Address</button><p class="meta" style="margin-top:4px">Last received Oct 21, 14:08 · 35 in 24 h</p></td><td style="text-align:right"><button class="link">Check</button>&nbsp;&nbsp;<button class="link">Edit</button></td></tr>
+  </table>
+</div></div>
+
+<div class="rec">
+  <h2>Colours and words</h2>
+  <p>Health tags reuse the status tag shapes without a dot (health is not a live lifecycle status): Healthy uses the Active green, Attention and No Receipts Yet the Paused yellow (“needs a decision”), Failing the Failed rose, Quiet neutral grey. In the back-office the existing Unfold pills are used, as on the Alerts page.</p>
+  <h2 style="margin-top:16px">Recommendation</h2>
+  <p><b>Option C.</b> The alerts land with the platform team, who need one page across all workspaces to see whether a problem is one engine or Postal itself (Option A). But the fix is often in the workspace's hands (registering the callback address, replacing a refused key, cleaning a list that bounces), and today the Sending Engines page already shows the callback line, so a Health tag with a See Health drawer there costs little and says what to do. B alone leaves the platform team without the cross-workspace view; A alone leaves the workspace guessing why texts say Sent.</p>
+</div>
+
+</div>
+</body>
+</html>

@@ -518,6 +518,16 @@ body { background: var(--cep-canvas); color: var(--cep-text-strong); }
 .cep-security-version { white-space: nowrap; color: var(--cep-text); }
 .cep-security-ok { font-size: 28px; color: var(--cep-ok-text); }
 .cep-security-error { margin: 0; padding: 0.75rem 1rem; border-radius: var(--cep-radius-box); background: var(--cep-warn-soft); color: var(--cep-warn-text); font-size: 14px; }
+/* Engine Health (templates/admin/delivery/engine_health.html): health is not a live status, so Healthy has no dot */
+.cep-engines .cep-tag[data-kind="ok"] { background: var(--cep-ok-soft); color: var(--cep-ok-text); }
+.cep-engines .cep-kpi[data-state="bad"] { border-color: var(--cep-bad); }
+.cep-engines .cep-kpi[data-state="bad"] .cep-kpi-value { color: var(--cep-bad-text); }
+.cep-engines .cep-kpi[data-state="warn"] .cep-kpi-value { color: var(--cep-warn-text); }
+.cep-engines .cep-engine-why { display: block; max-width: 22rem; margin-top: 0.25rem; color: var(--cep-text); }
+.cep-engines .cep-engine-value { white-space: nowrap; }
+.cep-engines .cep-engine-value[data-state="over"] { color: var(--cep-bad-text); font-weight: 600; }
+.cep-engines .cep-engine-value[data-state="near"] { color: var(--cep-warn-text); font-weight: 600; }
+.cep-engines td { vertical-align: top; }
 .cep-fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.5rem; cursor: pointer; list-style: none; }
 .cep-fold > summary::-webkit-details-marker { display: none; }
 .cep-fold > summary h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--cep-text-strong); }

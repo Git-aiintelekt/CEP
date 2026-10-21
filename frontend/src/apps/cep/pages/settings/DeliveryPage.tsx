@@ -11,6 +11,7 @@ import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 
 import { DeliverabilityServiceSection } from './DeliverabilityServiceSection'
+import { EngineHealthDrawer, HealthCell } from './EngineHealth'
 import { SendingDomainsSection } from './SendingDomainsSection'
 import { domainOf, useSendingDomains } from './sendingDomains'
 import { buttonClass } from '@/components/buttonStyles'
@@ -168,11 +169,12 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
 }
 
 // ---------------------------------------------------------------------------------------------------- page
-export function DeliveryPage() {
+/** canEdit: the /dev/settings playground shows the page as an administrator sees it, without a sign-in */
+export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
   const { can, me } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const allowed = can('provider.edit')
+  const allowed = canEdit ?? can('provider.edit')
   const catalogue = useQuery({ queryKey: [...PROVIDERS, 'catalogue'], queryFn: ({ signal }) => api.get<ProviderType[]>('/delivery-providers/catalogue/', undefined, signal), enabled: allowed, staleTime: Infinity })
   const providers = useQuery({ queryKey: PROVIDERS, queryFn: ({ signal }) => api.get<DeliveryProvider[]>('/delivery-providers/', undefined, signal), enabled: allowed })
   const senders = useQuery({ queryKey: SENDERS, queryFn: ({ signal }) => api.get<DeliverySender[]>('/delivery-senders/', undefined, signal), enabled: allowed })
@@ -187,6 +189,7 @@ export function DeliveryPage() {
   }
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [healthOf, setHealthOf] = useState<string | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['delivery'] })
   const check = useMutation({
@@ -218,6 +221,7 @@ export function DeliveryPage() {
   if (providers.isError) return <ErrorState error={providers.error} onRetry={() => void providers.refetch()} />
   const labels = Object.fromEntries((catalogue.data ?? []).map((item) => [item.provider_type, item]))
   const rows = (providers.data ?? []).map((item) => ({ ...item, manageable: labels[item.provider_type]?.manageable ?? true }))
+  const healthRow = healthOf ? rows.find((row) => row.id === healthOf) : undefined
   function startVerify(sender: DeliverySender) {
     if (sender.channel === 'EMAIL') return verify.mutate({ sender, to: me?.principal.email ?? '' })
     const to = window.prompt('Send the verification text to which mobile number? Include the country code, e.g. +14045550100')
@@ -235,7 +239,8 @@ export function DeliveryPage() {
     { key: 'name', header: 'Provider', render: (row) => (
       <div><p className="font-medium text-ink-900">{row.name}<span className="ml-2"><Tag>{row.channel === 'SMS' ? 'Texts' : 'Email'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
         <p className="text-xs text-ink-800">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}{row.has_transactional_secret ? ' · separate key for receipts' : ''}</p></div>) },
-    { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched Off" />
+    { key: 'health', header: 'Health', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched Off" />
+      : row.health ? <HealthCell health={row.health} onOpen={() => setHealthOf(row.id)} />
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check Failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not Checked Yet" /> },
     { key: 'webhook', header: 'Callbacks', render: (row) => row.webhook_url
       ? <span className="flex flex-col items-start gap-0.5">
@@ -287,7 +292,7 @@ export function DeliveryPage() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <span className="flex items-center gap-1.5"><h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending Engines</h2><PageHelp chapter="settings-sending-engines" /></span>
-            <p className="text-sm text-ink-800">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
+            <p className="text-sm text-ink-800">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back. C360 checks each engine every 10 minutes and tells the platform team when one stops answering, stops calling back or starts bouncing.</p>
           </div>
           <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add Engine</button>
         </div>
@@ -314,6 +319,7 @@ export function DeliveryPage() {
 
       <DeliverabilityServiceSection onNotice={setNotice} />
 
+      {healthRow?.health && <EngineHealthDrawer name={healthRow.name} health={healthRow.health} onClose={() => setHealthOf(null)} />}
       {editing && catalogue.data && <ProviderForm catalogue={catalogue.data} provider={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {editingSender && providers.data && (editingSender !== 'new' || rows.some((row) => row.manageable !== false)) && (
         <SenderForm providers={rows} sender={editingSender === 'new' ? null : editingSender} channel={params.get('channel')} onClose={closeSender} />

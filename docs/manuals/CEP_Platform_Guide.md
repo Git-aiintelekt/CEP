@@ -134,6 +134,14 @@ For the platform team in the back-office. Built from `docs/manuals/platform-guid
   - Step by step
   - Severity
   - When something does not work
+- Engine Health
+  - What this is for
+  - Who can use it
+  - The checks
+  - The page
+  - Alerts
+  - Step by step
+  - What happens behind the scenes
 - Journeys
   - What this is for
   - Who can use it
@@ -574,6 +582,11 @@ Platform administrators.
 | integrations.inbound_per_minute | object | 60 / 600 / unlimited per plan | The inbound pace limit per plan code for the point of sale and other callers. |
 | integrations.log_body_max_bytes | number | 65536 | How much of a request or answer body the call log keeps. |
 | integrations.log_retention_days, integrations.metric_retention_months | number | 90, 13 | How long the call log and its roll-up are kept. |
+| engine_health.callback_silence_minutes | number | 60 | An engine that took messages but has not called back for this long is Failing (Engine Health). |
+| engine_health.rejection_rate_pct, engine_health.p95_ms | decimal, number | 1, 5000 | The share of refused or failed calls, and the call time 95% of calls stay under, before an engine needs attention. |
+| engine_health.hard_bounce_pct, engine_health.complaint_pct, engine_health.sms_failure_pct | decimal | 2, 0.1, 5 | The last day's hard bounces, complaints and failed texts before an engine needs attention; twice the line is Failing. |
+| engine_health.receipt_wait_minutes, engine_health.missing_receipt_pct | number, decimal | 15, 1 | How long a text may wait for its receipt, and the share of the last two hours' texts that may still be waiting. |
+| engine_health.min_sample | number | 50 | Messages or calls a rate needs before it is judged. |
 | platform.api_public_url | text | empty | The public address callback addresses and links are built from. |
 | legal.copyright_holder | text | Transaction Tree | Whose copyright the footer of every page carries, after the current year (the year itself is never typed: the app and the back-office take it from the clock). |
 | legal.terms_of_use | text | the sample terms | The Terms of Use page the sign-in page and every footer link to, in Markdown: `##` for a heading, a blank line between paragraphs, `-` for a list. The page shows the date it was last changed. |
@@ -839,7 +852,7 @@ The feature **sso** must be on for the workspace; the sign-in page asks the API 
 
 ## What this is for
 
-Everything CEP does on a timer, and how you know it is working: seventeen scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
+Everything CEP does on a timer, and how you know it is working: twenty-eight scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
 
 ## Who can use it
 
@@ -861,6 +874,9 @@ Every staff account reads; acknowledging an alert needs change rights.
 | refresh-audience-lists | Brings contact lists that follow an audience in line with it. | 3 h |
 | process-list-imports | Reads, checks and imports uploaded contact list files. | 10 min |
 | rollup-integration-metrics | Rolls the integration log up into per-minute figures and prunes both. | 20 min |
+| check-engine-health | Checks every active sending engine's callbacks, refused calls, speed, bounces and receipts, and stores the result (Overview → Engine Health). | 30 min (every 10 minutes on the scheduler) |
+| check-engines-daily | Runs every active sending engine's Check: key and address, nothing sent. | 26 h (daily) |
+| check-sending-domains | Looks up the SPF, DMARC and DKIM records of every workspace's sending domains (Settings → Delivery → Sending Domains). | 49 h (daily) |
 | decide-ab-winners | Chooses the subject-line winner of runs whose decision time has come. | 10 min |
 | send-weekly-reports | Emails the weekly report to workspaces that asked for one. | 3 h |
 | probe-uptime | Calls the uptime targets and alerts when one goes down or comes back. | 10 min (every minute on the scheduler) |
@@ -901,7 +917,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 |---|---|
 | Job runs | Started, job, status (Succeeded, Failed, Running), duration, worker, the error's first line; filter by status and job. A run opens with its result or its full error. |
 | Alerts | Opened, check, severity, summary, notifications sent, state; Acknowledge. |
-| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 17 on time*. |
+| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 28 on time*. |
 
 ## How to
 
@@ -911,7 +927,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 
 ## What happens behind the scenes
 
-Every job records a run with its result or error. The evaluate-alerts job compares the checks and the job report with the open alerts: a new problem opens one alert and notifies `alerts.recipients` and the webhook; a lasting one is notified again every `alerts.renotify_minutes`; a problem that went away resolves its alert with a notice.
+Every job records a run with its result or error. The evaluate-alerts job compares the checks and the job report with the open alerts: a new problem opens one alert and notifies `alerts.recipients` and the webhook; a lasting one is notified again every `alerts.renotify_minutes`; a problem that went away resolves its alert with a notice. Sending engines add one alert per engine and failing check (see Engine Health); a text engine that has never sent a receipt opens one acknowledged alert, emailed once.
 
 ## Things to know
 
@@ -1199,6 +1215,64 @@ Package severities come from the advisory (GitHub's rating, or the rating of the
 | Passed says the data checks wait for patch 0067 | Patch 0067 has not been applied on this server. |
 | "A sending domain could not be looked up" | This server's DNS did not answer for it; check the server's resolver. |
 | "Workspace Isolation was not checked" (or another group) | That group failed to read the database; the check's history shows the error, and the group's earlier findings stand. |
+
+---
+
+# Engine Health
+
+**Where:** Overview → Engine Health. The number on the menu item counts the engines failing now. Problems also open alerts (Overview → Alerts), which are emailed to `alerts.recipients` and posted to the alert webhook. A workspace sees its own engines' health on Settings → Sending Engines.
+
+## What this is for
+
+Knowing when a sending engine stops working before the campaigns show it. C360 records every call to an engine (how long it took, what came back) and every callback, but a dead webhook, a refused key or a list that bounces used to be noticed only when someone looked. The check-engine-health job looks at every active engine of every workspace every 10 minutes; check-engines-daily runs each engine's Check (key and address, nothing sent) once a day.
+
+## Who can use it
+
+Platform staff see the page. Run Checks Now and Run Daily Check need a platform administrator.
+
+## The checks
+
+| Check | Looks at | Raises |
+|---|---|---|
+| Callbacks | The last callback from the engine and the messages sent since. | **Failing** when messages went out but the engine has not called back for `engine_health.callback_silence_minutes` (60). A message is given 10 minutes before its silence counts. |
+| Refused Calls, 1 h | The last hour's calls in the integration log. | **Failing** when the key was refused (a 401 or 403 after the last good call) or the circuit breaker is open. **Attention** when more than `engine_health.rejection_rate_pct` (1%) of the calls were refused or failed. |
+| API Speed, 1 h | The 95th percentile of the last hour's call times. | **Attention** above `engine_health.p95_ms` (5,000 ms). Judged from 10 calls. |
+| Bounces · Complaints, 24 h | The last day's email from the engine. | **Attention** above `engine_health.hard_bounce_pct` (2%) hard bounces or `engine_health.complaint_pct` (0.1%) complaints; **Failing** at twice either. |
+| Failed Texts, 24 h | The last day's text delivery receipts. | **Attention** above `engine_health.sms_failure_pct` (5%) failed; **Failing** at twice it. |
+| Receipts | Texts of the last two hours still without a receipt after `engine_health.receipt_wait_minutes` (15). | **Attention** above `engine_health.missing_receipt_pct` (1%) of them. |
+| Daily Check | The engine's last Check. | **Failing** when it failed. |
+
+A rate is judged only from `engine_health.min_sample` (50) messages or calls in its window; fewer is **Quiet**, as is an engine that sent nothing in a day. All the lines are Global Parameters (category *Engine health*) and take effect within a minute.
+
+**Digivize, said plainly.** Digivize accepts texts but has never posted a delivery receipt from its sandbox. A text engine that has never called back is therefore not judged on Callbacks or Receipts: it shows **No Receipts Yet**, one standing warning. Its alert opens acknowledged, is emailed once and is not repeated. The first receipt that arrives switches the real checks on by themselves.
+
+## The page
+
+| Part | What it shows |
+|---|---|
+| Run Checks Now | Runs the check-engine-health job at once. |
+| Run Daily Check | Runs every active engine's Check at once (key and address, nothing sent). |
+| Engines, Failing, Attention, Healthy or Quiet | The counts across every workspace. |
+| Engines | One row per active engine, worst first: the workspace and engine, its health and the reason, messages sent in the last hour, the last callback, refused calls, the p95, bounces and complaints (failed texts for a text engine) and the Daily Check. A figure over its line is coloured. |
+| The Lines | The thresholds in force, in words. |
+
+## Alerts
+
+Each failing check of an engine is one alert, named *Engine · workspace · engine · check*, for example *Engine · NWA · Postal Marketing · Callbacks*. It is notified when it opens, again every `alerts.renotify_minutes` while it lasts unless acknowledged, and resolved with a notice when the check passes. Failing checks are Failing alerts; Attention checks are warnings.
+
+## Step by step
+
+**An engine is Failing on Callbacks.** The engine is sending but its news is not coming back. In the provider's console check that the workspace's callback address is registered and switched on (the workspace copies it with Copy Webhook URL on Sending Engines). Postal: the mail server → Webhooks.
+
+**An engine is Failing on Refused Calls with a refused key.** The key was revoked or replaced at the provider. The workspace enters the current key (Sending Engines → Edit) and presses Check; the health clears at once.
+
+**Bounces need attention.** Find the campaign and list that sent the bad addresses (the workspace's run results, or the Emails Sent list under Delivery) before the next send makes the provider throttle the domain.
+
+**Tune a line.** Configuration → Global Parameters → search `engine_health` → change the value. The next pass uses it.
+
+## What happens behind the scenes
+
+The job reads each workspace in its own row-level-security scope: the integration log (calls out, callbacks in, timings, status codes), the circuit breaker's state, the email and text records of the last day, and the engine's last Check. It stores one result per engine in `delivery_provider_health` (patch 0069), which this page, the workspace's page and the alert evaluator read. Before patch 0069 is applied the job skips and the page says so.
 
 ---
 

@@ -201,8 +201,36 @@ export interface DeliveryProvider {
   /** when the engine last called the callback address, and how many times in the last 24 hours: a dead webhook reads "never" */
   last_callback_at?: string | null
   callbacks_24h?: number
+  /** the latest Engine Health result (every 10 minutes); null until the first pass */
+  health?: EngineHealth | null
   row_version: number
   manageable?: boolean
+}
+
+export type EngineHealthStatus = 'HEALTHY' | 'ATTENTION' | 'FAILING' | 'QUIET'
+
+export interface EngineHealthCheck {
+  key: 'callbacks' | 'refused' | 'speed' | 'bounces' | 'receipts' | 'daily_check'
+  label: string
+  /** off: does not apply to this engine */
+  state: 'ok' | 'attention' | 'failing' | 'quiet' | 'off'
+  value: string
+  summary: string
+  /** the threshold, in words */
+  line: string
+  /** a text engine that has never sent a receipt: one standing warning */
+  standing: boolean
+}
+
+export interface EngineHealth {
+  status: EngineHealthStatus
+  /** the one line under the tag; empty when Healthy */
+  summary: string
+  /** the only problem is the standing receipts warning: the tag reads No Receipts Yet */
+  standing: boolean
+  checked_at: string
+  status_since: string
+  checks: EngineHealthCheck[]
 }
 
 export interface DeliverySender extends SenderProfile {

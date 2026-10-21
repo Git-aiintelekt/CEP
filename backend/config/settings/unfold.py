@@ -84,6 +84,7 @@ UNFOLD = {
                 {"title": "Usage Against Limits", "icon": "monitoring", "link": USAGE, "active": _under(USAGE)},
                 _link("Errors", "bug_report", "platform_ops_errorgroup", badge="apps.platform_ops.admin_ui.open_errors_badge", badge_variant="danger"),
                 _link("Uptime", "monitor_heart", "platform_ops_uptimetarget", badge="apps.platform_ops.admin_ui.down_targets_badge", badge_variant="danger"),
+                _link("Engine Health", "outgoing_mail", "delivery_deliveryproviderhealth", badge="apps.platform_ops.admin_ui.failing_engines_badge", badge_variant="danger"),
                 _link("Security", "shield", "platform_ops_securityfinding", badge="apps.platform_ops.admin_ui.security_badge", badge_variant="danger"),
                 {"title": "Tenant Performance", "icon": "speed", "link": PERFORMANCE, "active": _under(PERFORMANCE)},
                 {"title": "Platform Guide", "icon": "menu_book", "link": GUIDE, "active": _under(GUIDE)},

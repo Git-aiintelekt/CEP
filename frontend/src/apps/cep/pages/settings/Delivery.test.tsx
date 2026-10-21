@@ -64,6 +64,36 @@ test('checking a provider and verifying a sender report what happened', async ()
   expect(calls.filter((call) => call.url.endsWith('/verify/')).at(-1)?.body).toEqual({ to: 'aby.john@aiintelekt.com' })
 })
 
+test('each engine shows its health; See Health opens the checks in words, and a standing warning reads No Receipts Yet', async () => {
+  installMockApi({ engineHealth: true, texts: true })
+  const user = userEvent.setup()
+  await renderAppAt('/settings/delivery')
+
+  const engines = await screen.findByRole('table', { name: 'Sending Engines' })
+  expect(within(engines).getByRole('columnheader', { name: 'Health' })).toBeTruthy()
+  expect(within(engines).getByText('Failing')).toBeTruthy()
+  expect(within(engines).getByText(/^No callback for 2 h 10 min while 1,240 messages went out/)).toBeTruthy()
+  expect(within(engines).getByText('No Receipts Yet')).toBeTruthy()
+  expect(within(engines).queryByText('Attention')).toBeNull()
+
+  await user.click(within(engines).getAllByRole('button', { name: 'See Health' })[0])
+  const drawer = await screen.findByRole('dialog', { name: 'Postal (self-hosted) · Health' })
+  expect(within(drawer).getByText('Callbacks')).toBeTruthy()
+  expect(within(drawer).getByText('2 h 10 min ago').className).toContain('text-danger-plain')
+  expect(within(drawer).getByText('Bounces · Complaints, 24 h')).toBeTruthy()
+  expect(within(drawer).getByText('Attention above 5 s')).toBeTruthy()
+  await user.keyboard('{Escape}')
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+})
+
+test('before the first health pass an engine keeps its Check state', async () => {
+  installMockApi()
+  await renderAppAt('/settings/delivery')
+  const engines = await screen.findByRole('table', { name: 'Sending Engines' })
+  expect(within(engines).getByText('Not Checked Yet')).toBeTruthy()
+  expect(within(engines).queryByRole('button', { name: 'See Health' })).toBeNull()
+})
+
 test('rotating the callback address asks first, posts once, and says the old address is dead', async () => {
   const calls = installMockApi()
   const user = userEvent.setup()

@@ -38,6 +38,20 @@ def rollup_integration_metrics() -> dict:
     return metrics.rollup()
 
 
+@shared_task(name="workers.platform.check_engine_health")
+@jobs.monitored("check-engine-health")
+def check_engine_health() -> dict:
+    from apps.delivery import health
+    return health.run()
+
+
+@shared_task(name="workers.platform.check_engines_daily")
+@jobs.monitored("check-engines-daily")
+def check_engines_daily() -> dict:
+    from apps.delivery import health
+    return health.check_all()
+
+
 @shared_task(name="workers.platform.probe_uptime")
 @jobs.monitored("probe-uptime")
 def probe_uptime() -> dict:
@@ -83,7 +97,7 @@ RUNNABLE = {"rollup-usage": rollup_usage, "generate-invoices": generate_invoices
             "run-tenant-operations": run_tenant_operations, "dispatch-campaign-runs": _dispatch_campaign_runs,
             "rollup-integration-metrics": rollup_integration_metrics, "probe-uptime": probe_uptime, "prune-observability": prune_observability, "check-security": check_security,
             "check-sending-domains": check_sending_domains,
-            "attribute-orders": attribute_orders,
+            "attribute-orders": attribute_orders, "check-engine-health": check_engine_health, "check-engines-daily": check_engines_daily,
             "decide-ab-winners": lambda: __import__("workers.campaign", fromlist=["decide_ab_winners"]).decide_ab_winners(),
             "send-weekly-reports": lambda: __import__("workers.reports", fromlist=["send_weekly_reports"]).send_weekly_reports(),
             "deliver-report-schedules": lambda: __import__("workers.insights_delivery", fromlist=["deliver_report_schedules"]).deliver_report_schedules(),

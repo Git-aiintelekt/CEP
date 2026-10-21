@@ -58,6 +58,16 @@ def down_targets_badge(request):
     return _count_badge("cep:admin:down-targets", "SELECT count(*) FROM uptime_target WHERE is_active AND state = 'DOWN'")
 
 
+def failing_engines_badge(request):
+    """The number on 'Engine Health': sending engines failing now (Attention shows on the page and in Alerts)."""
+    count = cache.get("cep:admin:failing-engines")
+    if count is None:
+        from apps.delivery import health
+        count = health.failing_count()
+        cache.set("cep:admin:failing-engines", count, 60)
+    return count or None
+
+
 def security_badge(request):
     """The number on 'Security': open Critical and High items on this server (Medium shows on Home as a warning)."""
     from django.core.cache import cache

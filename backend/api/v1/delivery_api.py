@@ -56,12 +56,13 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
     sender_count = serializers.SerializerMethodField()
     last_callback_at = serializers.SerializerMethodField()
     callbacks_24h = serializers.SerializerMethodField()
+    health = serializers.SerializerMethodField()
 
     class Meta:
         model = DeliveryProvider
         fields = ("id", "provider_type", "channel", "name", "config", "secret", "has_secret", "secret_ref", "transactional_secret", "drop_transactional_secret",
                   "has_transactional_secret", "rate_limit_per_minute", "is_default", "is_active", "webhook_url", "sender_count", "last_checked_at", "last_check_ok",
-                  "last_check_error", "last_callback_at", "callbacks_24h", "row_version")
+                  "last_check_error", "last_callback_at", "callbacks_24h", "health", "row_version")
         read_only_fields = ("channel", "last_checked_at", "last_check_ok", "last_check_error", "row_version")
 
     def _callbacks(self, provider):
@@ -81,6 +82,18 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
 
     def get_callbacks_24h(self, provider) -> int:
         return self._callbacks(provider)[1]
+
+    def get_health(self, provider) -> dict | None:
+        """The engine's latest Engine Health result (every 10 minutes): None until the first pass, or before patch 0069."""
+        if "health" not in self.context:
+            from apps.delivery import health
+            self.context["health"] = health.for_tenant(provider.tenant_id)
+        found = self.context["health"].get(str(provider.pk))
+        if found is None:
+            return None
+        return {"status": found["status"], "summary": found["summary"], "standing": found["standing"], "checked_at": found["checked_at"],
+                "status_since": found["status_since"], "checks": [{key: check.get(key) for key in ("key", "label", "state", "value", "summary", "line", "standing")}
+                                                                  for check in found["checks"]]}
 
     def get_has_secret(self, provider) -> bool:
         return bool(provider.secret_enc or provider.secret_ref)
@@ -196,19 +209,11 @@ class DeliveryProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def check(self, request, pk=None, version=None):
         """Validates the address and credential with the provider, without sending anything."""
+        from apps.delivery import health
         provider = self.get_object()
-        learned = {}
-        try:
-            adapter = registry.for_provider(provider)
-            ok, detail = adapter.check()
-            learned = getattr(adapter, "detected_config", None) or {}          # what the check found out (Digivize's signature form)
-        except ProviderError as exc:
-            ok, detail = False, str(exc)
-        fields = {"last_checked_at": timezone.now(), "last_check_ok": ok, "last_check_error": detail or None}
-        if ok and learned and any((provider.config or {}).get(key) != value for key, value in learned.items()):
-            fields["config"] = {**(provider.config or {}), **learned}
-        DeliveryProvider.objects.filter(pk=provider.pk).update(**fields)
-        return Response({"ok": ok, "detail": detail or None, **({"config": fields["config"]} if "config" in fields else {})})
+        result = health.run_check(provider)                                    # what it found out (Digivize's signature form) is kept
+        health.refresh(provider)                                               # a fixed key shows on the Health tag at once
+        return Response(result)
 
 
 # ------------------------------------------------------------------------------------------------------------ senders
