@@ -24,6 +24,7 @@ urlpatterns = [
     path("", RedirectView.as_view(url="/api/v1/docs/", permanent=False)),   # no product UI here: that is the React app
     path("healthz", healthz),
     path("admin/mfa/", __import__("apps.platform_ops.admin_mfa", fromlist=["verify_view"]).verify_view, name="admin_mfa"),
+    path("admin/mfa/setup/", __import__("apps.platform_ops.admin_mfa", fromlist=["setup_view"]).setup_view, name="admin_mfa_setup"),
     path("admin/health.json", staff_member_required(admin_health_json), name="admin_health_json"),
     path("admin/", admin.site.urls),
     path("api/v1/", include(("api.v1.urls", "v1"), namespace="v1")),

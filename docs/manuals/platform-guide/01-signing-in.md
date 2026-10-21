@@ -26,7 +26,7 @@ The back-office is Django's admin with the Unfold skin. It signs in with a sessi
 
 **Make someone staff.** Users → open the account → Platform staff → tick Staff; tick Platform administrator only for those who may change anything. A staff account's password is never typed in the back-office: Create password link and send it.
 
-**Require the second factor for staff.** Global parameters → `security.mfa_required_for_staff` → yes. A staff member without an enrolled authenticator is asked to enrol in the app first.
+**Require the second factor for staff.** Global parameters → `security.mfa_required_for_staff` → yes. A staff member without an enrolled authenticator is asked to enrol in the app first: the app asks at the next sign-in, and every back-office page sends them to **Set Up Two-Step Verification**, with a link to the app's Account Security, until they have.
 
 ## What happens behind the scenes
 

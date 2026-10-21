@@ -1,0 +1,19 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-6 cep-narrow">
+    {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
+    {% component "unfold/components/card.html" %}
+        <p class="mb-3 text-sm leading-relaxed">Every platform staff account needs a second step to open the back-office, and yours has no authenticator yet.</p>
+        <ol class="mb-4 list-decimal pl-5 text-sm leading-relaxed">
+            <li>Open Account Security in the app and sign in with the same email address.</li>
+            <li>Scan the code with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password and the like), type the six-digit code it shows, and keep the recovery codes somewhere safe.</li>
+            <li>Come back here and sign in again: the back-office then asks for a code from the authenticator.</li>
+        </ol>
+        <a class="bg-primary-600 border border-transparent font-medium inline-block px-3 py-2 rounded-default text-sm text-white" href="{{ app_url }}">Open Account Security</a>
+    {% endcomponent %}
+    <a class="text-primary-600 text-sm dark:text-primary-500" href="{% url 'admin:logout' %}">Sign Out</a>
+</div>
+{% endblock %}
