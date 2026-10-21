@@ -13,6 +13,8 @@ After=network.target
 [Service]
 WorkingDirectory=/db/saadmin1/CEP/backend
 Environment=PYTHONUNBUFFERED=1
+# the settings the API runs with: config.settings.production beside a gunicorn cep-backend, development beside runserver
+Environment=DJANGO_SETTINGS_MODULE=config.settings.production
 ExecStart=/db/saadmin1/CEP/backend/.venv/bin/python manage.py run_scheduler --tick 15
 Restart=always
 RestartSec=5
