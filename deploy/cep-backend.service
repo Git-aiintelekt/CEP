@@ -1,0 +1,25 @@
+# C360 API and back-office in production mode: gunicorn with config.settings.production (DEBUG off, HTTPS-only cookies,
+# HSTS, the HTTPS redirect behind the proxy). nginx serves /static and /media itself and proxies the rest here
+# (deploy/nginx-cepdev.conf). A user unit on the dev server, like cep-jobs and cep-insights:
+#
+#   cp deploy/cep-backend.service ~/.config/systemd/user/cep-backend.service   # edit the paths first
+#   cd /app/cep/backend && DJANGO_SETTINGS_MODULE=config.settings.production .venv/bin/python manage.py collectstatic --noinput
+#   systemctl --user daemon-reload && systemctl --user restart cep-backend
+#
+# After a deploy that changes static files (the back-office stylesheet, Unfold), run collectstatic again before the restart.
+[Unit]
+Description=C360 API and back-office (gunicorn)
+After=network.target
+
+[Service]
+WorkingDirectory=/app/cep/backend
+Environment=PYTHONUNBUFFERED=1
+Environment=DJANGO_SETTINGS_MODULE=config.settings.production
+ExecStart=/app/cep/backend/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8010 --workers 3 --threads 4 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile -
+Restart=always
+RestartSec=3
+StandardOutput=append:/app/cep/backend.log
+StandardError=append:/app/cep/backend.log
+
+[Install]
+WantedBy=default.target

@@ -7,7 +7,8 @@
 #   systemctl --user status cep-insights; tail -f /app/cep/insights.log
 #
 # On a server with system units (10.0.0.56) add User= and Group=, keep the log under /var/log/cep (SELinux refuses an append
-# log under /opt) and set CEP_SETTINGS_BASE to the base the app process runs with.
+# log under /opt) and set CEP_SETTINGS_BASE to the base the app process runs with (production with gunicorn, development with
+# `manage.py runserver 127.0.0.1:8012 --noreload` on a development box).
 [Unit]
 Description=C360 Insights report engine
 After=network.target
@@ -16,8 +17,8 @@ After=network.target
 WorkingDirectory=/app/cep/backend
 Environment=PYTHONUNBUFFERED=1
 Environment=DJANGO_SETTINGS_MODULE=config.settings.insights
-Environment=CEP_SETTINGS_BASE=development
-ExecStart=/app/cep/backend/.venv/bin/python manage.py runserver 127.0.0.1:8012 --noreload
+Environment=CEP_SETTINGS_BASE=production
+ExecStart=/app/cep/backend/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8012 --workers 2 --threads 2 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile -
 Restart=always
 RestartSec=3
 StandardOutput=append:/app/cep/insights.log

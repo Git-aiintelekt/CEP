@@ -78,7 +78,7 @@ Two guides accompany the product: the **CEP User Guide** (24 chapters, shown ins
 | Plans and billing | Limits on messages, contacts, users, storage and deliverability tests; overage or hard cap; hourly usage metering; monthly invoices drafted, issued and marked paid. |
 | Users, roles and permissions | Seventeen permissions composed into roles; three starting roles per workspace; one-time password links; deactivation, never deletion. |
 | Security | Multi-factor authentication per user or required per workspace; single sign-on through any OpenID Connect provider, optional or required; support sessions by platform staff on the record and visible to the workspace; idle sign-out; secrets stored encrypted and never shown. |
-| Operations | Fourteen scheduled jobs with recorded runs, thirteen health checks, alerts opened once and re-notified while they last, usage against limits worst first, a change audit trail, partition retention, exports and offboarding. |
+| Operations | Twenty-eight scheduled jobs with recorded runs, fifteen health checks, every sending engine's health every 10 minutes, alerts opened once and re-notified while they last, usage against limits worst first, a change audit trail, partition retention, exports and offboarding. |
 
 ## The technical stack
 
@@ -108,7 +108,7 @@ Two guides accompany the product: the **CEP User Guide** (24 chapters, shown ins
 |---|---|
 | Front-end tests | 185 test files, about 1,940 tests, run against an in-memory API; typecheck and lint on every change. |
 | Back-end tests | Suites per module run against the real database in rolled-back transactions: campaigns and the send engine, lists and governance, compliance, A/B and local send times, approvals, onboarding and readiness, the set-up page, the call log, the guide. |
-| Observability | Recorded job runs, thirteen health checks, platform alerts with email and chat notification, per-workspace integration metrics and logs, a change audit trail. |
+| Observability | Recorded job runs, fifteen health checks, Engine Health per sending engine (callbacks, refusals, speed, bounces, receipts), platform alerts with email and chat notification, per-workspace integration metrics and logs, a change audit trail. |
 | Documentation | Design documents per module in the repository; the two guides built from Markdown into Word with one command. |
 | Size | About 45,700 lines of TypeScript in the app and 24,800 lines of Python in the API and back-office. |
 
