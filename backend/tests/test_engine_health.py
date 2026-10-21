@@ -77,7 +77,10 @@ def test_the_checks(check):
     rate = health.judge(email, figures(now, failed_1h=3, calls_1h=100), now, T)
     check("3% of 100 calls refused or failed needs attention", rate["status"] == "ATTENTION" and by_key(rate)["refused"]["value"] == "3%", by_key(rate)["refused"])
     few = health.judge(email, figures(now, failed_1h=3, calls_1h=40), now, T)
-    check("below the minimum sample a rate is not judged", by_key(few)["refused"]["state"] == "ok")
+    check("below the minimum sample a rate is not judged: Quiet, with the counts instead of a share", by_key(few)["refused"]["state"] == "quiet"
+          and by_key(few)["refused"]["value"] == "3 of 40" and by_key(few)["refused"]["summary"] == "Only 40 calls in the last hour: too few to judge.", by_key(few)["refused"])
+    one = health.judge(Engine("DIGIVIZE", "SMS"), figures(now, failed_1h=1, calls_1h=1, timed_1h=1, last_callback_at=None, callbacks_24h=0), now, T)
+    check("one refused call (an engine's own Check probe) reads 1 of 1, not 100%", by_key(one)["refused"]["value"] == "1 of 1" and by_key(one)["refused"]["state"] == "quiet")
 
     slow = health.judge(email, figures(now, p95_ms=6800), now, T)
     check("a p95 above 5 s needs attention", by_key(slow)["speed"]["state"] == "attention" and by_key(slow)["speed"]["value"] == "6.8 s", by_key(slow)["speed"])
@@ -95,7 +98,8 @@ def test_the_checks(check):
     check("complaints above 0.1% need attention", by_key(complaints)["bounces"]["state"] == "attention" and "Complaints 0.15%" in by_key(complaints)["bounces"]["summary"],
           by_key(complaints)["bounces"]["summary"])
     small = health.judge(email, figures(now, sent_24h=30, hard_bounces=10), now, T)
-    check("ten bounces in thirty test sends are not judged", by_key(small)["bounces"]["state"] == "quiet")
+    check("ten bounces in thirty test sends are not judged, and say so in counts", by_key(small)["bounces"]["state"] == "quiet" and by_key(small)["bounces"]["value"] == "10 · 1 of 30",
+          by_key(small)["bounces"])
 
     nothing = health.judge(email, figures(now, calls_1h=0, timed_1h=0, p95_ms=None, calls_24h=0, sent_1h=0, sent_24h=0, hard_bounces=0, complaints=0,
                                           callbacks_24h=0, last_callback_at=now - timedelta(days=2)), now, T)

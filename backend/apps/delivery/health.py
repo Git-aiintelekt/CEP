@@ -186,7 +186,10 @@ def judge(provider, f: dict, now, t: dict | None = None) -> dict:
                              f"{timezone.localtime(f['first_refused_at']):%H:%M}. Enter the engine's current key (Edit), then press Check.", line))
     elif not f["calls_1h"]:
         checks.append(_check("refused", "Refused Calls, 1 h", QUIET, "—", "No calls in the last hour.", line))
-    elif f["calls_1h"] >= t["min_sample"] and rate > t["rejection_pct"]:
+    elif f["calls_1h"] < t["min_sample"]:
+        checks.append(_check("refused", "Refused Calls, 1 h", QUIET, f"{f['failed_1h']:,} of {f['calls_1h']:,}",
+                             f"Only {f['calls_1h']:,} call{'' if f['calls_1h'] == 1 else 's'} in the last hour: too few to judge.", line))
+    elif rate > t["rejection_pct"]:
         checks.append(_check("refused", "Refused Calls, 1 h", ATTENTION, pct(rate),
                              f"{f['failed_1h']:,} of {f['calls_1h']:,} calls in the last hour were refused or failed.", line))
     else:
@@ -208,7 +211,7 @@ def judge(provider, f: dict, now, t: dict | None = None) -> dict:
         failed = _rate(f["failed_receipts"], receipts)
         line = f"Attention above {pct(t['sms_failure_pct'])} of receipts"
         if no_receipts_yet or receipts < t["min_sample"]:
-            checks.append(_check("bounces", "Failed Texts, 24 h", QUIET, pct(failed) if receipts else "—",
+            checks.append(_check("bounces", "Failed Texts, 24 h", QUIET, f"{f['failed_receipts']:,} of {receipts:,}" if receipts else "—",
                                  "No delivery receipts to judge." if not receipts else f"Only {receipts:,} receipts in the last day: too few to judge.", line))
         else:
             state = FAILING if failed > 2 * t["sms_failure_pct"] else ATTENTION if failed > t["sms_failure_pct"] else OK
@@ -218,7 +221,8 @@ def judge(provider, f: dict, now, t: dict | None = None) -> dict:
         line = f"Attention above {pct(t['hard_bounce_pct'])} hard bounces or {pct(t['complaint_pct'])} complaints"
         value = f"{pct(hard)} · {pct(complaints)}"
         if f["sent_24h"] < t["min_sample"]:
-            checks.append(_check("bounces", "Bounces · Complaints, 24 h", QUIET, value if f["sent_24h"] else "—",
+            checks.append(_check("bounces", "Bounces · Complaints, 24 h", QUIET,
+                                 f"{f['hard_bounces']:,} · {f['complaints']:,} of {f['sent_24h']:,}" if f["sent_24h"] else "—",
                                  "Nothing sent in the last day." if not f["sent_24h"] else f"Only {f['sent_24h']:,} sent in the last day: too few to judge.", line))
         else:
             over = max(hard / t["hard_bounce_pct"] if t["hard_bounce_pct"] else 0, complaints / t["complaint_pct"] if t["complaint_pct"] else 0)
