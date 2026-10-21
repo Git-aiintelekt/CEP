@@ -10,7 +10,7 @@ import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
-import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
+import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -663,6 +663,28 @@ export const deliveryProviders: DeliveryProvider[] = [
 export const textEngine: DeliveryProvider = { id: 'prov-texts', provider_type: 'SANDBOX_SMS', channel: 'SMS', name: 'Sandbox texts', config: {}, has_secret: false, secret_ref: null,
   rate_limit_per_minute: null, is_default: true, is_active: true, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-texts/tok/', sender_count: 1,
   last_checked_at: null, last_check_ok: null, last_check_error: null, row_version: 1 }
+/** Engine Health as the check-engine-health job stores it: Postal's webhook went quiet, the text engine has never sent a receipt */
+export const engineHealth: Record<string, EngineHealth> = {
+  'prov-postal': {
+    status: 'FAILING', summary: 'No callback for 2 h 10 min while 1,240 messages went out. Check that the engine still has its C360 callback address (Copy Webhook URL) and that it is switched on.',
+    standing: false, checked_at: '2026-10-21T14:20:00Z', status_since: '2026-10-21T12:10:00Z',
+    checks: [
+      { key: 'callbacks', label: 'Callbacks', state: 'failing', value: '2 h 10 min ago', summary: 'No callback for 2 h 10 min while 1,240 messages went out.', line: 'Failing after 60 min without a callback while messages go out', standing: false },
+      { key: 'refused', label: 'Refused Calls, 1 h', state: 'ok', value: '0.1%', summary: '1 of 1,240 calls.', line: 'Attention above 1%; Failing at once if the key is refused', standing: false },
+      { key: 'speed', label: 'API Speed, 1 h', state: 'ok', value: '420 ms', summary: '95% of calls were answered faster than this.', line: 'Attention above 5 s', standing: false },
+      { key: 'bounces', label: 'Bounces · Complaints, 24 h', state: 'ok', value: '0.4% · 0.01%', summary: 'Of 9,860 sent in the last day.', line: 'Attention above 2% hard bounces or 0.1% complaints', standing: false },
+      { key: 'daily_check', label: 'Daily Check', state: 'ok', value: 'Passed', summary: '06:00: the key and address were accepted. Nothing was sent.', line: 'Runs once a day: key and address, nothing sent', standing: false },
+    ],
+  },
+  'prov-texts': {
+    status: 'ATTENTION', summary: 'Sandbox (sends nothing) has not sent delivery receipts yet, so texts show Sent, not Delivered. This clears by itself with the first receipt.',
+    standing: true, checked_at: '2026-10-21T14:20:00Z', status_since: '2026-10-20T09:00:00Z',
+    checks: [
+      { key: 'callbacks', label: 'Callbacks', state: 'off', value: 'Never', summary: 'See Receipts.', line: '', standing: false },
+      { key: 'receipts', label: 'Receipts', state: 'attention', value: 'None yet', summary: 'Sandbox (sends nothing) has not sent delivery receipts yet, so texts show Sent, not Delivered.', line: '', standing: true },
+    ],
+  },
+}
 export const textSender: DeliverySender = { id: 'snd-texts', delivery_provider: 'prov-texts', display_name: 'Northwind texts', channel: 'SMS', from_address: null, reply_to_address: null, sender_id: '55123',
   verification_status: 'PENDING', is_default: true, provider_type: 'SANDBOX_SMS', provider_name: 'Sandbox texts' }
 export const textResults: RunResults = {
@@ -875,6 +897,8 @@ interface MockOptions {
   providerHasTransactionalKey?: boolean
   /** the workspace also has a text engine and sender; run results and replies are those of a text campaign */
   texts?: boolean
+  /** the engines carry Engine Health results (engineHealth) */
+  engineHealth?: boolean
   /** answer for POST /contact-lists/{id}/imports/ ; default: a six-row file, stored and queued */
   onListUpload?: (call: Call) => Response | null
   /** how long the background worker takes to import (default: done at the next poll) */
@@ -1072,7 +1096,11 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (/\/delivery-providers\/[^/]+\/rotate-webhook\/$/.test(path)) return json({ ...deliveryProviders[0], webhook_url: 'https://cep.example.com/api/v1/webhooks/delivery/NWA/prov-postal/rotated-token/' })
     if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], has_transactional_secret: Boolean(options.providerHasTransactionalKey), ...(body as Partial<DeliveryProvider>) })
-    if (path.endsWith('/delivery-providers/')) return json((options.texts ? [...deliveryProviders, textEngine] : deliveryProviders).map((item) => item.id === 'prov-postal' ? { ...item, has_transactional_secret: Boolean(options.providerHasTransactionalKey) } : item))
+    if (path.endsWith('/delivery-providers/')) {
+      return json((options.texts ? [...deliveryProviders, textEngine] : deliveryProviders)
+        .map((item) => item.id === 'prov-postal' ? { ...item, has_transactional_secret: Boolean(options.providerHasTransactionalKey) } : item)
+        .map((item) => options.engineHealth ? { ...item, health: engineHealth[item.id] ?? null } : item))
+    }
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
     if (/\/delivery-senders\/[^/]+\/verify\/$/.test(path)) return json({ ok: true, detail: null, to: body?.to, verification_status: 'VERIFIED' })
     if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)

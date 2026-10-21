@@ -2862,6 +2862,44 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('security.site_address', '""', 'STRING', 'Security', 'The public address of this server''s app (https://…), whose headers the security check reads; empty: headers not checked')
 ON CONFLICT (key) DO NOTHING;
 
+-- ---- engine health (patch 0068): the latest result of the check-engine-health job per sending engine (apps/delivery/health.py):
+-- callbacks, refused calls, API speed, bounces or text failures, receipts and the daily Check. The workspace's Sending Engines
+-- page and the back-office's Engine Health page read it; the alert evaluator raises one alert per engine and check from it.
+CREATE TABLE IF NOT EXISTS delivery_provider_health (
+    delivery_provider_id UUID PRIMARY KEY REFERENCES delivery_provider(id) ON DELETE CASCADE,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    status              VARCHAR(10) NOT NULL,                            -- HEALTHY | ATTENTION | FAILING | QUIET
+    summary             VARCHAR(300),                                    -- the one line shown under the tag
+    checks              JSONB NOT NULL DEFAULT '[]'::jsonb,              -- [{key, label, state, value, line, summary, detail, standing}]
+    figures             JSONB NOT NULL DEFAULT '{}'::jsonb,              -- the counts behind the checks
+    checked_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    status_since        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_delivery_provider_health_status CHECK (status IN ('HEALTHY', 'ATTENTION', 'FAILING', 'QUIET'))
+);
+CREATE INDEX IF NOT EXISTS ix_delivery_provider_health_tenant ON delivery_provider_health(tenant_id);
+COMMENT ON TABLE delivery_provider_health IS 'The latest Engine Health result per sending engine, written every 10 minutes by the check-engine-health job';
+
+ALTER TABLE delivery_provider_health ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_provider_health FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_delivery_provider_health_tenant ON delivery_provider_health;
+CREATE POLICY rls_delivery_provider_health_tenant ON delivery_provider_health
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE ON delivery_provider_health TO cep_app;     -- the job writes in each workspace's own scope
+GRANT ALL ON delivery_provider_health TO cep_admin;
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('engine_health.callback_silence_minutes', '60',   'INTEGER', 'Engine health', 'Failing when an engine took messages but has not called back for this many minutes'),
+    ('engine_health.rejection_rate_pct',       '1',    'DECIMAL', 'Engine health', 'Attention when more than this share of an engine''s calls in the last hour were refused or failed (any 401 or 403 is Failing at once)'),
+    ('engine_health.p95_ms',                   '5000', 'INTEGER', 'Engine health', 'Attention when 5% of an engine''s calls in the last hour took longer than this many milliseconds'),
+    ('engine_health.hard_bounce_pct',          '2',    'DECIMAL', 'Engine health', 'Attention above this share of hard bounces in the last day''s email (Failing at twice it)'),
+    ('engine_health.complaint_pct',            '0.1',  'DECIMAL', 'Engine health', 'Attention above this share of spam complaints in the last day''s email (Failing at twice it)'),
+    ('engine_health.sms_failure_pct',          '5',    'DECIMAL', 'Engine health', 'Attention above this share of failed texts among the last day''s delivery receipts (Failing at twice it)'),
+    ('engine_health.receipt_wait_minutes',     '15',   'INTEGER', 'Engine health', 'A text without a delivery receipt this many minutes after it was sent counts as missing'),
+    ('engine_health.missing_receipt_pct',      '1',    'DECIMAL', 'Engine health', 'Attention when more than this share of the last two hours'' texts have no delivery receipt'),
+    ('engine_health.min_sample',               '50',   'INTEGER', 'Engine health', 'A rate is judged only from this many messages or calls in its window')
+ON CONFLICT (key) DO NOTHING;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

@@ -1,0 +1,78 @@
+{% extends "admin/base.html" %}
+{% load humanize %}
+{% block title %}Engine Health | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home cep-engines">
+    <div class="cep-pagehead">
+        <div>
+            <h1>Engine Health</h1>
+            <p>Every active sending engine, checked every 10 minutes{% if data.checked_at %} · last pass {{ data.checked_at|date:"j M, H:i" }} UTC{% endif %} ·
+                thresholds under <a class="cep-link" href="{% url 'admin:platform_ops_platformsetting_changelist' %}?q=engine_health">Global Parameters → engine_health</a></p>
+        </div>
+        {% if can_change and data is not None %}
+        <div class="cep-actions">
+            <form method="post" action="{% url 'admin:delivery_deliveryproviderhealth_daily' %}">{% csrf_token %}
+                <button type="submit" class="cep-button cep-button-quiet"><span class="material-symbols-outlined" aria-hidden="true">key</span>Run Daily Check</button></form>
+            <form method="post" action="{% url 'admin:delivery_deliveryproviderhealth_run' %}">{% csrf_token %}
+                <button type="submit" class="cep-button"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Run Checks Now</button></form>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if data is None %}
+        <div class="cep-card"><div class="cep-clear"><div><strong>Not available yet</strong><span class="cep-muted">Engine Health needs a database update (patch 0068).</span></div></div></div>
+    {% elif not engines %}
+        <div class="cep-card"><div class="cep-clear"><div><strong>No sending engine yet</strong><span class="cep-muted">Workspaces add their engines under Settings → Sending Engines.</span></div></div></div>
+    {% else %}
+    <div class="cep-grid cep-grid-kpi">
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Engines</div><div class="cep-kpi-value">{{ data.total }}</div><div class="cep-kpi-caption">active, in every workspace</div></div>
+        <div class="cep-card cep-kpi"{% if data.counts.FAILING %} data-state="bad"{% endif %}><div class="cep-kpi-top">Failing</div><div class="cep-kpi-value">{{ data.counts.FAILING }}</div><div class="cep-kpi-caption">alerted at once</div></div>
+        <div class="cep-card cep-kpi"{% if data.counts.ATTENTION %} data-state="warn"{% endif %}><div class="cep-kpi-top">Attention</div><div class="cep-kpi-value">{{ data.counts.ATTENTION }}</div><div class="cep-kpi-caption">over a line, or no receipts yet</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Healthy or Quiet</div><div class="cep-kpi-value">{{ data.counts.HEALTHY|add:data.counts.QUIET }}</div><div class="cep-kpi-caption">{{ data.counts.QUIET }} with nothing sent in a day</div></div>
+    </div>
+
+    <section class="cep-section" aria-labelledby="cep-engines">
+        <div class="cep-section-head"><h2 id="cep-engines">Engines</h2><span>worst first</span></div>
+        <div class="cep-card cep-table-wrap">
+            <table class="cep-table">
+                <thead><tr><th scope="col">Workspace · Engine</th><th scope="col">Health</th><th scope="col" class="num">Sent, 1 h</th><th scope="col">Last Callback</th>
+                    <th scope="col" class="num">Refused, 1 h</th><th scope="col" class="num">API p95</th><th scope="col" class="num">Bounces · Complaints, 24 h</th><th scope="col">Daily Check</th></tr></thead>
+                <tbody>
+                {% for e in engines %}
+                    <tr>
+                        <th scope="row"><strong>{{ e.tenant }} · {{ e.name }}</strong><small>{{ e.channel_word }} · {{ e.provider_type|title }}{% if e.host %} · {{ e.host }}{% endif %}</small></th>
+                        <td>{% if e.status %}<span class="cep-tag" data-kind="{{ e.kind }}">{{ e.word }}</span>{% else %}<span class="cep-tag" data-kind="neutral">Not Checked Yet</span>{% endif %}
+                            {% if e.summary %}<small class="cep-engine-why">{{ e.summary }}</small>{% endif %}</td>
+                        <td class="num">{% if e.sent_1h is not None %}{{ e.sent_1h|intcomma }}{% else %}—{% endif %}</td>
+                        <td><span class="cep-engine-value" data-state="{{ e.cell.callbacks.state }}">{{ e.cell.callbacks.value }}</span></td>
+                        <td class="num"><span class="cep-engine-value" data-state="{{ e.cell.refused.state }}">{{ e.cell.refused.value }}</span></td>
+                        <td class="num"><span class="cep-engine-value" data-state="{{ e.cell.speed.state }}">{{ e.cell.speed.value }}</span></td>
+                        <td class="num">{% if e.channel != 'EMAIL' %}<small class="cep-muted">Texts failed</small> {% endif %}<span class="cep-engine-value" data-state="{{ e.cell.bounces.state }}">{{ e.cell.bounces.value }}</span></td>
+                        <td><span class="cep-engine-value" data-state="{{ e.cell.daily_check.state }}">{{ e.cell.daily_check.value }}</span></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <details class="cep-card cep-fold">
+        <summary><h2>The Lines</h2><span class="cep-link">Show</span></summary>
+        <table class="cep-table">
+            <thead><tr><th scope="col">Check</th><th scope="col">Raises when</th></tr></thead>
+            <tbody>
+                <tr><th scope="row">Callbacks</th><td>Failing: messages went out but the engine has not called back for {{ data.thresholds.silence_minutes }} min.</td></tr>
+                <tr><th scope="row">Refused Calls</th><td>Failing: the key was refused (401 or 403) or the circuit breaker is open. Attention: more than {{ data.thresholds.rejection_pct }}% of the last hour's calls refused or failed.</td></tr>
+                <tr><th scope="row">API Speed</th><td>Attention: the last hour's p95 is above {{ data.thresholds.p95_ms|intcomma }} ms.</td></tr>
+                <tr><th scope="row">Bounces · Complaints</th><td>Email, last day: Attention above {{ data.thresholds.hard_bounce_pct }}% hard bounces or {{ data.thresholds.complaint_pct }}% complaints; Failing at twice either.</td></tr>
+                <tr><th scope="row">Failed Texts</th><td>Texts, last day: Attention above {{ data.thresholds.sms_failure_pct }}% of receipts failed; Failing at twice it.</td></tr>
+                <tr><th scope="row">Receipts</th><td>Texts: Attention when more than {{ data.thresholds.missing_receipt_pct }}% of the last two hours' texts have no receipt after {{ data.thresholds.receipt_wait_minutes }} min. A text engine that has never sent a receipt shows No Receipts Yet once, emailed once.</td></tr>
+                <tr><th scope="row">Daily Check</th><td>Failing: the engine's last Check (key and address, nothing sent) failed.</td></tr>
+                <tr><th scope="row">Rates</th><td>A rate is judged from {{ data.thresholds.min_sample }} messages or calls in its window; fewer is Quiet.</td></tr>
+            </tbody>
+        </table>
+    </details>
+    {% endif %}
+</div>
+{% endblock %}

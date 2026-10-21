@@ -60,6 +60,27 @@ class DeliveryProvider(models.Model):
         return str(self.name)
 
 
+class DeliveryProviderHealth(models.Model):
+    """The latest Engine Health result per sending engine (apps/delivery/health.py; patch 0068)"""
+    delivery_provider = models.OneToOneField(DeliveryProvider, on_delete=models.DO_NOTHING, primary_key=True, db_column='delivery_provider_id', related_name='health')
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.DO_NOTHING, db_column='tenant_id', related_name='+', db_constraint=False)
+    status = models.CharField(max_length=10)  # HEALTHY, ATTENTION, FAILING, QUIET
+    summary = models.CharField(max_length=300, null=True, blank=True)
+    checks = models.JSONField(default=list)
+    figures = models.JSONField(default=dict)
+    checked_at = models.DateTimeField()
+    status_since = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'delivery_provider_health'
+        verbose_name = 'engine health'
+        verbose_name_plural = 'Engine Health'
+
+    def __str__(self):
+        return f"{self.delivery_provider_id}: {self.status}"
+
+
 class SenderProfile(models.Model):
     """Verified from-name / from-address / SMS sender id per channel and provider"""
     class Channel(models.TextChoices):

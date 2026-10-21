@@ -39,6 +39,11 @@ Platform administrators.
 | integrations.inbound_per_minute | object | 60 / 600 / unlimited per plan | The inbound pace limit per plan code for the point of sale and other callers. |
 | integrations.log_body_max_bytes | number | 65536 | How much of a request or answer body the call log keeps. |
 | integrations.log_retention_days, integrations.metric_retention_months | number | 90, 13 | How long the call log and its roll-up are kept. |
+| engine_health.callback_silence_minutes | number | 60 | An engine that took messages but has not called back for this long is Failing (Engine Health). |
+| engine_health.rejection_rate_pct, engine_health.p95_ms | decimal, number | 1, 5000 | The share of refused or failed calls, and the call time 95% of calls stay under, before an engine needs attention. |
+| engine_health.hard_bounce_pct, engine_health.complaint_pct, engine_health.sms_failure_pct | decimal | 2, 0.1, 5 | The last day's hard bounces, complaints and failed texts before an engine needs attention; twice the line is Failing. |
+| engine_health.receipt_wait_minutes, engine_health.missing_receipt_pct | number, decimal | 15, 1 | How long a text may wait for its receipt, and the share of the last two hours' texts that may still be waiting. |
+| engine_health.min_sample | number | 50 | Messages or calls a rate needs before it is judged. |
 | platform.api_public_url | text | empty | The public address callback addresses and links are built from. |
 | legal.copyright_holder | text | Transaction Tree | Whose copyright the footer of every page carries, after the current year (the year itself is never typed: the app and the back-office take it from the clock). |
 | legal.terms_of_use | text | the sample terms | The Terms of Use page the sign-in page and every footer link to, in Markdown: `##` for a heading, a blank line between paragraphs, `-` for a list. The page shows the date it was last changed. |

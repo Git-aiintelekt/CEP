@@ -4,7 +4,7 @@
 
 ## What this is for
 
-Everything CEP does on a timer, and how you know it is working: seventeen scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
+Everything CEP does on a timer, and how you know it is working: twenty-seven scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
 
 ## Who can use it
 
@@ -26,6 +26,8 @@ Every staff account reads; acknowledging an alert needs change rights.
 | refresh-audience-lists | Brings contact lists that follow an audience in line with it. | 3 h |
 | process-list-imports | Reads, checks and imports uploaded contact list files. | 10 min |
 | rollup-integration-metrics | Rolls the integration log up into per-minute figures and prunes both. | 20 min |
+| check-engine-health | Checks every active sending engine's callbacks, refused calls, speed, bounces and receipts, and stores the result (Overview → Engine Health). | 30 min (every 10 minutes on the scheduler) |
+| check-engines-daily | Runs every active sending engine's Check: key and address, nothing sent. | 26 h (daily) |
 | decide-ab-winners | Chooses the subject-line winner of runs whose decision time has come. | 10 min |
 | send-weekly-reports | Emails the weekly report to workspaces that asked for one. | 3 h |
 | probe-uptime | Calls the uptime targets and alerts when one goes down or comes back. | 10 min (every minute on the scheduler) |
@@ -66,7 +68,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 |---|---|
 | Job runs | Started, job, status (Succeeded, Failed, Running), duration, worker, the error's first line; filter by status and job. A run opens with its result or its full error. |
 | Alerts | Opened, check, severity, summary, notifications sent, state; Acknowledge. |
-| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 17 on time*. |
+| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 27 on time*. |
 
 ## How to
 
@@ -76,7 +78,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 
 ## What happens behind the scenes
 
-Every job records a run with its result or error. The evaluate-alerts job compares the checks and the job report with the open alerts: a new problem opens one alert and notifies `alerts.recipients` and the webhook; a lasting one is notified again every `alerts.renotify_minutes`; a problem that went away resolves its alert with a notice.
+Every job records a run with its result or error. The evaluate-alerts job compares the checks and the job report with the open alerts: a new problem opens one alert and notifies `alerts.recipients` and the webhook; a lasting one is notified again every `alerts.renotify_minutes`; a problem that went away resolves its alert with a notice. Sending engines add one alert per engine and failing check (see Engine Health); a text engine that has never sent a receipt opens one acknowledged alert, emailed once.
 
 ## Things to know
 

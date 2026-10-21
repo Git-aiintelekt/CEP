@@ -1205,12 +1205,28 @@ A campaign picks a sender when it is set up; the sender decides the engine. Unti
 | Control | What it is | What it changes |
 |---|---|---|
 | Provider | The engine's name, its channel tag (Email or Texts) and **Default** when it is the one new senders are offered first. Under it, the engine type and its address, and *separate key for receipts* when a second credential is stored. | Nothing by itself; it is the row's identity. |
-| State | **Not Checked Yet** until the first Check; **Checked** with the date and time when the last Check passed; **Check Failed** when it did not; **Switched Off** when *In Use* is unticked. | Set-Up counts an email engine as done only when it reads Checked. A switched-off engine is skipped by every send. |
+| Health | What C360 found when it last checked the engine (every 10 minutes): **Healthy**, **Attention**, **Failing**, **Quiet** (nothing sent in the last day, so nothing to judge) or **No Receipts Yet** (a text engine that has never sent a delivery receipt). Under the tag, the reason in one line, or when it was checked; **See Health** opens the checks. Before the first check the column shows the engine's last Check: **Not Checked Yet**, **Checked** with the date and time, or **Check Failed**. **Switched Off** when *In Use* is unticked. | Nothing by itself: it tells you what to fix. The platform team is alerted when an engine is Failing or needs attention. Set-Up counts an email engine as done only when its Check passed. A switched-off engine is skipped by every send. |
 | Callbacks | **Copy Webhook URL** copies the engine's callback address, the address the provider must post delivery results to. **Rotate Address** makes a fresh address and retires the old one at once. Under them: when the last callback arrived and how many came in the last 24 hours, or a warning that none ever has. | Without a registered callback address C360 sends but never learns what happened: no delivered, bounced, opened or clicked counts, and bounced addresses are not blocked. Rotating means registering the new address with the provider again. |
-| Check | Asks the provider to confirm the address and the credential without sending anything. With two keys on a Postal engine it checks both and names the one refused. | Sets State to Checked or Check Failed with the provider's own words. |
+| Check | Asks the provider to confirm the address and the credential without sending anything. With two keys on a Postal engine it checks both and names the one refused. C360 also runs it on every engine once a day. | Records the result with the provider's own words, and the engine's Health follows at once: a fixed key clears *Key refused*. |
 | Edit | Opens the engine's form. | |
 | Remove | Deletes the engine after a confirmation. | Its senders are removed with it. A campaign that used one of them has to be given another sender before it can publish. |
 | Add Engine | Opens the form for a new engine. | |
+
+### Engine Health
+
+**See Health** opens a panel with the checks of one engine, each with its figure, what it means and the line it is judged against. The platform team sets the lines; they apply to every workspace.
+
+| Check | What it looks at | When it is a problem |
+|---|---|---|
+| Callbacks | When the engine last called back with news of a message. | **Failing** when messages went out but the engine has not called back for an hour. Usually the callback address is no longer registered with the provider, or its webhook was switched off. |
+| Refused Calls, 1 h | The share of the last hour's calls to the engine that were refused or failed. | **Failing** at once when the key is refused (the engine answered 401 or 403) or when calls are paused after too many failures in a row. **Attention** above 1% of calls. |
+| API Speed, 1 h | How long the engine takes to answer: 95% of calls were answered faster than the figure. | **Attention** above 5 seconds. A slow engine slows every run. |
+| Bounces · Complaints, 24 h (email) | Hard bounces and spam complaints among the last day's email. | **Attention** above 2% hard bounces or 0.1% complaints, **Failing** at twice either. Look for a list with old or bought addresses. |
+| Failed Texts, 24 h (texts) | Texts the carrier reported as failed, among the last day's delivery receipts. | **Attention** above 5%, **Failing** at twice it. |
+| Receipts (texts) | Texts that have had no delivery receipt 15 minutes after they were sent. | **Attention** when more than 1% of the last two hours' texts are still waiting. |
+| Daily Check | The engine's last Check: key and address, nothing sent. | **Failing** when it failed. |
+
+A rate is judged only from 50 messages or calls in its window, so a few test sends never raise it. A text engine that has never sent a receipt shows **No Receipts Yet** instead of a Callbacks and a Receipts problem: Digivize, for example, accepts texts but does not post delivery receipts yet, so its texts read Sent, not Delivered. This clears by itself with the first receipt.
 
 ### The engine form (Add Engine, Edit)
 
@@ -1310,6 +1326,8 @@ Mailgun Inspect Basic covers client previews; the spam verdict and inbox placeme
 
 **Replace a leaked key.** Edit the engine, type the new key over the stored one, save, press Check. For the callback address, press **Rotate Address** and register the new address with the provider; the old one answers nothing from the moment you rotate.
 
+**An engine reads Failing.** Press **See Health** and read the first check marked Failing. *No callback*: Copy Webhook URL and check that the address is registered and switched on at the provider (Postal: the mail server's Webhooks). *Key refused*: Edit the engine, enter its current key, save and press **Check**. *Bounces*: find the campaign and the list behind them before the next send. The platform team has been told as well and may already be on it.
+
 **Try texts without an aggregator.** Add the Sandbox engine and a sender on it. Text campaigns then run end to end and nothing is sent. The Sandbox can even play back deliveries and STOP replies when a developer posts to its callback address.
 
 ## What happens behind the scenes
@@ -1319,6 +1337,8 @@ Mailgun Inspect Basic covers client previews; the spam verdict and inbox placeme
 3. **The engine answers** per message: accepted (C360 records the engine's message id), rejected (failed, never retried) or try again (retried after 1, 5, 15, 30 and 60 minutes; after five attempts it fails). A refused key or a suspended account stops the whole run with that reason.
 4. **The engine calls back** to the callback address as things happen: delivered, bounced, deferred, dropped, complained, opened, clicked, unsubscribed. C360 keeps every callback and moves the message's status forward. A hard bounce or a complaint blocks the address for every future campaign; a complaint or an unsubscribe also records an opt-out.
 5. **Texts** follow the same path with their own vocabulary: delivered or failed receipts, and replies. A STOP reply opts the number out of every kind of campaign and blocks it; START lifts the block.
+
+6. **Every 10 minutes** C360 checks each engine: its callbacks, refused calls, speed, bounces or failed texts and receipts, and once a day its key and address. The result is the engine's Health; a problem alerts the platform team by email.
 
 The campaign's **Recipients** tab shows each message's story, and **Check with the Engine** on a row asks Postal directly what became of it.
 

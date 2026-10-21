@@ -1,4 +1,4 @@
-/** /dev/settings (dev builds only): the Settings menu panel beside a stand-in page, every feature on, nothing from the API; Set-Up and Attribution are the real pages on sample data. */
+/** /dev/settings (dev builds only): the Settings menu panel beside a stand-in page, every feature on, nothing from the API; Set-Up, Attribution and Sending Engines are the real pages on sample data. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Outlet, Route, Routes, useSearchParams } from 'react-router-dom'
@@ -6,7 +6,8 @@ import { Outlet, Route, Routes, useSearchParams } from 'react-router-dom'
 import { SettingsMenuPanel } from '@/apps/cep/pages/settings/SettingsMenu'
 import { WorkspaceSetupPage } from '@/apps/cep/pages/settings/WorkspaceSetupPage'
 import { AttributionPage } from '@/apps/cep/pages/settings/AttributionPage'
-import type { AttributedOrder, AttributionSettings } from '@/lib/types'
+import { DeliveryPage } from '@/apps/cep/pages/settings/DeliveryPage'
+import type { AttributedOrder, AttributionSettings, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, ProviderType } from '@/lib/types'
 import { SETTINGS_GROUPS, pageAt } from '@/apps/cep/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/apps/cep/features/setup/sampleSetup'
@@ -73,6 +74,63 @@ function SampleAttribution() {
   return <QueryClientProvider client={client}><AttributionPage canEdit /></QueryClientProvider>
 }
 
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
+const healthCheck = (key: EngineHealthCheck['key'], label: string, state: EngineHealthCheck['state'], value: string, summary: string, line = ''): EngineHealthCheck =>
+  ({ key, label, state, value, summary, line, standing: false })
+const engine = (id: string, fields: Partial<DeliveryProvider>): DeliveryProvider => ({ id, provider_type: 'POSTAL', channel: 'EMAIL', name: id, config: { endpoint: 'https://postal.nwa.example' },
+  has_secret: true, secret_ref: null, rate_limit_per_minute: null, is_default: false, is_active: true, webhook_url: `https://cep.example/api/v1/webhooks/delivery/NWA/${id}/tok/`, sender_count: 1,
+  last_checked_at: minutesAgo(500), last_check_ok: true, last_check_error: null, last_callback_at: minutesAgo(3), callbacks_24h: 260, row_version: 1, ...fields })
+const health = (status: EngineHealth['status'], summary: string, checks: EngineHealthCheck[], standing = false): EngineHealth =>
+  ({ status, summary, standing, checks, checked_at: minutesAgo(4), status_since: minutesAgo(130) })
+const DAILY = healthCheck('daily_check', 'Daily Check', 'ok', 'Passed', '06:00: the key and address were accepted. Nothing was sent.', 'Runs once a day: key and address, nothing sent')
+const SILENT = 'No callback for 2 h 10 min while 1,240 messages went out. Check that the engine still has its C360 callback address (Copy Webhook URL) and that it is switched on.'
+const NO_RECEIPTS = 'Digivize has not sent delivery receipts yet, so texts show Sent, not Delivered (318 in the last day). This clears by itself with the first receipt.'
+
+/** Sending Engines in the busy case: Postal's webhook went quiet, a healthy receipts engine, and Digivize, which has never sent a receipt */
+const SAMPLE_ENGINES: DeliveryProvider[] = [
+  engine('Postal Marketing', { is_default: true, last_callback_at: minutesAgo(130), callbacks_24h: 3410, health: health('FAILING', SILENT, [
+    healthCheck('callbacks', 'Callbacks', 'failing', '2 h 10 min ago', SILENT, 'Failing after 60 min without a callback while messages go out'),
+    healthCheck('refused', 'Refused Calls, 1 h', 'ok', '0.1%', '1 of 1,240 calls.', 'Attention above 1%; Failing at once if the key is refused'),
+    healthCheck('speed', 'API Speed, 1 h', 'ok', '420 ms', '95% of calls were answered faster than this.', 'Attention above 5 s'),
+    healthCheck('bounces', 'Bounces · Complaints, 24 h', 'ok', '0.4% · 0.01%', 'Of 9,860 sent in the last day.', 'Attention above 2% hard bounces or 0.1% complaints'), DAILY]) }),
+  engine('Postal Receipts', { has_transactional_secret: true, health: health('HEALTHY', '', [
+    healthCheck('callbacks', 'Callbacks', 'ok', '3 min ago', '260 in the last day.'), healthCheck('refused', 'Refused Calls, 1 h', 'ok', '0%', '0 of 88 calls.'),
+    healthCheck('speed', 'API Speed, 1 h', 'ok', '310 ms', '95% of calls were answered faster than this.'), healthCheck('bounces', 'Bounces · Complaints, 24 h', 'ok', '0.2% · 0%', 'Of 412 sent in the last day.'), DAILY]) }),
+  engine('Digivize', { provider_type: 'DIGIVIZE', channel: 'SMS', is_default: true, config: { endpoint: 'https://api.digivize.example' }, last_callback_at: null, callbacks_24h: 0, health: health('ATTENTION', NO_RECEIPTS, [
+    healthCheck('callbacks', 'Callbacks', 'off', 'Never', 'See Receipts.'), healthCheck('refused', 'Refused Calls, 1 h', 'ok', '0%', '0 of 42 calls.'),
+    healthCheck('speed', 'API Speed, 1 h', 'ok', '1.2 s', '95% of calls were answered faster than this.'), healthCheck('bounces', 'Failed Texts, 24 h', 'quiet', '—', 'No delivery receipts to judge.'),
+    { ...healthCheck('receipts', 'Receipts', 'attention', 'None yet', NO_RECEIPTS), standing: true }, DAILY], true) }),
+]
+const SAMPLE_SENDERS: DeliverySender[] = [
+  { id: 's1', delivery_provider: 'Postal Marketing', display_name: 'Northwind Apparel', channel: 'EMAIL', from_address: 'news@mail.nwa.example', reply_to_address: null, sender_id: null,
+    verification_status: 'VERIFIED', is_default: true, provider_type: 'POSTAL', provider_name: 'Postal Marketing' },
+  { id: 's2', delivery_provider: 'Digivize', display_name: 'Northwind texts', channel: 'SMS', from_address: null, reply_to_address: null, sender_id: '55123',
+    verification_status: 'VERIFIED', is_default: true, provider_type: 'DIGIVIZE', provider_name: 'Digivize' },
+]
+const SAMPLE_CATALOGUE = [
+  { provider_type: 'POSTAL', label: 'Postal', description: '', supports_webhooks: true, manageable: true, channel: 'EMAIL', fields: [] },
+  { provider_type: 'DIGIVIZE', label: 'Digivize', description: '', supports_webhooks: true, manageable: true, channel: 'SMS', fields: [] },
+] as unknown as ProviderType[]
+const QUIET_ENGINE = engine('Postal', { is_default: true, last_callback_at: minutesAgo(2900), callbacks_24h: 0,
+  health: health('QUIET', 'Nothing sent in the last day.', [healthCheck('callbacks', 'Callbacks', 'quiet', '2 days ago', 'Nothing sent in the last day.'), DAILY]) })
+
+/** Sending Engines as an administrator sees them, with Engine Health: sample data, no API (?sparse=1: one quiet engine) */
+function SampleEngines() {
+  const [params] = useSearchParams()
+  const [client] = useState(() => {
+    const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchInterval: false } } })
+    const sparse = params.get('sparse') === '1'
+    seeded.setQueryData(['delivery', 'providers'], sparse ? [QUIET_ENGINE] : SAMPLE_ENGINES)
+    seeded.setQueryData(['delivery', 'providers', 'catalogue'], SAMPLE_CATALOGUE)
+    seeded.setQueryData(['delivery', 'senders'], sparse ? SAMPLE_SENDERS.slice(0, 1) : SAMPLE_SENDERS)
+    seeded.setQueryData(['deliverability', 'service'], { configured: false, provider: 'MAILGUN', region: 'US', username: '', has_api_key: false, default_clients: [], image_blocking: false,
+      is_active: false, last_checked_at: null, last_check_ok: null, last_check_error: null, uses: 'PLATFORM', platform_available: true })
+    seeded.setQueryData(['deliverability', 'allowance'], { enabled: true, used: 4, limit: 50, left: 46, month: '2026-10', plan: 'GROWTH', configured: true })
+    return seeded
+  })
+  return <QueryClientProvider client={client}><DeliveryPage canEdit /></QueryClientProvider>
+}
+
 export default function SettingsPlayground() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -84,7 +142,8 @@ export default function SettingsPlayground() {
             <Route element={<Outlet />}>
               <Route path="setup" element={<SampleSetup />} />
               <Route path="attribution" element={<SampleAttribution />} />
-              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => page.to !== '/settings/setup' && page.to !== '/settings/attribution').map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
+              <Route path="delivery" element={<SampleEngines />} />
+              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
               <Route index element={<StandIn path="/settings/users" />} />
             </Route>
           </Routes>

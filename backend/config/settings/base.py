@@ -216,6 +216,8 @@ CELERY_BEAT_SCHEDULE = {
     "deliver-report-schedules": {"task": "workers.insights_delivery.deliver_report_schedules", "schedule": 300},  # Insights reports scheduled by email
     "check-report-alerts": {"task": "workers.insights_alerts.check_report_alerts", "schedule": 300},  # Insights threshold alerts
     "refresh-clickhouse-reporting": {"task": "workers.insights_clickhouse.refresh_clickhouse_reporting", "schedule": 900},  # the ClickHouse reporting tables' recent window
+    "check-engine-health": {"task": "workers.platform.check_engine_health", "schedule": 600},           # Engine Health: callbacks, refusals, speed, bounces, receipts
+    "check-engines-daily": {"task": "workers.platform.check_engines_daily", "schedule": 24 * 3600},     # every sending engine's Check (nothing sent)
     "probe-uptime": {"task": "workers.platform.probe_uptime", "schedule": 60},                             # calls the uptime targets; alerts on a change
     "check-security": {"task": "workers.platform.check_security", "schedule": 24 * 3600},                  # packages (OSV.dev), settings and headers: back-office Security
     "prune-observability": {"task": "workers.platform.prune_observability", "schedule": 24 * 3600},       # errors, request figures and probes past retention

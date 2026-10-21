@@ -3,6 +3,9 @@
 evaluate() runs the health checks plus the job report. A problem opens ONE platform_alert (unique while open), is
 notified at once, re-notified every `alerts.renotify_minutes` while it lasts, and resolved (with a notice) when the check
 passes again. Channels: email to `alerts.recipients` and an optional Slack-compatible webhook `alerts.webhook_url`.
+
+Sending engines add one alert per engine and check (apps/delivery/health.py). A standing one (a text engine that has never
+sent a receipt) is notified once and opens acknowledged, so it is not repeated while it lasts.
 """
 import logging
 from datetime import timedelta
@@ -19,7 +22,7 @@ P = settings.PLATFORM_ALIAS
 
 
 def _problems() -> dict:
-    """check name -> (severity, summary, detail). 'off' (deliberately not running) is not a problem."""
+    """check name -> (severity, summary, detail[, standing]). 'off' (deliberately not running) is not a problem."""
     from apps import platform_health
     from . import jobs
     found = {}
@@ -33,6 +36,11 @@ def _problems() -> dict:
         elif job["state"] == "overdue" or (job["state"] == "never" and workers_expected):
             since = f"last success {job['last_success']:%Y-%m-%d %H:%M} UTC" if job["last_success"] else "it has never succeeded"
             found[f"Job: {job['name']}"] = ("WARN", f"Overdue: {since}", job["purpose"])
+    try:
+        from apps.delivery import health
+        found.update(health.problems())
+    except Exception as exc:                               # noqa: BLE001  the engines' checks must not stop the platform's alerts
+        log.error("engine health not read for alerts: %s", exc)
     return found
 
 
@@ -45,10 +53,12 @@ def evaluate(notify: bool = True) -> dict:
         cursor.execute("SELECT id, check_name, severity, last_notified_at, acknowledged_at FROM platform_alert WHERE resolved_at IS NULL")
         open_alerts = {name: (alert_id, severity, notified, acked) for alert_id, name, severity, notified, acked in cursor.fetchall()}
 
-        for name, (severity, summary, detail) in problems.items():
+        for name, (severity, summary, detail, *rest) in problems.items():
+            standing = bool(rest and rest[0])
             if name not in open_alerts:
-                cursor.execute("INSERT INTO platform_alert (check_name, severity, summary, detail, last_notified_at, notifications) VALUES (%s, %s, %s, %s, %s, %s)",
-                               [name, severity, summary, detail, now if notify else None, 1 if notify else 0])
+                cursor.execute("""INSERT INTO platform_alert (check_name, severity, summary, detail, last_notified_at, notifications, acknowledged_at)
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                               [name, severity, summary, detail, now if notify else None, 1 if notify else 0, now if standing else None])
                 opened.append((name, severity, summary, detail))
                 continue
             alert_id, old_severity, notified, acked = open_alerts[name]

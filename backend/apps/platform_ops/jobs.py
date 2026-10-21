@@ -33,6 +33,8 @@ JOBS = {
     "refresh-audience-lists": ("Brings contact lists that follow an audience in line with it", 3 * 3600),
     "process-list-imports": ("Reads, checks and imports uploaded contact list files", 10 * 60),
     "rollup-integration-metrics": ("Rolls the integration log up into per-minute figures and prunes both", 20 * 60),
+    "check-engine-health": ("Checks every sending engine's callbacks, refused calls, speed, bounces and receipts (Engine Health)", 30 * 60),
+    "check-engines-daily": ("Runs every active sending engine's Check: key and address, nothing sent", 26 * 3600),
     "decide-ab-winners": ("Chooses the subject-line winner of runs whose decision time has come", 10 * 60),
     "send-weekly-reports": ("Emails the weekly report to workspaces that asked for one", 3 * 3600),
     "probe-uptime": ("Calls the uptime targets and alerts when one goes down or comes back", 10 * 60),

@@ -33,4 +33,6 @@ class DeliveryProviderAdmin(BaseAdmin):
         return "entered in the product" if obj.secret_enc else (obj.secret_ref or "none")
 
 
+from . import admin_health  # noqa: E402,F401  Engine Health
+
 register_app_models(__package__)
