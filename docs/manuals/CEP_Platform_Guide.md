@@ -852,7 +852,7 @@ The feature **sso** must be on for the workspace; the sign-in page asks the API 
 
 ## What this is for
 
-Everything CEP does on a timer, and how you know it is working: twenty-seven scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
+Everything CEP does on a timer, and how you know it is working: twenty-eight scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
 
 ## Who can use it
 
@@ -876,6 +876,7 @@ Every staff account reads; acknowledging an alert needs change rights.
 | rollup-integration-metrics | Rolls the integration log up into per-minute figures and prunes both. | 20 min |
 | check-engine-health | Checks every active sending engine's callbacks, refused calls, speed, bounces and receipts, and stores the result (Overview → Engine Health). | 30 min (every 10 minutes on the scheduler) |
 | check-engines-daily | Runs every active sending engine's Check: key and address, nothing sent. | 26 h (daily) |
+| check-sending-domains | Looks up the SPF, DMARC and DKIM records of every workspace's sending domains (Settings → Delivery → Sending Domains). | 49 h (daily) |
 | decide-ab-winners | Chooses the subject-line winner of runs whose decision time has come. | 10 min |
 | send-weekly-reports | Emails the weekly report to workspaces that asked for one. | 3 h |
 | probe-uptime | Calls the uptime targets and alerts when one goes down or comes back. | 10 min (every minute on the scheduler) |
@@ -916,7 +917,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 |---|---|
 | Job runs | Started, job, status (Succeeded, Failed, Running), duration, worker, the error's first line; filter by status and job. A run opens with its result or its full error. |
 | Alerts | Opened, check, severity, summary, notifications sent, state; Acknowledge. |
-| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 27 on time*. |
+| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 28 on time*. |
 
 ## How to
 
@@ -1155,7 +1156,7 @@ Knowing which updates and settings this server needs before someone else finds o
 - **Site headers:** the headers the app's public address really sends: HSTS, Content-Security-Policy, nosniff, and whether other sites may frame it. Set the address in Global Parameters → `security.site_address` (for example `https://cepdev.aiintelekt.com`); while it is empty the headers are not checked.
 - **Workspace isolation:** every table holding workspace rows that the app's login can read keeps each workspace's rows apart (forced row-level security), unless it is one of the platform's own tables; and the app's login can neither skip row-level security nor change the schema.
 - **Accounts and keys:** platform accounts that have not signed in for 90 days, platform staff allowed to sign in without a second factor, active accounts with a test address (example.com, .test and the like), workspace accounts unused for 90 days, workspace API keys over a year old or unused for 90 days, and Postal engines whose callbacks are not signed.
-- **Sending domains:** the SPF and DMARC records of every domain a workspace sends email from, read from DNS by this server. Domains reserved for examples (`.example`, `.test`) are not looked up. DKIM is not checked: its record name depends on the mail engine's selector, which C360 does not hold.
+- **Sending domains:** the SPF and DMARC records of every domain a workspace sends email from, read from DNS by this server. Domains reserved for examples (`.example`, `.test`) are not looked up. DKIM is not checked here: its record name depends on the mail engine's selector, which each workspace gives on its own Settings → Delivery → Sending Domains, where its administrators also see these results with the record to publish (the daily check-sending-domains job and Check Now).
 
 The last three need patch 0067; until it is applied the page says so under Passed and the other checks run as before.
 
@@ -1271,7 +1272,7 @@ Each failing check of an engine is one alert, named *Engine · workspace · engi
 
 ## What happens behind the scenes
 
-The job reads each workspace in its own row-level-security scope: the integration log (calls out, callbacks in, timings, status codes), the circuit breaker's state, the email and text records of the last day, and the engine's last Check. It stores one result per engine in `delivery_provider_health` (patch 0068), which this page, the workspace's page and the alert evaluator read. Before patch 0068 is applied the job skips and the page says so.
+The job reads each workspace in its own row-level-security scope: the integration log (calls out, callbacks in, timings, status codes), the circuit breaker's state, the email and text records of the last day, and the engine's last Check. It stores one result per engine in `delivery_provider_health` (patch 0069), which this page, the workspace's page and the alert evaluator read. Before patch 0069 is applied the job skips and the page says so.
 
 ---
 

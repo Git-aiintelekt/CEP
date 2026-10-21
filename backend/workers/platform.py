@@ -67,6 +67,13 @@ def check_security() -> dict:
     return security.run("SCHEDULE")
 
 
+@shared_task(name="workers.platform.check_sending_domains")
+@jobs.monitored("check-sending-domains")
+def check_sending_domains() -> dict:
+    from apps.delivery import domain_health
+    return domain_health.refresh_all()
+
+
 @shared_task(name="workers.platform.prune_observability")
 @jobs.monitored("prune-observability")
 def prune_observability() -> dict:
@@ -89,6 +96,7 @@ def _dispatch_campaign_runs() -> dict:
 RUNNABLE = {"rollup-usage": rollup_usage, "generate-invoices": generate_invoices, "evaluate-alerts": evaluate_alerts,
             "run-tenant-operations": run_tenant_operations, "dispatch-campaign-runs": _dispatch_campaign_runs,
             "rollup-integration-metrics": rollup_integration_metrics, "probe-uptime": probe_uptime, "prune-observability": prune_observability, "check-security": check_security,
+            "check-sending-domains": check_sending_domains,
             "attribute-orders": attribute_orders, "check-engine-health": check_engine_health, "check-engines-daily": check_engines_daily,
             "decide-ab-winners": lambda: __import__("workers.campaign", fromlist=["decide_ab_winners"]).decide_ab_winners(),
             "send-weekly-reports": lambda: __import__("workers.reports", fromlist=["send_weekly_reports"]).send_weekly_reports(),

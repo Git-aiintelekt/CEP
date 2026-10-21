@@ -7,7 +7,8 @@ import { SettingsMenuPanel } from '@/apps/cep/pages/settings/SettingsMenu'
 import { WorkspaceSetupPage } from '@/apps/cep/pages/settings/WorkspaceSetupPage'
 import { AttributionPage } from '@/apps/cep/pages/settings/AttributionPage'
 import { DeliveryPage } from '@/apps/cep/pages/settings/DeliveryPage'
-import type { AttributedOrder, AttributionSettings, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, ProviderType } from '@/lib/types'
+import { DOMAINS } from '@/apps/cep/pages/settings/sendingDomains'
+import type { AttributedOrder, AttributionSettings, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, ProviderType, SendingDomains } from '@/lib/types'
 import { SETTINGS_GROUPS, pageAt } from '@/apps/cep/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/apps/cep/features/setup/sampleSetup'
@@ -74,6 +75,23 @@ function SampleAttribution() {
   return <QueryClientProvider client={client}><AttributionPage canEdit /></QueryClientProvider>
 }
 
+const SAMPLE_DOMAINS: SendingDomains = {
+  checked_at: '2026-10-21T06:00:00Z', ready: true, domains: [
+    { domain: 'mail.northwindapparel.com', dkim_selector: null, checked_at: '2026-10-21T06:00:00Z',
+      senders: [{ id: 's1', display_name: 'Northwind News', from_address: 'news@mail.northwindapparel.com' }, { id: 's2', display_name: 'Northwind Offers', from_address: 'offers@mail.northwindapparel.com' }],
+      result: { lookup: 'OK', changes: 2, spf: { status: 'MISSING', found: [], publish: 'v=spf1 include:spf.emsb.lynxs.ai ~all' },
+                dmarc: { status: 'MISSING', found: [], name: '_dmarc.mail.northwindapparel.com', publish: 'v=DMARC1; p=quarantine; rua=mailto:dmarc@mail.northwindapparel.com' },
+                dkim: { status: 'NOT_CHECKED', found: [], name: null } } },
+    { domain: 'e.aiintelekt.com', dkim_selector: 'postal-Xa71Qd', checked_at: '2026-10-21T06:00:00Z', senders: [{ id: 's3', display_name: 'C360 Updates', from_address: 'hello@e.aiintelekt.com' }],
+      result: { lookup: 'OK', changes: 1, spf: { status: 'PASS', found: ['v=spf1 include:spf.emsb.lynxs.ai ~all'] },
+                dmarc: { status: 'MONITOR', found: ['v=DMARC1; p=none; rua=mailto:dmarc@aiintelekt.com'], name: '_dmarc.e.aiintelekt.com', publish: 'v=DMARC1; p=quarantine; rua=mailto:dmarc@aiintelekt.com' },
+                dkim: { status: 'PASS', found: ['v=DKIM1; k=rsa; p=MIIBIjANBgkq…'], name: 'postal-Xa71Qd._domainkey.e.aiintelekt.com' } } },
+    { domain: 'northwindapparel.com', dkim_selector: null, checked_at: '2026-10-21T06:00:00Z', senders: [{ id: 's4', display_name: 'Receipts', from_address: 'receipts@northwindapparel.com' }],
+      result: { lookup: 'OK', changes: 0, spf: { status: 'PASS', found: ['v=spf1 include:spf.emsb.lynxs.ai -all'] },
+                dmarc: { status: 'PASS', found: ['v=DMARC1; p=reject'], name: '_dmarc.northwindapparel.com' }, dkim: { status: 'NOT_CHECKED', found: [] } } },
+  ],
+}
+
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
 const healthCheck = (key: EngineHealthCheck['key'], label: string, state: EngineHealthCheck['state'], value: string, summary: string, line = ''): EngineHealthCheck =>
   ({ key, label, state, value, summary, line, standing: false })
@@ -114,7 +132,7 @@ const SAMPLE_CATALOGUE = [
 const QUIET_ENGINE = engine('Postal', { is_default: true, last_callback_at: minutesAgo(2900), callbacks_24h: 0,
   health: health('QUIET', 'Nothing sent in the last day.', [healthCheck('callbacks', 'Callbacks', 'quiet', '2 days ago', 'Nothing sent in the last day.'), DAILY]) })
 
-/** Sending Engines as an administrator sees them, with Engine Health: sample data, no API (?sparse=1: one quiet engine) */
+/** Settings → Delivery as an administrator sees it: engines with their health, senders and sending domains on sample data, no API (?sparse=1: one quiet engine) */
 function SampleEngines() {
   const [params] = useSearchParams()
   const [client] = useState(() => {
@@ -123,6 +141,7 @@ function SampleEngines() {
     seeded.setQueryData(['delivery', 'providers'], sparse ? [QUIET_ENGINE] : SAMPLE_ENGINES)
     seeded.setQueryData(['delivery', 'providers', 'catalogue'], SAMPLE_CATALOGUE)
     seeded.setQueryData(['delivery', 'senders'], sparse ? SAMPLE_SENDERS.slice(0, 1) : SAMPLE_SENDERS)
+    seeded.setQueryData(DOMAINS, sparse ? { ...SAMPLE_DOMAINS, domains: SAMPLE_DOMAINS.domains.slice(2) } : SAMPLE_DOMAINS)
     seeded.setQueryData(['deliverability', 'service'], { configured: false, provider: 'MAILGUN', region: 'US', username: '', has_api_key: false, default_clients: [], image_blocking: false,
       is_active: false, last_checked_at: null, last_check_ok: null, last_check_error: null, uses: 'PLATFORM', platform_available: true })
     seeded.setQueryData(['deliverability', 'allowance'], { enabled: true, used: 4, limit: 50, left: 46, month: '2026-10', plan: 'GROWTH', configured: true })

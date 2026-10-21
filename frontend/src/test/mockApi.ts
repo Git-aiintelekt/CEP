@@ -10,7 +10,7 @@ import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
-import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
+import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -781,6 +781,8 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** GET /sending-domains/; default: the sender's example domain, not looked up */
+  sendingDomains?: SendingDomains
   /** the journey the Build page opens (GET /journeys/{id}/); default: a FIXED-population DRAFT journey, "j1" */
   journey?: Partial<Journey>
   /** that journey's versions (GET /journeys/{id}/versions/); default: one DRAFT, version 1 */
@@ -988,6 +990,10 @@ export function installMockApi(options: MockOptions = {}) {
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
   const tagRows: PersonalizationTag[] = (options.tags ?? tags).map((item) => ({ ...item }))
+  let sendingDomainsNow: SendingDomains = options.sendingDomains ?? { checked_at: '2026-10-21T06:00:00Z', ready: true, domains: [
+    { domain: 'northwind.example', senders: [{ id: 'snd-email', display_name: 'Northwind Rewards', from_address: 'rewards@northwind.example' }], dkim_selector: null,
+      result: { lookup: 'EXAMPLE', spf: { status: null, found: [] }, dmarc: { status: null, found: [] }, dkim: { status: 'NOT_CHECKED', found: [] }, changes: 0 }, checked_at: '2026-10-21T06:00:00Z' }] }
+  let domainChecks = 0
   let deliverabilityServiceNow: DeliverabilityService = { configured: false, provider: 'MAILGUN_INSPECT', region: 'US', username: '', has_api_key: false, default_clients: [], image_blocking: false,
                                                            is_active: false, last_checked_at: null, last_check_ok: null, last_check_error: null, ...options.deliverabilityService }
   if (options.deliverabilityService?.has_api_key) deliverabilityServiceNow = { ...deliverabilityServiceNow, configured: true, is_active: true }
@@ -1102,6 +1108,21 @@ export function installMockApi(options: MockOptions = {}) {
         .map((item) => options.engineHealth ? { ...item, health: engineHealth[item.id] ?? null } : item))
     }
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
+    if (path.endsWith('/sending-domains/check/') && method === 'POST') {
+      domainChecks += 1
+      if (domainChecks > 1) return json({ type: 'about:blank', title: 'Throttled', status: 429, detail: 'The domains were looked up less than a minute ago. Try again shortly.' }, 429)
+      sendingDomainsNow = { ...sendingDomainsNow, checked_at: '2026-10-21T09:30:00Z', domains: sendingDomainsNow.domains.map((row) => ({ ...row, checked_at: '2026-10-21T09:30:00Z' })) }
+      return json(sendingDomainsNow)
+    }
+    if (path.endsWith('/sending-domains/selector/') && method === 'POST') {
+      const selector = String(body?.selector ?? '')
+      if (/\s/.test(selector)) return json({ type: 'about:blank', title: 'Invalid', status: 400, errors: { selector: ['A selector is letters, digits, dots, hyphens and underscores, as your engine shows it.'] } }, 400)
+      sendingDomainsNow = { ...sendingDomainsNow, domains: sendingDomainsNow.domains.map((row) => row.domain !== body?.domain || !row.result ? row : {
+        ...row, dkim_selector: selector || null,
+        result: { ...row.result, dkim: selector ? { status: 'PASS', found: ['v=DKIM1; p=MIIB'], name: `${selector}._domainkey.${row.domain}` } : { status: 'NOT_CHECKED', found: [] } } }) }
+      return json(sendingDomainsNow)
+    }
+    if (path.endsWith('/sending-domains/')) return json(sendingDomainsNow)
     if (/\/delivery-senders\/[^/]+\/verify\/$/.test(path)) return json({ ok: true, detail: null, to: body?.to, verification_status: 'VERIFIED' })
     if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)
     if (path.endsWith('/delivery-senders/')) return json(options.texts ? [...deliverySenders, textSender] : deliverySenders)

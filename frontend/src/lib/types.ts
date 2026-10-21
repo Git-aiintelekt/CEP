@@ -237,6 +237,34 @@ export interface DeliverySender extends SenderProfile {
   delivery_provider: string
 }
 
+/** Settings → Delivery → Sending Domains (apps/delivery/domain_health.py) */
+export type DnsStatus = 'PASS' | 'MISSING' | 'MULTIPLE' | 'ANY' | 'MONITOR' | 'NOT_CHECKED'
+
+export interface DnsCheck {
+  status: DnsStatus | null
+  found: string[]
+  /** the record name, when it is not the domain itself (_dmarc.…, selector._domainkey.…) */
+  name?: string | null
+  /** what to publish, when C360 can say it */
+  publish?: string | null
+}
+
+export interface SendingDomain {
+  domain: string
+  senders: { id: string; display_name: string; from_address: string }[]
+  dkim_selector: string | null
+  /** null until the domain is first looked up */
+  result: { lookup: 'OK' | 'EXAMPLE' | 'NO_ANSWER'; spf: DnsCheck; dmarc: DnsCheck; dkim: DnsCheck; changes: number } | null
+  checked_at: string | null
+}
+
+export interface SendingDomains {
+  checked_at: string | null
+  domains: SendingDomain[]
+  /** false until the server's database has the sending_domain table (patch 0068): domains listed, not looked up */
+  ready: boolean
+}
+
 export interface RunResults {
   id: string
   status: string

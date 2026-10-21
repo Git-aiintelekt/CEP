@@ -50,7 +50,7 @@ class EngineHealthAdmin(BaseAdmin):
                 *super().get_urls()]
 
     def changelist_view(self, request, extra_context=None):
-        data = health.overview()                                       # None before patch 0068
+        data = health.overview()                                       # None before patch 0069
         context = {**self.admin_site.each_context(request), "title": "Engine Health", "data": data, "can_change": self.has_change_permission(request),
                    "engines": [_shown(engine) for engine in (data or {}).get("engines", [])]}
         return render(request, "admin/delivery/engine_health.html", context)
@@ -64,7 +64,7 @@ class EngineHealthAdmin(BaseAdmin):
             messages.error(request, f"The checks did not finish: {exc}")
         else:
             if result.get("skipped"):
-                messages.warning(request, "Engine Health needs a database update (patch 0068).")
+                messages.warning(request, "Engine Health needs a database update (patch 0069).")
             else:
                 note = f" {len(result['errors'])} workspace{'s' if len(result['errors']) != 1 else ''} could not be checked." if result["errors"] else ""
                 messages.success(request, f"Checked {result['engines']} engine{'s' if result['engines'] != 1 else ''}: {result['FAILING']} failing, "

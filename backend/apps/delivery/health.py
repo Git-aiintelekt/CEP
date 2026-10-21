@@ -299,7 +299,7 @@ def _save(provider, result: dict, now) -> None:
 
 
 def present(alias: str | None = None) -> bool:
-    """False until patch 0068 is applied."""
+    """False until patch 0069 is applied."""
     with connections[alias or P].cursor() as cursor:
         cursor.execute("SELECT to_regclass('delivery_provider_health') IS NOT NULL")
         return bool(cursor.fetchone()[0])
@@ -318,7 +318,7 @@ def _active_providers(tenant_id) -> list:
 
 
 def refresh(provider, now=None) -> dict | None:
-    """Re-checks one engine and stores the result (after its Check, so a fixed key shows at once). None before patch 0068."""
+    """Re-checks one engine and stores the result (after its Check, so a fixed key shows at once). None before patch 0069."""
     now = now or timezone.now()
     with session.tenant_scope(provider.tenant_id) as scope:
         if not present(scope.db_alias):
@@ -332,7 +332,7 @@ def run(now=None, tenants=None) -> dict:
     """The check-engine-health job."""
     now = now or timezone.now()
     if not present():
-        return {"skipped": "delivery_provider_health is missing: apply patch 0068"}
+        return {"skipped": "delivery_provider_health is missing: apply patch 0069"}
     counts = {"engines": 0, "HEALTHY": 0, "ATTENTION": 0, "FAILING": 0, "QUIET": 0, "errors": []}
     for tenant_id in tenants if tenants is not None else _tenants():
         try:
@@ -397,7 +397,7 @@ def check_all(tenants=None) -> dict:
 
 # ---------------------------------------------------------------------------------------------------- reading
 def for_tenant(tenant_id) -> dict[str, dict]:
-    """provider id -> its stored result, on the current workspace connection. Empty before patch 0068."""
+    """provider id -> its stored result, on the current workspace connection. Empty before patch 0069."""
     connection = session.connection()
     if not present(connection.alias):
         return {}
@@ -418,7 +418,7 @@ ORDER = {"FAILING": 0, "ATTENTION": 1, "HEALTHY": 2, "QUIET": 3}
 
 
 def overview() -> dict | None:
-    """Every active engine of every workspace with its stored result, worst first; None before patch 0068."""
+    """Every active engine of every workspace with its stored result, worst first; None before patch 0069."""
     if not present():
         return None
     with connections[P].cursor() as cursor:
@@ -445,7 +445,7 @@ def overview() -> dict | None:
 
 
 def failing_count() -> int:
-    """Engines failing now, for the number on the back-office menu; 0 before patch 0068."""
+    """Engines failing now, for the number on the back-office menu; 0 before patch 0069."""
     if not present():
         return 0
     with connections[P].cursor() as cursor:

@@ -12,6 +12,8 @@ import { useToast } from '@/components/Toast'
 
 import { DeliverabilityServiceSection } from './DeliverabilityServiceSection'
 import { EngineHealthDrawer, HealthCell } from './EngineHealth'
+import { SendingDomainsSection } from './SendingDomainsSection'
+import { domainOf, useSendingDomains } from './sendingDomains'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
@@ -176,6 +178,7 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
   const catalogue = useQuery({ queryKey: [...PROVIDERS, 'catalogue'], queryFn: ({ signal }) => api.get<ProviderType[]>('/delivery-providers/catalogue/', undefined, signal), enabled: allowed, staleTime: Infinity })
   const providers = useQuery({ queryKey: PROVIDERS, queryFn: ({ signal }) => api.get<DeliveryProvider[]>('/delivery-providers/', undefined, signal), enabled: allowed })
   const senders = useQuery({ queryKey: SENDERS, queryFn: ({ signal }) => api.get<DeliverySender[]>('/delivery-senders/', undefined, signal), enabled: allowed })
+  const sendingDomains = useSendingDomains(allowed)
   const [editing, setEditing] = useState<DeliveryProvider | 'new' | null>(null)
   // /settings/delivery?add=sender&channel=EMAIL (a campaign's New Sender link) opens Add a Sender at once
   const [params, setParams] = useSearchParams()
@@ -261,10 +264,14 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
         </>)}
       </span>) },
   ]
+  const domainChanges = new Map((sendingDomains.data?.domains ?? []).map((row) => [row.domain, row.result?.changes ?? 0]))
   const senderColumns: Column<DeliverySender>[] = [
     { key: 'name', header: 'Sender', render: (row) => (
       <div><p className="font-medium text-ink-900">{row.display_name}<span className="ml-2"><Tag>{row.channel === 'EMAIL' ? 'Email' : 'Texts'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
-        <p className="text-xs text-ink-800">{row.from_address ?? row.sender_id}</p></div>) },
+        <p className="text-xs text-ink-800">{row.from_address ?? row.sender_id}</p>
+        {row.channel === 'EMAIL' && (domainChanges.get(domainOf(row.from_address)) ?? 0) > 0 && (
+          <p className="mt-1 text-xs font-medium text-warning-text">Its domain needs {domainChanges.get(domainOf(row.from_address))} DNS change{domainChanges.get(domainOf(row.from_address)) === 1 ? '' : 's'} · <a href="#sending-domains" className="text-brand-800 hover:underline">See Sending Domains</a></p>
+        )}</div>) },
     { key: 'provider', header: 'Sends Through', render: (row) => row.provider_name },
     { key: 'status', header: 'Verification', render: (row) => <StatusBadge status={row.verification_status === 'VERIFIED' ? 'ACTIVE' : row.verification_status === 'FAILED' ? 'FAILED' : 'PAUSED'}
         label={row.verification_status === 'VERIFIED' ? 'Verified' : row.verification_status === 'FAILED' ? 'Verification Failed' : 'Not Verified Yet'} /> },
@@ -307,6 +314,8 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
           : senders.data.length === 0 ? <EmptyState title="No sender yet" hint="Add a provider first, then the From address your campaigns should use." />
           : <DataTable columns={senderColumns} rows={senders.data} rowKey={(row) => row.id} caption="Senders" />}
       </section>
+
+      <SendingDomainsSection onNotice={setNotice} />
 
       <DeliverabilityServiceSection onNotice={setNotice} />
 

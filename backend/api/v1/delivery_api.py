@@ -84,7 +84,7 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
         return self._callbacks(provider)[1]
 
     def get_health(self, provider) -> dict | None:
-        """The engine's latest Engine Health result (every 10 minutes): None until the first pass, or before patch 0068."""
+        """The engine's latest Engine Health result (every 10 minutes): None until the first pass, or before patch 0069."""
         if "health" not in self.context:
             from apps.delivery import health
             self.context["health"] = health.for_tenant(provider.tenant_id)
@@ -263,6 +263,20 @@ class SenderProfileWriteSerializer(serializers.ModelSerializer):
         return value or None
 
 
+def _look_up_domain(sender) -> None:
+    """a new or changed email address: its domain looked up at once, so Sending Domains has it before the daily check"""
+    from apps.delivery import domain_health
+    domain = (sender.from_address or "").rsplit("@", 1)[-1].lower() if sender.channel == "EMAIL" and sender.from_address else ""
+    scope = context.require()
+    if domain and domain_health.present(scope.db_alias):
+        from django.db import transaction
+        try:
+            with transaction.atomic(using=scope.db_alias):                 # the sender is saved whatever the lookup does
+                domain_health.refresh(scope.db_alias, scope.tenant_id, only={domain})
+        except Exception:                                                  # noqa: BLE001  the daily check tries again
+            pass
+
+
 class SenderProfileManageViewSet(viewsets.ModelViewSet):
     """Create and verify senders. Campaigns read them through /sender-profiles/ (permission campaign.edit)."""
     queryset = SenderProfile.objects.none()                 # for the OpenAPI schema; requests use get_queryset()
@@ -282,6 +296,7 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
         channel = registry.adapter_class(serializer.validated_data["delivery_provider"].provider_type).channel
         self._default(serializer, channel)
         serializer.save(tenant_id=context.require().tenant_id, channel=channel, verification_status="PENDING", created_by_id=self.request.user.pk)
+        _look_up_domain(serializer.instance)
 
     def perform_update(self, serializer):
         self._default(serializer, serializer.instance.channel)
@@ -289,6 +304,8 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
         if registry.adapter_class(serializer.instance.delivery_provider.provider_type).manageable is False:
             raise Conflict("This sender follows Settings -> Email server. Change it there.")
         serializer.save(updated_by_id=self.request.user.pk, **({"verification_status": "PENDING"} if changed_address else {}))
+        if changed_address:
+            _look_up_domain(serializer.instance)
 
     def perform_destroy(self, sender):
         if registry.adapter_class(sender.delivery_provider.provider_type).manageable is False:
@@ -320,6 +337,56 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
             ok, detail = False, str(exc)
         SenderProfile.objects.filter(pk=sender.pk).update(verification_status="VERIFIED" if ok else "FAILED")
         return Response({"ok": ok, "detail": detail or None, "to": to, "verification_status": "VERIFIED" if ok else "FAILED"})
+
+
+
+# ------------------------------------------------------------------------------------------------------------ sending domains
+class SendingDomainsView(APIView):
+    """Settings → Delivery → Sending Domains: SPF, DMARC and DKIM of the domains this workspace's email senders use."""
+    permission_classes = MANAGE
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        from apps.delivery import domain_health
+        scope = context.require()
+        return Response(domain_health.overview(scope.tenant_id, scope.db_alias))
+
+
+class SendingDomainsCheckView(APIView):
+    """Check Now: this workspace's domains looked up again, at most once a minute."""
+    permission_classes = MANAGE
+
+    @extend_schema(request=None, responses={200: None, 429: None})
+    def post(self, request, version=None):
+        from django.core.cache import cache
+        from rest_framework.exceptions import Throttled
+
+        from apps.delivery import domain_health
+        scope = context.require()
+        if not cache.add(f"cep:sending-domains:{scope.tenant_id}", 1, 60):
+            raise Throttled(wait=60, detail="The domains were looked up less than a minute ago. Try again shortly.")
+        if not domain_health.present(scope.db_alias):
+            raise Conflict("Sending domains are looked up once patch 0068 is applied to this database.")
+        domain_health.refresh(scope.db_alias, scope.tenant_id)
+        return Response(domain_health.overview(scope.tenant_id, scope.db_alias))
+
+
+class SendingDomainSelectorView(APIView):
+    """A domain's DKIM selector (as the engine shows it); the domain is looked up again with it. An empty selector stops the DKIM check."""
+    permission_classes = MANAGE
+
+    @extend_schema(request=inline_serializer("SendingDomainSelector", {"domain": serializers.CharField(), "selector": serializers.CharField(allow_blank=True)}),
+                   responses={200: None})
+    def post(self, request, version=None):
+        from apps.delivery import domain_health
+        scope = context.require()
+        if not domain_health.present(scope.db_alias):
+            raise Conflict("Sending domains are looked up once patch 0068 is applied to this database.")
+        try:
+            domain_health.set_selector(scope.tenant_id, str(request.data.get("domain") or ""), str(request.data.get("selector") or ""), request.user.pk, scope.db_alias)
+        except ValueError as exc:
+            raise ValidationError({"selector": str(exc)}) from None
+        return Response(domain_health.overview(scope.tenant_id, scope.db_alias))
 
 
 # ------------------------------------------------------------------------------------------------------------ campaigns: test send, results

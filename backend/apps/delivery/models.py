@@ -61,7 +61,7 @@ class DeliveryProvider(models.Model):
 
 
 class DeliveryProviderHealth(models.Model):
-    """The latest Engine Health result per sending engine (apps/delivery/health.py; patch 0068)"""
+    """The latest Engine Health result per sending engine (apps/delivery/health.py; patch 0069)"""
     delivery_provider = models.OneToOneField(DeliveryProvider, on_delete=models.DO_NOTHING, primary_key=True, db_column='delivery_provider_id', related_name='health')
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.DO_NOTHING, db_column='tenant_id', related_name='+', db_constraint=False)
     status = models.CharField(max_length=10)  # HEALTHY, ATTENTION, FAILING, QUIET

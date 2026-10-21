@@ -1,4 +1,4 @@
-"""Engine Health (patch 0068): the checks of each sending engine, the job that stores them, the Sending Engines API, the alerts and
+"""Engine Health (patch 0069): the checks of each sending engine, the job that stores them, the Sending Engines API, the alerts and
 the back-office page. Against the local DB, rolled back; the table is a session-temporary copy until the patch is applied."""
 import json
 import re
@@ -261,7 +261,7 @@ def test_job_api_alerts_and_page(check, admin_email):
 
 def test_before_the_patch_and_the_jobs(check):
     with mock.patch.object(health, "present", lambda alias=None: False):
-        check("before patch 0068 the job skips instead of failing", "skipped" in health.run())
+        check("before patch 0069 the job skips instead of failing", "skipped" in health.run())
         check("and the back-office and the alerts see nothing", health.overview() is None and health.problems() == {})
     from workers import platform as workers
     check("both jobs are registered, monitored and scheduled", {"check-engine-health", "check-engines-daily"} <= set(jobs.JOBS) & set(workers.RUNNABLE)

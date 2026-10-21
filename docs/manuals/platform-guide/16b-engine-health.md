@@ -52,4 +52,4 @@ Each failing check of an engine is one alert, named *Engine · workspace · engi
 
 ## What happens behind the scenes
 
-The job reads each workspace in its own row-level-security scope: the integration log (calls out, callbacks in, timings, status codes), the circuit breaker's state, the email and text records of the last day, and the engine's last Check. It stores one result per engine in `delivery_provider_health` (patch 0068), which this page, the workspace's page and the alert evaluator read. Before patch 0068 is applied the job skips and the page says so.
+The job reads each workspace in its own row-level-security scope: the integration log (calls out, callbacks in, timings, status codes), the circuit breaker's state, the email and text records of the last day, and the engine's last Check. It stores one result per engine in `delivery_provider_health` (patch 0069), which this page, the workspace's page and the alert evaluator read. Before patch 0069 is applied the job skips and the page says so.

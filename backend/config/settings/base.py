@@ -220,6 +220,7 @@ CELERY_BEAT_SCHEDULE = {
     "check-engines-daily": {"task": "workers.platform.check_engines_daily", "schedule": 24 * 3600},     # every sending engine's Check (nothing sent)
     "probe-uptime": {"task": "workers.platform.probe_uptime", "schedule": 60},                             # calls the uptime targets; alerts on a change
     "check-security": {"task": "workers.platform.check_security", "schedule": 24 * 3600},                  # packages (OSV.dev), settings and headers: back-office Security
+    "check-sending-domains": {"task": "workers.platform.check_sending_domains", "schedule": 24 * 3600},    # SPF, DMARC, DKIM of workspace domains
     "prune-observability": {"task": "workers.platform.prune_observability", "schedule": 24 * 3600},       # errors, request figures and probes past retention
     "attribute-orders": {"task": "workers.platform.attribute_orders", "schedule": 300},                    # orders -> campaigns -> campaign_actual
     "enroll-journey-customers": {"task": "workers.journey.enroll_customers", "schedule": 60},            # entry rules of live journeys

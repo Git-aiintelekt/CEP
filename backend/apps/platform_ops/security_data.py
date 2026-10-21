@@ -5,8 +5,8 @@ the domains each workspace sends from. Read only; security.run() calls them once
                         (forced row-level security), unless it is a platform table; the app's login cannot bypass it
   account_findings()    staff who stopped signing in, staff without a second factor, accounts that look like tests,
                         workspace API keys that are old or unused, mail engines whose callbacks are not signed
-  mail_findings()       SPF and DMARC of every workspace's sending domain, read from DNS (DKIM needs the engine's selector,
-                        which C360 does not hold)
+  mail_findings()       SPF and DMARC of every workspace's sending domain (apps.delivery.domain_health); DKIM is checked on the
+                        workspace's own Settings → Delivery, where it gives its engine's selector
 
 Each returns (findings, passed); a finding has the shape security.py saves.
 """
@@ -20,11 +20,9 @@ from django.utils import timezone
 P = settings.PLATFORM_ALIAS
 STALE_DAYS = 90
 KEY_AGE_DAYS = 365
-DNS_TIMEOUT = 5
 # a workspace table outside row-level security on purpose, besides the platform's own (settings.CONTROL_PLANE_MODELS)
 ISOLATION_EXCEPTIONS = {"insights_embed": "an embed link is found by the hash of its secret; every query names its workspace"}
 TEST_EMAIL = re.compile(r"@(example\.(com|org|net)|[^@]*\.(test|invalid|local|localhost|example))$|^(test|demo)[0-9._+-]*@", re.I)
-RESERVED_DOMAIN = re.compile(r"(^|\.)(example(\.(com|org|net))?|test|invalid|local|localhost)$", re.I)
 
 
 def _rows(alias: str, sql: str, args=None) -> list[dict]:
@@ -174,65 +172,47 @@ def account_findings() -> tuple[list[dict], list[str]]:
 
 
 # ------------------------------------------------------------------------------------------------ sending domains
-def _txt(name: str) -> list[str] | None:
-    """the TXT strings at a name; [] when there are none, None when DNS could not answer"""
-    import dns.exception
-    import dns.resolver
-    resolver = dns.resolver.Resolver()
-    resolver.lifetime = DNS_TIMEOUT
-    try:
-        answer = resolver.resolve(name, "TXT")
-    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
-        return []
-    except dns.exception.DNSException:
-        return None
-    return [b"".join(record.strings).decode("utf-8", "replace") for record in answer]
+SPF_FINDINGS = {  # status: (title, why, now, should, severity)
+    "MISSING": ("{d} has no SPF record", "Receiving servers cannot tell which servers may send for it: mail is more often filtered, and easier to forge.",
+                "None", "v=spf1 include:… ~all", "HIGH"),
+    "MULTIPLE": ("{d} has more than one SPF record", "Two or more SPF records make the check fail outright: merge them into one.", "Several records", "One record", "MEDIUM"),
+    "ANY": ("{d}'s SPF lets any server send", "The record ends in +all: every server on the internet passes.", "+all", "-all or ~all", "HIGH"),
+}
+DMARC_FINDINGS = {
+    "MISSING": ("{d} has no DMARC record", "Nothing tells receivers what to do with mail that fails SPF and DKIM, so forged mail in this name is delivered.",
+                "None", "p=quarantine or p=reject", "MEDIUM"),
+    "MONITOR": ("{d}'s DMARC only watches", "The policy is p=none: reports arrive, but forged mail is still delivered.", "p=none", "p=quarantine or p=reject", "LOW"),
+}
 
 
 def mail_findings() -> tuple[list[dict], list[str]]:
+    """the verdicts of apps.delivery.domain_health, the same the workspace's Settings → Delivery shows"""
+    from apps.delivery import domain_health
     domains = _rows(P, """SELECT lower(split_part(s.from_address::text, '@', 2)) AS domain, array_agg(DISTINCT t.code ORDER BY t.code) AS workspaces
                             FROM sender_profile s JOIN tenant t ON t.id = s.tenant_id
                            WHERE s.channel = 'EMAIL' AND s.deleted_at IS NULL AND s.from_address IS NOT NULL
                            GROUP BY 1 ORDER BY 1""")
     findings, passed, good, reserved = [], [], 0, 0
-    spf_link = {"id": "RFC 7208: SPF", "url": "https://www.rfc-editor.org/rfc/rfc7208", "summary": ""}
-    dmarc_link = {"id": "RFC 7489: DMARC", "url": "https://www.rfc-editor.org/rfc/rfc7489", "summary": ""}
+    links = {"spf": {"id": "RFC 7208: SPF", "url": "https://www.rfc-editor.org/rfc/rfc7208", "summary": ""},
+             "dmarc": {"id": "RFC 7489: DMARC", "url": "https://www.rfc-editor.org/rfc/rfc7489", "summary": ""}}
     for d in domains:
         domain = d["domain"]
         if not domain:
             continue
-        if RESERVED_DOMAIN.search(domain):
+        result = domain_health.evaluate(domain)
+        if result["lookup"] == "EXAMPLE":
             reserved += 1
             continue
         who = "Used by " + ", ".join(d["workspaces"]) + ". "
-        spf = _txt(domain)
-        dmarc = _txt(f"_dmarc.{domain}")
-        if spf is None or dmarc is None:
+        if result["lookup"] == "NO_ANSWER":
             findings.append(_finding("MAIL", f"{domain}:dns", domain, f"{domain} could not be looked up", who + "DNS did not answer from this server.",
                                      "No answer", "SPF and DMARC records", "LOW"))
             continue
         before = len(findings)
-        spf = [r for r in spf if r.lower().startswith("v=spf1")]
-        if not spf:
-            findings.append(_finding("MAIL", f"{domain}:spf", domain, f"{domain} has no SPF record",
-                                     who + "Receiving servers cannot tell which servers may send for it: mail is more often filtered, and easier to forge.",
-                                     "None", "v=spf1 include:… -all", "HIGH", spf_link))
-        elif len(spf) > 1:
-            findings.append(_finding("MAIL", f"{domain}:spf", domain, f"{domain} has {len(spf)} SPF records",
-                                     who + "Two or more SPF records make the check fail outright: merge them into one.", f"{len(spf)} records", "One record", "MEDIUM", spf_link))
-        elif re.search(r"(^|\s)\+?all(\s|$)", spf[0].lower()):
-            findings.append(_finding("MAIL", f"{domain}:spf", domain, f"{domain}'s SPF lets any server send",
-                                     who + "The record ends in +all: every server on the internet passes.", "+all", "-all or ~all", "HIGH", spf_link))
-        dmarc = [r for r in dmarc if r.lower().startswith("v=dmarc1")]
-        policy = (re.search(r"(?:^|;)\s*p\s*=\s*(\w+)", dmarc[0].lower()) or [None, None])[1] if dmarc else None
-        if not dmarc:
-            findings.append(_finding("MAIL", f"{domain}:dmarc", domain, f"{domain} has no DMARC record",
-                                     who + "Nothing tells receivers what to do with mail that fails SPF and DKIM, so forged mail in this name is delivered.",
-                                     "None", "p=quarantine or p=reject", "MEDIUM", dmarc_link))
-        elif policy not in ("quarantine", "reject"):
-            findings.append(_finding("MAIL", f"{domain}:dmarc", domain, f"{domain}'s DMARC only watches",
-                                     who + "The policy is p=none: reports arrive, but forged mail is still delivered.", f"p={policy or 'none'}",
-                                     "p=quarantine or p=reject", "LOW", dmarc_link))
+        for part, table in (("spf", SPF_FINDINGS), ("dmarc", DMARC_FINDINGS)):
+            if result[part]["status"] in table:
+                title, why, now, should, severity = table[result[part]["status"]]
+                findings.append(_finding("MAIL", f"{domain}:{part}", domain, title.format(d=domain), who + why, now, should, severity, links[part]))
         good += len(findings) == before
     if good:
         passed.append(f"{_plural(good, 'sending domain')} with SPF and an enforced DMARC policy")
