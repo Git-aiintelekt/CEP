@@ -1816,9 +1816,11 @@ INSERT INTO suite_component (key, name, tagline, release, needs, js_budget_kb, s
     ('pim',      'PIM',        'Product information',            'PLANNED',  '[]',             150, 70)
 ON CONFLICT (key) DO NOTHING;
 
--- every plan includes Engagement and Insights (decided 2026-10-15: Insights is on every plan from the start)
+-- every plan includes Engagement and Insights (decided 2026-10-15: Insights is on every plan from the start). Only a plan with
+-- no components yet gets them, so a plan given fewer (the INSIGHTS plan, 0072) keeps what it was given when this layer runs again.
 INSERT INTO plan_component (plan_id, component_key)
-SELECT p.id, c.key FROM subscription_plan p CROSS JOIN suite_component c WHERE c.key IN ('cep', 'insights')
+SELECT p.id, c.key FROM subscription_plan p CROSS JOIN suite_component c
+ WHERE c.key IN ('cep', 'insights') AND NOT EXISTS (SELECT 1 FROM plan_component pc WHERE pc.plan_id = p.id)
 ON CONFLICT (plan_id, component_key) DO NOTHING;
 
 GRANT SELECT ON suite_component, plan_component, tenant_component TO cep_app;          -- the API resolves; the back-office decides
@@ -2964,6 +2966,48 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_tracking_link_campaign_target ON tracking_l
 INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
     ('links.short_base_url', '""', 'STRING', 'Platform', 'Where text campaigns'' short links point, e.g. https://go.example.com (served by the API under /api/v1/l/); empty: the public API address')
 ON CONFLICT (key) DO NOTHING;
+
+-- -------------------------------------------------------------------------------------
+-- 0072: what an installation needs without the sample data (2026-10-22). A production database is built from the layers
+-- alone (database/production/build_production_db.sh), so everything the code relies on is here rather than in
+-- CEP_Seed_Data.sql: the core permissions, which until now only the sample data inserted (a workspace onboarded on a
+-- database without it got nearly empty roles); the Insights plan, the reports engine without Engagement; and the record of
+-- the patches applied to this database (database/apply_patch.sh writes it; a database built from the layers has them all).
+-- -------------------------------------------------------------------------------------
+INSERT INTO permission (id, code, description) VALUES
+    ('a3000000-0000-4000-8000-000000000001', 'campaign.view', 'Campaign view'),
+    ('a3000000-0000-4000-8000-000000000002', 'campaign.edit', 'Campaign edit'),
+    ('a3000000-0000-4000-8000-000000000003', 'campaign.publish', 'Campaign publish'),
+    ('a3000000-0000-4000-8000-000000000004', 'journey.view', 'Journey view'),
+    ('a3000000-0000-4000-8000-000000000005', 'journey.edit', 'Journey edit'),
+    ('a3000000-0000-4000-8000-000000000006', 'journey.activate', 'Journey activate'),
+    ('a3000000-0000-4000-8000-000000000007', 'template.view', 'Template view'),
+    ('a3000000-0000-4000-8000-000000000008', 'template.edit', 'Template edit'),
+    ('a3000000-0000-4000-8000-000000000009', 'list.view', 'List view'),
+    ('a3000000-0000-4000-8000-000000000010', 'list.edit', 'List edit'),
+    ('a3000000-0000-4000-8000-000000000011', 'list.import', 'List import'),
+    ('a3000000-0000-4000-8000-000000000012', 'governance.edit', 'Governance edit'),
+    ('a3000000-0000-4000-8000-000000000013', 'provider.edit', 'Provider edit'),
+    ('a3000000-0000-4000-8000-000000000014', 'report.view', 'Report view'),
+    ('a3000000-0000-4000-8000-000000000015', 'consent.edit', 'Consent edit'),
+    ('a3000000-0000-4000-8000-000000000016', 'user.admin', 'User admin')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO subscription_plan (code, name, default_isolation_mode, max_users, features) VALUES
+    ('INSIGHTS', 'Insights', 'SHARED', NULL, '{"journeys": false, "ereceipt": false, "ab_testing": false, "custom_domain": false}')
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO plan_component (plan_id, component_key)
+SELECT id, 'insights' FROM subscription_plan WHERE code = 'INSIGHTS'
+ON CONFLICT (plan_id, component_key) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS schema_patch (
+    name                VARCHAR(100) PRIMARY KEY,                         -- the file in database/patches, e.g. 0072_production_reference.sql
+    applied_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    applied_by          TEXT NOT NULL DEFAULT current_user,
+    how                 VARCHAR(10) NOT NULL DEFAULT 'PATCH',            -- PATCH (apply_patch.sh) or BUILD (part of the layers a new database was built from)
+    CONSTRAINT ck_schema_patch_how CHECK (how IN ('PATCH', 'BUILD'))
+);
+GRANT SELECT ON schema_patch TO cep_admin;
 
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample

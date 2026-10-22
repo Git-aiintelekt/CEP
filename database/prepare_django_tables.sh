@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# After database/build_test_db.sh: Django's own tables (users' groups and permissions, content types, sessions, the admin log)
-# and the record of the app's migrations. The SQL layers are the app's schema, so its migrations are marked as applied
-# (--fake), never run. Needs DATABASE_URL and PLATFORM_DATABASE_URL pointing at a superuser login of the new database, and
-# PGHOST/PGPORT/PGUSER/PGDATABASE for the grant. Run from backend/ with the virtualenv's python as $PYTHON.
+# After a build from the SQL layers (database/build_test_db.sh, database/production/build_production_db.sh): Django's own
+# tables (users' groups and permissions, content types, sessions, the admin log) and the record of the app's migrations.
+# The SQL layers are the app's schema, so its migrations are marked as applied (--fake), never run. Needs DATABASE_URL and
+# PLATFORM_DATABASE_URL pointing at the owner (or a superuser) of the new database, and PGHOST/PGPORT/PGUSER/PGDATABASE for
+# the grant. $PYTHON is the backend's python (default: python on the path); runs in backend/ wherever it is called from.
 set -euo pipefail
 PYTHON="${PYTHON:-python}"
+cd "$(dirname "$0")/../backend"
 
 "$PYTHON" manage.py migrate contenttypes --noinput
 "$PYTHON" manage.py migrate auth --noinput

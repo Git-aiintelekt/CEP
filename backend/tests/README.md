@@ -55,7 +55,7 @@ feature, the checks named in plain words. New features add their own file; the j
 `.github/workflows/ci.yml` runs on every pull request to main and every push to main.
 
 - **Backend.** A throwaway PostgreSQL 18 container gets a database built from nothing: `database/build_test_db.sh`
-  (the five layers and the sample workspace, in the order their headers give), `tests/prepare_django_tables.sh`
+  (the five layers and the sample workspace, in the order their headers give), `database/prepare_django_tables.sh`
   (Django's own tables; the app's migrations are marked as applied, since the SQL files are the schema) and
   `tests/ci_fixtures.sql` (a test administrator for NWA, NWA set to Retail with barcodes). Then `manage.py check` and
   the whole suite, the partition test included, since the container's owner login is set.
