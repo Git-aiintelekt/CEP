@@ -103,7 +103,8 @@ def count_rows(conn, plan: dict) -> dict:
 def _url_to_kwargs(url: str) -> dict:
     import environ
     cfg = environ.Env.db_url_config(url)
-    return {"host": cfg["HOST"], "port": cfg["PORT"] or 5432, "dbname": cfg["NAME"], "user": cfg["USER"], "password": cfg["PASSWORD"]}
+    login = {"host": cfg["HOST"], "port": cfg["PORT"] or 5432, "dbname": cfg["NAME"], "user": cfg["USER"]}
+    return {**login, "password": cfg["PASSWORD"]} if cfg["PASSWORD"] else login     # no password in the URL: PGPASSWORD or ~/.pgpass
 
 
 def owner_connection(target: dict | None = None):
@@ -361,10 +362,11 @@ def run(operation_id) -> dict:
     book = Runbook(operation_id)
     book.step("start", f"{operation} for {code}")
     try:
-        if operation == "EXPORT":
+        if operation in ("EXPORT", "EXPORT_FOR_COPY"):
+            from .workspace_copy import export_workspace
             conn = owner_connection()
             try:
-                result = export_tenant(conn, tenant_id, code, book)
+                result = (export_tenant if operation == "EXPORT" else export_workspace)(conn, tenant_id, code, book)
             finally:
                 conn.close()
         elif operation == "MOVE_TO_DEDICATED":

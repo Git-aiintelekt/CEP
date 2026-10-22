@@ -1,6 +1,7 @@
 """Request and / or run a tenant operation from the command line.
 
     python manage.py run_tenant_operation --tenant NWA --operation EXPORT
+    python manage.py run_tenant_operation --tenant NWA --operation EXPORT_FOR_COPY      # a file another installation loads
     python manage.py run_tenant_operation --tenant ACME --operation MOVE_TO_DEDICATED --param db_alias=acme --param db_host=10.0.0.50 \\
            --param db_name=cep_acme --param db_secret_ref=env:ACME_DB
     python manage.py run_tenant_operation --tenant ACME --operation OFFBOARD --param confirm=ACME
@@ -21,7 +22,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("operation_id", nargs="?")
         parser.add_argument("--tenant")
-        parser.add_argument("--operation", choices=["EXPORT", "MOVE_TO_DEDICATED", "PURGE_SOURCE", "OFFBOARD"])
+        parser.add_argument("--operation", choices=["EXPORT", "EXPORT_FOR_COPY", "MOVE_TO_DEDICATED", "PURGE_SOURCE", "OFFBOARD"])
         parser.add_argument("--param", action="append", default=[], metavar="KEY=VALUE")
 
     def handle(self, *args, operation_id, tenant, operation, param, **options):
