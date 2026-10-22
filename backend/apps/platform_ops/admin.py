@@ -86,7 +86,13 @@ class TenantOperationForm(forms.ModelForm):
         model = TenantOperation
         fields = ("tenant", "operation", "parameters")
         help_texts = {"parameters": 'MOVE_TO_DEDICATED: {"db_alias": "acme", "db_host": "10.0.0.50", "db_port": 5432, "db_name": "cep_acme", "db_secret_ref": "env:ACME_DB"} '
-                                    '· OFFBOARD: {"confirm": "<TENANT CODE>"} · EXPORT and PURGE_SOURCE need none.'}
+                                    '· OFFBOARD: {"confirm": "<TENANT CODE>"} · EXPORT, EXPORT_FOR_COPY and PURGE_SOURCE need none. '
+                                    'EXPORT_FOR_COPY writes a file another installation loads with database/production/load_demo_data.sh.'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "operation" in self.fields:                         # a load is recorded by the receiving installation, never requested here
+            self.fields["operation"].choices = [c for c in self.fields["operation"].choices if c[0] != "IMPORT"]
 
     def clean(self):
         data = super().clean()

@@ -3009,6 +3009,14 @@ CREATE TABLE IF NOT EXISTS schema_patch (
 );
 GRANT SELECT ON schema_patch TO cep_admin;
 
+-- -------------------------------------------------------------------------------------
+-- 0073: copying a workspace into another installation (2026-10-22). EXPORT_FOR_COPY writes a file a second database can
+-- load (apps/platform_ops/workspace_copy.py); IMPORT is the record of such a load on the receiving side.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE tenant_operation DROP CONSTRAINT IF EXISTS ck_tenant_operation_operation;
+ALTER TABLE tenant_operation ADD CONSTRAINT ck_tenant_operation_operation
+    CHECK (operation IN ('EXPORT', 'EXPORT_FOR_COPY', 'IMPORT', 'MOVE_TO_DEDICATED', 'PURGE_SOURCE', 'OFFBOARD'));
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

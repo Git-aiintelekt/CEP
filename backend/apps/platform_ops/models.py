@@ -48,6 +48,8 @@ class TenantOperation(models.Model):
     """Runbook record of a long-running tenant operation"""
     class Operation(models.TextChoices):
         EXPORT = 'EXPORT', 'Export data'
+        EXPORT_FOR_COPY = 'EXPORT_FOR_COPY', 'Export for copying to another installation'
+        IMPORT = 'IMPORT', 'Loaded from another installation'
         MOVE_TO_DEDICATED = 'MOVE_TO_DEDICATED', 'Move to a dedicated database'
         PURGE_SOURCE = 'PURGE_SOURCE', 'Purge the pool copy after a move'
         OFFBOARD = 'OFFBOARD', 'Offboard (export, then erase)'

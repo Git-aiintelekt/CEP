@@ -8,7 +8,7 @@ the owner's password comes from `PGPASSWORD` or `~/.pgpass`. No password is ever
 |---|---|---|
 | 1 | `build_production_db.sh` | The extensions, the login roles `cep_backend` (API) and `cep_platform` (back-office), whose passwords it asks for, the five schema layers **without** the sample data, the record of the patches they contain, and Django's own tables. It refuses a database that already has tables. |
 | 2 | `load_reference_data.sh <email> [name]` | The production settings (`reference_data.sql`: staff must use two-step verification, people are told about platform access, the public address from `CEP_PUBLIC_URL`), then the **Platform** workspace and its first platform administrator, whose password it asks for. Safe to run again. |
-| 3 | `load_demo_data.sh` | Optional: the demo workspace, from an export of the dev server's NWA workspace. Comes with the workspace copy tool. |
+| 3 | `load_demo_data.sh <file> [code] [name] [plan]` | Optional: the demo workspace, from a file exported on the dev server with `run_tenant_operation --tenant NWA --operation EXPORT_FOR_COPY` (or the back-office's Move and Offboard). Checked first, loaded in one transaction, every table's row count compared; people disabled with placeholder addresses; secrets are not in the file. |
 
 Then `psql -X -f database/production/verify.sql` checks the result and lists what is there.
 

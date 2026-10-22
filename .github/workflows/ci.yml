@@ -136,6 +136,32 @@ jobs:
           bash database/production/load_reference_data.sh platform@c360.example "Platform Admin"
           bash database/production/load_reference_data.sh platform@c360.example "Platform Admin"
 
+      - name: Export the sample workspace for copying
+        env:
+          PGDATABASE: cep_seed
+          DATABASE_URL: postgres://postgres:ci-owner@localhost:5432/cep_seed
+          PLATFORM_DATABASE_URL: postgres://postgres:ci-owner@localhost:5432/cep_seed
+          OWNER_DATABASE_URL: postgres://postgres:ci-owner@localhost:5432/cep_seed
+          TENANT_EXPORT_DIR: /tmp/exports
+        run: |
+          psql -X -q -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE cep_seed TEMPLATE template0 ENCODING 'UTF8' LOCALE_PROVIDER icu ICU_LOCALE 'en-US' LOCALE 'C'"
+          bash database/build_test_db.sh
+          cd backend && python manage.py run_tenant_operation --tenant NWA --operation EXPORT_FOR_COPY
+
+      - name: Load it as the demo workspace
+        env:
+          DATABASE_URL: postgres://cep_backend:ci-app-password-0001@localhost:5432/cep_prod
+          PLATFORM_DATABASE_URL: postgres://cep_platform:ci-platform-password-01@localhost:5432/cep_prod
+        run: |
+          bash database/production/load_demo_data.sh /tmp/exports/NWA-*.c360ws.zip DEMO "C360 Demo"
+          if bash database/production/load_demo_data.sh /tmp/exports/NWA-*.c360ws.zip DEMO2 "Twice"; then echo "a second load was not refused"; exit 1; fi
+          psql -X -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN
+            IF (SELECT count(*) FROM app_user u JOIN tenant t ON t.id = u.tenant_id WHERE t.code = 'DEMO' AND (u.is_active OR u.email NOT LIKE '%@demo.invalid')) > 0
+              THEN RAISE EXCEPTION 'a copied person can sign in or kept an address'; END IF;
+            IF (SELECT count(*) FROM customer_master c JOIN tenant t ON t.id = c.tenant_id WHERE t.code = 'DEMO') = 0
+              THEN RAISE EXCEPTION 'no customers in DEMO'; END IF;
+          END \$\$"
+
       - name: Check it
         run: psql -X -v ON_ERROR_STOP=1 -f database/production/verify.sql
 
