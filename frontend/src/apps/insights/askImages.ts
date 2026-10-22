@@ -1,7 +1,7 @@
 /** Images for Ask for a Report: which files are taken, and a large one scaled down in the browser before it is sent (the server
- * takes at most 3 images of up to 3.75 MB each, PNG, JPEG, GIF or WebP; apps/insights/assistant.py read_images). */
+ * takes at most 5 images of up to 3.75 MB each, PNG, JPEG, GIF or WebP; apps/insights/assistant.py read_images). */
 
-export const IMAGES_MAX = 3
+export const IMAGES_MAX = 5
 export const IMAGE_BYTES_MAX = 3_750_000
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 /** the long side the providers read at full detail; anything larger is scaled down to it */

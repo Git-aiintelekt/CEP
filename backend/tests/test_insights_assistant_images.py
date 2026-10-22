@@ -43,7 +43,8 @@ def test_prompt_and_images(check):
         except Exception as exc:                                                   # noqa: BLE001  the ValidationError's words
             return json.dumps(getattr(exc, "detail", str(exc)), default=str)
 
-    check("more than three images are refused", "up to 3 images" in refused([SimpleUploadedFile(f"{i}.png", picture()) for i in range(4)]))
+    check("five images are taken", len(assistant.read_images([SimpleUploadedFile(f"{i}.png", picture()) for i in range(5)])) == 5)
+    check("more than five images are refused", "up to 5 images" in refused([SimpleUploadedFile(f"{i}.png", picture()) for i in range(6)]))
     check("a file that is not an image is refused, named", "notes.png is not a PNG, JPEG, GIF or WebP image" in refused([SimpleUploadedFile("notes.png", b"not an image at all")]))
     big = bytes(assistant.IMAGE_BYTES_MAX + 1)
     check("an image over the limit is refused with its size", "big.png is 3.8 MB" in refused([SimpleUploadedFile("big.png", big)]))

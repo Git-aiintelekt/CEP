@@ -7,9 +7,18 @@
 **Ask for a Report** (anyone who can build reports)
 
 1. Open Insights → Reports. The Ask for a Report box sits above the list; it is there once your platform has switched on an AI provider and your workspace allows it.
-2. Write what you want to see in your own words, pick a model beside Generate, and press **Generate Report** (or Ctrl+Enter).
+2. Write what you want to see in your own words, pick a model at the bottom of the box, and press **Generate Report** (or Ctrl+Enter).
 3. Read what comes back. A **draft**: check its name, view, data, rows, columns, values and filter, then **Open in Editor** to make it a private report of yours and open the editor. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
 4. Your recent prompts sit under the box, each with the report it became. The line at the top right counts the month's prompts against your plan; only a draft counts.
+
+**Add images to a prompt** (anyone who can build reports)
+
+1. In Insights → Reports, write your prompt in the Ask for a Report box. Say what the image is for: "Build this table from the screenshot", "A chart like this sketch, by month".
+2. Add up to five images, whichever way is handiest: drag them from your computer onto the Ask for a Report panel and let go when the box shows **Drop images here**; or press the paperclip at the bottom left of the box and choose the files; or copy an image, such as a screenshot, and paste it into the box with Ctrl+V.
+3. Check the thumbnails at the top of the box, each with its file name. The count beside the paperclip says how many there are ("2 of 5"); remove one with its ✕. Once there are five, the paperclip is greyed out, and a sixth image is left out with a note under the box.
+4. Press **Generate Report** (or Ctrl+Enter). The images go to the model with your prompt and the field names. They stay in the box, so **Try Again** sends them again.
+
+The images may be PNG, JPEG, GIF or WebP; a large one is scaled down in your browser before it is sent, and each may be up to 3.75 MB after that. Another kind of file is refused with a note under the box. The images are not kept: only your prompt is saved with the draft. Good images to send are a hand sketch of the table or chart you want, or a screenshot of a spreadsheet or of a report from another tool to rebuild here.
 
 **Use AI in your workspace** (workspace administrator)
 
@@ -441,8 +450,8 @@ Insights → Reports lists every report you can open, grouped by the component w
 When your platform has switched on an AI provider and your workspace allows it (Settings → AI Assistant), a prompt box sits above the report list for people who can build reports.
 
 1. Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start. The box takes up to 4,000 characters; put the details on more lines (the filters, the order, what to compare). The counter under it shows how much is used.
-   **Images:** press **Add Images**, or paste or drop them on the box, to send up to three with the prompt: a sketch of the report you want, or a screenshot of a chart, a table or a spreadsheet. PNG, JPEG, GIF or WebP; a large image is scaled down before it is sent. Remove one with its ✕. The images go to the model with your prompt and are not kept; only the prompt is saved with the draft.
-2. Pick a model beside Generate: Claude or OpenAI, whichever your platform offers, each with a "best for reports" and a "fastest" model. Your last choice is remembered.
+   **Images:** drop them on the box, press the paperclip at its bottom left, or paste them, to send up to five with the prompt: a sketch of the report you want, or a screenshot of a chart, a table or a spreadsheet. PNG, JPEG, GIF or WebP; a large image is scaled down before it is sent. Remove one with its ✕. The images go to the model with your prompt and are not kept; only the prompt is saved with the draft.
+2. Pick a model at the bottom of the box, beside Generate: Claude or OpenAI, whichever your platform offers, each with a "best for reports" and a "fastest" model. Your last choice is remembered.
 3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt, any images you added and the names of the fields you may use, never customer rows, and answers in one of three ways:
    - **A draft**, in words: its name, view, data, rows, columns, values and filter, with how many rows the preview gives. **Open in Editor** makes it a private report of yours and opens it in the editor; nothing is shared until you save and share it. **Try Again** asks once more; **Edit Prompt** puts your words back in the box.
    - **One question first**, when the prompt has two readings ("which period is last month?"), with the answers as buttons. Answering does not use another prompt.

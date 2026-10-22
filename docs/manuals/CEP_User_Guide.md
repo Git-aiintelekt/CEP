@@ -2703,9 +2703,18 @@ The enrol job reads events every minute. An event counts for a journey that was 
 **Ask for a Report** (anyone who can build reports)
 
 1. Open Insights → Reports. The Ask for a Report box sits above the list; it is there once your platform has switched on an AI provider and your workspace allows it.
-2. Write what you want to see in your own words, pick a model beside Generate, and press **Generate Report** (or Ctrl+Enter).
+2. Write what you want to see in your own words, pick a model at the bottom of the box, and press **Generate Report** (or Ctrl+Enter).
 3. Read what comes back. A **draft**: check its name, view, data, rows, columns, values and filter, then **Open in Editor** to make it a private report of yours and open the editor. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
 4. Your recent prompts sit under the box, each with the report it became. The line at the top right counts the month's prompts against your plan; only a draft counts.
+
+**Add images to a prompt** (anyone who can build reports)
+
+1. In Insights → Reports, write your prompt in the Ask for a Report box. Say what the image is for: "Build this table from the screenshot", "A chart like this sketch, by month".
+2. Add up to five images, whichever way is handiest: drag them from your computer onto the Ask for a Report panel and let go when the box shows **Drop images here**; or press the paperclip at the bottom left of the box and choose the files; or copy an image, such as a screenshot, and paste it into the box with Ctrl+V.
+3. Check the thumbnails at the top of the box, each with its file name. The count beside the paperclip says how many there are ("2 of 5"); remove one with its ✕. Once there are five, the paperclip is greyed out, and a sixth image is left out with a note under the box.
+4. Press **Generate Report** (or Ctrl+Enter). The images go to the model with your prompt and the field names. They stay in the box, so **Try Again** sends them again.
+
+The images may be PNG, JPEG, GIF or WebP; a large one is scaled down in your browser before it is sent, and each may be up to 3.75 MB after that. Another kind of file is refused with a note under the box. The images are not kept: only your prompt is saved with the draft. Good images to send are a hand sketch of the table or chart you want, or a screenshot of a spreadsheet or of a report from another tool to rebuild here.
 
 **Use AI in your workspace** (workspace administrator)
 
@@ -3123,7 +3132,7 @@ Insights → Reports lists every report you can open, grouped by the component w
 
 ### Making a report
 
-1. Press **New Report**, pick a dataset and give it a name. It opens in the editor with the dataset's first columns.
+1. Press **New Report**, pick a dataset and give it a name. It opens in the editor with the dataset's first columns. Under **Your Databases** are the workspace's own databases to query and the datasets mapped from them; a report author can **Connect a Database** there (MySQL, PostgreSQL or ClickHouse, read-only; see Report Databases). Under **Your Files**, **Upload a File** adds a CSV or Excel file.
 2. Build it with one of the two editors, switched at the top right and remembered for you:
    - **Field Wells**: the dataset's fields on the left, the result in the middle, the wells on the right. Click or drag a field into **Rows** (one line per value), **Columns** (one dimension spread across, for the pivot and the chart's series) or **Values** (a number to total, with its calculation). **Filters**, then **Sort and Limit**, sit under them.
    - **Steps**: the question written top to bottom as numbered steps: Data, Filter, Summarize, Group By, Sort and Limit. Each step has an Add button; the result sits under the steps.
@@ -3136,9 +3145,10 @@ Insights → Reports lists every report you can open, grouped by the component w
 
 When your platform has switched on an AI provider and your workspace allows it (Settings → AI Assistant), a prompt box sits above the report list for people who can build reports.
 
-1. Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start.
-2. Pick a model beside Generate: Claude or OpenAI, whichever your platform offers, each with a "best for reports" and a "fastest" model. Your last choice is remembered.
-3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt and the names of the fields you may use, never customer rows, and answers in one of three ways:
+1. Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start. The box takes up to 4,000 characters; put the details on more lines (the filters, the order, what to compare). The counter under it shows how much is used.
+   **Images:** drop them on the box, press the paperclip at its bottom left, or paste them, to send up to five with the prompt: a sketch of the report you want, or a screenshot of a chart, a table or a spreadsheet. PNG, JPEG, GIF or WebP; a large image is scaled down before it is sent. Remove one with its ✕. The images go to the model with your prompt and are not kept; only the prompt is saved with the draft.
+2. Pick a model at the bottom of the box, beside Generate: Claude or OpenAI, whichever your platform offers, each with a "best for reports" and a "fastest" model. Your last choice is remembered.
+3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt, any images you added and the names of the fields you may use, never customer rows, and answers in one of three ways:
    - **A draft**, in words: its name, view, data, rows, columns, values and filter, with how many rows the preview gives. **Open in Editor** makes it a private report of yours and opens it in the editor; nothing is shared until you save and share it. **Try Again** asks once more; **Edit Prompt** puts your words back in the box.
    - **One question first**, when the prompt has two readings ("which period is last month?"), with the answers as buttons. Answering does not use another prompt.
    - **No field for this**, when no dataset holds what you asked for, with the closest prompts the catalogue can answer. The model never makes a field up; ask your platform team to map the data if you need it.
@@ -3226,14 +3236,15 @@ The line under a report's title says it. **Live data**: the report reads the wor
 
 # Report Databases
 
-**Where:** Settings → Report Databases. Needs the user administration right.
+**Where:** Settings → Report Databases, which needs the user administration right. A report author (Report Edit) can also connect a
+database from Insights → New Report → **Connect a Database**; changing or removing a connection stays here.
 
 ## Step by step
 
 **Connect a database** (workspace administrator)
 
-1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL and PostgreSQL.
-2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0 or PostgreSQL), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL.
+1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL, PostgreSQL and ClickHouse.
+2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL.
 3. Press **Test Connection**. Four facts come back: reached and the version, what the account can read, whether it is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds beyond SELECT; have the account fixed before mapping anything.
 4. Press **Save**. The password is stored encrypted and never shown; leave it empty on a later edit to keep it.
 
@@ -3243,6 +3254,12 @@ The line under a report's title says it. **Live data**: the report reads the wor
 2. Name the dataset and describe it. Choose the **Row Key** (what one row is) and the **Time Field** (the date a period filter applies to).
 3. For each column: tick it to keep it, give it a label, check its type and role, pick the calculations a measure allows, and set the sensitivity (**Personal** is masked for readers without the right, **Confidential** is hidden from everyone).
 4. Watch the preview under the fields update with your labels, then press **Save Dataset**. It appears in New Report under **Your Databases**.
+
+**Connect a database from New Report** (report author)
+
+1. Open Insights → Reports → **New Report**. Under **Your Databases**, press **Connect a Database**. A panel opens over the page.
+2. Fill in the same fields as above and press **Test Connection**. **Save and Continue** is offered only once the test shows the account read-only; if it can write, the panel says what it holds and asks for an account that can only read.
+3. Pick a table or view (search narrows the list) and press **Create Report**. The table becomes a dataset with every readable column, labelled from its name, the first date as its time field; the report opens in the editor. A table mapped before keeps its dataset. Or press **write a query** to open the query window on the database.
 
 **Add a calculated measure** (workspace administrator)
 
@@ -3273,8 +3290,8 @@ The line under a report's title says it. **Live data**: the report reads the wor
 
 ## What it is for
 
-Insights builds reports on the data the platform already keeps. Report Databases adds your own: a MySQL 5.7, MySQL 8.0
-or PostgreSQL database you connect here, strictly to read. You pick the tables or views to report on and name their
+Insights builds reports on the data the platform already keeps. Report Databases adds your own: a MySQL 5.7, MySQL 8.0,
+PostgreSQL or ClickHouse database you connect here (or from New Report), strictly to read. You pick the tables or views to report on and name their
 columns, and those datasets appear in New Report and in Ask for a Report for your workspace alone. The editor, the four
 views, exports, dashboards and scheduled delivery work on them like on any dataset.
 
@@ -3288,6 +3305,10 @@ Ask your database administrator for an account that holds SELECT and nothing els
 
 - MySQL: `CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…'; GRANT SELECT ON your_db.* TO 'cep_reader'@'%';`
 - PostgreSQL: a login role with CONNECT on the database, USAGE on the schema and SELECT on its tables.
+- ClickHouse: `CREATE USER cep_reader IDENTIFIED BY '…' SETTINGS readonly = 2; GRANT SELECT ON your_db.* TO cep_reader;`
+  An account whose profile is read-only (`readonly = 1` or `2`) passes whatever it was granted; otherwise it may hold
+  SELECT and SHOW and nothing else. With `readonly = 1` the server also refuses the engine's time limit, so the server's
+  own limits apply.
 
 Grant SELECT on views alone to hide tables the engine should never see. The database must be reachable from CEP's
 server; a private network address is fine when CEP's server sits on that network.
@@ -3295,9 +3316,10 @@ server; a private network address is fine when CEP's server sits on that network
 ## Connecting a database
 
 1. Press **Connect a Database**. Give it a name (what people see in New Report), pick the engine, and enter the host,
-   port (3306 for MySQL, 5432 for PostgreSQL), database, user and password. For PostgreSQL, also the schema the tables
-   live in (`public` unless told otherwise). SSL is Required by default; Preferred tries SSL first, Off is for a private
-   network.
+   port (3306 for MySQL, 5432 for PostgreSQL, 8443 for ClickHouse), database, user and password. For PostgreSQL, also the
+   schema the tables live in (`public` unless told otherwise). SSL is Required by default; Preferred tries SSL first, Off
+   is for a private network. ClickHouse is read over its HTTP interface: **HTTPS** on 8443, or **Off (plain HTTP)** on 8123
+   on a private network; the port follows the choice.
 2. **Test Connection** reaches the server and reports four facts: reached and the version, what the account can read,
    whether the account is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds
    beyond SELECT; the connection can be saved but cannot be used until the account is fixed.

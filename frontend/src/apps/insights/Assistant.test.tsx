@@ -1,5 +1,5 @@
 /** AI · Ask for a Report: the box above the report list, a draft and Open in Editor, a question back, when the box is absent, and Settings → AI Assistant. */
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -132,7 +132,7 @@ test('a workspace adds its own key for a provider: the form, one PUT with the ke
   expect(within(screen.getByRole('listitem', { name: 'OpenAI' })).getByRole('button', { name: 'Use the Platform’s Key' })).toBeTruthy()
 })
 
-test('a long prompt over several lines with images: Add Images takes up to three PNG, JPEG, GIF or WebP files, refuses others, shows them to remove, and Generate sends them with the prompt', async () => {
+test('a long prompt over several lines with images: Add Images takes up to five PNG, JPEG, GIF or WebP files, refuses others, shows them to remove, and Generate sends them with the prompt', async () => {
   const calls = await renderAppAt('/insights/reports')
   const user = userEvent.setup({ applyAccept: false })
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
@@ -146,11 +146,13 @@ test('a long prompt over several lines with images: Add Images takes up to three
   const png = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
   await user.upload(picker, [new File(['notes'], 'notes.txt', { type: 'text/plain' })])
   expect(within(box).getByRole('alert').textContent).toBe('notes.txt is not a PNG, JPEG, GIF or WebP image.')
-  await user.upload(picker, [png('sketch.png'), png('chart.png'), png('table.png'), png('fourth.png')])
-  expect(within(box).getByRole('alert').textContent).toBe('Add up to 3 images.')
+  await user.upload(picker, [png('sketch.png'), png('chart.png'), png('table.png'), png('bars.png'), png('pie.png'), png('sixth.png')])
+  expect(within(box).getByRole('alert').textContent).toBe('Add up to 5 images. sixth.png was not added.')
   const shown = within(box).getByRole('list', { name: 'Images' })
-  expect(within(shown).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['sketch.png', 'chart.png', 'table.png'])
+  expect(within(shown).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['sketch.png', 'chart.png', 'table.png', 'bars.png', 'pie.png'])
+  expect(within(box).getByText('5 of 5')).toBeTruthy()
   expect((within(box).getByRole('button', { name: 'Add Images' }) as HTMLButtonElement).disabled).toBe(true)
+  for (const name of ['bars.png', 'pie.png']) await user.click(within(shown).getByRole('button', { name: `Remove ${name}` }))
   await user.click(within(shown).getByRole('button', { name: 'Remove chart.png' }))
   expect(within(shown).getAllByRole('img')).toHaveLength(2)
   expect(within(box).getByText(/Sends your prompt, the images and the field names/)).toBeTruthy()
@@ -161,4 +163,31 @@ test('a long prompt over several lines with images: Add Images takes up to three
   expect(sent?.get('prompt')).toBe('Net sales by store, like the sketch\n- one bar per store\n- last quarter')
   expect(sent?.get('model')).toBe('anthropic:claude-sonnet-5-5')
   expect(((sent?.getAll('images') ?? []) as File[]).map((file) => file.name)).toEqual(['sketch.png', 'table.png'])
+})
+
+test('files dragged over the panel show the drop target; dropping adds the images, and a file that is not one is refused', async () => {
+  await renderAppAt('/insights/reports')
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  expect(within(box).getByText('Drop, paste or attach up to 5 images')).toBeTruthy()
+  const png = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
+  const carrying = (files: File[]) => ({ dataTransfer: { files, types: ['Files'], dropEffect: 'none' } })
+
+  fireEvent.dragOver(within(box).getByRole('heading', { name: 'Ask for a Report' }), carrying([png('sketch.png')]))
+  expect(within(box).getByText('Drop images here')).toBeTruthy()
+  fireEvent.dragLeave(box, { relatedTarget: document.body })
+  expect(within(box).queryByText('Drop images here')).toBeNull()
+
+  fireEvent.dragOver(box, carrying([png('sketch.png'), png('chart.png')]))
+  fireEvent.drop(within(box).getByRole('textbox', { name: 'What do you want to see?' }), carrying([png('sketch.png'), png('chart.png')]))
+  expect(within(box).queryByText('Drop images here')).toBeNull()
+  const shown = await within(box).findByRole('list', { name: 'Images' })
+  expect(within(shown).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['sketch.png', 'chart.png'])
+  expect(within(box).getByText('2 of 5')).toBeTruthy()
+
+  fireEvent.drop(box, carrying([new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' })]))
+  expect((await within(box).findByRole('alert')).textContent).toBe('plan.pdf is not a PNG, JPEG, GIF or WebP image.')
+  expect(within(shown).getAllByRole('img')).toHaveLength(2)
+
+  fireEvent.dragOver(box, { dataTransfer: { files: [], types: ['text/plain'], dropEffect: 'none' } })
+  expect(within(box).queryByText('Drop images here')).toBeNull()
 })

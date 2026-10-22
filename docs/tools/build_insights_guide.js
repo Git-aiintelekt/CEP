@@ -136,15 +136,15 @@ const PARTS = [
   { title: 'Exploring the Data', intro: 'Going down a level, opening the rows behind a value, asking a question before a report runs, and finding what drives a number.', items: [
     'Drill down in a chart', 'Drill in a pivot or a hierarchy', 'Open a detail report from a value (drill-through)', 'Show another report when someone hovers a value (Tooltip Report)',
     'Find what drives a value (Key Influencers)', 'Break a value down step by step (Decomposition Tree)', 'Ask a question before a report runs (Parameters)', 'Show the SQL'] },
-  { title: 'Your Own Data', intro: 'Reports on a CSV or Excel file, and on a MySQL or PostgreSQL database of your own, read-only.', items: [
-    'Report on a CSV or Excel file (Uploaded Files)', 'Connect a database', 'Map a dataset from a table', 'Join tables in a dataset', 'Add a calculated measure',
+  { title: 'Your Own Data', intro: 'Reports on a CSV or Excel file, and on a MySQL, PostgreSQL or ClickHouse database of your own, read-only.', items: [
+    'Report on a CSV or Excel file (Uploaded Files)', 'Connect a database', 'Connect a database from New Report', 'Map a dataset from a table', 'Join tables in a dataset', 'Add a calculated measure',
     'Build a report from a query'] },
   { title: 'Dashboards', intro: 'Pages of tiles on one period, with slicers, cross-filtering, saved views, pages, a free canvas, a phone layout and themes.', items: [
     { custom: 'dashboards' }, 'Add slicers to a dashboard', 'Filter a dashboard with slicers', 'Slice a dashboard by a range of numbers or dates', 'Cross-filter by clicking',
     'Save a dashboard view (bookmarks)', 'Spread a dashboard over pages', 'Lay a dashboard out freely (Free Canvas)', 'See and shape the phone layout', 'Give a dashboard a theme',
     'Add text to a dashboard', 'Add a button that opens a saved view, a page or a report', 'Add a written summary to a dashboard'] },
   { title: 'AI Features', intro: 'Reports from a sentence, explanations of a report, and changes to a report in words. Each is there once your platform offers an AI provider and your workspace allows it.', items: [
-    'Ask for a Report', 'Use AI in your workspace', 'Explain This Report, with AI', 'Change a report with a prompt, with AI'] },
+    'Ask for a Report', 'Add images to a prompt', 'Use AI in your workspace', 'Explain This Report, with AI', 'Change a report with a prompt, with AI'] },
   { title: 'Sharing, Delivery and Exports', intro: 'Who sees what, links for other sites, comments, alerts, scheduled emails and every file a report can become.', items: [
     'Share a report or a dashboard', 'Limit what a person sees (Report Access)', 'Embed a report or a dashboard on another site',
     'Comment on a report or a dashboard, and pin a note to a value', 'Get an email when a value crosses a threshold (Alerts)', { custom: 'schedule' },
