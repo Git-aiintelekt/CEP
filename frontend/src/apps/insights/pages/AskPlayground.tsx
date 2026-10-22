@@ -76,7 +76,8 @@ export default function AskPlayground() {
     window.fetch = async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       if (url.includes('/insights/assistant/ask/')) {
-        const body = JSON.parse(String(init?.body ?? '{}')) as { prompt: string; model: string }
+        const form = init?.body instanceof FormData ? init.body : null                     // with images it comes as multipart
+        const body = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')) } : JSON.parse(String(init?.body ?? '{}'))) as { prompt: string; model: string }
         await new Promise((resolve) => setTimeout(resolve, 600))
         return new Response(JSON.stringify(reply(body.prompt, body.model)), { status: 200, headers: { 'content-type': 'application/json' } })
       }

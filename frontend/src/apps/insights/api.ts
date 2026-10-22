@@ -157,7 +157,14 @@ export const schedulesApi = {
 
 export const assistantApi = {
   state: (signal?: AbortSignal) => api.get<AssistantState>('/insights/assistant/', undefined, signal),
-  ask: (body: { prompt: string; model: string; answer_to?: string }) => api.post<AskResult>('/insights/assistant/ask/', body),
+  /** with images, sent as multipart (the files under `images`); the images go to the model and are not kept */
+  ask: (body: { prompt: string; model: string; answer_to?: string }, images: File[] = []) => {
+    if (!images.length) return api.post<AskResult>('/insights/assistant/ask/', body)
+    const form = new FormData()
+    for (const [key, value] of Object.entries(body)) if (value !== undefined) form.append(key, value)
+    for (const image of images) form.append('images', image)
+    return api.post<AskResult>('/insights/assistant/ask/', form)
+  },
   /** the draft becomes a private report, opened in the editor */
   open: (id: string) => api.post<Report>(`/insights/assistant/${id}/open/`, {}),
   change: (body: { dataset: string; definition: ReportDefinition; prompt: string; model?: string }) => api.post<ChangeResult>('/insights/assistant/change/', body),

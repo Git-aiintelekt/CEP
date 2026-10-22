@@ -46,7 +46,13 @@ from apps.tenants import context
 P = settings.PLATFORM_ALIAS
 SETTINGS_KEY = "ai_assistant"
 RETENTION_DAYS = 90
-PROMPT_MAX = 1000
+PROMPT_MAX = 4000
+# images sent with Ask for a Report (a sketch of the report, a screenshot of a chart or a table): read for the request, never stored
+IMAGES_MAX = 3
+IMAGE_BYTES_MAX = 3_750_000                                         # the providers' 5 MB limit once base64-encoded
+IMAGE_FORMATS = {"PNG": "image/png", "JPEG": "image/jpeg", "GIF": "image/gif", "WEBP": "image/webp"}
+IMAGES_NOTE = ("The person attached {n} image{s} with this request: a sketch of the report they want, or a screenshot of a chart, a table or a "
+               "spreadsheet. Read them for the fields, groupings, periods and view to propose; they hold no rows to use as data.")
 RECENT = 8
 TIMEOUT_S = 60
 
@@ -364,14 +370,56 @@ SQL_SCHEMA = {"type": "object", "properties": {"sql": {"type": "string", "descri
               "required": ["sql"]}
 
 
-def call_model(provider: str, row: dict, model: str, system: str, user: str, *, timeout_s: int = TIMEOUT_S, schema: dict | None = None, tool: str = "propose_report") -> tuple[dict, dict]:
-    """One exchange with the provider, forced into the schema: the reply as a dict, and the usage {"in", "out"}."""
+def clean_prompt(text) -> str:
+    """the prompt as written, its line breaks kept: spaces inside a line collapsed, the lines trimmed, at most one empty line in a row"""
+    lines = [" ".join(line.split()) for line in str(text or "").replace("\r\n", "\n").split("\n")]
+    out: list[str] = []
+    for line in lines:
+        if line or (out and out[-1]):
+            out.append(line)
+    return "\n".join(out).strip()
+
+
+def read_images(files) -> list[dict]:
+    """Uploaded images as the providers take them, {media_type, data (base64)}: at most IMAGES_MAX, each a PNG, JPEG, GIF or WebP the
+    image library can read (whatever its name or declared type says) and no larger than IMAGE_BYTES_MAX. ValidationError otherwise."""
+    import base64
+    from io import BytesIO
+
+    from PIL import Image, UnidentifiedImageError
+    files = list(files or [])
+    if len(files) > IMAGES_MAX:
+        raise ValidationError({"images": f"Add up to {IMAGES_MAX} images."})
+    out = []
+    for upload in files:
+        raw = upload.read()
+        name = getattr(upload, "name", "") or "the image"
+        if len(raw) > IMAGE_BYTES_MAX:
+            raise ValidationError({"images": f"{name} is {len(raw) / 1_000_000:.1f} MB; an image may be up to {IMAGE_BYTES_MAX / 1_000_000:.1f} MB."})
+        try:
+            with Image.open(BytesIO(raw)) as image:
+                kind = image.format
+                image.verify()
+        except (UnidentifiedImageError, OSError, ValueError, SyntaxError):
+            kind = None
+        if kind not in IMAGE_FORMATS:
+            raise ValidationError({"images": f"{name} is not a PNG, JPEG, GIF or WebP image."})
+        out.append({"media_type": IMAGE_FORMATS[kind], "data": base64.b64encode(raw).decode("ascii")})
+    return out
+
+
+def call_model(provider: str, row: dict, model: str, system: str, user: str, *, timeout_s: int = TIMEOUT_S, schema: dict | None = None, tool: str = "propose_report",
+               images: list[dict] | None = None) -> tuple[dict, dict]:
+    """One exchange with the provider, forced into the schema: the reply as a dict, and the usage {"in", "out"}. images: read_images()'s,
+    sent before the text (Anthropic) or after it (OpenAI), as each provider takes them."""
     base = PROVIDERS[provider]["base"]
     key = _key_of(row)
     schema = schema or SCHEMA
+    images = images or []
     try:
         if provider == "anthropic":
-            body = {"model": model, "max_tokens": 2000, "system": system, "messages": [{"role": "user", "content": user}],
+            content = [*({"type": "image", "source": {"type": "base64", "media_type": i["media_type"], "data": i["data"]}} for i in images), {"type": "text", "text": user}] if images else user
+            body = {"model": model, "max_tokens": 2000, "system": system, "messages": [{"role": "user", "content": content}],
                     "tools": [{"name": tool, "description": "The reply, in the shape asked for.", "input_schema": schema}],
                     "tool_choice": {"type": "tool", "name": tool}}
             response = requests.post(f"{base}/v1/messages", json=body, timeout=timeout_s,
@@ -380,7 +428,8 @@ def call_model(provider: str, row: dict, model: str, system: str, user: str, *, 
             reply = next((block["input"] for block in data.get("content", []) if block.get("type") == "tool_use"), None)
             usage = data.get("usage") or {}
             return reply or {}, {"in": int(usage.get("input_tokens") or 0), "out": int(usage.get("output_tokens") or 0)}
-        body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        content = [{"type": "text", "text": user}, *({"type": "image_url", "image_url": {"url": f"data:{i['media_type']};base64,{i['data']}"}} for i in images)] if images else user
+        body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
                 "response_format": {"type": "json_schema", "json_schema": {"name": tool, "schema": schema}}}
         response = requests.post(f"{base}/v1/chat/completions", json=body, timeout=timeout_s, headers={"Authorization": f"Bearer {key}"})
         data = _json_of(response)
@@ -471,9 +520,10 @@ def _prompts(raw, most: int) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------------------------------- asking
-def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = None) -> dict:
+def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = None, images: list[dict] | None = None) -> dict:
     """The whole exchange: the allowance, the catalogue, one call (and one retry when the draft does not fit), the preview's row
-    count, the row in ai_prompt. Raises AssistantError for the person; ValidationError for a bad body."""
+    count, the row in ai_prompt. images go to the model with the prompt and are not kept. Raises AssistantError for the person;
+    ValidationError for a bad body."""
     state = offer(tenant, request)
     if not state["enabled"]:
         raise AssistantError({"no_right": "Asking for a report needs the report.edit permission.", "no_provider": "No AI provider is switched on for the platform.",
@@ -492,14 +542,16 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
     started = time.monotonic()
     usage = {"in": 0, "out": 0}
     outcome, result, failure = "FAILED", None, None
+    images = images or []
+    asked = f"{prompt}\n\n{IMAGES_NOTE.format(n=len(images), s='' if len(images) == 1 else 's')}" if images else prompt
     try:
-        reply, used = call_model(chosen["provider"], row, chosen["model"], system, prompt)
+        reply, used = call_model(chosen["provider"], row, chosen["model"], system, asked, images=images)
         usage = {k: usage[k] + used[k] for k in usage}
         try:
             result = interpret(reply, datasets, max_limit=limits["run_rows"])
         except DefinitionError as exc:
-            note = f"{prompt}\n\n(An earlier draft was refused: {exc.field}: {exc}. Keep to the catalogue and the rules.)"
-            reply, used = call_model(chosen["provider"], row, chosen["model"], system, note)
+            note = f"{asked}\n\n(An earlier draft was refused: {exc.field}: {exc}. Keep to the catalogue and the rules.)"
+            reply, used = call_model(chosen["provider"], row, chosen["model"], system, note, images=images)
             usage = {k: usage[k] + used[k] for k in usage}
             try:
                 result = interpret(reply, datasets, max_limit=limits["run_rows"])
@@ -648,10 +700,11 @@ class AskView(APIView):
 
     @extend_schema(request=None, responses={200: None})
     def post(self, request, version=None):
-        body = request.data if isinstance(request.data, dict) else {}
-        prompt = " ".join(str(body.get("prompt") or "").split())
+        body = request.data if isinstance(request.data, dict) else {}                  # JSON, or multipart when images come with it
+        prompt = clean_prompt(body.get("prompt"))
         if not prompt or len(prompt) > PROMPT_MAX:
-            raise ValidationError({"prompt": f"Say what you want to see, in up to {PROMPT_MAX} characters."})
+            raise ValidationError({"prompt": f"Say what you want to see, in up to {PROMPT_MAX:,} characters."})
+        images = read_images(request.FILES.getlist("images")) if request.FILES else []
         answer_to = body.get("answer_to")
         if answer_to is not None:
             try:
@@ -659,7 +712,7 @@ class AskView(APIView):
             except ValueError:
                 raise ValidationError({"answer_to": "Not a prompt."}) from None
         try:
-            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to))
+            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images))
         except AssistantError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
