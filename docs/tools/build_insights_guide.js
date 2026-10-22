@@ -137,7 +137,7 @@ const PARTS = [
     'Drill down in a chart', 'Drill in a pivot or a hierarchy', 'Open a detail report from a value (drill-through)', 'Show another report when someone hovers a value (Tooltip Report)',
     'Find what drives a value (Key Influencers)', 'Break a value down step by step (Decomposition Tree)', 'Ask a question before a report runs (Parameters)', 'Show the SQL'] },
   { title: 'Your Own Data', intro: 'Reports on a CSV or Excel file, and on a MySQL, PostgreSQL or ClickHouse database of your own, read-only.', items: [
-    'Report on a CSV or Excel file (Uploaded Files)', 'Connect a database', 'Connect a database from New Report', 'Map a dataset from a table', 'Join tables in a dataset', 'Add a calculated measure',
+    'Report on a CSV or Excel file (Uploaded Files)', 'Connect a database', 'Set how reports treat a database', 'Connect a database from New Report', 'Map a dataset from a table', 'Join tables in a dataset', 'Add a calculated measure',
     'Build a report from a query'] },
   { title: 'Dashboards', intro: 'Pages of tiles on one period, with slicers, cross-filtering, saved views, pages, a free canvas, a phone layout and themes.', items: [
     { custom: 'dashboards' }, 'Add slicers to a dashboard', 'Filter a dashboard with slicers', 'Slice a dashboard by a range of numbers or dates', 'Cross-filter by clicking',

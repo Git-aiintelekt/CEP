@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Database Limits</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --sunken:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1320px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1100px) { .row { grid-template-columns:minmax(0,1fr) } }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0 }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:var(--surface) }
+  .page { padding:20px; min-width:0 }
+
+  /* the dialog */
+  .modal { background:var(--surface); border:1px solid var(--line); border-radius:16px; max-width:640px; margin:0 auto; box-shadow:0 8px 24px rgb(20 23 31 / 0.10) }
+  .mhead { padding:18px 20px 12px; border-bottom:1px solid var(--line-subtle) }
+  .mhead h3 { font-size:18px; line-height:26px } .mhead p { font-size:13px; color:var(--ink-800) }
+  .mbody { padding:16px 20px; display:flex; flex-direction:column; gap:14px }
+  .mfoot { padding:12px 20px; border-top:1px solid var(--line-subtle); display:flex; gap:8px; justify-content:flex-end }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px } .grid21 { display:grid; grid-template-columns:1fr 120px; gap:14px }
+  .field label { display:block; font-size:13px; font-weight:500; color:var(--ink-900); margin-bottom:4px }
+  .field label i { font-style:normal; color:var(--danger-text) }
+  .input { height:40px; border:1px solid var(--line-control); border-radius:999px; padding:0 14px; display:flex; align-items:center; font-size:14px; background:#fff; gap:8px }
+  .input.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .input .unit { margin-left:auto; color:var(--ink-800); font-size:13px }
+  .input.select::after { content:"▾"; margin-left:auto; color:var(--ink-700); font-size:12px }
+  .hint { font-size:12px; line-height:16px; color:var(--ink-800); margin-top:4px }
+  .hint.warn { color:var(--warning-text) }
+  .mono { font-family:var(--mono); font-size:13px }
+  .section { border-top:1px solid var(--line-subtle); padding-top:14px; display:flex; flex-direction:column; gap:10px }
+  .section h4 { margin:0; font-size:14px; font-weight:600 } .section .sub { font-size:12.5px; line-height:17px; color:var(--ink-800) }
+  .btn { height:36px; border-radius:999px; padding:0 14px; font:500 14px/1 var(--font); display:inline-flex; align-items:center; border:1px solid var(--line-control); background:#fff; color:var(--ink-900) }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+  .btn.sm { height:32px; font-size:12.5px; padding:0 12px }
+
+  /* presets (option B) */
+  .presets { display:grid; grid-template-columns:1fr 1fr; gap:8px }
+  .preset { border:1px solid var(--line); border-radius:12px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; background:#fff }
+  .preset.on { border-color:var(--brand-600); background:#f2f6fe; box-shadow:inset 0 0 0 1px var(--brand-600) }
+  .radio { width:16px; height:16px; border-radius:999px; border:1.5px solid var(--line-control); flex:none; margin-top:3px; background:#fff }
+  .preset.on .radio { border:5px solid var(--brand-600) }
+  .preset b { display:block; font-size:13.5px; line-height:19px; font-weight:600 } .preset small { display:block; font-size:12px; line-height:16px; color:var(--ink-800) }
+  .preset .val { font-size:12px; color:var(--ink-900); margin-top:3px; font-variant-numeric:tabular-nums }
+
+  /* the cards on Settings → Report Databases */
+  .cards { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px }
+  @media (max-width:900px) { .cards { grid-template-columns:minmax(0,1fr) } }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:10px; min-width:0 }
+  .chead { display:flex; gap:12px; align-items:flex-start }
+  .mark { width:36px; height:36px; border-radius:12px; background:var(--brand-100); color:var(--brand-800); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .card .t { font-size:14px; font-weight:600 } .card .s { font-size:12px; color:var(--ink-800) }
+  dl { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; margin:0; font-size:12px }
+  dt { color:var(--ink-800) } dd { margin:0; color:var(--ink-900) }
+  .ok { color:var(--success-text); font-weight:600 }
+  .chip { display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:999px; font-size:11.5px; font-weight:500; background:var(--fill-subtle); color:var(--ink-900) }
+  .chip.careful { background:var(--warning-bg); color:var(--warning-text) }
+  .actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; padding-top:4px }
+  .runlog { margin-top:14px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:13px }
+  .runlog p + p { margin-top:4px; color:var(--ink-800); font-size:12px }
+
+  .card-wide { margin-top:40px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Settings → Report Databases, the Connect a Database / Edit dialog and the database cards. Sample databases.</div>
+  <p class="note">Each Report Database gets its own <strong>time limit</strong> (how long one report may read it) and <strong>reports at once</strong> (how many may read it at the same time). Workspace administrators set them in the app; no restart is needed, the next report uses them. The back-office keeps the workspace's default. Both options change the same two values; they differ in how they are asked for.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: two fields in the dialog</h2>
+  <p>A <strong>Limits</strong> section under the account, with the two values and what they protect.</p>
+
+  <div class="label">A1 · Edit CG-Prod, a slow production database <span>The time limit raised to 60 seconds, two reports at once. A hint under each field says the range; a note warns when the database is the live one.</span></div>
+  <div class="row">
+    <div class="frame"><div class="cap">Option A · Edit dialog</div><div class="page">
+      <div class="modal">
+        <div class="mhead"><h3>Edit CG-Prod</h3><p>Read-only. The engine only ever selects from it.</p></div>
+        <div class="mbody">
+          <div class="field"><label>Name <i>*</i></label><div class="input">CG-Prod</div><div class="hint">What people see in New Report.</div></div>
+          <div class="grid2"><div class="field"><label>Engine</label><div class="input select">MySQL 5.7</div></div><div class="field"><label>SSL</label><div class="input select">Required</div></div></div>
+          <div class="grid21"><div class="field"><label>Host <i>*</i></label><div class="input">db.cg-retail.internal</div></div><div class="field"><label>Port</label><div class="input">3306</div></div></div>
+          <div class="grid2"><div class="field"><label>User <i>*</i></label><div class="input mono">c360_reports</div></div><div class="field"><label>Password</label><div class="input"></div><div class="hint">Leave empty to keep the stored password.</div></div></div>
+          <div class="section">
+            <h4>Limits</h4>
+            <p class="sub">What a report may ask of this database. The next report uses them; nothing restarts.</p>
+            <div class="grid2">
+              <div class="field"><label>Time Limit</label><div class="input focus">60<span class="unit">seconds</span></div><div class="hint">5 to 110. A report that needs longer is stopped with advice to narrow it.</div></div>
+              <div class="field"><label>Reports at Once</label><div class="input select">2</div><div class="hint">1 to 4. Others wait their turn.</div></div>
+            </div>
+            <p class="hint warn">This is a live production database: keep reports at once low, and schedule heavy reports outside working hours.</p>
+          </div>
+        </div>
+        <div class="mfoot"><span class="btn">Cancel</span><span class="btn">Test Connection</span><span class="btn primary">Save</span></div>
+      </div>
+    </div></div>
+
+    <div class="frame"><div class="cap">Option A · Connect a Database (new: the defaults)</div><div class="page">
+      <div class="modal">
+        <div class="mhead"><h3>Connect a Database</h3><p>Read-only. The engine only ever selects from it.</p></div>
+        <div class="mbody">
+          <div class="field"><label>Name <i>*</i></label><div class="input"></div><div class="hint">What people see in New Report.</div></div>
+          <div class="grid2"><div class="field"><label>Engine</label><div class="input select">MySQL 8.0</div></div><div class="field"><label>SSL</label><div class="input select">Required</div></div></div>
+          <div class="grid21"><div class="field"><label>Host <i>*</i></label><div class="input"></div></div><div class="field"><label>Port</label><div class="input">3306</div></div></div>
+          <div class="grid2"><div class="field"><label>User <i>*</i></label><div class="input"></div></div><div class="field"><label>Password <i>*</i></label><div class="input"></div><div class="hint">Stored encrypted and never shown again.</div></div></div>
+          <div class="section">
+            <h4>Limits</h4>
+            <p class="sub">What a report may ask of this database. The next report uses them; nothing restarts.</p>
+            <div class="grid2">
+              <div class="field"><label>Time Limit</label><div class="input">15<span class="unit">seconds</span></div><div class="hint">5 to 110. The workspace's default is 15.</div></div>
+              <div class="field"><label>Reports at Once</label><div class="input select">4</div><div class="hint">1 to 4. Others wait their turn.</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="mfoot"><span class="btn">Cancel</span><span class="btn">Test Connection</span><span class="btn primary">Save</span></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: a choice of how careful to be</h2>
+  <p>Three presets named by the kind of database, and Custom for the two fields. The preset says what it sets, so nobody has to know what a good number is.</p>
+
+  <div class="label">B1 · Edit CG-Prod: Live Production Database chosen, then Custom <span>Left: the preset picked. Right: Custom, which shows the two fields of option A.</span></div>
+  <div class="row">
+    <div class="frame"><div class="cap">Option B · a preset</div><div class="page">
+      <div class="modal">
+        <div class="mhead"><h3>Edit CG-Prod</h3><p>Read-only. The engine only ever selects from it.</p></div>
+        <div class="mbody">
+          <div class="grid2"><div class="field"><label>User <i>*</i></label><div class="input mono">c360_reports</div></div><div class="field"><label>Password</label><div class="input"></div><div class="hint">Leave empty to keep the stored password.</div></div></div>
+          <div class="section">
+            <h4>How Reports Treat This Database</h4>
+            <p class="sub">The next report uses it; nothing restarts.</p>
+            <div class="presets">
+              <div class="preset"><span class="radio"></span><div><b>Standard</b><small>A reporting copy or a small database.</small><div class="val">15 seconds · 4 at once</div></div></div>
+              <div class="preset"><span class="radio"></span><div><b>Large or Slow</b><small>Big tables, or a server behind a slow link.</small><div class="val">60 seconds · 2 at once</div></div></div>
+              <div class="preset on"><span class="radio"></span><div><b>Live Production Database</b><small>The database the business runs on. Gentle.</small><div class="val">60 seconds · 1 at once</div></div></div>
+              <div class="preset"><span class="radio"></span><div><b>Custom</b><small>Set the two values yourself.</small><div class="val">5–110 seconds · 1–4 at once</div></div></div>
+            </div>
+            <p class="hint warn">One report at a time reads it: others wait their turn. Schedule heavy reports outside working hours.</p>
+          </div>
+        </div>
+        <div class="mfoot"><span class="btn">Cancel</span><span class="btn">Test Connection</span><span class="btn primary">Save</span></div>
+      </div>
+    </div></div>
+
+    <div class="frame"><div class="cap">Option B · Custom</div><div class="page">
+      <div class="modal">
+        <div class="mhead"><h3>Edit CG-Prod</h3><p>Read-only. The engine only ever selects from it.</p></div>
+        <div class="mbody">
+          <div class="section" style="border-top:0;padding-top:0">
+            <h4>How Reports Treat This Database</h4>
+            <p class="sub">The next report uses it; nothing restarts.</p>
+            <div class="presets">
+              <div class="preset"><span class="radio"></span><div><b>Standard</b><small>A reporting copy or a small database.</small><div class="val">15 seconds · 4 at once</div></div></div>
+              <div class="preset"><span class="radio"></span><div><b>Large or Slow</b><small>Big tables, or a server behind a slow link.</small><div class="val">60 seconds · 2 at once</div></div></div>
+              <div class="preset"><span class="radio"></span><div><b>Live Production Database</b><small>The database the business runs on. Gentle.</small><div class="val">60 seconds · 1 at once</div></div></div>
+              <div class="preset on"><span class="radio"></span><div><b>Custom</b><small>Set the two values yourself.</small><div class="val">90 seconds · 2 at once</div></div></div>
+            </div>
+            <div class="grid2">
+              <div class="field"><label>Time Limit</label><div class="input focus">90<span class="unit">seconds</span></div><div class="hint">5 to 110.</div></div>
+              <div class="field"><label>Reports at Once</label><div class="input select">2</div><div class="hint">1 to 4.</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="mfoot"><span class="btn">Cancel</span><span class="btn">Test Connection</span><span class="btn primary">Save</span></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===================================================== THE CARDS -->
+  <h2 class="part">On the page: the cards (both options)</h2>
+  <p>Each card gets a <strong>Limits</strong> line; the preset's name (option B) or the two values (option A). A report stopped by the limit names the database and its limit.</p>
+  <div class="label">Three databases, one of them the live one <span>The sparse case, a new connection on the defaults, is the third card.</span></div>
+  <div class="frame"><div class="cap">Settings → Report Databases</div><div class="page">
+    <div class="cards">
+      <div class="card">
+        <div class="chead"><span class="mark">MY 5.7</span><div><p class="t">CG-Prod</p><p class="s">MySQL 5.7.44 · db.cg-retail.internal:3306 / shop</p></div></div>
+        <dl><dt>Connects as</dt><dd><span class="mono" style="font-size:12px">c360_reports</span> <span class="ok">✓ Read-only</span></dd>
+          <dt>Limits</dt><dd><span class="chip careful">Live Production Database</span> 60 s · 1 at once</dd>
+          <dt>Datasets</dt><dd>Store Sales, Orders</dd><dt>Last test</dt><dd>23 Oct 2026, 09:14</dd></dl>
+        <div class="actions"><span class="btn sm">Test Connection</span><span class="btn sm">Map a Dataset</span><span class="btn sm">Query</span><span class="btn sm">Edit</span></div>
+      </div>
+      <div class="card">
+        <div class="chead"><span class="mark">PG</span><div><p class="t">Finance Warehouse</p><p class="s">PostgreSQL 16.4 · dwh.internal:5432 / finance · reporting</p></div></div>
+        <dl><dt>Connects as</dt><dd><span class="mono" style="font-size:12px">c360_read</span> <span class="ok">✓ Read-only</span></dd>
+          <dt>Limits</dt><dd><span class="chip">Large or Slow</span> 60 s · 2 at once</dd>
+          <dt>Datasets</dt><dd>Ledger, Budgets</dd><dt>Last test</dt><dd>22 Oct 2026, 17:40</dd></dl>
+        <div class="actions"><span class="btn sm">Test Connection</span><span class="btn sm">Map a Dataset</span><span class="btn sm">Query</span><span class="btn sm">Edit</span></div>
+      </div>
+      <div class="card">
+        <div class="chead"><span class="mark">MY 8.0</span><div><p class="t">Loyalty Copy</p><p class="s">MySQL 8.0.36 · loyalty-ro.internal:3306 / loyalty</p></div></div>
+        <dl><dt>Connects as</dt><dd><span class="mono" style="font-size:12px">c360_reports</span> <span class="ok">✓ Read-only</span></dd>
+          <dt>Limits</dt><dd><span class="chip">Standard</span> 15 s · 4 at once</dd>
+          <dt>Datasets</dt><dd>None yet</dd><dt>Last test</dt><dd>23 Oct 2026, 10:02</dd></dl>
+        <div class="actions"><span class="btn sm">Test Connection</span><span class="btn sm">Map a Dataset</span><span class="btn sm">Query</span><span class="btn sm">Edit</span></div>
+      </div>
+    </div>
+    <div class="runlog"><p><strong>When a report reaches the limit</strong> (in the report, and in Insights → Run Log):</p>
+      <p>“Stopped after 60 seconds, the limit for CG-Prod. Narrow the report with a filter or a shorter period, or ask your administrator to raise the limit under Settings → Report Databases.”</p>
+      <p>“Waiting: CG-Prod reads one report at a time. Yours starts when the one before it finishes.”</p></div>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>Two values per connection</strong> on <code>report_connection</code>: <code>query_timeout_s</code> (5–110, empty = the workspace's default, 15 unless the back-office raised it) and <code>max_concurrent</code> (1–4, empty = 4). A patch adds them; nothing else changes for existing connections.</li>
+      <li><strong>The dialog</strong> (Connect a Database / Edit, under Settings → Report Databases and from New Report) gets the Limits section of the chosen option; workspace administrators set it, as they set the rest of the connection. Saved like the other fields; the next report uses it, nothing restarts.</li>
+      <li><strong>The runner</strong> uses the connection's time limit for every report, preview, export and query on that database, and a slot per connection (as it keeps one per workspace today), so a second report waits rather than adds load. Scheduled reports follow the same limits.</li>
+      <li><strong>Reading the catalogue</strong> (the table list, columns, Test Connection) takes at least 60 seconds, or the time limit when it is longer.</li>
+      <li><strong>The 110-second ceiling</strong> stays: the web server stops a request after 120. The back-office Query Limits keep the workspace's default and are refused above 110.</li>
+      <li><strong>The messages</strong> name the database and its limit, as shown above.</li>
+      <li><strong>Help</strong>: the Report Databases chapter gets the step "Set how long reports may read a database"; the Platform Guide says the per-connection values win over the workspace default.</li>
+      <li><strong>Tests</strong>: the fields and their ranges, saving them, the runner using the connection's limit and slot, a second report waiting.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option B.</strong> The people who connect a database know what kind it is (a live production database, a reporting copy) far better than what a good number of seconds is. The presets put that knowledge to use, Live Production Database makes the careful choice the obvious one for a database like CG-Prod, and Custom keeps the exact values for anyone who wants them.</div>
+</div>
+</body>
+</html>

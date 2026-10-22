@@ -3244,13 +3244,25 @@ database from Insights → New Report → **Connect a Database**; changing or re
 **Connect a database** (workspace administrator)
 
 1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL, PostgreSQL and ClickHouse.
-2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL.
+2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL. **Find Databases** (on PostgreSQL **Find Schemas**) lists the databases the account can see with their table counts, so you pick one instead of typing it; it reads names only.
 3. Press **Test Connection**. Four facts come back: reached and the version, what the account can read, whether it is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds beyond SELECT; have the account fixed before mapping anything.
 4. Press **Save**. The password is stored encrypted and never shown; leave it empty on a later edit to keep it.
 
+**Set how reports treat a database** (workspace administrator)
+
+1. Open Settings → Report Databases and press **Edit** on the database's card (or set it while you connect it).
+2. Under **How Reports Treat This Database**, pick what kind of database it is:
+   **Standard** for a reporting copy or a small database (the workspace's limits, usually 15 seconds and 4 reports at once);
+   **Large or Slow** for big tables or a server behind a slow link (60 seconds, 2 at once);
+   **Live Production Database** for the database the business runs on (60 seconds, 1 at once);
+   or **Custom** to set the **Time Limit** (5 to 110 seconds) and **Reports at Once** (1 to 4) yourself.
+3. Press **Save**. The next report uses it; nothing restarts. The card shows the choice and its two values.
+
+A report that needs longer than the time limit is stopped, with a message that names the database and its limit. A report that finds the database busy with as many reports as it allows waits up to 10 seconds for its turn, then asks you to try again. Reading the database's list of tables and columns may take at least 60 seconds, or the time limit when that is longer.
+
 **Map a dataset from a table** (workspace administrator)
 
-1. On the database's card, press **Map a Dataset**. Pick a table or view on the left; views come first.
+1. On the database's card, press **Map a Dataset**. The list on the left holds every table and view by name, read live from the database when the page opens (one statement that opens no table; nothing about the database is stored). A large database opens on your **pinned** tables and on folded groups by name prefix (`sales_`, `inv_` ...); type part of a name to search them all, narrow the matches with the chips, and press **Show 50 More** for the next ones. The star pins a table to the top for everyone who maps datasets here. **Reload the List** reads the names again after the database changed. Pick a table or view: its columns and row estimate are read then, for that table only.
 2. Name the dataset and describe it. Choose the **Row Key** (what one row is) and the **Time Field** (the date a period filter applies to).
 3. For each column: tick it to keep it, give it a label, check its type and role, pick the calculations a measure allows, and set the sensitivity (**Personal** is masked for readers without the right, **Confidential** is hidden from everyone).
 4. Watch the preview under the fields update with your labels, then press **Save Dataset**. It appears in New Report under **Your Databases**.
@@ -3368,7 +3380,7 @@ A dataset can read more than one table. The diagram above the fields shows the b
    the joined fields empty) or only the rows that match (**Inner**).
 3. Say which columns are equal, one pair or more. The first pair is suggested from the names (store_id = id).
 4. **Check the Join** before adding it: how many rows match, and a warning when the join multiplies rows, which would
-   count the base's rows more than once in totals.
+   count the base's rows more than once in totals. It checks the first 10,000 rows of the base, never a whole table, and says so.
 
 The joined table appears as a card with the key drawn to it, its columns ticked as fields and labelled with the table's
 name ("Store Name", "Store City"). A key column is read for the join whether or not it is a field. Up to five joins;

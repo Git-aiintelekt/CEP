@@ -17,8 +17,8 @@ import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
-import { ConnectionFields, TestChecks } from '@/apps/insights/components/DatabaseConnectionForm'
-import { connectionBody, connectionForm, testWords, type ConnectionForm } from '@/apps/insights/databaseConnection'
+import { ConnectionFields, LimitFields, TestChecks } from '@/apps/insights/components/DatabaseConnectionForm'
+import { connectionBody, connectionForm, LIMIT_PRESETS, testWords, type ConnectionForm } from '@/apps/insights/databaseConnection'
 import type { ReportDatabase, ReportDatabaseTest, ReportDatabases } from '@/apps/insights/types'
 import { DATABASES_KEY, engineMark } from './reportDatabases'
 
@@ -79,6 +79,7 @@ export function ReportDatabasesPage() {
               </div>
               <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
                 <dt className="text-ink-800">Connects as</dt><dd className="text-ink-900"><span className="font-mono">{db.username}</span> <ReadOnlyMark db={db} /></dd>
+                <dt className="text-ink-800">Limits</dt><dd className="flex flex-wrap items-center gap-1.5 text-ink-900"><LimitsMark db={db} /></dd>
                 <dt className="text-ink-800">Datasets</dt><dd className="text-ink-900">{db.datasets?.length ? db.datasets.map((d) => d.label).join(', ') : 'None yet'}</dd>
                 <dt className="text-ink-800">Last test</dt><dd className="text-ink-900">{db.last_tested_at ? `${formatDateTime(db.last_tested_at)}${db.last_test_ok ? '' : ' · refused'}` : 'Not tested'}</dd>
               </dl>
@@ -120,9 +121,15 @@ export function ReportDatabasesPage() {
       )}
 
       {data.databases.length > 0 && <GrantCard examples={data.grant_examples} compact />}
-      {editing && <ConnectDialog database={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void refresh() }} />}
+      {editing && <ConnectDialog database={editing === 'new' ? null : editing} workspace={data.limits_ready === false ? undefined : data.workspace_limits} limitsReady={data.limits_ready !== false}
+        onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void refresh() }} />}
     </div>
   )
+}
+
+function LimitsMark({ db }: { db: ReportDatabase }) {
+  const title = db.limit_profile === 'CUSTOM' ? 'Custom' : LIMIT_PRESETS.find((p) => p.profile === db.limit_profile)?.title ?? 'Standard'
+  return <><Tag tone={db.limit_profile === 'LIVE' ? 'warning' : 'neutral'}>{title}</Tag><span className="cep-num">{db.limits.timeout_s} s · {db.limits.concurrent} at once</span></>
 }
 
 function ReadOnlyMark({ db }: { db: ReportDatabase }) {
@@ -145,7 +152,14 @@ function GrantCard({ examples, compact = false }: { examples: ReportDatabases['g
   )
 }
 
-function ConnectDialog({ database, onClose, onSaved }: { database: ReportDatabase | null; onClose: () => void; onSaved: () => void }) {
+function ConnectDialog({ database, workspace, limitsReady, onClose, onSaved }: {
+  database: ReportDatabase | null
+  workspace?: { timeout_s: number; concurrent: number }
+  /** patch 0074: without it every database stays on Standard */
+  limitsReady: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
   const toast = useToast()
   const [form, setForm] = useState<ConnectionForm>(() => connectionForm(database))
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
@@ -166,9 +180,10 @@ function ConnectDialog({ database, onClose, onSaved }: { database: ReportDatabas
     <Modal title={database ? `Edit ${database.name}` : 'Connect a Database'} subtitle="Read-only. The engine only ever selects from it." onClose={onClose} size="lg"
       footer={<><button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button><Button variant="secondary" loading={test.isPending} onClick={() => test.mutate()}>Test Connection</Button><button type="submit" form="db-form" className={buttonPrimary} disabled={save.isPending}>Save</button></>}>
       <form id="db-form" className="flex flex-col gap-4" onSubmit={submit}>
-        <ConnectionFields form={form} onChange={setForm} errors={errors} editing={Boolean(database)} />
+        <ConnectionFields form={form} onChange={setForm} errors={errors} editing={Boolean(database)} database={database} />
+        {limitsReady && <LimitFields form={form} onChange={setForm} errors={errors} workspace={workspace} />}
         {outcome && <TestChecks outcome={outcome} engine={form.engine} />}
-        <p className="text-xs text-ink-800">The engine connects from CEP's server with this account, opens every session read-only with the workspace's time limit, and runs only the SELECT statements it builds from a report. Give the account SELECT and nothing else.</p>
+        <p className="text-xs text-ink-800">The engine connects from CEP's server with this account, opens every session read-only with the time limit above, and runs only the SELECT statements it builds from a report. Give the account SELECT and nothing else.</p>
       </form>
     </Modal>
   )

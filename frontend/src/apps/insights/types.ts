@@ -651,15 +651,28 @@ export interface ReportDatabase {
   row_version: number
   /** active, with a password, and not known to be able to write */
   usable: boolean
+  /** how reports treat it (docs/mockups/report-database-limits.html): a preset, or Custom with its own two values */
+  limit_profile: LimitProfile
+  query_timeout_s: number | null
+  max_concurrent: number | null
+  /** what the profile means here: Standard follows the workspace's limits */
+  limits: { timeout_s: number; concurrent: number }
+  /** the tables pinned to the top of Map a Dataset's list */
+  pinned_tables?: string[]
   datasets?: ReportDataset[]
   /** the test run at save time */
   test?: ReportDatabaseTest | null
 }
+export type LimitProfile = 'STANDARD' | 'LARGE' | 'LIVE' | 'CUSTOM'
 export interface ReportDatabases {
   databases: ReportDatabase[]
   grant_examples: { mysql: string; postgresql: string; clickhouse?: string }
   /** the tables exist (patch 0056) */
   ready: boolean
+  /** a connection's limits can be stored (patch 0074) */
+  limits_ready?: boolean
+  /** what Standard means in this workspace */
+  workspace_limits?: { timeout_s: number; concurrent: number }
 }
 /** a join in a mapped dataset: alias t1.., the table, Left or Inner, the alias it joins to (t0 the base), the key pairs [parent column, table column] */
 export interface DatasetJoin {
@@ -693,17 +706,35 @@ export interface JoinCheck {
   matched_rows: number
   multiplies: boolean
   factor: number | null
+  /** checked on the base's first `sample` rows, never a whole table; `sampled` when the base had at least that many */
+  sample?: number
+  sampled?: boolean
+}
+/** Find Databases: the databases the account can see (MySQL, ClickHouse) or the schemas of the database (PostgreSQL) */
+export interface FoundDatabases {
+  kind: 'database' | 'schema'
+  found: { name: string; tables: number | null }[]
+}
+/** a Report Database's tables and views by name, read live by the server (held there ten minutes); the pins are the only thing kept */
+export interface SourceList {
+  sources: SourceInfo[]
+  read_at: string | null
+  database: string
+  pinned: string[]
 }
 export interface SourceInfo {
   name: string
   kind: 'table' | 'view'
   rows: number | null
-  columns: number
+  /** null when the server was too slow to count them (MySQL 5.7 with a large schema): the names come alone */
+  columns: number | null
   mappable: boolean
   mapped_as: string | null
 }
 export interface SourceColumns {
   source: string
+  /** the database's row estimate for this table, read when it was chosen; null for a view */
+  rows?: number | null
   columns: { column: string; column_type: string; key: boolean; mappable: boolean; type: FieldType; role: 'dimension' | 'measure'; aggregates: Aggregate[]; format: CatalogField['format'] }[]
   sample: { columns: string[]; rows: unknown[][] }
   mapped_as: ReportDataset | null

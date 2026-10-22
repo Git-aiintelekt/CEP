@@ -214,6 +214,9 @@ class ReportEngineConnectionAdmin(BaseAdmin):
         return redirect("admin:insights_reportengineconnection_change", object_id)
 
 
+MAX_STATEMENT_TIMEOUT_MS = 110_000                                       # under the 120 s gunicorn and nginx allow a request
+
+
 class ReportEngineSettingForm(forms.ModelForm):
     """Engine, status and freshness are the values the table allows; connection_profile offers the connections the back-office
     knows, or the server's environment."""
@@ -224,6 +227,9 @@ class ReportEngineSettingForm(forms.ModelForm):
     class Meta:
         model = ReportEngineSetting
         fields = ("tenant", "engine", "connection_profile", "status", "freshness_sla", "query_limits")
+        help_texts = {"query_limits": 'Overrides of the defaults, e.g. {"statement_timeout_ms": 60000} for a slow or very large database. statement_timeout_ms '
+                                      '(15000) is how long a report may run, on the engine and on the Report Databases, at most 110000: the web '
+                                      'server stops a request after 120 seconds. Also preview_rows (200), run_rows (5000), export_rows (100000), concurrent (4).'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -242,6 +248,15 @@ class ReportEngineSettingForm(forms.ModelForm):
 
     def clean_connection_profile(self):
         return self.cleaned_data.get("connection_profile") or ""
+
+    def clean_query_limits(self):
+        limits = self.cleaned_data.get("query_limits") or {}
+        if not isinstance(limits, dict):
+            raise forms.ValidationError('Write the limits as an object, e.g. {"statement_timeout_ms": 60000}.')
+        timeout = limits.get("statement_timeout_ms")
+        if timeout is not None and (not isinstance(timeout, int) or not 1_000 <= timeout <= MAX_STATEMENT_TIMEOUT_MS):
+            raise forms.ValidationError(f"statement_timeout_ms is milliseconds from 1000 to {MAX_STATEMENT_TIMEOUT_MS}: the web server stops a request after 120 seconds.")
+        return limits
 
 
 @admin.register(ReportEngineSetting)

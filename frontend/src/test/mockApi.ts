@@ -123,8 +123,18 @@ function mockDatabase(body: Record<string, unknown>, id: string): MockDatabase {
     port: Number(body.port ?? (engine === 'postgresql' ? 5432 : engine === 'clickhouse' ? 8443 : 3306)),
     database_name: String(body.database), schema_name: String(body.schema ?? 'public'), username: String(body.username), ssl_mode: (body.ssl as MockDatabase['ssl_mode']) ?? 'REQUIRED', status: 'ACTIVE',
     last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: test.read_only, last_test_error: test.read_only ? null : 'The account can write: ' + test.offending.join('; '), read_only: test.read_only, server_version: test.version,
-    server_timezone: test.timezone, created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: test.read_only, datasets: [], test }
+    server_timezone: test.timezone, created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: test.read_only, datasets: [], test, ...mockLimits(body) }
 }
+/** what the server makes of a connection's limits (apps/insights/connection_limits.py): Standard is the workspace's 15 s and 4 */
+export function mockLimits(body: Record<string, unknown>): Pick<MockDatabase, 'limit_profile' | 'query_timeout_s' | 'max_concurrent' | 'limits'> {
+  const profile = (body.limit_profile as MockDatabase['limit_profile']) ?? 'STANDARD'
+  const custom = profile === 'CUSTOM'
+  const limits = profile === 'LARGE' ? { timeout_s: 60, concurrent: 2 } : profile === 'LIVE' ? { timeout_s: 60, concurrent: 1 }
+    : custom ? { timeout_s: Number(body.query_timeout_s ?? 15), concurrent: Number(body.max_concurrent ?? 4) } : { timeout_s: 15, concurrent: 4 }
+  return { limit_profile: profile, query_timeout_s: custom ? limits.timeout_s : null, max_concurrent: custom ? limits.concurrent : null, limits }
+}
+/** a database's names, set by a test (a 1,284-table one); empty: SOURCES */
+export const reportSourcesNow: { name: string; kind: 'table' | 'view'; rows: null; columns: null; mappable: boolean; mapped_as: null }[] = []
 const SOURCES = [{ name: 'v_daily_sales', kind: 'view' as const, rows: null, columns: 5, mappable: true, mapped_as: null }, { name: 'sales_lines', kind: 'table' as const, rows: 4200000, columns: 18, mappable: true, mapped_as: null },
   { name: 'stores', kind: 'table' as const, rows: 1204, columns: 3, mappable: true, mapped_as: null }]
 const COLUMNS = [
@@ -952,6 +962,7 @@ export function installMockApi(options: MockOptions = {}) {
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders() })
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true })
   reportDatabasesNow.splice(0, reportDatabasesNow.length)
+  reportSourcesNow.splice(0, reportSourcesNow.length)
   reportDatasetsNow.splice(0, reportDatasetsNow.length)
   insightsCatalog.datasets.splice(2)                                                 // a query dataset added by a test is forgotten
   insightsSchedulesNow.splice(0, insightsSchedulesNow.length)
@@ -1410,7 +1421,7 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.includes('/workspace/report-databases/')) {
       const withDatasets = (db: MockDatabase) => ({ ...db, datasets: reportDatasetsNow.filter((d) => d.connection_id === db.id) })
-      if (path.endsWith('/workspace/report-databases/') && method === 'GET') return json({ databases: reportDatabasesNow.map(withDatasets), grant_examples: GRANTS, ready: true })
+      if (path.endsWith('/workspace/report-databases/') && method === 'GET') return json({ databases: reportDatabasesNow.map(withDatasets), grant_examples: GRANTS, ready: true, limits_ready: true, workspace_limits: { timeout_s: 15, concurrent: 4 } })
       if (path.endsWith('/workspace/report-databases/') && method === 'POST') {
         const posted = body as Record<string, unknown>
         if (!posted.password) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { password: "Give the account's password." } }, 400)
@@ -1428,18 +1439,25 @@ export function installMockApi(options: MockOptions = {}) {
         if (method === 'PUT') { const put = body as Partial<MockDataset>; reportDatasetsNow[at] = { ...reportDatasetsNow[at], ...put, field_count: (put.fields ?? reportDatasetsNow[at].fields).length, row_version: reportDatasetsNow[at].row_version + 1 } }
         return json(reportDatasetsNow[at])
       }
-      const one = /\/workspace\/report-databases\/([\w-]+)\/(test\/|sources\/|sources\/([\w]+)\/|preview\/|join-check\/|datasets\/|query\/run\/|query\/write\/|query\/dataset\/)?$/.exec(path)
+      if (path.endsWith('/workspace/report-databases/find-databases/')) {
+        const engine = (body as { engine?: string }).engine
+        return json(engine === 'postgresql' ? { kind: 'schema', found: [{ name: 'public', tables: 12 }, { name: 'reporting', tables: 40 }] }
+          : { kind: 'database', found: [{ name: 'shop_reporting', tables: 142 }, { name: 'shop', tables: 1284 }, { name: 'shop_archive', tables: 311 }] })
+      }
+      const one = /\/workspace\/report-databases\/([\w-]+)\/(test\/|sources\/|sources\/([\w]+)\/|pins\/|preview\/|join-check\/|datasets\/|query\/run\/|query\/write\/|query\/dataset\/)?$/.exec(path)
       if (one) {
         const db = reportDatabasesNow.find((d) => d.id === one[1])
         if (!db) return json({ type: 'about:blank', title: 'No such database.', status: 404 }, 404)
         const tail = one[2] ?? ''
         if (tail === 'test/') { db.last_tested_at = '2026-10-16T10:00:00Z'; return json({ test: db.test, database: withDatasets(db) }) }
-        if (tail === 'sources/') return json({ sources: SOURCES.map((s) => ({ ...s, mapped_as: reportDatasetsNow.find((d) => d.connection_id === db.id && d.source === s.name)?.label ?? null })) })
+        if (tail === 'sources/') return json({ sources: (reportSourcesNow.length ? reportSourcesNow : SOURCES).map((s) => ({ ...s, mapped_as: reportDatasetsNow.find((d) => d.connection_id === db.id && d.source === s.name)?.label ?? null })),
+          read_at: '2026-10-23T10:41:00Z', database: db.database_name, pinned: db.pinned_tables ?? [] })
+        if (tail === 'pins/') { db.pinned_tables = [...new Set((body as { pinned: string[] }).pinned)]; return json({ pinned: db.pinned_tables }) }
         if (tail.startsWith('sources/')) {
           const cols = one[3] === 'stores' ? STORE_COLUMNS : COLUMNS
-          return json({ source: one[3], columns: cols, sample: { columns: cols.map((c) => c.column), rows: [one[3] === 'stores' ? [12, 'Downtown', 'Portland'] : ['2026-10-15', 'Downtown', 9420, 'ann@example.com', 12]] }, mapped_as: null })
+          return json({ source: one[3], columns: cols, rows: one[3] === 'stores' ? 1204 : 412_000_000, sample: { columns: cols.map((c) => c.column), rows: [one[3] === 'stores' ? [12, 'Downtown', 'Portland'] : ['2026-10-15', 'Downtown', 9420, 'ann@example.com', 12]] }, mapped_as: null })
         }
-        if (tail === 'join-check/') return json({ base_rows: 1284, joined_rows: 1284, matched_rows: 1280, multiplies: false, factor: 1 })
+        if (tail === 'join-check/') return json({ base_rows: 10000, joined_rows: 10000, matched_rows: 9812, multiplies: false, factor: 1, sample: 10000, sampled: true })
         if (tail === 'query/run/' || tail === 'query/dataset/') {
           const sql = String((body as { sql?: string }).sql ?? '').trim()
           if (/;\s*\S/.test(sql.replace(/;\s*$/, ''))) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { sql: 'One statement at a time: a second statement after a semicolon is not allowed.' } }, 400)
@@ -1483,7 +1501,7 @@ export function installMockApi(options: MockOptions = {}) {
           return json(made, 201)
         }
         if (method === 'DELETE') { reportDatabasesNow.splice(reportDatabasesNow.indexOf(db), 1); return new Response(null, { status: 204 }) }
-        if (method === 'PUT') { const put = body as Record<string, unknown>; Object.assign(db, { name: put.name ?? db.name, host: put.host ?? db.host, row_version: db.row_version + 1 }) }
+        if (method === 'PUT') { const put = body as Record<string, unknown>; Object.assign(db, { name: put.name ?? db.name, host: put.host ?? db.host, ...(put.limit_profile ? mockLimits(put) : {}), row_version: db.row_version + 1 }) }
         return json(withDatasets(db))
       }
     }

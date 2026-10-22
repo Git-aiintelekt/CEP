@@ -7,7 +7,7 @@
  * edits a mapped dataset.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -18,7 +18,8 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Aggregate, DatasetJoin, FieldType, JoinCheck, ReportDatabase, ReportDataset, ReportDatasetField, SourceColumns, SourceInfo } from '@/apps/insights/types'
+import { SourcePicker } from '@/apps/insights/components/SourcePicker'
+import type { Aggregate, DatasetJoin, FieldType, JoinCheck, ReportDatabase, ReportDataset, ReportDatasetField, SourceColumns, SourceInfo, SourceList } from '@/apps/insights/types'
 import { calcFromField, calcToField, type CalcRow, type MeasureChoice } from './calculated'
 import { CalculatedMeasures } from './CalculatedMeasures'
 import { DATABASES_KEY } from './reportDatabases'
@@ -46,9 +47,19 @@ export function MapDatasetPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
   const database = useQuery({ queryKey: ['workspace', 'report-database', id], queryFn: ({ signal }) => api.get<ReportDatabase>(`/workspace/report-databases/${id}/`, undefined, signal), enabled: Boolean(id) })
-  const sources = useQuery({ queryKey: ['workspace', 'report-database', id, 'sources'], queryFn: ({ signal }) => api.get<{ sources: SourceInfo[] }>(`/workspace/report-databases/${id}/sources/`, undefined, signal), enabled: Boolean(id) })
+  const sourcesKey = ['workspace', 'report-database', id, 'sources']
+  const sources = useQuery({ queryKey: sourcesKey, queryFn: ({ signal }) => api.get<SourceList>(`/workspace/report-databases/${id}/sources/`, undefined, signal), enabled: Boolean(id) })
+  const reload = useMutation({
+    mutationFn: () => api.get<SourceList>(`/workspace/report-databases/${id}/sources/`, { reload: 1 }),
+    onSuccess: (fresh) => queryClient.setQueryData(sourcesKey, fresh),
+    onError: (error) => toast.failure(error, 'The list was not read again'),
+  })
+  const pins = useMutation({
+    mutationFn: (pinned: string[]) => api.put<{ pinned: string[] }>(`/workspace/report-databases/${id}/pins/`, { pinned }),
+    onSuccess: ({ pinned }) => queryClient.setQueryData<SourceList>(sourcesKey, (now) => (now ? { ...now, pinned } : now)),
+    onError: (error) => toast.failure(error, 'The pin was not kept'),
+  })
   const existing = useQuery({ queryKey: ['workspace', 'report-dataset', datasetId], queryFn: ({ signal }) => api.get<ReportDataset>(`/workspace/report-databases/datasets/${datasetId}/`, undefined, signal), enabled: Boolean(datasetId) })
-  const [q, setQ] = useState('')
   const [source, setSource] = useState<string | null>(null)
   const [joins, setJoins] = useState<DatasetJoin[] | null>(null)
   const [label, setLabel] = useState('')
@@ -135,7 +146,6 @@ export function MapDatasetPage() {
   if (database.isError) return <ErrorState title="The database could not be loaded" error={database.error} onRetry={() => void database.refetch()} />
   if (database.isPending || (datasetId && existing.isPending)) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
   const db = database.data
-  const list = (sources.data?.sources ?? []).filter((s) => !q.trim() || s.name.toLowerCase().includes(q.trim().toLowerCase()))
   const dateFields = fields.filter((f) => f.type === 'date' || f.type === 'datetime')
   const toneOf = (alias: string) => TONES[Math.min(Number(alias.slice(1)), TONES.length - 1)]
 
@@ -159,34 +169,11 @@ export function MapDatasetPage() {
           </div>
         )}
         {!fromQuery && <aside aria-label="Tables and views" className="flex flex-col gap-2">
-          <label className="relative">
-            <span className="sr-only">Search tables and views</span>
-            <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-700" />
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tables and views" className="h-8 w-full rounded-control-md border border-transparent bg-surface-sunken pr-3 pl-8 text-sm text-ink-900 placeholder:text-ink-700 focus:bg-surface focus-visible:border-focus focus-visible:outline-none" />
-          </label>
-          {sources.isError ? <ErrorState error={sources.error} onRetry={() => void sources.refetch()} /> : sources.isPending ? <Spinner label="Reading the tables" /> : (
-            <div className="max-h-[520px] overflow-auto rounded-md border border-line bg-surface text-sm">
-              {(['view', 'table'] as const).map((kind) => {
-                const items = list.filter((s) => s.kind === kind)
-                if (!items.length) return null
-                return (
-                  <div key={kind}>
-                    <p className="border-b border-line-subtle bg-surface-subtle px-3 py-1.5 text-[11px] font-semibold tracking-wide text-ink-700 uppercase">{kind === 'view' ? 'Views' : 'Tables'} · {items.length}</p>
-                    {items.map((s) => {
-                      const joined = tables.some((t) => t.table === s.name && t.alias !== 't0')
-                      return (
-                        <button key={s.name} type="button" disabled={!s.mappable || !db.usable} onClick={() => pickSource(s.name)} aria-pressed={chosen === s.name}
-                          className={`flex w-full items-center gap-2 border-b border-line-subtle px-3 py-1.5 text-left disabled:cursor-not-allowed disabled:text-ink-300 ${chosen === s.name ? 'bg-brand-100 text-brand-800' : joined ? 'bg-surface-subtle text-ink-900' : 'text-ink-900 hover:bg-surface-hover'}`}>
-                          <span className="min-w-0 flex-1 truncate font-mono text-xs">{s.name}</span>
-                          <span className="text-[11px] whitespace-nowrap text-ink-800">{s.columns} columns{s.rows != null ? ` · ${compact(s.rows)} rows` : ''}{chosen === s.name ? ' · base' : joined ? ' · joined' : s.mapped_as ? ' · mapped' : ''}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-              {list.length === 0 && <p className="px-3 py-4 text-xs text-ink-800">Nothing matches.</p>}
-            </div>
+          {sources.isError ? <ErrorState error={sources.error} onRetry={() => void sources.refetch()} /> : sources.isPending ? <Spinner label="Reading the table names" /> : (
+            <SourcePicker sources={sources.data.sources} pinned={sources.data.pinned ?? []} database={sources.data.database ?? db.database_name} readAt={sources.data.read_at ?? null}
+              chosen={chosen} joined={new Set(tables.filter((t) => t.alias !== 't0').map((t) => t.table))} disabled={!db.usable} reloading={reload.isPending}
+              onPick={pickSource} onReload={() => reload.mutate()}
+              onTogglePin={(name) => { const now = sources.data.pinned ?? []; pins.mutate(now.includes(name) ? now.filter((p) => p !== name) : [...now, name]) }} />
           )}
           <p className="text-xs text-ink-800">The base table is the first you pick; Add a Join brings in another table's columns on a key. A view that already joins the tables is the simplest source.</p>
         </aside>}
@@ -200,6 +187,13 @@ export function MapDatasetPage() {
             <Spinner label="Reading the columns" />
           ) : (
             <>
+              {!fromQuery && columns.data && (
+                <p className="flex flex-wrap gap-x-3 text-xs text-ink-800">
+                  <span className="font-mono text-ink-900">{columns.data.source}</span>
+                  {columns.data.rows != null && <span>about {compact(columns.data.rows)} rows (the database’s estimate)</span>}
+                  <span>{formatNumber(columns.data.columns.length)} columns, read just now</span>
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Dataset Name" required error={errors.label}>{({ id: fid, describedBy, invalid }) => <TextInput id={fid} describedBy={describedBy} invalid={invalid} value={label} onChange={(e) => setLabel(e.target.value)} maxLength={100} />}</Field>
                 <Field label="Description" error={errors.description}>{({ id: fid, describedBy, invalid }) => <TextInput id={fid} describedBy={describedBy} invalid={invalid} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />}</Field>
@@ -402,7 +396,7 @@ function AddJoinDialog({ connectionId, source, tables, joins, columnsByTable, so
       footer={<><button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button><Button variant="secondary" disabled={!complete} loading={checkJoin.isPending} onClick={() => checkJoin.mutate()}>Check the Join</Button><button type="submit" form="join-form" className={buttonPrimary} disabled={!complete || !other.data}>Add</button></>}>
       <form id="join-form" className="flex flex-col gap-4" onSubmit={submit}>
         <Field label="Join to" hint="The base table, or a table already joined: a chain.">{({ id: fid, describedBy }) => <Select id={fid} describedBy={describedBy} value={to} onChange={(e) => { setTo(e.target.value); setPairs([['', '']]); setCheck(null) }}>{tables.map((t) => <option key={t.alias} value={t.alias}>{t.table}{t.alias === 't0' ? ' (the base)' : ' (already in the dataset)'}</option>)}</Select>}</Field>
-        <Field label="Table" required>{({ id: fid, describedBy }) => <Select id={fid} describedBy={describedBy} value={table} onChange={(e) => { setTable(e.target.value); setPairs([['', '']]); setCheck(null) }}><option value="">Choose a table or view</option>{sources.filter((s) => s.name !== source).map((s) => <option key={s.name} value={s.name}>{s.name} · {s.columns} columns{s.rows != null ? ` · ${compact(s.rows)} rows` : ''}</option>)}</Select>}</Field>
+        <Field label="Table" required>{({ id: fid, describedBy }) => <Select id={fid} describedBy={describedBy} value={table} onChange={(e) => { setTable(e.target.value); setPairs([['', '']]); setCheck(null) }}><option value="">Choose a table or view</option>{sources.filter((s) => s.name !== source).map((s) => <option key={s.name} value={s.name}>{s.name}{s.columns != null ? ` · ${s.columns} columns` : ''}{s.rows != null ? ` · ${compact(s.rows)} rows` : ''}</option>)}</Select>}</Field>
         <fieldset className="grid gap-2 sm:grid-cols-2">
           <legend className="mb-1 text-sm font-semibold text-ink-900">Keep</legend>
           {([['left', `Every row of ${parentTable} (Left)`, `A ${parentTable} row with no match still shows, with the joined fields empty.`], ['inner', 'Only rows that match (Inner)', `A ${parentTable} row with no match drops out of the dataset.`]] as const).map(([value, title, words]) => (
@@ -428,7 +422,7 @@ function AddJoinDialog({ connectionId, source, tables, joins, columnsByTable, so
         </div>
         {check && (
           <p className={`rounded-md border px-3 py-2 text-sm ${check.multiplies ? 'border-warning-text bg-warning-bg text-warning-text' : 'border-line bg-surface-subtle text-ink-900'}`} role="status">
-            {formatNumber(check.base_rows)} {parentTable} rows, {formatNumber(check.matched_rows)} with a match{check.multiplies ? `; each row matches ${check.factor} on average, so totals will count ${parentTable} rows more than once` : ''}.
+            {check.sampled ? `Checked on the first ${formatNumber(check.sample ?? check.base_rows)} rows of ${parentTable}: ` : ''}{formatNumber(check.base_rows)} {parentTable} rows, {formatNumber(check.matched_rows)} with a match{check.multiplies ? `; each row matches ${check.factor} on average, so totals will count ${parentTable} rows more than once` : ''}.
           </p>
         )}
         {error && <p className="text-sm text-danger-text" role="alert">{error}</p>}

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Database Catalogue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --sunken:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h1,h2,h3 { font-weight:600 }
+  .wrap { max-width:1320px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0 }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:var(--surface) }
+  .page { padding:20px 24px; min-width:0 }
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1100px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+
+  .ph h1 { font-size:24px; line-height:32px } .ph p { font-size:14px; color:var(--ink-800); margin-top:2px; max-width:760px }
+  .btn { height:36px; border-radius:999px; padding:0 14px; font:500 14px/1 var(--font); display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line-control); background:#fff; color:var(--ink-900); white-space:nowrap }
+  .btn.link { border-color:var(--brand-600); color:var(--brand-800) } .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+  .btn.sm { height:30px; font-size:12.5px; padding:0 11px } .btn.ghost { border-color:transparent; color:var(--brand-800) }
+  .mono { font-family:var(--mono); font-size:12.5px }
+  .muted { color:var(--ink-800); font-size:12px; line-height:16px }
+
+  /* the catalogue bar */
+  .catbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin:14px 0 12px; font-size:12.5px; color:var(--ink-800) }
+  .catbar b { color:var(--ink-900); font-weight:600 }
+  .dot { width:7px; height:7px; border-radius:999px; background:#2fa57a; display:inline-block }
+  .layout { display:grid; grid-template-columns:380px minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:900px) { .layout { grid-template-columns:minmax(0,1fr) } }
+  .search { height:40px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 14px; color:var(--ink-900); font-size:14px }
+  .search.focus { background:#fff; box-shadow:inset 0 0 0 1px var(--brand-600), var(--shadow-focus) }
+  .search .ph2 { color:var(--ink-300) }
+  .list { margin-top:10px; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .grp { display:flex; align-items:center; gap:8px; padding:8px 12px; font-size:12px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; color:var(--ink-800); background:var(--surface-subtle); border-top:1px solid var(--line-subtle) }
+  .grp:first-child { border-top:0 } .grp .n { margin-left:auto; font-weight:500; text-transform:none; letter-spacing:0 }
+  .grp .chev { font-size:10px; width:10px }
+  .item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-top:1px solid var(--line-subtle); font-size:13.5px }
+  .item.on { background:var(--callout-bg); box-shadow:inset 3px 0 0 var(--brand-600) }
+  .item .kind { font-size:10.5px; font-weight:600; color:var(--ink-700); width:30px; flex:none }
+  .item .nm { font-family:var(--mono); font-size:12.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .item .pin { margin-left:auto; color:var(--ink-300); font-size:13px } .item .pin.on { color:var(--brand-600) }
+  .item mark { background:#fde9a8; color:inherit; border-radius:2px; padding:0 1px }
+  .more { padding:10px 12px; border-top:1px solid var(--line-subtle); display:flex; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--ink-800) }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px }
+  .chip { height:26px; border-radius:999px; border:1px solid var(--line); padding:0 10px; font-size:12px; display:inline-flex; align-items:center; gap:5px; background:#fff }
+  .chip.on { border-color:var(--brand-600); background:var(--callout-bg); color:var(--brand-800); font-weight:500 }
+  .chip small { color:var(--ink-700); font-size:11px }
+
+  /* the chosen table */
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px 18px; min-width:0 }
+  .panel h3 { font-family:var(--mono); font-size:15px; font-weight:500 }
+  .facts { display:flex; flex-wrap:wrap; gap:6px 14px; margin:6px 0 12px; font-size:12.5px; color:var(--ink-800) }
+  table { width:100%; border-collapse:collapse; font-size:13px }
+  th { text-align:left; font-size:11.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--ink-800); padding:6px 8px; border-bottom:1px solid var(--line) }
+  td { padding:6px 8px; border-bottom:1px solid var(--line-subtle) } td.m { font-family:var(--mono); font-size:12.5px }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--fill-subtle) }
+  .tag.ok { background:var(--success-bg); color:var(--success-text) } .tag.key { background:var(--brand-100); color:var(--brand-800) }
+  .loading { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-800); padding:18px 0 }
+  .spin { width:14px; height:14px; border-radius:999px; border:2px solid var(--line); border-top-color:var(--brand-600) }
+
+  /* option B: the two-column browser */
+  .browser { display:grid; grid-template-columns:180px minmax(0,1fr); background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-top:10px }
+  .groups { border-right:1px solid var(--line-subtle); background:var(--surface-subtle) }
+  .g { display:flex; justify-content:space-between; padding:8px 12px; font-size:13px; border-top:1px solid var(--line-subtle) } .g:first-child { border-top:0 }
+  .g.on { background:#fff; box-shadow:inset 3px 0 0 var(--brand-600); font-weight:600 } .g small { color:var(--ink-700); font-size:11.5px }
+
+  /* the dialog */
+  .modal { background:#fff; border:1px solid var(--line); border-radius:16px; max-width:620px; box-shadow:0 8px 24px rgb(20 23 31 / 0.10) }
+  .mhead { padding:18px 20px 12px; border-bottom:1px solid var(--line-subtle) } .mhead h3 { font-size:18px; line-height:26px } .mhead p { font-size:13px; color:var(--ink-800) }
+  .mbody { padding:16px 20px; display:flex; flex-direction:column; gap:14px }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px }
+  .field label { display:block; font-size:13px; font-weight:500; margin-bottom:4px }
+  .input { height:40px; border:1px solid var(--line-control); border-radius:999px; padding:0 14px; display:flex; align-items:center; font-size:14px; background:#fff; gap:8px }
+  .input.select::after { content:"▾"; margin-left:auto; color:var(--ink-700); font-size:12px }
+  .menu { border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.1); margin-top:4px; overflow:hidden }
+  .menu div { padding:8px 14px; font-size:13.5px; display:flex; justify-content:space-between } .menu div.on { background:var(--callout-bg) }
+  .menu small { color:var(--ink-700); font-size:12px }
+  .hint { font-size:12px; line-height:16px; color:var(--ink-800); margin-top:4px }
+
+  .check { margin-top:12px; border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:var(--surface-subtle); font-size:13px }
+  .check p + p { margin-top:4px; font-size:12px; color:var(--ink-800) }
+
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Settings → Report Databases → Map a Dataset, and the connection dialog. Sample names: a MySQL 5.7 database of 1,284 tables and views, 250 GB.</div>
+  <p class="note">Browsing a customer database reads its <strong>catalogue</strong> (names and column types), never its data, and <strong>C360 stores none of it</strong>. The names come live from the database with one statement that opens no table (<code>SHOW FULL TABLES</code>, milliseconds even for 1,284 names); searching is done on that answer, held in memory for 10 minutes so typing does not ask the database again for every letter, then dropped. A table's columns are read live when someone opens it, that table only. The two options differ in how you find a table.</p>
+
+  <!-- ===================================================== DATABASE PICKER -->
+  <h2 class="part">Choosing the database</h2>
+  <p>In the connection dialog, after the account: <strong>Find Databases</strong> lists the databases the account can see, and you pick one instead of typing its name. A list of names only; no data is read.</p>
+  <div class="label">The account sees three databases <span>The reporting schema is the one to pick; the hint says why an account limited to it is better.</span></div>
+  <div class="frame"><div class="cap">Connect a Database · after Find Databases</div><div class="page">
+    <div class="modal">
+      <div class="mhead"><h3>Connect a Database</h3><p>Read-only. The engine only ever selects from it.</p></div>
+      <div class="mbody">
+        <div class="grid2"><div class="field"><label>User</label><div class="input mono">c360_reports</div></div><div class="field"><label>Password</label><div class="input">••••••••••••</div></div></div>
+        <div class="field"><label>Database</label><div class="input select">shop_reporting</div>
+          <div class="menu"><div class="on">shop_reporting <small>142 tables and views</small></div><div>shop <small>1,284 tables and views</small></div><div>shop_archive <small>311 tables</small></div></div>
+          <div class="hint">The databases this account can see. An account that sees only a reporting schema, or views made for reports, keeps the list short and the live tables out of reach.</div></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn">Find Databases</span><span class="btn">Test Connection</span><span class="btn primary">Save</span></div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: search first, grouped by name</h2>
+  <p>One list. It opens on your <strong>pinned</strong> tables and the groups (tables sharing a name prefix, folded); typing searches all 1,284 names and shows the first 50 matches. Choosing a table loads its columns into the panel on the right.</p>
+
+  <div class="label">A1 · 1,284 tables, searching "sales" <span>23 matches in three groups; sales_lines chosen, its 18 columns read live from the database, that table only.</span></div>
+  <div class="frame"><div class="cap">Map a Dataset · CG-Prod (busy case)</div><div class="page">
+    <div class="ph"><h1>Map a Dataset · CG-Prod</h1><p>Pick a table or view, join what it needs, then say what each column is. Report authors see your labels, never column or table names.</p></div>
+    <div class="catbar"><span class="dot"></span><span><b>1,284</b> tables and views · names read live from CG-Prod at <b>10:41</b>, nothing stored</span><span class="btn sm ghost">Reload the List</span><span class="btn sm">Back to Report Databases</span></div>
+    <div class="layout">
+      <div>
+        <div class="search focus"><span>⌕</span>sales</div>
+        <div class="chips"><span class="chip on">All <small>23</small></span><span class="chip">sales_ <small>14</small></span><span class="chip">rpt_ <small>6</small></span><span class="chip">v_ <small>3</small></span><span class="chip">Views only</span></div>
+        <div class="list">
+          <div class="grp"><span class="chev">▾</span>Pinned<span class="n">2</span></div>
+          <div class="item on"><span class="kind">TABLE</span><span class="nm"><mark>sales</mark>_lines</span><span class="pin on">★</span></div>
+          <div class="item"><span class="kind">VIEW</span><span class="nm">v_daily_<mark>sales</mark></span><span class="pin on">★</span></div>
+          <div class="grp"><span class="chev">▾</span>sales_<span class="n">14</span></div>
+          <div class="item"><span class="kind">TABLE</span><span class="nm"><mark>sales</mark>_header</span><span class="pin">☆</span></div>
+          <div class="item"><span class="kind">TABLE</span><span class="nm"><mark>sales</mark>_payments</span><span class="pin">☆</span></div>
+          <div class="item"><span class="kind">TABLE</span><span class="nm"><mark>sales</mark>_returns</span><span class="pin">☆</span></div>
+          <div class="item"><span class="kind">TABLE</span><span class="nm"><mark>sales</mark>_tax_lines</span><span class="pin">☆</span></div>
+          <div class="grp"><span class="chev">▸</span>rpt_<span class="n">6</span></div>
+          <div class="grp"><span class="chev">▸</span>v_<span class="n">3</span></div>
+          <div class="more"><span>23 of 1,284 match</span><span>Names only: nothing was read from the tables</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>sales_lines</h3>
+        <div class="facts"><span class="tag">Table</span><span>about 412 million rows (the database's estimate)</span><span>18 columns, read just now</span></div>
+        <table><thead><tr><th>Column</th><th>Type</th><th>Becomes</th></tr></thead><tbody>
+          <tr><td class="m">line_id</td><td class="m">bigint</td><td><span class="tag key">Key</span></td></tr>
+          <tr><td class="m">sale_day</td><td class="m">date</td><td>Date · <span class="tag ok">time field</span></td></tr>
+          <tr><td class="m">store_id</td><td class="m">int</td><td>Dimension</td></tr>
+          <tr><td class="m">sku</td><td class="m">varchar(32)</td><td>Dimension</td></tr>
+          <tr><td class="m">quantity</td><td class="m">decimal(10,3)</td><td>Measure</td></tr>
+          <tr><td class="m">net_amount</td><td class="m">decimal(12,2)</td><td>Measure · money</td></tr>
+        </tbody></table>
+        <p class="muted" style="margin-top:8px">12 more columns · Sample rows read on request (5 rows, no sorting): <span class="btn sm ghost">Show Sample Rows</span></p>
+        <div style="display:flex;gap:8px;margin-top:12px"><span class="btn primary">Use as the Base Table</span><span class="btn">Add a Join</span></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="label">A2 · Opening the page, nothing typed; and what is read, when <span>Left: what the list shows before a search: the pinned tables, then the groups folded with their counts. Right: every statement the page sends the database, and what C360 keeps (nothing but the pins).</span></div>
+  <div class="row2">
+    <div class="frame"><div class="cap">Option A · opening</div><div class="page">
+      <div class="search"><span>⌕</span><span class="ph2">Search 1,284 tables and views</span></div>
+      <div class="list">
+        <div class="grp"><span class="chev">▾</span>Pinned<span class="n">2</span></div>
+        <div class="item"><span class="kind">TABLE</span><span class="nm">sales_lines</span><span class="pin on">★</span></div>
+        <div class="item"><span class="kind">VIEW</span><span class="nm">v_daily_sales</span><span class="pin on">★</span></div>
+        <div class="grp"><span class="chev">▸</span>Views<span class="n">96</span></div>
+        <div class="grp"><span class="chev">▸</span>cust_<span class="n">88</span></div>
+        <div class="grp"><span class="chev">▸</span>inv_<span class="n">148</span></div>
+        <div class="grp"><span class="chev">▸</span>pos_<span class="n">203</span></div>
+        <div class="grp"><span class="chev">▸</span>rpt_<span class="n">61</span></div>
+        <div class="grp"><span class="chev">▸</span>sales_<span class="n">212</span></div>
+        <div class="grp"><span class="chev">▸</span>Other<span class="n">476</span></div>
+      </div>
+    </div></div>
+    <div class="frame"><div class="cap">Both options · what is read, and when</div><div class="page">
+      <table><thead><tr><th>When</th><th>Read from the database</th><th>Kept by C360</th></tr></thead><tbody>
+        <tr><td>Opening the page, or Reload the List</td><td class="m">SHOW FULL TABLES</td><td>Nothing; the names sit in memory 10 minutes for the search</td></tr>
+        <tr><td>Typing a search, opening a group</td><td>Nothing: filtered in memory</td><td>Nothing</td></tr>
+        <tr><td>Choosing a table</td><td>Its columns and row estimate, that table only</td><td>Nothing</td></tr>
+        <tr><td>Show Sample Rows</td><td>5 rows, no sorting</td><td>Nothing</td></tr>
+        <tr><td>Saving the dataset</td><td>Nothing</td><td>The columns you mapped, with your labels (as today)</td></tr>
+        <tr><td>Pinning a table</td><td>Nothing</td><td>The table's name</td></tr>
+      </tbody></table>
+    </div></div>
+  </div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: groups on the left, tables on the right</h2>
+  <p>A two-column browser like a file manager: the groups (name prefixes) down the left with their counts, the chosen group's tables on the right, and the search box above both. The chosen table opens in the same panel as option A.</p>
+  <div class="label">B1 · 1,284 tables, the sales_ group open <span>The busy case. The small case (A3 below) is the same for both options.</span></div>
+  <div class="frame"><div class="cap">Map a Dataset · CG-Prod · option B</div><div class="page">
+    <div class="catbar" style="margin-top:0"><span class="dot"></span><span><b>1,284</b> tables and views · names read live from CG-Prod at <b>10:41</b>, nothing stored</span><span class="btn sm ghost">Reload the List</span></div>
+    <div class="layout">
+      <div>
+        <div class="search"><span>⌕</span><span class="ph2">Search 1,284 tables and views</span></div>
+        <div class="browser">
+          <div class="groups"><div class="g">Pinned <small>2</small></div><div class="g">Views <small>96</small></div><div class="g">cust_ <small>88</small></div><div class="g">inv_ <small>148</small></div><div class="g">pos_ <small>203</small></div><div class="g">rpt_ <small>61</small></div><div class="g on">sales_ <small>212</small></div><div class="g">Other <small>476</small></div></div>
+          <div><div class="item on" style="border-top:0"><span class="kind">TABLE</span><span class="nm">sales_lines</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">sales_header</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">sales_payments</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">sales_returns</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">sales_tax_lines</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">sales_vouchers</span></div><div class="more"><span>6 of 212</span><span class="btn sm ghost">Show 50 More</span></div></div>
+        </div>
+      </div>
+      <div class="panel"><h3>sales_lines</h3><div class="facts"><span class="tag">Table</span><span>about 412 million rows</span><span>18 columns</span></div>
+        <div class="loading"><span class="spin"></span>Reading the columns of sales_lines from CG-Prod (this table only)</div></div>
+    </div>
+  </div></div>
+
+  <!-- ===================================================== SMALL CASE + JOIN -->
+  <h2 class="part">Both options: a small database, and the join check</h2>
+  <div class="row2">
+    <div><div class="label">A3 · 12 tables <span>Under 50 tables there are no groups: one plain list, as today.</span></div>
+      <div class="frame"><div class="cap">Map a Dataset · Loyalty Copy (sparse case)</div><div class="page">
+        <div class="catbar" style="margin-top:0"><span class="dot"></span><span><b>12</b> tables and views · read live at <b>10:41</b></span><span class="btn sm ghost">Reload the List</span></div>
+        <div class="search"><span>⌕</span><span class="ph2">Search 12 tables and views</span></div>
+        <div class="list"><div class="item" style="border-top:0"><span class="kind">VIEW</span><span class="nm">v_member_points</span><span class="pin">☆</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">members</span><span class="pin">☆</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">points_ledger</span><span class="pin">☆</span></div><div class="item"><span class="kind">TABLE</span><span class="nm">rewards</span><span class="pin">☆</span></div><div class="more"><span>4 of 12 shown</span><span></span></div></div>
+      </div></div></div>
+    <div><div class="label">The join check, on a sample <span>Today it counts every row of both tables. On 250 GB it checks the first 10,000 rows of the base, and says so.</span></div>
+      <div class="frame"><div class="cap">Map a Dataset · Add a Join · sales_lines → stores</div><div class="page">
+        <div class="check"><p><strong>Checked on the first 10,000 rows of sales_lines</strong></p><p>9,812 of them (98%) find a store; none is repeated by the join. A sample, so a large table is never counted in full.</p></div>
+        <div class="check"><p><strong>The join repeats rows</strong></p><p>In the first 10,000 rows of sales_lines, each one matched 3 rows of sales_tax_lines on average: sums would count each sale 3 times. Join on the full key, or join the view that sums the tax first.</p></div>
+      </div></div></div>
+  </div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>Find Databases</strong> in the connection dialog: <code>SHOW DATABASES</code> (MySQL) or the schemas the account can use (PostgreSQL), names and table counts only; the Database field becomes a picker. Typing a name still works.</li>
+      <li><strong>Nothing about the customer's database is stored.</strong> The names come live from one <code>SHOW FULL TABLES</code> (it opens no table), held in the cache 10 minutes for the search and then dropped; <strong>Reload the List</strong> reads them again. A table's columns and row estimate are read live when it is chosen, from the catalogue for that one table.</li>
+      <li><strong>Search and groups</strong> worked out by C360 on those names: the search filters all of them, the first 50 matches come back, more on request; groups are name prefixes with 5 or more tables (others under Other), views have their own group; under 50 tables, one plain list.</li>
+      <li><strong>Pins</strong> per database, shared by the workspace's administrators and report builders: the only thing kept, the pinned tables' names.</li>
+      <li><strong>The join check</strong> on the first 10,000 rows of the base table, with the share that matches and whether the join repeats rows; it never counts a whole table.</li>
+      <li><strong>The sample rows</strong> stay 5 rows with no sorting, read only when asked for.</li>
+      <li>A patch for the pins (a list of names on the connection); tests for the search, the groups, the on-demand columns, the 10-minute memory and the sampled join check; help in the Report Databases chapter.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A.</strong> With 1,284 tables people mostly know part of a name, so search first is the fastest route, and pins keep the few tables they use one click away. The folded groups still give the shape of the database when nothing is typed. Option B suits browsing a database you don't know, at the cost of a second column and more clicks per table.</div>
+</div>
+</body>
+</html>

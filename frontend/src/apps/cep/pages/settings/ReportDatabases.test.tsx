@@ -1,9 +1,9 @@
 /** Settings → Report Databases: the empty state with the grant to give, Connect a Database with Test Connection, the cards, and Map a Dataset: a source's columns named, previewed and saved. */
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, reportDatabasesNow, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, reportDatabasesNow, reportSourcesNow, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string, before: () => void = () => undefined) {
   const calls = installMockApi()
@@ -82,14 +82,15 @@ test('PostgreSQL gets port 5432 and a schema field; an account that can write is
 test('Map a Dataset: views first, a source’s columns typed with labels from their names, a personal field masked in the preview, Save posts the fields and the dataset lists under the cards', async () => {
   const calls = await renderAppAt('/settings/report-databases/db-1/map', () => {
     reportDatabasesNow.push({ id: 'db-1', name: 'Store Operations', engine: 'mysql80', engine_name: 'MySQL 8.0', host: 'ops-db.northwind.local', port: 3306, database_name: 'nwa_ops', schema_name: 'nwa_ops', username: 'cep_reader', ssl_mode: 'REQUIRED', status: 'ACTIVE',
-      last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [] })
+      last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [], limit_profile: 'STANDARD', query_timeout_s: null, max_concurrent: null, limits: { timeout_s: 15, concurrent: 4 } })
   })
   const user = userEvent.setup()
   expect(await screen.findByRole('heading', { name: 'Map a Dataset · Store Operations' }, { timeout: 5000 })).toBeTruthy()
   const aside = screen.getByRole('complementary', { name: 'Tables and views' })
-  const buttons = await within(aside).findAllByRole('button')
-  expect(buttons.map((b) => b.textContent)).toEqual(['v_daily_sales5 columns', 'sales_lines18 columns · 4.2 M rows', 'stores3 columns · 1,204 rows'])
-  await user.click(buttons[0])
+  const names = await within(aside).findAllByRole('button', { name: /^(View|Table)/ })
+  expect(names.map((b) => b.textContent)).toEqual(['Viewv_daily_sales', 'Tablesales_lines', 'Tablestores'])     // names only: details come when a table is chosen
+  expect(within(aside).getByText(/names read live from nwa_ops/)).toBeTruthy()
+  await user.click(names[0])
   const columns = await screen.findByRole('table', { name: 'Columns' })
   expect((within(columns).getByRole('textbox', { name: 'net_sales label' }) as HTMLInputElement).value).toBe('Net Sales')
   expect((within(columns).getByRole('combobox', { name: 'net_sales role' }) as HTMLSelectElement).value).toBe('measure')
@@ -118,12 +119,12 @@ test('Map a Dataset: views first, a source’s columns typed with labels from th
 test('Option J2: Add a Join brings a second table in on a suggested key, checks it, draws it as a card with the key marked, groups the fields by table, and Save posts the joins and the fields with their tables', async () => {
   const calls = await renderAppAt('/settings/report-databases/db-1/map', () => {
     reportDatabasesNow.push({ id: 'db-1', name: 'Store Operations', engine: 'mysql80', engine_name: 'MySQL 8.0', host: 'ops-db.northwind.local', port: 3306, database_name: 'nwa_ops', schema_name: 'nwa_ops', username: 'cep_reader', ssl_mode: 'REQUIRED', status: 'ACTIVE',
-      last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [] })
+      last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [], limit_profile: 'STANDARD', query_timeout_s: null, max_concurrent: null, limits: { timeout_s: 15, concurrent: 4 } })
   })
   const user = userEvent.setup()
   await screen.findByRole('heading', { name: 'Map a Dataset · Store Operations' }, { timeout: 5000 })
   const aside = screen.getByRole('complementary', { name: 'Tables and views' })
-  await user.click((await within(aside).findAllByRole('button'))[0])                                           // v_daily_sales as the base
+  await user.click(await within(aside).findByRole('button', { name: /^Viewv_daily_sales/ }))                  // v_daily_sales as the base
   const diagram = await screen.findByRole('group', { name: 'Tables in this dataset' })
   expect(within(diagram).getByLabelText('v_daily_sales, the base')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Add a Join' }))
@@ -132,7 +133,7 @@ test('Option J2: Add a Join brings a second table in on a suggested key, checks 
   expect((await within(dialog).findByRole('combobox', { name: 'Key 1 of v_daily_sales' }) as HTMLSelectElement).value).toBe('store_id')   // suggested: store_id = id
   expect((within(dialog).getByRole('combobox', { name: 'Key 1 of stores' }) as HTMLSelectElement).value).toBe('id')
   await user.click(within(dialog).getByRole('button', { name: 'Check the Join' }))
-  expect(await within(dialog).findByText(/1,284 v_daily_sales rows, 1,280 with a match/)).toBeTruthy()
+  expect(await within(dialog).findByText(/Checked on the first 10,000 rows of v_daily_sales: 10,000 v_daily_sales rows, 9,812 with a match/)).toBeTruthy()
   const checked = calls.find((call) => call.url.endsWith('/join-check/'))?.body as { joins: unknown[] } | undefined
   expect(checked?.joins).toEqual([{ alias: 't1', table: 'stores', type: 'left', to: 't0', on: [['store_id', 'id']] }])
   await user.click(within(dialog).getByRole('button', { name: 'Add' }))
@@ -153,7 +154,7 @@ test('Option J2: Add a Join brings a second table in on a suggested key, checks 
 })
 
 const DB = { id: 'db-1', name: 'Store Operations', engine: 'mysql80' as const, engine_name: 'MySQL 8.0', host: 'ops-db.northwind.local', port: 3306, database_name: 'nwa_ops', schema_name: 'nwa_ops', username: 'cep_reader', ssl_mode: 'REQUIRED' as const, status: 'ACTIVE' as const,
-  last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [] }
+  last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [], limit_profile: 'STANDARD' as const, query_timeout_s: null, max_concurrent: null, limits: { timeout_s: 15, concurrent: 4 } }
 
 test('Query a Database from New Report: the visual builder writes the SQL, Run previews the rows, a second statement is refused, Write It for Me fills the window, and Create Report builds the report on the query and opens the editor', async () => {
   const { me } = await import('@/test/mockApi')
@@ -297,3 +298,92 @@ test('Settings → Report Databases offers ClickHouse, with its own grant', asyn
   const dialog = await screen.findByRole('dialog', { name: 'Connect a Database' })
   expect(within(dialog).getByRole('option', { name: 'ClickHouse' })).toBeTruthy()
 })
+
+test('How reports treat a database (option B): Standard shows the workspace limits, Live Production Database is saved and shown on the card, Custom asks for the two values', async () => {
+  const calls = await renderAppAt('/settings/report-databases', () => {
+    reportDatabasesNow.push({ id: 'db-1', name: 'CG-Prod', engine: 'mysql57', engine_name: 'MySQL 5.7', host: 'db.cg-retail.internal', port: 3306, database_name: 'shop', schema_name: 'shop', username: 'c360_reports', ssl_mode: 'REQUIRED', status: 'ACTIVE',
+      last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '5.7.44', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [], limit_profile: 'STANDARD', query_timeout_s: null, max_concurrent: null, limits: { timeout_s: 15, concurrent: 4 } })
+  })
+  const user = userEvent.setup()
+  const card = await screen.findByRole('listitem', { name: 'CG-Prod' }, { timeout: 5000 })
+  expect(within(card).getByText('Standard')).toBeTruthy()
+  expect(within(card).getByText('15 s · 4 at once')).toBeTruthy()
+
+  await user.click(within(card).getByRole('button', { name: 'Edit' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Edit CG-Prod' })
+  const group = within(dialog).getByRole('group', { name: 'How reports treat this database' })
+  expect(within(group).getByText('15 seconds · 4 at once')).toBeTruthy()                                       // Standard: this workspace's limits
+  expect((within(group).getByRole('radio', { name: /^Standard/ }) as HTMLInputElement).checked).toBe(true)
+  await user.click(within(group).getByRole('radio', { name: /^Live Production Database/ }))
+  expect(within(dialog).getByText(/One report at a time reads it/)).toBeTruthy()
+  expect(within(dialog).queryByLabelText(/^Time Limit/)).toBeNull()                                            // a preset has no fields
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(within(screen.getByRole('listitem', { name: 'CG-Prod' })).getByText('60 s · 1 at once')).toBeTruthy(), { timeout: 4000 })
+  const put = calls.filter((call) => call.url.endsWith('/workspace/report-databases/db-1/') && call.method === 'PUT').at(-1)?.body as Record<string, unknown>
+  expect(put).toMatchObject({ limit_profile: 'LIVE' })
+  expect(put.query_timeout_s).toBeUndefined()
+  expect(within(screen.getByRole('listitem', { name: 'CG-Prod' })).getByText('Live Production Database')).toBeTruthy()
+
+  await user.click(within(screen.getByRole('listitem', { name: 'CG-Prod' })).getByRole('button', { name: 'Edit' }))
+  const again = await screen.findByRole('dialog', { name: 'Edit CG-Prod' })
+  await user.click(within(again).getByRole('radio', { name: /^Custom/ }))
+  const limit = within(again).getByLabelText(/^Time Limit/)
+  await user.clear(limit)
+  await user.type(limit, '90')
+  await user.selectOptions(within(again).getByLabelText(/^Reports at Once/), '2')
+  await user.click(within(again).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(within(screen.getByRole('listitem', { name: 'CG-Prod' })).getByText('90 s · 2 at once')).toBeTruthy(), { timeout: 4000 })
+  const custom = calls.filter((call) => call.url.endsWith('/workspace/report-databases/db-1/') && call.method === 'PUT').at(-1)?.body as Record<string, unknown>
+  expect(custom).toMatchObject({ limit_profile: 'CUSTOM', query_timeout_s: 90, max_concurrent: 2 })
+})
+
+test('Finding a table among 1,284 (option A): names only, the groups folded with their counts, search narrows them with chips, 50 at a time, a pin goes to the top, Reload the List reads them again', async () => {
+  const calls = await renderAppAt('/settings/report-databases/db-1/map', () => {
+    reportDatabasesNow.push({ ...BIG_DB })
+    const prefixes = ['sales_', 'inv_', 'pos_', 'cust_']
+    for (let n = 0; n < 1284; n += 1) reportSourcesNow.push({ name: `${prefixes[n % 4]}${String(n).padStart(4, '0')}`, kind: 'table', rows: null, columns: null, mappable: true, mapped_as: null })
+  })
+  const user = userEvent.setup()
+  const aside = await screen.findByRole('complementary', { name: 'Tables and views' }, { timeout: 5000 })
+  expect(await within(aside).findByText(/names read live from shop/)).toBeTruthy()
+  expect(within(aside).getByRole('button', { name: /sales_\s*321/ }).getAttribute('aria-expanded')).toBe('false')   // folded, with its count
+  expect(within(aside).queryAllByRole('button', { name: /^Table/ })).toHaveLength(0)                       // nothing drawn until a group opens or a search
+
+  await user.type(within(aside).getByRole('searchbox', { name: 'Search tables and views' }), 'sales_00')
+  expect(within(aside).getByText('25 of 1,284 match')).toBeTruthy()
+  expect(within(aside).getAllByRole('button', { name: /^Table/ })).toHaveLength(25)
+
+  await user.clear(within(aside).getByRole('searchbox', { name: 'Search tables and views' }))
+  await user.type(within(aside).getByRole('searchbox', { name: 'Search tables and views' }), '1')
+  expect(within(aside).getAllByRole('button', { name: /^Table/ })).toHaveLength(50)                       // the first 50 of the matches
+  await user.click(within(aside).getByRole('button', { name: 'Show 50 More' }))
+  expect(within(aside).getAllByRole('button', { name: /^Table/ })).toHaveLength(100)
+  await user.click(within(aside).getByRole('button', { name: /^inv_/, pressed: false }))                     // a chip: the inv_ matches alone
+  expect(within(aside).getAllByRole('button', { name: /^Table/ }).every((b) => b.textContent?.includes('inv_'))).toBe(true)
+
+  await user.click(within(aside).getAllByRole('button', { name: /^Pin / })[0])
+  await waitFor(() => expect(calls.some((c) => c.url.endsWith('/workspace/report-databases/db-1/pins/') && c.method === 'PUT')).toBe(true))
+  await user.clear(within(aside).getByRole('searchbox', { name: 'Search tables and views' }))
+  expect(await within(aside).findByRole('button', { name: /^Pinned/ })).toBeTruthy()
+
+  await user.click(within(aside).getByRole('button', { name: 'Reload the List' }))
+  await waitFor(() => expect(calls.some((c) => c.url.includes('/workspace/report-databases/db-1/sources/') && c.url.includes('reload=1'))).toBe(true))
+})
+
+test('Find Databases lists what the account can see, and the Database field becomes a choice', async () => {
+  const calls = await renderAppAt('/settings/report-databases')
+  const user = userEvent.setup()
+  await user.click((await screen.findAllByRole('button', { name: 'Connect a Database' }, { timeout: 5000 }))[0])
+  const dialog = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  await user.type(within(dialog).getByLabelText(/^Host/), 'db.cg-retail.internal')
+  await user.type(within(dialog).getByLabelText(/^User/), 'c360_reports')
+  await user.type(within(dialog).getByLabelText(/^Password/), 's3cret')
+  await user.click(within(dialog).getByRole('button', { name: 'Find Databases' }))
+  expect(await within(dialog).findByText(/3 found: pick one above/)).toBeTruthy()
+  await user.selectOptions(within(dialog).getByLabelText(/^Database/), 'shop_reporting')
+  expect(within(dialog).getByRole('option', { name: 'shop · 1,284 tables and views' })).toBeTruthy()
+  const asked = calls.find((c) => c.url.endsWith('/workspace/report-databases/find-databases/'))?.body as Record<string, unknown>
+  expect(asked).toMatchObject({ host: 'db.cg-retail.internal', username: 'c360_reports', password: 's3cret' })
+})
+
+const BIG_DB = { ...DB, name: 'CG-Prod', engine: 'mysql57' as const, engine_name: 'MySQL 5.7', database_name: 'shop', schema_name: 'shop' }

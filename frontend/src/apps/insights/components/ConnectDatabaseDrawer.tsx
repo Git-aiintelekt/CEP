@@ -18,9 +18,10 @@ import { api, ApiError } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import { insightsApi, keys } from '../api'
 import { starterDefinition } from '../starter'
-import type { ReportDatabase, ReportDatabaseTest, ReportDataset, SourceInfo } from '../types'
+import { matches, PAGE } from '../sourceGroups'
+import type { ReportDatabase, ReportDatabaseTest, ReportDataset, SourceList } from '../types'
 import { connectionBody, connectionForm, ENGINE_LABEL, testWords, type ConnectionForm } from '../databaseConnection'
-import { ConnectionFields, TestChecks } from './DatabaseConnectionForm'
+import { ConnectionFields, LimitFields, TestChecks } from './DatabaseConnectionForm'
 
 export function ConnectDatabaseDrawer({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState<ReportDatabase | null>(null)
@@ -59,6 +60,7 @@ function ConnectionStep({ onSaved, onClose }: { onSaved: (database: ReportDataba
       <form id="connect-database" className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-ink-800">Read-only. The password stays on the server, and the engine only ever selects from the database.</p>
         <ConnectionFields form={form} onChange={setForm} errors={errors} />
+        <LimitFields form={form} onChange={setForm} errors={errors} />
         {outcome && <TestChecks outcome={outcome} engine={form.engine} />}
         {outcome && !readOnly && tested === snapshot && outcome.ok && (
           <p className="rounded-md bg-callout-bg p-3 text-sm text-callout-text">Ask whoever runs the database for an account that can only read, then test again.</p>
@@ -77,7 +79,7 @@ function PickSource({ database, onBack, onClose }: { database: ReportDatabase; o
   const [chosen, setChosen] = useState<string | null>(null)
   const sources = useQuery({
     queryKey: ['workspace', 'report-database', database.id, 'sources'],
-    queryFn: ({ signal }) => api.get<{ sources: SourceInfo[] }>(`/workspace/report-databases/${database.id}/sources/`, undefined, signal),
+    queryFn: ({ signal }) => api.get<SourceList>(`/workspace/report-databases/${database.id}/sources/`, undefined, signal),
   })
   const create = useMutation({
     mutationFn: async (source: string) => {
@@ -90,7 +92,10 @@ function PickSource({ database, onBack, onClose }: { database: ReportDatabase; o
     onSuccess: (report) => navigate(`/insights/reports/${report.id}/edit`),
     onError: (error) => toast.failure(error, 'The report was not created'),
   })
-  const found = (sources.data?.sources ?? []).filter((s) => s.mappable && s.name.toLowerCase().includes(search.trim().toLowerCase()))
+  const [shown, setShown] = useState(PAGE)
+  const all = (sources.data?.sources ?? []).filter((s) => s.mappable && matches(s, search))
+  const pinned = new Set(sources.data?.pinned ?? [])
+  const found = [...all.filter((s) => pinned.has(s.name)), ...all.filter((s) => !pinned.has(s.name))].slice(0, shown)   // a 1,000-table database draws PAGE at a time
   return (
     <Drawer title={database.name} eyebrow="1 Connection · 2 What to Report On" onClose={onClose}
       footer={<>
@@ -105,7 +110,7 @@ function PickSource({ database, onBack, onClose }: { database: ReportDatabase; o
         </div>
         {sources.isPending ? <Spinner label="Reading the tables and views" /> : sources.isError ? <ErrorState error={sources.error} onRetry={() => void sources.refetch()} /> : (
           <>
-            <TextInput aria-label="Search tables and views" placeholder={`Search ${formatNumber(sources.data.sources.length)} tables and views`} value={search} onChange={(e) => setSearch(e.target.value)} />
+            <TextInput aria-label="Search tables and views" placeholder={`Search ${formatNumber(sources.data.sources.length)} tables and views`} value={search} onChange={(e) => { setSearch(e.target.value); setShown(PAGE) }} />
             <ul className="max-h-80 overflow-y-auto rounded-md border border-line" aria-label="Tables and views">
               {found.map((s) => (
                 <li key={s.name} className="border-b border-line last:border-b-0">
@@ -113,13 +118,19 @@ function PickSource({ database, onBack, onClose }: { database: ReportDatabase; o
                     <input type="radio" name="source" value={s.name} checked={chosen === s.name} onChange={() => setChosen(s.name)} className="mt-1" />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-ink-900">{s.name}</span>
-                      <span className="block text-xs text-ink-800">{[s.kind === 'view' ? 'View' : 'Table', `${formatNumber(s.columns)} columns`, s.rows !== null ? `${formatNumber(s.rows)} rows` : null, s.mapped_as ? `mapped as ${s.mapped_as}` : null].filter(Boolean).join(' · ')}</span>
+                      <span className="block text-xs text-ink-800">{[s.kind === 'view' ? 'View' : 'Table', s.columns != null ? `${formatNumber(s.columns)} columns` : null, s.rows !== null ? `${formatNumber(s.rows)} rows` : null, s.mapped_as ? `mapped as ${s.mapped_as}` : null].filter(Boolean).join(' · ')}</span>
                     </span>
                   </label>
                 </li>
               ))}
               {found.length === 0 && <li className="px-3 py-4 text-center text-sm text-ink-800">{search ? 'Nothing matches the search.' : 'The account can read no table or view here.'}</li>}
             </ul>
+            {all.length > found.length && (
+              <p className="flex items-center justify-between text-xs text-ink-800">
+                <span>{formatNumber(found.length)} of {formatNumber(all.length)} shown{search ? ' that match' : ''}: search to narrow them</span>
+                <button type="button" className="font-medium text-link hover:underline" onClick={() => setShown((n) => n + PAGE)}>Show {formatNumber(Math.min(PAGE, all.length - found.length))} More</button>
+              </p>
+            )}
           </>
         )}
         <p className="text-sm text-ink-800">
