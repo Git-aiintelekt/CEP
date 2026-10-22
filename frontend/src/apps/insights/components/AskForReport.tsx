@@ -4,16 +4,18 @@
  * remembered per browser) and presses Generate. What comes back is a draft (in words, with a preview count; Open in Editor
  * makes it a private report and opens it), one question with its answers as buttons, or "no field for this" with the
  * closest prompts. The model sees the prompt and the field names, never customer rows. Only a draft counts against the month.
- * The prompt may run to 4,000 characters over several lines, and up to three images may go with it (Add Images, or paste or drop
- * them on the box): a sketch of the report, a screenshot of a chart or a table. They go to the model and are not kept.
+ * The prompt may run to 4,000 characters over several lines, and up to five images may go with it: a sketch of the report, a
+ * screenshot of a chart or a table. They go to the model and are not kept. One box holds the images, the text and a bar with the
+ * paperclip, the counter, the model and Generate (docs/mockups/ask-for-report-composer.html, option A); files dragged anywhere over
+ * the panel show the drop target on it, and pasting into the text adds them too.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ImagePlus, X } from 'lucide-react'
+import { ChevronDown, Paperclip, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { IconButton } from '@/components/Button'
-import { buttonPrimary, buttonSecondary, Counter, TextArea } from '@/components/Form'
+import { buttonPrimary, buttonSecondary, Counter } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
 import { Popover } from '@/components/Popover'
 import { Spinner } from '@/components/States'
@@ -91,7 +93,10 @@ export function AskForReport() {
     const wrong = files.find((file) => !isImage(file))
     if (wrong) setImageError(`${wrong.name || 'That file'} is not a PNG, JPEG, GIF or WebP image.`)
     const taken = files.filter(isImage)
-    if (taken.length > room) setImageError(`Add up to ${IMAGES_MAX} images.`)
+    if (taken.length > room) {
+      const left = taken.slice(Math.max(0, room)).map((file) => file.name).join(', ')
+      setImageError(`Add up to ${IMAGES_MAX} images. ${left} ${taken.length - Math.max(0, room) === 1 ? 'was' : 'were'} not added.`)
+    }
     const ready = await Promise.all(taken.slice(0, Math.max(0, room)).map(shrink))
     const big = ready.find((file) => file.size > IMAGE_BYTES_MAX)
     if (big) setImageError(`${big.name} is ${(big.size / 1_000_000).toFixed(1)} MB; an image may be up to ${(IMAGE_BYTES_MAX / 1_000_000).toFixed(1)} MB.`)
@@ -104,72 +109,87 @@ export function AskForReport() {
     if (files.length) { event.preventDefault(); void attach(files) }
   }
   const onDrop = (event: DragEvent<HTMLElement>) => {
+    setDragging(false)
     if (!event.dataTransfer.files.length) return
     event.preventDefault()
-    setDragging(false)
     void attach(Array.from(event.dataTransfer.files))
   }
+  const onDragOver = (event: DragEvent<HTMLElement>) => {
+    if (!event.dataTransfer.types.includes('Files')) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+    setDragging(true)
+  }
+  // leaving a child for another one inside the panel is not leaving the panel
+  const onDragLeave = (event: DragEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }
+  const full = images.length >= IMAGES_MAX
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send(prompt) } }
   const edit = (text: string) => { setPrompt(text); setResult(null); box.current?.focus() }
   const dataset = (key: string | undefined) => catalog.data?.datasets.find((d) => d.key === key) ?? null
   const showExamples = !result && data.recent.length === 0
 
   return (
-    <section aria-label="Ask for a Report" className={`flex flex-col gap-3 rounded-lg border bg-surface p-4 ${dragging ? 'border-focus' : 'border-line'}`}
-      onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
+    <section aria-label="Ask for a Report" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
       <div className="flex flex-wrap items-center gap-2">
         <AiPill />
         <h2 className="text-sm font-semibold text-ink-900">Ask for a Report</h2>
         {data.usage && <span className="ml-auto text-xs text-ink-800">{data.usage.words}</span>}
       </div>
-      <label className="sr-only" htmlFor="ai-prompt">What do you want to see?</label>
-      <TextArea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={5} maxLength={PROMPT_MAX}
-        placeholder={'e.g. Revenue by channel and month for the last quarter, as a pivot.\nAdd the details on more lines: the filters, the order, what to compare.'} className="!mt-0 min-h-32 resize-y" />
-      <div className="flex flex-wrap items-center gap-2">
-        <input ref={picker} type="file" accept={IMAGE_TYPES.join(',')} multiple hidden aria-hidden tabIndex={-1}
-          onChange={(event) => { void attach(Array.from(event.target.files ?? [])); event.target.value = '' }} />
-        <button type="button" className={`${buttonSecondary} h-8 px-2.5 text-sm`} onClick={() => picker.current?.click()} disabled={images.length >= IMAGES_MAX}>
-          <ImagePlus size={16} strokeWidth={1.5} aria-hidden />Add Images
-        </button>
-        <span className="text-xs text-ink-800">{images.length ? `${images.length} of ${IMAGES_MAX}` : `Up to ${IMAGES_MAX}: a sketch, or a screenshot of a chart or a table. Paste or drop them here too.`}</span>
-        <span className="ml-auto"><Counter used={prompt.length} max={PROMPT_MAX} /></span>
-      </div>
-      {images.length > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Images">
-          {images.map((image) => (
-            <li key={image.url} className="relative">
-              <img src={image.url} alt={image.file.name} className="h-16 w-16 rounded-md border border-line object-cover" />
-              <IconButton label={`Remove ${image.file.name}`} icon={X} size="sm" onClick={() => detach(image)} className="absolute -top-2 -right-2 border border-line bg-surface" />
-            </li>
-          ))}
-        </ul>
-      )}
-      {imageError && <p role="alert" className="text-sm text-danger-text">{imageError}</p>}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <button type="button" {...menu.triggerProps('model')} className="flex h-8 min-w-56 items-center gap-2 rounded-control-md border border-line-control bg-surface px-2.5 text-sm text-ink-900 hover:bg-surface-hover">
-            {model && <Mark model={model} />}
-            <span className="flex-1 text-left">{model?.label ?? 'Choose a model'}</span>
-            <ChevronDown size={14} strokeWidth={1.5} aria-hidden className="text-ink-700" />
+      <div className="relative flex min-w-0 flex-col rounded-md border border-line-control bg-surface transition-colors duration-base ease-standard focus-within:border-focus focus-within:shadow-focus">
+        {images.length > 0 && (
+          <ul className="flex flex-wrap gap-2 px-3 pt-3 pb-1" aria-label="Images">
+            {images.map((image) => (
+              <li key={image.url} className="relative flex w-16 flex-col gap-0.5" title={image.file.name}>
+                <img src={image.url} alt={image.file.name} className="h-16 w-16 rounded-md border border-line object-cover" />
+                <span className="truncate text-[11px] leading-[14px] text-ink-700">{image.file.name}</span>
+                <IconButton label={`Remove ${image.file.name}`} icon={X} size="xs" onClick={() => detach(image)} className="absolute -top-2 -right-2 border border-line bg-surface" />
+              </li>
+            ))}
+          </ul>
+        )}
+        <label className="sr-only" htmlFor="ai-prompt">What do you want to see?</label>
+        <textarea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={4} maxLength={PROMPT_MAX}
+          placeholder={'e.g. Revenue by channel and month for the last quarter, as a pivot.\nAdd the details on more lines: the filters, the order, what to compare.'}
+          className="cep-input-bare min-h-24 w-full resize-y border-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-ink-900 outline-none" />
+        <div className="flex flex-wrap items-center gap-2 px-2 pt-1 pb-2">
+          <input ref={picker} type="file" accept={IMAGE_TYPES.join(',')} multiple hidden aria-hidden tabIndex={-1}
+            onChange={(event) => { void attach(Array.from(event.target.files ?? [])); event.target.value = '' }} />
+          <IconButton label="Add Images" title={full ? `${IMAGES_MAX} images is the most` : 'Add Images'} icon={Paperclip} size="md" onClick={() => picker.current?.click()} disabled={full} />
+          <span className="text-xs text-ink-800">{images.length ? `${images.length} of ${IMAGES_MAX}` : `Drop, paste or attach up to ${IMAGES_MAX} images`}</span>
+          <span className="ml-auto"><Counter used={prompt.length} max={PROMPT_MAX} /></span>
+          <div className="relative">
+            <button type="button" {...menu.triggerProps('model')} className="flex h-8 items-center gap-2 rounded-control-md px-2 text-sm text-ink-900 hover:bg-surface-hover">
+              {model && <Mark model={model} />}
+              <span className="text-left">{model?.label ?? 'Choose a model'}</span>
+              <ChevronDown size={14} strokeWidth={1.5} aria-hidden className="text-ink-700" />
+            </button>
+            {menu.isOpen('model') && (
+              <Popover label="Model" width={280} {...menu.panelProps('model')} className="p-1.5">
+                {Array.from(new Map(models.map((m) => [m.provider, m.provider_name])).entries()).map(([provider, name]) => (
+                  <div key={provider}>
+                    <p className="px-2 pt-2 pb-1 text-[11px] font-semibold tracking-wide text-ink-800 uppercase">{name}</p>
+                    {models.filter((m) => m.provider === provider).map((m) => (
+                      <MenuRow key={m.id} title={m.label} leading={<Mark model={m} />} trailing={<span className="text-xs text-ink-800">{m.note}</span>} selected={m.id === model?.id} divider={false} onClick={() => pick(m.id)} />
+                    ))}
+                  </div>
+                ))}
+              </Popover>
+            )}
+          </div>
+          <button type="button" className={buttonPrimary} onClick={() => send(prompt)} disabled={!prompt.trim() || !model || ask.isPending}>
+            {ask.isPending ? <><Spinner size="sm" /> Thinking</> : 'Generate Report'}
           </button>
-          {menu.isOpen('model') && (
-            <Popover label="Model" width={280} {...menu.panelProps('model')} className="p-1.5">
-              {Array.from(new Map(models.map((m) => [m.provider, m.provider_name])).entries()).map(([provider, name]) => (
-                <div key={provider}>
-                  <p className="px-2 pt-2 pb-1 text-[11px] font-semibold tracking-wide text-ink-800 uppercase">{name}</p>
-                  {models.filter((m) => m.provider === provider).map((m) => (
-                    <MenuRow key={m.id} title={m.label} leading={<Mark model={m} />} trailing={<span className="text-xs text-ink-800">{m.note}</span>} selected={m.id === model?.id} divider={false} onClick={() => pick(m.id)} />
-                  ))}
-                </div>
-              ))}
-            </Popover>
-          )}
         </div>
-        <span className="text-xs text-ink-800">{images.length ? 'Sends your prompt, the images and the field names, never your data. The images are not kept.' : 'Sends your prompt and the field names, never your data.'}</span>
-        <button type="button" className={`${buttonPrimary} ml-auto`} onClick={() => send(prompt)} disabled={!prompt.trim() || !model || ask.isPending}>
-          {ask.isPending ? <><Spinner size="sm" /> Thinking</> : 'Generate Report'}
-        </button>
+        {dragging && (
+          <div aria-hidden className="pointer-events-none absolute -inset-px flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-brand-600 bg-brand-100 text-center">
+            <Upload size={24} strokeWidth={1.5} className="text-brand-800" />
+            <span className="text-base font-semibold text-brand-800">Drop images here</span>
+            <span className="text-xs text-ink-800">PNG, JPEG, GIF or WebP · up to {IMAGES_MAX}</span>
+          </div>
+        )}
       </div>
+      {imageError && <p role="alert" className="text-sm text-danger-text">{imageError}</p>}
+      <p className="text-xs text-ink-800">{images.length ? 'Sends your prompt, the images and the field names, never your data. The images are not kept.' : 'Sends your prompt and the field names, never your data.'}</p>
       {failure && <p role="alert" className="text-sm text-danger-text">{failure}</p>}
 
       {result && (

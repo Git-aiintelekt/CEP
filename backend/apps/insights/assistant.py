@@ -48,7 +48,7 @@ SETTINGS_KEY = "ai_assistant"
 RETENTION_DAYS = 90
 PROMPT_MAX = 4000
 # images sent with Ask for a Report (a sketch of the report, a screenshot of a chart or a table): read for the request, never stored
-IMAGES_MAX = 3
+IMAGES_MAX = 5
 IMAGE_BYTES_MAX = 3_750_000                                         # the providers' 5 MB limit once base64-encoded
 IMAGE_FORMATS = {"PNG": "image/png", "JPEG": "image/jpeg", "GIF": "image/gif", "WEBP": "image/webp"}
 IMAGES_NOTE = ("The person attached {n} image{s} with this request: a sketch of the report they want, or a screenshot of a chart, a table or a "

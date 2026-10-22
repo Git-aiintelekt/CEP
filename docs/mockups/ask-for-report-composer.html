@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask for a Report Composer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --plum-100:#dee9fc; --plum-700:#2b4dd0;
+    --danger-text:#a92e26; --danger-plain:#c93a32;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --r-md:12px; --r-lg:16px; --r-sm:6px;
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h1,h2,h3 { font-weight:600 }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:#fcf4cb; color:#87451d; font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .row { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; align-items:start; max-width:1160px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0 }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:var(--surface) }
+  .page { padding:20px; min-width:0 }
+
+  /* the Ask for a Report panel */
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:16px; display:flex; flex-direction:column; gap:12px; min-width:0 }
+  .head { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .pill-ai { display:inline-flex; height:20px; align-items:center; border-radius:4px; background:var(--plum-100); padding:0 6px; font-size:11px; font-weight:700; letter-spacing:.03em; color:var(--plum-700) }
+  .head h2 { font-size:14px; line-height:20px } .head .use { margin-left:auto; font-size:12px; line-height:16px; color:var(--ink-800) }
+
+  /* the composer: one box holding the images, the text and the bottom bar */
+  .box { position:relative; border:1px solid var(--line-control); border-radius:var(--r-md); background:var(--surface); display:flex; flex-direction:column; min-width:0 }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .thumbs { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 0 }
+  .thumb { position:relative; width:64px; height:64px; border:1px solid var(--line); border-radius:8px; background:#fff; overflow:visible }
+  .thumb svg.pic { width:100%; height:100%; display:block; border-radius:7px }
+  .thumb .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .thumb .name { position:absolute; left:0; right:0; bottom:-18px; font-size:11px; line-height:14px; color:var(--ink-700); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .thumbs.named { padding-bottom:16px }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line }
+  .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon-btn { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800); border:0; background:transparent }
+  .icon-btn:hover, .icon-btn.hov { background:var(--fill-subtle) }
+  .icon-btn.off { color:var(--ink-300) }
+  .muted { font-size:12px; line-height:16px; color:var(--ink-800) }
+  .counter { font-size:12px; line-height:16px; color:var(--ink-800); font-variant-numeric:tabular-nums }
+  .grow { flex:1 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:8px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px 0 8px; font-size:13px; background:#fff; white-space:nowrap }
+  .model.ghost { border-color:transparent } .model.ghost:hover { background:var(--fill-subtle) }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); background:var(--surface-subtle); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; border:0; padding:0 14px; font:600 13px/1 var(--font); display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .secondary { height:32px; border-radius:999px; background:#fff; color:var(--ink-900); border:1px solid var(--line-control); padding:0 12px; font:500 13px/1 var(--font); display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+  .below { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .alert { font-size:13px; line-height:18px; color:var(--danger-plain) }
+
+  /* while files are dragged over the panel */
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:var(--r-md); background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center; color:var(--brand-800) }
+  .drop b { font-size:15px; line-height:22px } .drop small { font-size:12px; line-height:16px; color:var(--ink-800) }
+
+  .examples { display:flex; flex-direction:column; gap:8px }
+  .over { font-size:12px; line-height:16px; font-weight:600; color:var(--ink-800); letter-spacing:.02em; text-transform:uppercase }
+  .chips { display:flex; flex-wrap:wrap; gap:6px }
+  .chip { height:28px; border-radius:999px; border:1px solid var(--line); padding:0 10px; font-size:12px; display:inline-flex; align-items:center; background:#fff }
+
+  .card { margin-top:40px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card li { margin:4px 0 }
+  .card code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="clip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="up" viewBox="0 0 24 24"><path d="M12 15V3m0 0L7 8m5-5 5 5M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="send" viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <!-- the sample images: a bar chart, a table screenshot, a hand sketch, a line chart, a pie -->
+  <symbol id="img-bars" viewBox="0 0 64 64"><rect width="64" height="64" fill="#f9fafb"/><rect x="10" y="34" width="8" height="20" fill="#3863db"/><rect x="22" y="24" width="8" height="30" fill="#3863db"/><rect x="34" y="14" width="8" height="40" fill="#a8488f"/><rect x="46" y="28" width="8" height="26" fill="#3863db"/><path d="M8 54h48" stroke="#81858f"/></symbol>
+  <symbol id="img-table" viewBox="0 0 64 64"><rect width="64" height="64" fill="#fff"/><rect x="6" y="8" width="52" height="8" fill="#eeeff5"/><g stroke="#cfd2dc"><path d="M6 24h52M6 32h52M6 40h52M6 48h52M24 8v48M42 8v48"/></g><g fill="#9ea2ad"><rect x="9" y="19" width="10" height="2"/><rect x="27" y="19" width="8" height="2"/><rect x="45" y="19" width="9" height="2"/><rect x="9" y="27" width="12" height="2"/><rect x="27" y="27" width="6" height="2"/><rect x="45" y="27" width="10" height="2"/><rect x="9" y="35" width="8" height="2"/><rect x="27" y="35" width="10" height="2"/><rect x="45" y="35" width="7" height="2"/><rect x="9" y="43" width="11" height="2"/><rect x="27" y="43" width="7" height="2"/><rect x="45" y="43" width="9" height="2"/></g></symbol>
+  <symbol id="img-sketch" viewBox="0 0 64 64"><rect width="64" height="64" fill="#fffdf4"/><g fill="none" stroke="#4b4f5b" stroke-width="1.4" stroke-linecap="round"><path d="M9 12c10-1 36 1 46 0M9 12c-1 10 1 30 0 40M55 12c1 12-1 28 0 40M9 52c12 1 34-1 46 0M9 22c14 1 32-1 46 0M28 12c1 12-1 28 0 40"/><path d="M13 17h10M33 17h14M13 28h8M33 28h9M13 36h11M33 36h6"/></g></symbol>
+  <symbol id="img-line" viewBox="0 0 64 64"><rect width="64" height="64" fill="#fff"/><g stroke="#e2e4eb"><path d="M8 16h48M8 28h48M8 40h48"/></g><path d="M8 52h48" stroke="#81858f"/><polyline points="8,44 16,38 24,40 32,28 40,30 48,18 56,22" fill="none" stroke="#3863db" stroke-width="2"/><polyline points="8,48 16,46 24,42 32,40 40,36 48,34 56,30" fill="none" stroke="#a8488f" stroke-width="2"/></symbol>
+  <symbol id="img-pie" viewBox="0 0 64 64"><rect width="64" height="64" fill="#f9fafb"/><circle cx="32" cy="32" r="20" fill="#3863db"/><path d="M32 32V12a20 20 0 0 1 19 26z" fill="#a8488f"/><path d="M32 32l19 6a20 20 0 0 1-12 13z" fill="#5ec16a"/><circle cx="32" cy="32" r="9" fill="#f9fafb"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values; the images are drawn samples. Insights → Reports, the Ask for a Report panel above the report list.</div>
+  <p class="note">Today the prompt, <strong>Add Images</strong>, the thumbnails and the model sit one under the other, and dropping images on the panel works but nothing shows that it does. Both options below put the images, the text and an attach button in <strong>one box</strong>, as in Claude's prompt box, raise the limit to <strong>5 images</strong>, and show a drop target while files are dragged over the panel. They differ in one thing: where the model picker and <strong>Generate Report</strong> go.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: everything in the box</h2>
+  <p>The bottom bar inside the box holds the paperclip and the count on the left, the character counter, the model and Generate Report on the right. The line under the box says what is sent.</p>
+
+  <div class="label">A1 · Empty <span>No images yet. The bar says how to add them; the examples sit under the box as today.</span></div>
+  <div class="row">
+    <div class="frame"><div class="cap">Option A · empty, the box in focus</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">12 of 200 prompts this month</span></div>
+        <div class="box focus">
+          <div class="text ph">e.g. Revenue by channel and month for the last quarter, as a pivot.
+Add the details on more lines: the filters, the order, what to compare.</div>
+          <div class="bar">
+            <button class="icon-btn hov" title="Add Images"><svg width="18" height="18"><use href="#clip"/></svg></button>
+            <span class="muted">Drop, paste or attach up to 5 images</span>
+            <span class="grow"></span>
+            <span class="counter">0 / 4,000</span>
+            <span class="model ghost"><span class="mark">C</span>Claude · Best for Reports<svg width="14" height="14" style="color:var(--ink-700)"><use href="#chev"/></svg></span>
+            <button class="primary off">Generate Report</button>
+          </div>
+        </div>
+        <p class="muted">Sends your prompt and the field names, never your data.</p>
+        <div class="examples">
+          <h3 class="over">Try One of These</h3>
+          <div class="chips"><span class="chip">Sent, opened and clicked by campaign this month</span><span class="chip">Revenue by store and week</span><span class="chip">Unsubscribes by channel, last 90 days</span></div>
+        </div>
+      </section>
+    </div></div>
+
+    <div class="frame"><div class="cap">Option A · files dragged over the panel</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">12 of 200 prompts this month</span></div>
+        <div class="box">
+          <div class="text">A table like this screenshot, by store and week.</div>
+          <div class="bar">
+            <button class="icon-btn"><svg width="18" height="18"><use href="#clip"/></svg></button>
+            <span class="muted">Drop, paste or attach up to 5 images</span>
+            <span class="grow"></span>
+            <span class="counter">49 / 4,000</span>
+            <span class="model ghost"><span class="mark">C</span>Claude · Best for Reports<svg width="14" height="14"><use href="#chev"/></svg></span>
+            <button class="primary">Generate Report</button>
+          </div>
+          <div class="drop"><svg width="24" height="24"><use href="#up"/></svg><b>Drop images here</b><small>PNG, JPEG, GIF or WebP · up to 5</small></div>
+        </div>
+        <p class="muted">Sends your prompt and the field names, never your data.</p>
+      </section>
+    </div></div>
+  </div>
+
+  <div class="label">A2 · Five images and a long prompt <span>The thumbnails sit at the top of the box, each with its ✕ and its name. At five, the paperclip is greyed out; a sixth one dropped or pasted gets the note under the box.</span></div>
+  <div class="row">
+    <div class="frame"><div class="cap">Option A · five images, the limit reached</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">13 of 200 prompts this month</span></div>
+        <div class="box focus">
+          <div class="thumbs named">
+            <div class="thumb"><svg class="pic"><use href="#img-table"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">store-sales.png</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-sketch"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">sketch.jpg</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-bars"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">q3-bars.png</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-line"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">trend.webp</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-pie"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">mix.png</span></div>
+          </div>
+          <div class="text">Rebuild the table in store-sales.png as a report: stores down the side, weeks across, net sales in the cells.
+Only the stores in the sketch, in that order.
+Add a chart like q3-bars.png under it, and compare each week with the same week last year.</div>
+          <div class="bar">
+            <button class="icon-btn off" title="Five images is the most"><svg width="18" height="18"><use href="#clip"/></svg></button>
+            <span class="muted">5 of 5</span>
+            <span class="grow"></span>
+            <span class="counter">231 / 4,000</span>
+            <span class="model ghost"><span class="mark">C</span>Claude · Best for Reports<svg width="14" height="14"><use href="#chev"/></svg></span>
+            <button class="primary">Generate Report</button>
+          </div>
+        </div>
+        <p class="alert" role="alert">Add up to 5 images. receipt-2.png was not added.</p>
+        <p class="muted">Sends your prompt, the images and the field names, never your data. The images are not kept.</p>
+      </section>
+    </div></div>
+
+    <div class="frame"><div class="cap">Option A · two images, a file that is not an image refused</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">13 of 200 prompts this month</span></div>
+        <div class="box">
+          <div class="thumbs named">
+            <div class="thumb"><svg class="pic"><use href="#img-sketch"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">sketch.jpg</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-line"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">trend.webp</span></div>
+          </div>
+          <div class="text">A line chart like trend.webp: opens and clicks by week for this year.</div>
+          <div class="bar">
+            <button class="icon-btn" title="Add Images"><svg width="18" height="18"><use href="#clip"/></svg></button>
+            <span class="muted">2 of 5</span>
+            <span class="grow"></span>
+            <span class="counter">68 / 4,000</span>
+            <span class="model ghost"><span class="mark">O</span>OpenAI · Fastest<svg width="14" height="14"><use href="#chev"/></svg></span>
+            <button class="primary">Generate Report</button>
+          </div>
+        </div>
+        <p class="alert" role="alert">plan.pdf is not a PNG, JPEG, GIF or WebP image.</p>
+        <p class="muted">Sends your prompt, the images and the field names, never your data. The images are not kept.</p>
+      </section>
+    </div></div>
+  </div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: images in the box, model and Generate under it</h2>
+  <p>The box holds the thumbnails, the text and a bar with <strong>Add Images</strong> (paperclip and words), the count and the counter. The model, the line about what is sent and Generate Report stay under the box, where they are today.</p>
+
+  <div class="label">B1 · Empty, and files dragged over the panel</div>
+  <div class="row">
+    <div class="frame"><div class="cap">Option B · empty</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">12 of 200 prompts this month</span></div>
+        <div class="box">
+          <div class="text ph">e.g. Revenue by channel and month for the last quarter, as a pivot.
+Add the details on more lines: the filters, the order, what to compare.</div>
+          <div class="bar">
+            <button class="secondary" style="border-color:transparent;padding:0 8px"><svg width="16" height="16"><use href="#clip"/></svg>Add Images</button>
+            <span class="muted">Up to 5. Drop or paste them here too.</span>
+            <span class="grow"></span>
+            <span class="counter">0 / 4,000</span>
+          </div>
+        </div>
+        <div class="below">
+          <span class="model"><span class="mark">C</span>Claude · Best for Reports<svg width="14" height="14"><use href="#chev"/></svg></span>
+          <span class="muted">Sends your prompt and the field names, never your data.</span>
+          <span class="grow"></span>
+          <button class="primary off">Generate Report</button>
+        </div>
+      </section>
+    </div></div>
+
+    <div class="frame"><div class="cap">Option B · files dragged over the panel</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">12 of 200 prompts this month</span></div>
+        <div class="box">
+          <div class="text">A table like this screenshot, by store and week.</div>
+          <div class="bar">
+            <button class="secondary" style="border-color:transparent;padding:0 8px"><svg width="16" height="16"><use href="#clip"/></svg>Add Images</button>
+            <span class="muted">Up to 5. Drop or paste them here too.</span>
+            <span class="grow"></span>
+            <span class="counter">49 / 4,000</span>
+          </div>
+          <div class="drop"><svg width="24" height="24"><use href="#up"/></svg><b>Drop images here</b><small>PNG, JPEG, GIF or WebP · up to 5</small></div>
+        </div>
+        <div class="below">
+          <span class="model"><span class="mark">C</span>Claude · Best for Reports<svg width="14" height="14"><use href="#chev"/></svg></span>
+          <span class="muted">Sends your prompt and the field names, never your data.</span>
+          <span class="grow"></span>
+          <button class="primary">Generate Report</button>
+        </div>
+      </section>
+    </div></div>
+  </div>
+
+  <div class="label">B2 · Five images and a long prompt</div>
+  <div class="row">
+    <div class="frame"><div class="cap">Option B · five images, the limit reached</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">13 of 200 prompts this month</span></div>
+        <div class="box focus">
+          <div class="thumbs named">
+            <div class="thumb"><svg class="pic"><use href="#img-table"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">store-sales.png</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-sketch"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">sketch.jpg</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-bars"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">q3-bars.png</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-line"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">trend.webp</span></div>
+            <div class="thumb"><svg class="pic"><use href="#img-pie"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span><span class="name">mix.png</span></div>
+          </div>
+          <div class="text">Rebuild the table in store-sales.png as a report: stores down the side, weeks across, net sales in the cells.
+Only the stores in the sketch, in that order.
+Add a chart like q3-bars.png under it, and compare each week with the same week last year.</div>
+          <div class="bar">
+            <button class="secondary" style="border-color:transparent;padding:0 8px;color:var(--ink-300)"><svg width="16" height="16"><use href="#clip"/></svg>Add Images</button>
+            <span class="muted">5 of 5</span>
+            <span class="grow"></span>
+            <span class="counter">231 / 4,000</span>
+          </div>
+        </div>
+        <div class="below">
+          <span class="model"><span class="mark">C</span>Claude · Best for Reports<svg width="14" height="14"><use href="#chev"/></svg></span>
+          <span class="muted">Sends your prompt, the images and the field names, never your data. The images are not kept.</span>
+          <span class="grow"></span>
+          <button class="primary">Generate Report</button>
+        </div>
+      </section>
+    </div></div>
+
+    <div class="frame"><div class="cap">Today, for comparison (3 images, items one under the other)</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">13 of 200 prompts this month</span></div>
+        <div class="box" style="border-radius:var(--r-md)"><div class="text">A line chart like trend.webp: opens and clicks by week for this year.</div></div>
+        <div class="below"><button class="secondary">Add Images</button><span class="muted">2 of 3</span><span class="grow"></span><span class="counter">68 / 4,000</span></div>
+        <div class="thumbs" style="padding:0">
+          <div class="thumb"><svg class="pic"><use href="#img-sketch"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span></div>
+          <div class="thumb"><svg class="pic"><use href="#img-line"/></svg><span class="x"><svg width="10" height="10"><use href="#x"/></svg></span></div>
+        </div>
+        <div class="below">
+          <span class="model"><span class="mark">C</span>Claude · Best for Reports<svg width="14" height="14"><use href="#chev"/></svg></span>
+          <span class="muted">Sends your prompt, the images and the field names, never your data. The images are not kept.</span>
+          <span class="grow"></span>
+          <button class="primary">Generate Report</button>
+        </div>
+      </section>
+    </div></div>
+  </div>
+
+  <div class="card">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>One box</strong> in <code>AskForReport.tsx</code>: the thumbnails, the text area (no border of its own) and a bottom bar, inside one 12 px rounded border that turns blue with the focus ring while you type. The text grows with what you write and can still be resized.</li>
+      <li><strong>Paperclip</strong> opens the file picker (Add Images). Its tooltip says Add Images; at 5 it is greyed out with "Five images is the most".</li>
+      <li><strong>Drag and drop:</strong> while files are dragged anywhere over the Ask for a Report panel, the box shows the drop target (dashed Blue 600 border, light blue fill, "Drop images here", the types and the limit). Dropping anywhere on the panel adds them; leaving the panel or pressing Esc hides it. Pasting into the box keeps working.</li>
+      <li><strong>Thumbnails</strong> 64 px, in the order added, each with ✕ and its file name under it; pointing at one shows the full name.</li>
+      <li><strong>5 images</strong> instead of 3: <code>IMAGES_MAX = 5</code> in <code>askImages.ts</code> and in <code>apps/insights/assistant.py</code>. Each image keeps its 3.75 MB limit after it is scaled down, so a full request stays under 19 MB, inside Claude's and OpenAI's limits and the server's 50 MB.</li>
+      <li><strong>Notes under the box</strong> in the same words as today: a file that is not PNG, JPEG, GIF or WebP; too large; more than five ("Add up to 5 images. receipt-2.png was not added.").</li>
+      <li>No change to what is sent or kept: the images go to the model with the prompt and are not stored. No database patch.</li>
+      <li><strong>Help</strong>: the Ask for a Report steps and "Add images to a prompt" say 5 and describe the drop target; the Word copies rebuilt.</li>
+      <li><strong>Tests</strong>: dropping files on the panel, the five-image limit and the sixth refused, a non-image refused, the server refusing a sixth image.</li>
+    </ul>
+  </div>
+
+  <div class="rec"><strong>Recommendation: Option A.</strong> It is the Claude prompt box you described: the prompt, its images, the model and the send button in one place, and the box reads as one thing to drop onto. Option B keeps today's order under the box, which is a smaller change but leaves the panel as two stacked parts.</div>
+</div>
+</body>
+</html>
