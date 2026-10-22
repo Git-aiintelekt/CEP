@@ -66,7 +66,7 @@ jobs:
           DATABASE_URL: postgres://postgres:ci-owner@localhost:5432/cep_ci
           PLATFORM_DATABASE_URL: postgres://postgres:ci-owner@localhost:5432/cep_ci
         run: |
-          bash tests/prepare_django_tables.sh
+          bash ../database/prepare_django_tables.sh
           psql -X -q -v ON_ERROR_STOP=1 -f tests/ci_fixtures.sql
 
       - name: Django check
@@ -83,6 +83,61 @@ jobs:
           PLATFORM_DATABASE_URL: postgres://cep_platform:ci-platform@localhost:5432/cep_ci
           OWNER_DATABASE_URL: postgres://postgres:ci-owner@localhost:5432/cep_ci
         run: python -m pytest -q
+
+  production-db:
+    name: Production database from nothing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: ci-owner
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: ci-owner
+      PGDATABASE: cep_prod
+      CEP_APP_PASSWORD: ci-app-password-0001
+      CEP_PLATFORM_PASSWORD: ci-platform-password-01
+      SECRET_KEY: ci-only-not-a-secret
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install the backend
+        working-directory: backend
+        run: python -m pip install -r requirements.txt
+
+      - name: Build the production database (no sample data)
+        run: |
+          psql -X -q -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE cep_prod TEMPLATE template0 ENCODING 'UTF8' LOCALE_PROVIDER icu ICU_LOCALE 'en-US' LOCALE 'C'"
+          bash database/production/build_production_db.sh
+
+      - name: Reference data and the first platform administrator
+        env:
+          DATABASE_URL: postgres://cep_backend:ci-app-password-0001@localhost:5432/cep_prod
+          PLATFORM_DATABASE_URL: postgres://cep_platform:ci-platform-password-01@localhost:5432/cep_prod
+          CEP_PUBLIC_URL: https://c360.example.com
+          CEP_ADMIN_NO_PASSWORD: "1"
+        run: |
+          bash database/production/load_reference_data.sh platform@c360.example "Platform Admin"
+          bash database/production/load_reference_data.sh platform@c360.example "Platform Admin"
+
+      - name: Check it
+        run: psql -X -v ON_ERROR_STOP=1 -f database/production/verify.sql
 
   frontend:
     name: Frontend (${{ matrix.part }} of 3)
