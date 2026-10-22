@@ -11,6 +11,15 @@
 3. Read what comes back. A **draft**: check its name, view, data, rows, columns, values and filter, then **Open in Editor** to make it a private report of yours and open the editor. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
 4. Your recent prompts sit under the box, each with the report it became. The line at the top right counts the month's prompts against your plan; only a draft counts.
 
+**Add images to a prompt** (anyone who can build reports)
+
+1. In Insights → Reports, write your prompt in the Ask for a Report box. Say what the image is for: "Build this table from the screenshot", "A chart like this sketch, by month".
+2. Add up to three images, whichever way is handiest: press **Add Images** under the box and choose the files; or drag them from your computer and drop them anywhere on the Ask for a Report panel (its border lights up while you drag); or copy an image, such as a screenshot, and paste it into the box with Ctrl+V.
+3. Check the thumbnails under the box. The line beside Add Images counts them ("2 of 3"); remove one with its ✕. Once there are three, Add Images is greyed out.
+4. Press **Generate Report** (or Ctrl+Enter). The images go to the model with your prompt and the field names. They stay in the box, so **Try Again** sends them again.
+
+The images may be PNG, JPEG, GIF or WebP; a large one is scaled down in your browser before it is sent, and each may be up to 3.75 MB after that. Another kind of file is refused with a note under the box. The images are not kept: only your prompt is saved with the draft. Good images to send are a hand sketch of the table or chart you want, or a screenshot of a spreadsheet or of a report from another tool to rebuild here.
+
 **Use AI in your workspace** (workspace administrator)
 
 1. Open Settings → AI Assistant. **Use AI in Reports** is on by default; switch it off to hide every AI feature and keep every prompt inside CEP.
