@@ -3040,6 +3040,16 @@ ALTER TABLE report_connection ADD CONSTRAINT ck_report_connection_limits CHECK (
 -- -------------------------------------------------------------------------------------
 ALTER TABLE report ADD COLUMN IF NOT EXISTS component_key VARCHAR(20) REFERENCES suite_component(key);
 
+-- -------------------------------------------------------------------------------------
+-- 0076: whether a Report Database's account must be read-only (2026-10-23), a global parameter (Back-office -> Global
+-- parameters -> Insights). Yes (as before): an account that can write is refused until it holds SELECT only. No: it is used,
+-- with a warning on its card; every C360 session on it is still read-only and runs SELECT only (apps/insights/external.py).
+-- -------------------------------------------------------------------------------------
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('insights.report_db_read_only_required', 'true', 'BOOLEAN', 'Insights',
+     'Whether a Report Database''s account must hold SELECT only. On: an account that can write is refused until it is fixed. Off: it is used, with a warning; C360 still opens every session on it read-only and runs SELECT only')
+ON CONFLICT (key) DO NOTHING;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

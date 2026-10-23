@@ -125,19 +125,25 @@ function assistantReply(prompt: string, modelId: string, asked: { unmapped?: boo
 type MockDatabase = import('@/apps/insights/types').ReportDatabase
 type MockDataset = import('@/apps/insights/types').ReportDataset
 export const reportDatabasesNow: MockDatabase[] = []
+/** the global parameter insights.report_db_read_only_required: off, an account that can write is used */
+export const reportDbPolicy = { readOnlyRequired: true }
 export const reportDatasetsNow: MockDataset[] = []
 const GRANTS = { mysql: "CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…';\nGRANT SELECT ON your_db.* TO 'cep_reader'@'%';", postgresql: "CREATE ROLE cep_reader LOGIN PASSWORD '…';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO cep_reader;",
   clickhouse: "CREATE USER cep_reader IDENTIFIED BY '…' SETTINGS readonly = 2;\nGRANT SELECT ON your_db.* TO cep_reader;" }
 const GOOD_TEST = { ok: true, version: '8.0.36', timezone: 'UTC', tables: 14, views: 6, read_only: true, offending: [] as string[], ms: 48, error: null }
 const WRITER_TEST = { ok: true, version: '8.0.31', timezone: 'UTC', tables: 31, views: 0, read_only: false, offending: ['INSERT, UPDATE on `loyalty`.*'], ms: 92, error: null }
+function mockTest(host: unknown) {
+  return { ...(String(host ?? '').includes('loyalty') ? WRITER_TEST : GOOD_TEST), read_only_required: reportDbPolicy.readOnlyRequired }
+}
 function mockDatabase(body: Record<string, unknown>, id: string): MockDatabase {
   const engine = (body.engine as MockDatabase['engine']) ?? 'mysql80'
-  const test = String(body.host).includes('loyalty') ? WRITER_TEST : GOOD_TEST
+  const test = mockTest(body.host)
+  const allowed = test.read_only || !reportDbPolicy.readOnlyRequired
   return { id, name: String(body.name), engine, engine_name: engine === 'postgresql' ? 'PostgreSQL' : engine === 'clickhouse' ? 'ClickHouse' : engine === 'mysql57' ? 'MySQL 5.7' : 'MySQL 8.0', host: String(body.host),
     port: Number(body.port ?? (engine === 'postgresql' ? 5432 : engine === 'clickhouse' ? 8443 : 3306)),
     database_name: String(body.database), schema_name: String(body.schema ?? 'public'), username: String(body.username), ssl_mode: (body.ssl as MockDatabase['ssl_mode']) ?? 'REQUIRED', status: 'ACTIVE',
-    last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: test.read_only, last_test_error: test.read_only ? null : 'The account can write: ' + test.offending.join('; '), read_only: test.read_only, server_version: test.version,
-    server_timezone: test.timezone, created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: test.read_only, datasets: [], test, ...mockLimits(body) }
+    last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: allowed, last_test_error: allowed ? null : 'The account can write: ' + test.offending.join('; '), read_only: test.read_only, server_version: test.version,
+    server_timezone: test.timezone, created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: allowed, datasets: [], test, ...mockLimits(body) }
 }
 /** what the server makes of a connection's limits (apps/insights/connection_limits.py): Standard is the workspace's 15 s and 4 */
 export function mockLimits(body: Record<string, unknown>): Pick<MockDatabase, 'limit_profile' | 'query_timeout_s' | 'max_concurrent' | 'limits'> {
@@ -976,6 +982,7 @@ export function installMockApi(options: MockOptions = {}) {
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders() })
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true })
   reportDatabasesNow.splice(0, reportDatabasesNow.length)
+  reportDbPolicy.readOnlyRequired = true
   reportSourcesNow.splice(0, reportSourcesNow.length)
   reportDatasetsNow.splice(0, reportDatasetsNow.length)
   insightsCatalog.datasets.splice(2)                                                 // a query dataset added by a test is forgotten
@@ -1435,7 +1442,7 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.includes('/workspace/report-databases/')) {
       const withDatasets = (db: MockDatabase) => ({ ...db, datasets: reportDatasetsNow.filter((d) => d.connection_id === db.id) })
-      if (path.endsWith('/workspace/report-databases/') && method === 'GET') return json({ databases: reportDatabasesNow.map(withDatasets), grant_examples: GRANTS, ready: true, limits_ready: true, workspace_limits: { timeout_s: 15, concurrent: 4 } })
+      if (path.endsWith('/workspace/report-databases/') && method === 'GET') return json({ databases: reportDatabasesNow.map(withDatasets), grant_examples: GRANTS, ready: true, limits_ready: true, workspace_limits: { timeout_s: 15, concurrent: 4 }, read_only_required: reportDbPolicy.readOnlyRequired })
       if (path.endsWith('/workspace/report-databases/') && method === 'POST') {
         const posted = body as Record<string, unknown>
         if (!posted.password) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { password: "Give the account's password." } }, 400)
@@ -1443,7 +1450,7 @@ export function installMockApi(options: MockOptions = {}) {
         reportDatabasesNow.push(made)
         return json(made, 201)
       }
-      if (path.endsWith('/workspace/report-databases/test/')) return json({ test: String((body as { host?: string }).host ?? '').includes('loyalty') ? WRITER_TEST : GOOD_TEST })
+      if (path.endsWith('/workspace/report-databases/test/')) return json({ test: mockTest((body as { host?: string }).host) })
       if (path.endsWith('/workspace/report-databases/targets/')) return json({ databases: reportDatabasesNow.filter((d) => d.usable).map((d) => ({ id: d.id, name: d.name, engine: d.engine, engine_name: d.engine_name, database_name: d.database_name, schema_name: d.schema_name })) })
       const dataset = /\/workspace\/report-databases\/datasets\/([\w-]+)\/$/.exec(path)
       if (dataset) {

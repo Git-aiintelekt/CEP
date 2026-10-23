@@ -3262,7 +3262,7 @@ database from Insights → New Report → **Connect a Database**; changing or re
 
 1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL, PostgreSQL and ClickHouse.
 2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL. **Find Databases** (on PostgreSQL **Find Schemas**) lists the databases the account can see with their table counts, so you pick one instead of typing it; it reads names only.
-3. Press **Test Connection**. Four facts come back: reached and the version, what the account can read, whether it is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds beyond SELECT; have the account fixed before mapping anything.
+3. Press **Test Connection**. Four facts come back: reached and the version, what the account can read, whether it is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds beyond SELECT; have the account fixed before mapping anything. Where your platform does not require a read-only account (the global parameter **insights.report_db_read_only_required** set to No), the line reads **! Can write** instead and the connection is used as it is.
 4. Press **Save**. The password is stored encrypted and never shown; leave it empty on a later edit to keep it.
 
 **Set how reports treat a database** (workspace administrator)
@@ -3287,7 +3287,7 @@ A report that needs longer than the time limit is stopped, with a message that n
 **Connect a database from New Report** (report author)
 
 1. Open Insights → Reports → **New Report**. Under **Your Databases**, press **Connect a Database**. A panel opens over the page.
-2. Fill in the same fields as above and press **Test Connection**. **Save and Continue** is offered only once the test shows the account read-only; if it can write, the panel says what it holds and asks for an account that can only read.
+2. Fill in the same fields as above and press **Test Connection**. **Save and Continue** is offered once the test passes: the account read-only, or, where read-only is not required, able to write (the panel warns). Where read-only is required and the account can write, the panel says what it holds and asks for an account that can only read.
 3. Pick a table or view (search narrows the list) and press **Create Report**. The table becomes a dataset with every readable column, labelled from its name, the first date as its time field; the report opens in the editor. A table mapped before keeps its dataset. Or press **write a query** to open the query window on the database.
 
 **Add a calculated measure** (workspace administrator)
@@ -3325,7 +3325,8 @@ columns, and those datasets appear in New Report and in Ask for a Report for you
 views, exports, dashboards and scheduled delivery work on them like on any dataset.
 
 The engine never writes. It only ever runs the SELECT statements it builds from a report, on a session it opens
-read-only with the workspace's time limit, and it refuses an account that could write or change the schema. Nothing but
+read-only with the workspace's time limit, and by default it refuses an account that could write or change the schema
+(the platform can lift that refusal with a global parameter; the sessions stay read-only either way). Nothing but
 the columns you mapped is read.
 
 ## The account to create
@@ -3351,11 +3352,12 @@ server; a private network address is fine when CEP's server sits on that network
    on a private network; the port follows the choice.
 2. **Test Connection** reaches the server and reports four facts: reached and the version, what the account can read,
    whether the account is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds
-   beyond SELECT; the connection can be saved but cannot be used until the account is fixed.
+   beyond SELECT; the connection can be saved but cannot be used until the account is fixed. Where the platform does not
+   require a read-only account, it reads **! Can write** and the connection is used.
 3. **Save** keeps the connection and runs the test again. The password is stored encrypted and never shown; leave it
    empty on a later edit to keep it.
 
-Each card shows the engine and version, host and database, the account with ✓ Read-only or ✕ Can write, the datasets
+Each card shows the engine and version, host and database, the account with ✓ Read-only, ✕ Can write (refused) or ! Can write (allowed where read-only is not required), the datasets
 mapped from it and the last test. **Test Connection** runs the check again; **Edit** changes the connection; **Remove**
 is offered once its datasets are gone.
 
