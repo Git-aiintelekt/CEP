@@ -1,4 +1,4 @@
-# Users, Roles, API Keys and Support Sessions
+# Users, Roles, API Keys, Support Sessions and Switch Workspace
 
 **Where:** People and access → Users, Roles, API keys, Support access log; Configuration → Permission catalogue.
 
@@ -39,15 +39,32 @@ Every tenant's keys with their type, prefix, state, last use and expiry; Revoke 
 |---|---|
 | Started, Tenant, Staff, Acted as, Access mode, Reason, Writes, State (Active, Ended, Expired) | Every support session ever opened. End the session now closes an open one. |
 
+### Platform visits
+
+| Column | What it is |
+|---|---|
+| Started, Tenant, Staff, Reason, Writes, State (In the Workspace, Ended) | Every Switch Workspace visit of a platform administrator, as themselves. End the Visit Now closes an open one; its tokens stop working at once. |
+
 ## How to
 
 **A customer cannot sign in.** Find the user → check Active and the provider → Create password link → send it. A user of a workspace that requires single sign-on signs in through the provider, not with a link.
 
 **See a problem with the customer's own eyes.** The user → Sign in as this user → the reason and read-only → Open. The app opens as them with a banner; the session ends after `security.support_access_minutes`, or on End session. The tenant's Security page lists it.
 
+**Work in another workspace as yourself (Switch Workspace).** Platform administrators only, from the app:
+1. Open the account menu (your name at the top right) → **Switch Workspace…**.
+2. Search the workspaces by code or name; each shows its plan, active users and status (a suspended one too). Pick one.
+3. Give a **Reason** in a few words (at least 5 characters): the workspace's administrators read it.
+4. Press **Switch to CODE**. The app opens in that workspace with every right, under your own name, and an amber line on every page says you are visiting.
+5. Press **Back to Platform** on that line to end the visit and return to your own workspace. Signing out ends it too.
+
+The workspace's administrators see each visit under Settings → Security → Platform Visits (who, from when to when, the reason, changes made); the back-office lists them all under Platform Visits. You cannot switch again from inside a visit: go back first.
+
 ## What happens behind the scenes
 
 A support session yields a short-lived token only: read-only unless opened for writing, and never able to manage users, roles, API keys or sign-in security whatever the mode. The user is emailed when `security.notify_user_on_support_access` is on. Everything changed here goes to the change audit trail.
+
+A visit is different: nobody is impersonated. Its tokens carry your own account and the visit; they work only in the visited workspace and only while the visit is open (Back to Platform, signing out, or End the Visit Now closes it). Each change made during the visit is counted on its row. Recording visits needs database patch 0077.
 
 ## Things to know
 

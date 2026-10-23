@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Switch Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .pill-ai { height:20px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+  .box { position:relative; border:1px solid var(--line-control); border-radius:12px; background:#fff }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .askabout { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .datapick { height:28px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-900); background:#fff }
+  .datapick b { font-weight:600 } .datapick small { color:var(--ink-700); font-size:11.5px } .datapick::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .datapick.ghost { border-color:transparent }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .thumb { width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#f9fafb; position:relative; flex:none }
+  .doc { height:64px; min-width:180px; max-width:240px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center; position:relative }
+  .doc .ico { width:34px; height:42px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:9px; font-weight:700; color:var(--ink-800); padding-bottom:5px; flex:none }
+  .doc .ico.pdf { background:#fae2e2; color:var(--danger-text) } .doc .ico.word { background:var(--brand-100); color:var(--brand-800) }
+  .doc b { display:block; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px } .doc small { font-size:11.5px; color:var(--ink-700) }
+  .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .muted { font-size:12px; color:var(--ink-800) } .grow { flex:1 }
+  .counter { font-size:12px; color:var(--warning-text); font-variant-numeric:tabular-nums; font-weight:500 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 8px; font-size:13px; border-radius:999px } .model::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-subtle) }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; padding:0 14px; font:600 13px/32px var(--font) }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .small { font-size:12px; color:var(--ink-800) }
+
+  .menu { position:absolute; z-index:2; top:42px; left:12px; width:380px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:6px }
+  .menu .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .menu .opt { display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:8px; font-size:13.5px }
+  .menu .opt.on { background:var(--callout-bg) } .menu .opt small { display:block; font-size:12px; color:var(--ink-800) }
+  .menu .opt .m { width:26px; height:26px; border-radius:8px; background:var(--brand-100); color:var(--brand-800); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .menu .opt .m.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .menu .check { display:flex; gap:8px; align-items:flex-start; margin:4px 8px 6px 44px; font-size:12.5px; color:var(--ink-900) }
+  .cb { width:15px; height:15px; border-radius:4px; background:var(--brand-600); flex:none; margin-top:2px; position:relative } .cb::after { content:"✓"; color:#fff; font-size:11px; position:absolute; left:2px; top:-2px }
+
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:12px; background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--brand-800); text-align:center }
+  .drop b { font-size:15px } .drop small { font-size:12px; color:var(--ink-800) }
+
+  .result { border:1px solid var(--line); border-radius:12px; background:var(--surface-subtle); padding:14px 16px; display:flex; flex-direction:column; gap:8px; font-size:13.5px }
+  .result dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0 } .result dt { font-weight:600 } .result dd { margin:0 }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--brand-100); color:var(--brand-800) }
+  .tag.new { background:var(--warning-bg); color:var(--warning-text) }
+  .btns { display:flex; gap:8px } .btn { height:32px; border-radius:999px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</style>
+</head>
+<style>
+  :root { --navy:#20265d; --navy-hover:#2c336f; --navy-text:#e7e8ef; --navy-icon:#a9afd0; --amber:#e8a13b; --on-amber:#17181c }
+  .panel, .box, .menu, .result { border-radius:8px }
+  .topbar { height:56px; background:var(--navy); display:flex; align-items:center; gap:14px; padding:0 16px; color:#fff }
+  .topbar .brand { display:flex; align-items:center; gap:8px; font-weight:600 } .topbar .logo { width:30px; height:30px; border-radius:8px; background:var(--brand-600); display:flex; align-items:center; justify-content:center; font-weight:700 }
+  .topbar .search { flex:1; max-width:520px; height:34px; border-radius:8px; background:var(--navy-hover); color:var(--navy-icon); font-size:13px; display:flex; align-items:center; padding:0 12px; margin:0 auto }
+  .ws { display:flex; align-items:center; gap:6px; font-size:13.5px; color:var(--navy-text); height:36px; padding:0 10px; border-radius:6px }
+  .ws b { color:#fff } .ws.button { border:1px solid #47508f } .ws.button::after { content:"▾"; color:var(--navy-icon); font-size:10px }
+  .avatar { width:30px; height:30px; border-radius:999px; background:var(--brand-100); color:var(--brand-800); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center }
+  .acct { display:flex; align-items:center; gap:8px; font-size:13px; line-height:16px } .acct small { display:block; color:var(--navy-icon); font-size:11.5px }
+  .banner { background:var(--amber); color:var(--on-amber); font-size:13.5px; font-weight:500; padding:8px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+  .banner .back { margin-left:auto; height:30px; border-radius:6px; background:#17181c; color:#fff; font-size:12.5px; font-weight:600; padding:0 12px; display:inline-flex; align-items:center }
+  .stage { position:relative; min-height:440px; background:var(--canvas) }
+  .stage .content { padding:24px 32px; color:var(--ink-800); font-size:13px }
+  .pop { position:absolute; z-index:2; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgb(20 23 31 / 0.16); padding:6px }
+  .pop .search2 { height:32px; border-radius:6px; background:var(--fill-subtle); display:flex; align-items:center; padding:0 10px; font-size:13px; color:var(--ink-700); margin:4px }
+  .pop .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .row { display:flex; align-items:center; gap:10px; padding:7px 8px; border-radius:6px; font-size:13.5px }
+  .row.on { background:var(--callout-bg) } .row small { display:block; font-size:12px; color:var(--ink-800) }
+  .code { width:34px; height:26px; border-radius:6px; background:var(--brand-100); color:var(--brand-800); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .code.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .row .end { margin-left:auto; font-size:12px; color:var(--ink-700); white-space:nowrap }
+  .tagx { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--fill-subtle); color:var(--ink-800) }
+  .tagx.warn { background:var(--warning-bg); color:var(--warning-text) } .tagx.ok { background:var(--success-bg); color:var(--success-text) }
+  .foot { border-top:1px solid var(--line-subtle); margin-top:4px; padding:8px; font-size:12px; color:var(--ink-800) }
+  .dialog { background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgb(20 23 31 / 0.16); width:640px; max-width:100%; display:flex; flex-direction:column }
+  .dialog header { padding:16px 18px 8px; } .dialog header h3 { font-size:17px } .dialog header p { font-size:13px; color:var(--ink-800); margin-top:2px }
+  .dialog .body { padding:6px 18px 12px; display:flex; flex-direction:column; gap:10px }
+  .dialog footer { border-top:1px solid var(--line-subtle); padding:12px 18px; display:flex; gap:8px; justify-content:flex-end }
+  table.t { width:100%; border-collapse:collapse; font-size:13px } table.t th { text-align:left; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--line) }
+  table.t td { padding:7px 8px; border-bottom:1px solid var(--line-subtle) } table.t tr.on td { background:var(--callout-bg) }
+  .field label { display:block; font-size:13px; font-weight:600; margin-bottom:4px } .field .input { height:32px; border:1px solid var(--line-control); border-radius:6px; display:flex; align-items:center; padding:0 10px; font-size:13.5px }
+  .field small { font-size:12px; color:var(--ink-800) }
+  .sec-page { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px 18px; max-width:1000px }
+  .sec-page h3 { font-size:16px } .sec-page p { font-size:13px; color:var(--ink-800); margin:2px 0 10px }
+</style>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Switch Workspace for platform administrators: the super user (platform@aiintelekt.com, in the Platform workspace) moves into any workspace and back. Sample names.</div>
+  <p class="note">Only a <strong>platform administrator</strong> sees it. You enter the other workspace <strong>as yourself, with full rights</strong> (not as one of its users, unlike a support session), until you go back or sign out. While you are there an amber line says so on every page, with <strong>Back to Platform</strong>. Each switch is recorded (who, when, how long) and listed for that workspace's administrators under Settings → Security. The options differ in where the switch sits and whether a reason is asked.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: the workspace name in the top bar is the switch</h2>
+  <p>"Workspace PLATFORM" in the top bar becomes a button; it opens a searchable list, recent first. One click moves you, no reason asked.</p>
+
+  <div class="label">A1 · Busy: 64 workspaces, searching <span>Recent workspaces first, then every one matching the search by code or name, with its plan and status. Suspended and offboarding workspaces show their status and stay reachable.</span></div>
+  <div class="frame"><div class="cap">Option A · the list open</div>
+    <div class="topbar"><span class="brand"><span class="logo">C</span>C360 | Insights</span><span class="search">Search reports, dashboards and pages</span>
+      <span class="ws button">Workspace <b>PLATFORM</b></span><span class="acct"><span class="avatar">PA</span><span>Platform Admin<small>Platform administrator</small></span></span></div>
+    <div class="stage">
+      <div class="pop" style="right:150px; top:6px; width:400px">
+        <div class="search2">⌕&nbsp; nw</div>
+        <div class="sec">Recent</div>
+        <div class="row on"><span class="code">NWA</span><span>Northwind Apparel<small>Growth plan · you were here 2 hours ago</small></span><span class="end"><span class="tagx ok">Active</span></span></div>
+        <div class="sec">Matching "nw" · 3 of 64</div>
+        <div class="row"><span class="code">NWA</span><span>Northwind Apparel<small>Growth plan · 8 users</small></span><span class="end"><span class="tagx ok">Active</span></span></div>
+        <div class="row"><span class="code gray">NWD</span><span>Northwind Demo<small>Insights plan · 1 user</small></span><span class="end"><span class="tagx ok">Active</span></span></div>
+        <div class="row"><span class="code gray">NWX</span><span>Newbridge Exchange<small>Starter plan · 3 users</small></span><span class="end"><span class="tagx warn">Suspended</span></span></div>
+        <div class="foot">You enter as yourself with full rights. The workspace's administrators see each visit under Settings → Security.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="label">A2 · Sparse: production on day one <span>Two workspaces: the Platform one and the Demo. The list is short, so no search box until there are more than 8.</span></div>
+  <div class="frame"><div class="cap">Option A · sparse</div>
+    <div class="topbar"><span class="brand"><span class="logo">C</span>C360 | Insights</span><span class="search">Search reports, dashboards and pages</span>
+      <span class="ws button">Workspace <b>PLATFORM</b></span><span class="acct"><span class="avatar">PA</span><span>Platform Admin<small>Platform administrator</small></span></span></div>
+    <div class="stage" style="min-height:220px">
+      <div class="pop" style="right:150px; top:6px; width:400px">
+        <div class="row on"><span class="code">PLT</span><span>Platform<small>Where you belong · you are here</small></span></div>
+        <div class="row"><span class="code gray">DEMO</span><span>Demo<small>Insights plan · copied from NWA</small></span><span class="end"><span class="tagx ok">Active</span></span></div>
+        <div class="foot">You enter as yourself with full rights; each visit is recorded.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================== BOTH -->
+  <h2 class="part">Both options: inside another workspace</h2>
+  <p>The amber line on every page (the colour of a support session, worded for a visit), the workspace's code in the top bar, and Back to Platform. Your own name stays in the account menu.</p>
+  <div class="frame"><div class="cap">In the Demo workspace, as yourself</div>
+    <div class="topbar"><span class="brand"><span class="logo">C</span>C360 | Insights</span><span class="search">Search reports, dashboards and pages</span>
+      <span class="ws button">Workspace <b>DEMO</b></span><span class="acct"><span class="avatar">PA</span><span>Platform Admin<small>Platform administrator</small></span></span></div>
+    <div class="banner">You are in <b>Demo</b> as a platform administrator, with full rights. This visit is recorded and shown to the workspace's administrators.<span class="back">Back to Platform</span></div>
+    <div class="stage" style="min-height:120px"><div class="content">Insights → Reports of the Demo workspace, as its administrators see it.</div></div>
+  </div>
+
+  <div class="label">What the workspace's administrators see <span>Settings → Security, under Support Access: a second list, Platform Visits.</span></div>
+  <div class="frame"><div class="cap">Settings → Security · Platform Visits</div><div class="page">
+    <div class="sec-page">
+      <h3>Platform Visits</h3>
+      <p>Every time a platform administrator entered this workspace as themselves, from when to when.</p>
+      <table class="t"><thead><tr><th>Who</th><th>From</th><th>Until</th><th>Reason</th></tr></thead><tbody>
+        <tr><td>Platform Admin</td><td>23 Oct 2026, 14:02</td><td>14:31 (29 min)</td><td>Option B only: Checking the demo before the customer call</td></tr>
+        <tr><td>Platform Admin</td><td>22 Oct 2026, 09:15</td><td>09:20 (5 min)</td><td>—</td></tr>
+      </tbody></table>
+    </div>
+  </div></div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: Switch Workspace in the account menu, with a reason</h2>
+  <p>The account menu gets <strong>Switch Workspace…</strong>; a dialog lists the workspaces and asks why you are going in. The reason shows in the workspace's Platform Visits.</p>
+
+  <div class="label">B1 · The account menu, then the dialog (busy) <span>A table with search; the chosen row and a reason, then Switch.</span></div>
+  <div class="frame"><div class="cap">Option B · menu and dialog</div>
+    <div class="topbar"><span class="brand"><span class="logo">C</span>C360 | Insights</span><span class="search">Search reports, dashboards and pages</span>
+      <span class="ws">Workspace <b>PLATFORM</b></span><span class="acct"><span class="avatar">PA</span><span>Platform Admin<small>Platform administrator</small></span></span></div>
+    <div class="stage" style="min-height:560px">
+      <div class="pop" style="right:16px; top:6px; width:240px">
+        <div class="row"><span><b>Platform Admin</b><small>platform@aiintelekt.com</small></span></div>
+        <div class="row on">⇄&nbsp; Switch Workspace…</div>
+        <div class="row">Account Security</div>
+        <div class="row">Sign Out</div>
+      </div>
+      <div style="position:absolute; left:32px; top:90px">
+        <div class="dialog">
+          <header><h3>Switch Workspace</h3><p>You enter as yourself with full rights until you come back. The workspace's administrators see the visit and your reason.</p></header>
+          <div class="body">
+            <div class="search2" style="margin:0">⌕&nbsp; Search 64 workspaces by code or name</div>
+            <table class="t"><thead><tr><th>Workspace</th><th>Plan</th><th>Users</th><th>Status</th></tr></thead><tbody>
+              <tr class="on"><td><b>NWA</b> · Northwind Apparel</td><td>Growth</td><td>8</td><td><span class="tagx ok">Active</span></td></tr>
+              <tr><td><b>DEMO</b> · Demo</td><td>Insights</td><td>1</td><td><span class="tagx ok">Active</span></td></tr>
+              <tr><td><b>CITYHT</b> · City Hotels</td><td>Insights</td><td>4</td><td><span class="tagx ok">Active</span></td></tr>
+              <tr><td><b>NWX</b> · Newbridge Exchange</td><td>Starter</td><td>3</td><td><span class="tagx warn">Suspended</span></td></tr>
+            </tbody></table>
+            <div class="field"><label>Reason</label><div class="input">Checking the demo before the customer call</div><small>A few words; the workspace's administrators read it.</small></div>
+          </div>
+          <footer><span class="btn">Cancel</span><span class="btn p">Switch to NWA</span></footer>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>Who</strong>: platform administrators only (<code>is_platform_admin</code>), with two-step verification when the platform requires it for staff. Nobody else sees the switch.</li>
+      <li><strong>How it works</strong>: the server records a visit and issues a token for the chosen workspace in your own name, marked as a visit; the app reloads in that workspace. There you have full rights, as the workspace's own administrator has; you leave with Back to Platform or by signing out.</li>
+      <li><strong>The record</strong>: a <code>platform_visit</code> row per visit (who, workspace, from, until, reason in option B), kept in the platform's records like support sessions; the workspace's administrators read theirs under Settings → Security → Platform Visits; the back-office lists all of them. Patch 0077.</li>
+      <li><strong>The list</strong>: every workspace, recent first, searchable by code or name, with plan and status; suspended and offboarding ones are shown with their status.</li>
+      <li><strong>Help and tests</strong>: a "Switch Workspace" step in the platform guide; tests for who sees it, the visit record, Back to Platform, and the administrators' list.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A.</strong> The top bar already names the workspace, so it is the natural place to change it, and it is one click for the super user who moves between Platform and Demo many times a day. Every visit is still recorded with its times. Choose Option B if a written reason should be required each time, as support sessions require one.</div>
+</div>
+</body>
+</html>

@@ -3,8 +3,8 @@
  * the C360 brand with the open component's name, the search in the middle, and help, notifications and the account at
  * the right.
  */
-import { Bell, ChevronDown, CircleHelp, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, ShieldCheck, Sun, X, type LucideIcon } from 'lucide-react'
-import type { ReactNode, RefObject } from 'react'
+import { ArrowLeftRight, Bell, ChevronDown, CircleHelp, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, ShieldCheck, Sun, X, type LucideIcon } from 'lucide-react'
+import { useState, type ReactNode, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { iconButtonClass } from '@/components/buttonStyles'
@@ -17,6 +17,7 @@ import type { Me } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { AppLauncher } from './AppLauncher'
 import { GlobalSearch } from './GlobalSearch'
+import { SwitchWorkspaceDialog } from './SwitchWorkspaceDialog'
 import type { EntitledComponent } from './manifests'
 
 const SECURITY = '/account/security'
@@ -61,6 +62,9 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
   const [themePreference, setThemePreference] = useThemePreference()
   const account = useSingleDropdown<'account'>()
   const navigate = useNavigate()
+  const [switching, setSwitching] = useState(false)
+  // a platform administrator in their own workspace: not inside a visit, not in a support session
+  const canSwitch = Boolean(me?.principal.is_platform_admin && !me.platform_visit && !me.support_session)
   const name = me?.principal.display_name ?? me?.principal.email
   const role = me?.principal.roles?.[0] ?? me?.principal.email
   const ToggleIcon = TOGGLE[toggle.kind].icon
@@ -134,6 +138,10 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
               <div className="border-b border-line-subtle px-3 py-2.5">
                 <SegmentedControl label="Appearance" options={THEME_OPTIONS} value={themePreference} onChange={setThemePreference} stretch />
               </div>
+              {canSwitch && (
+                <MenuRow title="Switch Workspace…" leading={<ArrowLeftRight size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
+                  onClick={() => { account.close({ restoreFocus: false }); setSwitching(true) }} />
+              )}
               <MenuRow title="Account Security" leading={<ShieldCheck size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
                 onClick={() => { account.close({ restoreFocus: false }); navigate(SECURITY) }} />
               <MenuRow title="Sign Out" leading={<LogOut size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />} onClick={() => { account.close({ restoreFocus: false }); onLogout() }} />
@@ -141,6 +149,7 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
           )}
         </div>
       </div>
+      {switching && <SwitchWorkspaceDialog onClose={() => setSwitching(false)} />}
     </header>
   )
 }

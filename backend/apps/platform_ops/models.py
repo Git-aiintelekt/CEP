@@ -166,6 +166,28 @@ class SupportAccessLog(models.Model):
         return f"{self.staff_user_id} as {self.target_user_id}"
 
 
+class PlatformVisit(models.Model):
+    """A visit in which a platform administrator entered a workspace as themselves (Switch Workspace, apps/platform_ops/visits.py)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    staff_user = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='staff_user_id', related_name='+')
+    staff_name = models.CharField(max_length=200, null=True, blank=True)
+    home_tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='home_tenant_id', related_name='+', null=True, blank=True)
+    reason = models.TextField()
+    started_at = models.DateTimeField(db_default=Now())
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    writes = models.IntegerField(default=0)
+
+    class Meta:
+        managed = False
+        db_table = 'platform_visit'
+
+    def __str__(self):
+        return f"{self.staff_name} in {self.tenant_id}"
+
+
 class TenantIdentityProvider(models.Model):
     """A tenant's OpenID Connect identity provider"""
     tenant = models.OneToOneField('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+', primary_key=True)

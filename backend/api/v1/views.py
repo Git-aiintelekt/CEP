@@ -525,6 +525,7 @@ class MeViewSet(viewsets.ViewSet):
                          "roles": list(Role.objects.filter(deleted_at__isnull=True, user_roles__user=user).order_by("name").values_list("name", flat=True))}
         workspace = params.context_for(request.tenant["id"])
         session = getattr(getattr(request, "_request", request), "support_session", None)
+        visit = getattr(getattr(request, "_request", request), "platform_visit", None)
         if principal["kind"] == "user":
             principal["mfa_enabled"] = user.mfa_enabled
             principal["auth_provider"] = user.auth_provider
@@ -536,5 +537,6 @@ class MeViewSet(viewsets.ViewSet):
                          "mfa_setup_required": bool(token is not None and hasattr(token, "get") and token.get("mfa_setup") and not getattr(user, "mfa_enabled", True)),
                          "support_session": {"by": session.staff_name or "Platform support", "mode": session.access_mode, "expires_at": session.expires_at,
                                              "reason": session.reason} if session else None,
+                         "platform_visit": {"home": visit["home_code"], "home_name": visit["home_name"], "started_at": visit["started_at"], "reason": visit["reason"]} if visit else None,
                          "session": {"idle_timeout_minutes": int(params.get("security.idle_timeout_minutes", 120)),
                                      "idle_warning_seconds": int(params.get("security.idle_warning_seconds", 60))}})

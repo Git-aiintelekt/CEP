@@ -36,6 +36,16 @@ export const me = {
   session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },
 }
 
+/** Switch Workspace: the workspaces a platform administrator may enter, and one workspace's visits */
+export const platformWorkspaces = [
+  { id: 'w1', code: 'DEMO', name: 'Demo', status: 'ACTIVE', plan: 'Insights', users: 1, last_visit: '2026-10-23T09:00:00Z' },
+  { id: 'w2', code: 'CITYHT', name: 'City Hotels', status: 'ACTIVE', plan: 'Insights', users: 4, last_visit: null },
+  { id: 'w3', code: 'NWX', name: 'Newbridge Exchange', status: 'SUSPENDED', plan: 'Starter', users: 3, last_visit: null },
+]
+export const platformVisits = [
+  { id: 'v1', who: 'Platform Admin', reason: 'Checking the demo before the customer call', started_at: '2026-10-23T14:02:00Z', until: '2026-10-23T14:31:00Z', open: false, writes: 2 },
+]
+
 /** Insights (apps/insights): the catalogue, a saved report and a run's result the tests see */
 /** the suite's components (suite_component): what a report may be listed under */
 export const suiteComponents = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }, { key: 'crm', name: 'CRM' }, { key: 'sales', name: 'Sales' },
@@ -1151,6 +1161,19 @@ export function installMockApi(options: MockOptions = {}) {
       return json({ ...settingsUsers[1], ...(body as Partial<SettingsUser>) }, method === 'POST' ? 201 : 200)
     }
     if (path.endsWith('/auth/support-session/end/')) return json(null, 204)
+    // Switch Workspace (apps/platform_ops/visits.py)
+    if (path.endsWith('/platform/workspaces/')) {
+      const q = (new URL(url, 'http://test.local').searchParams.get('q') ?? '').toLowerCase()
+      return json({ ready: true, workspaces: platformWorkspaces.filter((w) => !q || w.code.toLowerCase().includes(q) || w.name.toLowerCase().includes(q)) })
+    }
+    if (path.endsWith('/platform/visits/') && method === 'POST') {
+      const asked = body as { workspace?: string; reason?: string }
+      if (String(asked.reason ?? '').trim().length < 5) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { reason: 'Say in a few words why you are going in.' } }, 400)
+      const target = platformWorkspaces.find((w) => w.code === asked.workspace)
+      return json({ access: 'visit-access', refresh: 'visit-refresh', tenant: target?.code ?? 'DEMO', workspace: target?.name ?? 'Demo', visit: 'visit-1' }, 201)
+    }
+    if (path.endsWith('/auth/visit/end/')) return json(null, 204)
+    if (path.endsWith('/workspace/platform-visits/')) return json(platformVisits)
     if (path.endsWith('/auth/mfa/') && method === 'POST') {
       if (body?.action === 'setup') return json({ secret: 'JBSWY3DPEHPK3PXP', otpauth_uri: 'otpauth://totp/CEP:aby.john%40aiintelekt.com?secret=JBSWY3DPEHPK3PXP&issuer=CEP' })
       if (body?.code !== MFA_CODE) return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { code: ['That code is not right. Check the time on your phone and try the next code.'] } }, 400)

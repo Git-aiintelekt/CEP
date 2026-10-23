@@ -15,7 +15,7 @@ from unfold.widgets import (UnfoldAdminDecimalFieldWidget, UnfoldAdminIntegerFie
 from apps.adminutils import BaseAdmin, ReadOnlyAdmin, register_app_models
 
 from . import billing, crypto, guide, mail, params, tenant_ops, typed_values
-from .models import (IndustryProfile, JobRun, MailServer, PlatformAlert, PlatformPersonalizationTag, PlatformSetting, SupportAccessLog, TenantIdentityProvider, TenantInvoice,
+from .models import (IndustryProfile, JobRun, MailServer, PlatformAlert, PlatformPersonalizationTag, PlatformSetting, PlatformVisit, SupportAccessLog, TenantIdentityProvider, TenantInvoice,
                      TenantOperation)
 
 P = settings.PLATFORM_ALIAS
@@ -221,6 +221,27 @@ class SupportAccessLogAdmin(ReadOnlyAdmin):
     @action(description="End the Session Now")
     def end_now(self, request, queryset):
         updated = queryset.filter(ended_at__isnull=True, expires_at__gt=timezone.now()).update(ended_at=timezone.now())
+        messages.success(request, f"{updated} ended.")
+
+
+@admin.register(PlatformVisit)
+class PlatformVisitAdmin(ReadOnlyAdmin):
+    """Switch Workspace: every visit of a platform administrator to a workspace, as themselves."""
+    list_display = ("started_at", "tenant", "staff_name", "reason", "writes", "show_state")
+    list_filter = ("tenant",)
+    ordering = ("-started_at",)
+    actions = ("end_now",)
+
+    @display(description="State", label={"In the Workspace": "warning", "Ended": "info"})
+    def show_state(self, obj):
+        return "Ended" if obj.ended_at else "In the Workspace"
+
+    def has_change_permission(self, request, obj=None):
+        return obj is None
+
+    @action(description="End the Visit Now")
+    def end_now(self, request, queryset):
+        updated = queryset.filter(ended_at__isnull=True).update(ended_at=timezone.now())
         messages.success(request, f"{updated} ended.")
 
 

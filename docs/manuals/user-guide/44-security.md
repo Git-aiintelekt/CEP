@@ -40,6 +40,12 @@ How people sign in to the workspace: whether everyone must use multi-factor auth
 |---|---|
 | When, Support Person, Acted As, Reason, Access (read-only or could change), Ended | Every support session platform staff opened into this workspace, acting as one of its users, with when it ended or that it is open now. |
 
+### Platform Visits
+
+| Column | What it is |
+|---|---|
+| Who, From, Until, Reason, Changes | Every time a platform administrator entered this workspace as themselves (Switch Workspace), with their reason, when the visit ended (or In the Workspace Now) and how many changes they made. |
+
 ## How to
 
 **Require a second step for everyone.** Set up your own under Account Security first (the account menu), then switch Require for Everyone on. From the next sign-in everyone without it is walked through the set-up.

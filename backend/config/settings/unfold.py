@@ -102,6 +102,7 @@ UNFOLD = {
                 _link("API Keys", "vpn_key", "identity_apiclient"),
                 _link("Single Sign-On", "passkey", "platform_ops_tenantidentityprovider"),
                 _link("Support Access Log", "support_agent", "platform_ops_supportaccesslog"),
+                _link("Platform Visits", "swap_horiz", "platform_ops_platformvisit"),
             ]},
             {"title": "Configuration", "separator": True, "items": [
                 _link("Global Parameters", "tune", "platform_ops_platformsetting"),
