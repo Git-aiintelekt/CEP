@@ -45,6 +45,7 @@ SHOTS = {
     "ask-spec": ("/dev/ask?state=spec&demo=attached", 760),
     "ask-unmapped-draft": ("/dev/ask?state=spec&demo=draft", 1300),
     "ask-data-menu": ("/dev/ask?state=spec&demo=menu", 900),
+    "ask-building": ("/dev/ask?state=spec&demo=building", 900),
 }
 
 

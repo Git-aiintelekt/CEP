@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask for a Report Progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .pill-ai { height:20px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+  .box { position:relative; border:1px solid var(--line-control); border-radius:12px; background:#fff }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .askabout { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .datapick { height:28px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-900); background:#fff }
+  .datapick b { font-weight:600 } .datapick small { color:var(--ink-700); font-size:11.5px } .datapick::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .datapick.ghost { border-color:transparent }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .thumb { width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#f9fafb; position:relative; flex:none }
+  .doc { height:64px; min-width:180px; max-width:240px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center; position:relative }
+  .doc .ico { width:34px; height:42px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:9px; font-weight:700; color:var(--ink-800); padding-bottom:5px; flex:none }
+  .doc .ico.pdf { background:#fae2e2; color:var(--danger-text) } .doc .ico.word { background:var(--brand-100); color:var(--brand-800) }
+  .doc b { display:block; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px } .doc small { font-size:11.5px; color:var(--ink-700) }
+  .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .muted { font-size:12px; color:var(--ink-800) } .grow { flex:1 }
+  .counter { font-size:12px; color:var(--warning-text); font-variant-numeric:tabular-nums; font-weight:500 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 8px; font-size:13px; border-radius:999px } .model::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-subtle) }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; padding:0 14px; font:600 13px/32px var(--font) }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .small { font-size:12px; color:var(--ink-800) }
+
+  .menu { position:absolute; z-index:2; top:42px; left:12px; width:380px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:6px }
+  .menu .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .menu .opt { display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:8px; font-size:13.5px }
+  .menu .opt.on { background:var(--callout-bg) } .menu .opt small { display:block; font-size:12px; color:var(--ink-800) }
+  .menu .opt .m { width:26px; height:26px; border-radius:8px; background:var(--brand-100); color:var(--brand-800); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .menu .opt .m.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .menu .check { display:flex; gap:8px; align-items:flex-start; margin:4px 8px 6px 44px; font-size:12.5px; color:var(--ink-900) }
+  .cb { width:15px; height:15px; border-radius:4px; background:var(--brand-600); flex:none; margin-top:2px; position:relative } .cb::after { content:"✓"; color:#fff; font-size:11px; position:absolute; left:2px; top:-2px }
+
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:12px; background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--brand-800); text-align:center }
+  .drop b { font-size:15px } .drop small { font-size:12px; color:var(--ink-800) }
+
+  .result { border:1px solid var(--line); border-radius:12px; background:var(--surface-subtle); padding:14px 16px; display:flex; flex-direction:column; gap:8px; font-size:13.5px }
+  .result dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0 } .result dt { font-weight:600 } .result dd { margin:0 }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--brand-100); color:var(--brand-800) }
+  .tag.new { background:var(--warning-bg); color:var(--warning-text) }
+  .btns { display:flex; gap:8px } .btn { height:32px; border-radius:999px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</style>
+</head>
+<style>
+  .panel, .box, .result { border-radius:8px }
+  .steps { margin:4px 12px 10px; border:1px solid var(--line-subtle); border-radius:8px; background:var(--surface-subtle); padding:10px 12px; display:flex; flex-direction:column; gap:7px; font-size:13px }
+  .step { display:flex; align-items:flex-start; gap:9px } .step small { color:var(--ink-800); font-size:12px; display:block }
+  .dot { width:16px; height:16px; border-radius:999px; flex:none; margin-top:1px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700 }
+  .dot.done { background:var(--success-bg); color:var(--success-text) } .dot.done::after { content:"✓" }
+  .dot.now { border:2px solid var(--brand-600); border-top-color:transparent } .dot.wait { border:1px solid var(--line-control) }
+  .step.wait { color:var(--ink-700) } .elapsed { margin-left:auto; color:var(--ink-800); font-size:12px; font-variant-numeric:tabular-nums }
+  .bar2 { display:flex; align-items:center; gap:10px; padding:6px 8px 8px; flex-wrap:wrap }
+  .meter { flex:1; min-width:160px; height:6px; border-radius:999px; background:var(--fill-subtle); overflow:hidden } .meter i { display:block; height:100%; width:55%; background:var(--brand-600) }
+  .now-text { font-size:13px; color:var(--ink-900) } .now-text small { color:var(--ink-800) }
+  .namefield { display:flex; align-items:center; gap:8px; padding:8px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .namefield .in { flex:1; height:30px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:flex; align-items:center; font-size:13.5px; color:var(--ink-900) }
+  .namefield .in.ph { color:var(--ink-300) }
+  .namedit { display:flex; align-items:center; gap:8px } .namedit .in { height:30px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:flex; align-items:center; font-size:13.5px; min-width:360px }
+  .hint { font-size:12px; color:var(--ink-800) }
+</style>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Ask for a Report: naming the report yourself, and seeing each step while it is built. Sample names.</div>
+  <p class="note">Today the box shows only "Thinking" on the button for up to 100 seconds, and the report takes the model's name. The progress shown is the server's own: it records each step as it happens (reading the documents, reading the database's tables, Claude drafting, a second try when the first draft does not fit, checking the draft, previewing the rows) and the box asks for it every second. Nothing is guessed in the browser.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: a Report Name field in the box, and the steps listed inside it</h2>
+  <p>Name it before you ask (optional; empty lets the model name it). While it works, the steps appear between the text and the bar, each ticked as it finishes, with the time taken so far.</p>
+
+  <div class="label">A1 · Generating: the steps <span>Busy case: two documents and CG-Prod's tables not mapped yet. The second Claude step appears only when Claude asks for more tables or the first draft is refused.</span></div>
+  <div class="frame"><div class="cap">Option A · while it builds</div><div class="page">
+    <section class="panel">
+      <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">14 of 200 prompts this month</span></div>
+      <div class="box">
+        <div class="askabout">Ask About <span class="datapick"><span class="mark">MY</span><b>CG-Prod</b><small>3 datasets · and its tables</small></span></div>
+        <div class="namefield">Report Name <span class="in">Message Delivery Health</span></div>
+        <div class="text" style="min-height:56px">Build Report 01 – Message Delivery Health from the attached spec.</div>
+        <div class="steps" role="status">
+          <div class="step"><span class="dot done"></span><span>Read your 2 documents<small>Citi SMS eReceipts spec.pdf (14 pages) · targets.xlsx (1 sheet, 412 rows)</small></span></div>
+          <div class="step"><span class="dot done"></span><span>Read CG-Prod's tables<small>1,284 names · the columns of sms_receipts, stores</small></span></div>
+          <div class="step"><span class="dot now"></span><span><b>Claude is drafting the report</b><small>Claude Sonnet 5.5 · this usually takes 20 to 60 seconds</small></span><span class="elapsed">0:24</span></div>
+          <div class="step wait"><span class="dot wait"></span><span>Check the draft against your data</span></div>
+          <div class="step wait"><span class="dot wait"></span><span>Preview the rows</span></div>
+        </div>
+        <div class="bar"><span class="icon">📎</span><span class="muted">2 documents</span><span class="grow"></span><span class="model"><span class="mark">A</span>Claude Sonnet 5.5</span><span class="primary off">Generating…</span></div>
+      </div>
+    </section>
+  </div></div>
+
+  <div class="label">A2 · Done: the draft keeps your name <span>The steps fold into one line on the draft ("Built in 41 s · 5 steps · show"); the name you typed is the report's name.</span></div>
+  <div class="frame"><div class="cap">Option A · the draft</div><div class="page">
+    <div class="result">
+      <div class="head"><span class="pill-ai">AI</span><h2>Draft Report</h2><span class="use">Claude Sonnet 5.5 · built in 41 s · 5 steps <u>Show</u></span></div>
+      <dl><dt>Name</dt><dd>Message Delivery Health</dd><dt>Data</dt><dd>CG-Prod · sms_receipts + stores <span class="tag new">Not Mapped Yet</span></dd><dt>Rows</dt><dd>Store</dd><dt>Values</dt><dd>Receipts Sent, Delivered Rate, Failed Rate</dd></dl>
+      <div class="btns"><span class="btn">Try Again</span><span class="btn">Edit Prompt</span><span class="btn p">Open in Editor</span></div>
+    </div>
+  </div></div>
+
+  <div class="label">A3 · Sparse: nothing attached, All My Data <span>Only the steps that apply: three, not five.</span></div>
+  <div class="frame"><div class="cap">Option A · sparse</div><div class="page">
+    <section class="panel">
+      <div class="box">
+        <div class="askabout">Ask About <span class="datapick"><span class="mark">ALL</span><b>All My Data</b></span></div>
+        <div class="namefield">Report Name <span class="in ph">Optional: the model names it if you leave this empty</span></div>
+        <div class="text" style="min-height:40px">Sent and delivered by campaign for September</div>
+        <div class="steps" role="status">
+          <div class="step"><span class="dot now"></span><span><b>Claude is drafting the report</b><small>Claude Haiku 5.5</small></span><span class="elapsed">0:06</span></div>
+          <div class="step wait"><span class="dot wait"></span><span>Check the draft against your data</span></div>
+          <div class="step wait"><span class="dot wait"></span><span>Preview the rows</span></div>
+        </div>
+        <div class="bar"><span class="grow"></span><span class="primary off">Generating…</span></div>
+      </div>
+    </section>
+  </div></div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: one status line in the bar, and the name edited on the draft</h2>
+  <p>The box stays as it is; while it works the bar shows the current step and a bar filling step by step. The draft's name becomes a field you can change before Open in Editor.</p>
+
+  <div class="label">B1 · Generating <span>The current step in words, the step number and the time; the earlier steps are not listed.</span></div>
+  <div class="frame"><div class="cap">Option B · while it builds</div><div class="page">
+    <section class="panel">
+      <div class="box">
+        <div class="askabout">Ask About <span class="datapick"><span class="mark">MY</span><b>CG-Prod</b><small>3 datasets · and its tables</small></span></div>
+        <div class="text" style="min-height:56px">Build Report 01 – Message Delivery Health from the attached spec.</div>
+        <div class="bar2"><span class="now-text"><b>Claude is drafting the report</b> <small>· step 3 of 5 · 0:24</small></span><span class="meter"><i></i></span><span class="primary off">Generating…</span></div>
+      </div>
+    </section>
+  </div></div>
+
+  <div class="label">B2 · The draft: its name is yours to change <span>Prefilled with the model's name; Open in Editor saves the name in the field.</span></div>
+  <div class="frame"><div class="cap">Option B · the draft</div><div class="page">
+    <div class="result">
+      <div class="head"><span class="pill-ai">AI</span><h2>Draft Report</h2><span class="use">Claude Sonnet 5.5 · 41 s</span></div>
+      <dl><dt>Name</dt><dd><span class="namedit"><span class="in">Net Sales by Store and Week, Q3 vs Last Year</span></span></dd><dt>Data</dt><dd>CG-Prod · sms_receipts + stores</dd><dt>Values</dt><dd>Receipts Sent, Delivered Rate</dd></dl>
+      <div class="btns"><span class="btn">Try Again</span><span class="btn">Edit Prompt</span><span class="btn p">Open in Editor</span></div>
+    </div>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>Progress</strong>: the box sends a progress id with the prompt; the server writes each step to the cache as it starts and ends (the documents, the database's tables, each Claude call, the check, the preview) and <code>GET /insights/assistant/progress/&lt;id&gt;/</code> returns them; the box asks every second while it waits. Only the steps that apply are shown. Nothing is stored after ten minutes.</li>
+      <li><strong>The name</strong>: in option A an optional Report Name in the box goes with the prompt and wins over the model's; in option B the draft's name is a field and Open in Editor sends it. Either way it is checked like any report name (200 characters) and kept with the draft.</li>
+      <li><strong>Unchanged</strong>: one prompt is still one request to the server (no new background job), the 100-second limit stays, and a failure says which step it stopped at.</li>
+      <li><strong>Help and tests</strong>: the Ask for a Report steps in the help; tests for the steps reported, the name kept, and the progress shown and folded.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A for the progress, Option B for the name.</strong> The listed steps show what was read and what is happening, which matters on a long spec with a database's tables; a name field on the draft lets you name the report once you see what it became, without one more field in the box. Each option works on its own too.</div>
+</div>
+</body>
+</html>

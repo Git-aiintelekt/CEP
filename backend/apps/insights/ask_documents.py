@@ -1,6 +1,7 @@
 """Documents sent with Ask for a Report (docs/mockups/ask-for-report-data-and-specs.html, option A): a report's spec as a PDF, a Word
-file (.docx), text or Markdown, read for the request and never stored. Claude reads a PDF as it is and OpenAI takes it as a file; a
-Word file's text is read here from its XML (no new package); text and Markdown go as text.
+file (.docx), an Excel workbook (.xlsx), CSV, text or Markdown, read for the request and never stored. Claude reads a PDF as it is
+and OpenAI takes it as a file; a Word file's text is read here from its XML (no new package); an Excel workbook's sheets are read
+with openpyxl (the uploads' reader) as tab-separated rows, SHEET_ROWS a sheet at most; CSV, text and Markdown go as text.
 """
 import base64
 import html
@@ -17,18 +18,21 @@ PAGES_MAX = 100                                                     # PDF pages 
 TEXT_MAX = 300_000                                                  # characters of Word and text documents together, about 75,000 words
 ATTACHMENTS_BYTES_MAX = 20_000_000                                  # documents and images together: a third more once base64-encoded, under the providers' 32 MB
 WORD_XML_MAX = 50_000_000                                           # a Word file's text part, unpacked
-TEXT_KINDS = {".txt": "text", ".text": "text", ".md": "markdown", ".markdown": "markdown"}
-KIND_NAMES = {"pdf": "PDF", "word": "Word", "text": "text", "markdown": "Markdown"}
+SHEET_ROWS = 500                                                    # rows of each Excel sheet given to the model; a longer sheet says how many were left out
+SHEET_COLUMNS = 60
+TEXT_KINDS = {".txt": "text", ".text": "text", ".md": "markdown", ".markdown": "markdown", ".csv": "csv"}
+KIND_NAMES = {"pdf": "PDF", "word": "Word", "excel": "Excel", "csv": "CSV", "text": "text", "markdown": "Markdown"}
 NOTE = ("The person attached {n} document{s} with this request: {names}. Read them as the specification of the report they want: the "
         "measures, groupings, filters, periods, targets and the view they describe. Follow them where the prompt says to; where the prompt "
-        "and a document differ, the prompt wins. They hold no rows to use as data. If part of a document cannot be built from the catalogue, "
+        "and a document differ, the prompt wins. A spreadsheet's rows show the layout and the kind of values wanted; the report runs on the "
+        "catalogue's data, so never copy numbers from a document. If part of a document cannot be built from the catalogue, "
         "draft the rest and say what was left out in \"note\".")
 
 
 def read_documents(files) -> list[dict]:
     """Uploaded documents as the providers take them: {name, kind, pages | words, data (a PDF, base64) | text}. At most
-    DOCUMENTS_MAX, each a PDF, a Word .docx, text or Markdown of up to DOCUMENT_BYTES_MAX, with PAGES_MAX pages and TEXT_MAX
-    characters across them. ValidationError otherwise."""
+    DOCUMENTS_MAX, each a PDF, a Word .docx, an Excel .xlsx, CSV, text or Markdown of up to DOCUMENT_BYTES_MAX, with PAGES_MAX pages
+    and TEXT_MAX characters across them. ValidationError otherwise."""
     files = list(files or [])
     if len(files) > DOCUMENTS_MAX:
         raise ValidationError({"documents": f"Add up to {DOCUMENTS_MAX} documents."})
@@ -48,14 +52,19 @@ def read_documents(files) -> list[dict]:
             continue
         if suffix == ".doc":
             raise ValidationError({"documents": f"{name} is an old Word file: save it as .docx and attach it again."})
-        if zipfile.is_zipfile(BytesIO(raw)):
+        if suffix == ".xls":
+            raise ValidationError({"documents": f"{name} is an old Excel file: save it as .xlsx and attach it again."})
+        if zipfile.is_zipfile(BytesIO(raw)) and _holds(raw, "xl/workbook.xml"):
+            text = excel_text(raw, name)
+            kind = "excel"
+        elif zipfile.is_zipfile(BytesIO(raw)):
             text = word_text(raw, name)
             kind = "word"
         elif suffix in TEXT_KINDS and b"\x00" not in raw:
             text = raw.decode("utf-8-sig", errors="replace").replace("\r\n", "\n")
             kind = TEXT_KINDS[suffix]
         else:
-            raise ValidationError({"documents": f"{name} is not a PDF, Word (.docx), text or Markdown file."})
+            raise ValidationError({"documents": f"{name} is not a PDF, Word (.docx), Excel (.xlsx), CSV, text or Markdown file."})
         chars += len(text)
         if chars > TEXT_MAX:
             raise ValidationError({"documents": f"The documents' text comes to more than {TEXT_MAX:,} characters; send the parts the report needs."})
@@ -71,6 +80,54 @@ def pdf_pages(raw: bytes) -> int | None:
     if counts:
         return max(counts)
     return len(re.findall(rb"/Type\s*/Page(?![a-zA-Z])", raw)) or None
+
+
+def _holds(raw: bytes, part: str) -> bool:
+    try:
+        with zipfile.ZipFile(BytesIO(raw)) as packed:
+            return part in packed.namelist()
+    except zipfile.BadZipFile:
+        return False
+
+
+def _cell(value) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        text = value.isoformat()
+        return text[:-9] if text.endswith("T00:00:00") else text
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return " ".join(str(value).split())
+
+
+def excel_text(raw: bytes, name: str) -> str:
+    """each sheet as '## Sheet: <name>' and its rows tab-separated (values, not formulas), empty rows left out, SHEET_ROWS rows and
+    SHEET_COLUMNS columns a sheet at most, with a line saying how many rows were left out"""
+    import openpyxl
+    try:
+        book = openpyxl.load_workbook(BytesIO(raw), read_only=True, data_only=True)
+    except Exception:                                                   # noqa: BLE001  a damaged or protected workbook
+        raise ValidationError({"documents": f"{name} is not an Excel (.xlsx) workbook C360 can read; save it again, without a password."}) from None
+    parts = []
+    try:
+        for sheet in book.worksheets:
+            lines, more = [], 0
+            for row in sheet.iter_rows(values_only=True):
+                cells = [_cell(v) for v in row[:SHEET_COLUMNS]]
+                while cells and not cells[-1]:
+                    cells.pop()
+                if not cells:
+                    continue
+                if len(lines) < SHEET_ROWS:
+                    lines.append("\t".join(cells))
+                else:
+                    more += 1
+            if lines:
+                parts.append(f"## Sheet: {sheet.title}\n" + "\n".join(lines) + (f"\n({more:,} more rows not shown)" if more else ""))
+    finally:
+        book.close()
+    return "\n\n".join(parts)
 
 
 WORD_TOKENS = re.compile(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>|<w:(?:tab|br|cr)\b[^>]*/>|</w:p>|</w:tc>|</w:tr>")

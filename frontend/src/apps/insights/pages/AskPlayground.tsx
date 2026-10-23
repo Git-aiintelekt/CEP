@@ -3,8 +3,8 @@
  * and the ask and open calls are answered here: a prompt ending in "?" gets a question back, one naming "website visits"
  * gets no field, a prompt on CG-Prod's tables not mapped yet a draft on a new dataset, anything else a draft. ?state=busy shows
  * recent prompts under the box; ?state=spec opens on CG-Prod with its tables not mapped yet, and &demo=attached or &demo=draft
- * drops a spec, a PDF and a sketch on the box and writes the prompt (and presses Generate), &demo=menu opens Ask About, for the
- * guide's screenshots.
+ * drops a spec, a PDF and a sketch on the box and writes the prompt (and presses Generate), &demo=menu opens Ask About, and
+ * &demo=building presses Generate on a prompt that stays under way, its steps part done, for the guide's screenshots.
  */
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -12,7 +12,7 @@ import { useSearchParams } from 'react-router-dom'
 
 import { keys } from '../api'
 import { AskForReport } from '../components/AskForReport'
-import type { AskResult, AssistantState, Catalog, CatalogDataset, CatalogField } from '../types'
+import type { AskResult, AskStep, AssistantState, Catalog, CatalogDataset, CatalogField } from '../types'
 
 const field = (key: string, label: string, type: CatalogField['type'], role: CatalogField['role'], aggregates: CatalogField['aggregates'] = []): CatalogField =>
   ({ key, label, type, role, aggregates, operators: ['='], buckets: type === 'date' ? ['week', 'month'] : [], format: null, sensitivity: 'NORMAL' })
@@ -116,10 +116,21 @@ async function act(demo: string) {
   box.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: carried }))
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(prompt, SPEC_PROMPT)
   prompt.dispatchEvent(new Event('input', { bubbles: true }))
-  if (demo !== 'draft') return
+  if (demo !== 'draft' && demo !== 'building') return
   await new Promise((resolve) => setTimeout(resolve, 1200))                                     // the sketch is read before it is sent
   Array.from(box.querySelectorAll('button')).find((button) => button.textContent === 'Generate Report')?.click()
 }
+
+const step = (key: string, label: string, state: AskStep['state'], detail: string | null = null): AskStep => ({ key, label, detail, state, started_at: null, ended_at: null })
+/** a busy prompt part done: the spec and the sketch read, CG-Prod's tables read, Claude drafting */
+const BUILDING: AskStep[] = [
+  step('documents', 'Read your 2 documents and 1 image', 'done', 'Store sales report spec v3.docx · Regional KPIs 2026.pdf (14 pages) · 1 image'),
+  step('tables', "Read the database's tables", 'done', 'CG-Prod: 1,284 names · the columns of sales_lines, stores'),
+  step('draft', 'Claude is drafting the report', 'now', 'Claude Sonnet 5.5'),
+  step('check', 'Check the draft against your data', 'wait'),
+  step('preview', 'Preview the rows', 'wait'),
+]
+const BUILT: AskStep[] = BUILDING.map((s) => ({ ...s, state: 'done' as const, detail: s.key === 'preview' ? '312 rows' : s.detail }))
 
 export default function AskPlayground() {
   const [params] = useSearchParams()
@@ -142,18 +153,19 @@ export default function AskPlayground() {
       if (url.includes('/insights/assistant/ask/')) {
         const form = init?.body instanceof FormData ? init.body : null                     // with images or documents it comes as multipart
         const body = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true' } : JSON.parse(String(init?.body ?? '{}'))) as { prompt: string; model: string; unmapped?: boolean }
-        await new Promise((resolve) => setTimeout(resolve, 600))
-        return new Response(JSON.stringify(reply(body.prompt, body.model, Boolean(body.unmapped), form ? form.getAll('documents') as File[] : [], form ? form.getAll('images').length : 0)),
+        await new Promise((resolve) => setTimeout(resolve, params.get('demo') === 'building' ? 20_000 : 600))
+        return new Response(JSON.stringify({ steps: BUILT, ...reply(body.prompt, body.model, Boolean(body.unmapped), form ? form.getAll('documents') as File[] : [], form ? form.getAll('images').length : 0) }),
           { status: 200, headers: { 'content-type': 'application/json' } })
       }
+      if (url.includes('/insights/assistant/progress/')) return new Response(JSON.stringify({ steps: BUILDING, finished: false }), { status: 200, headers: { 'content-type': 'application/json' } })
       if (url.includes('/insights/assistant/')) return new Response(JSON.stringify(state(busy)), { status: 200, headers: { 'content-type': 'application/json' } })
       return real(input, init)
     }
     return () => { window.fetch = real }
-  }, [busy])
+  }, [busy, params])
   const demo = params.get('demo')
   useEffect(() => {
-    if (demo !== 'attached' && demo !== 'draft' && demo !== 'menu') return
+    if (demo !== 'attached' && demo !== 'draft' && demo !== 'menu' && demo !== 'building') return
     const timer = setTimeout(() => { void act(demo) }, 400)
     return () => clearTimeout(timer)
   }, [demo])

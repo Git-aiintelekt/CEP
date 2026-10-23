@@ -104,9 +104,17 @@ const assistantProviders = () => [
 ]
 export const workspaceAssistantNow = { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders(),
   explain_allowed: true, usage: { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth' }, retention_days: 90 }
+/** the steps of a plain prompt (apps/insights/ask_progress.py): under way, or all done */
+export function assistantSteps(at: 'now' | 'done') {
+  const step = (key: string, label: string, state: string, detail: string | null = null) => ({ key, label, detail, state, started_at: null, ended_at: null })
+  return at === 'done'
+    ? [step('draft', 'Claude is drafting the report', 'done', 'Claude Sonnet 5.5'), step('check', 'Check the draft against your data', 'done'), step('preview', 'Preview the rows', 'done', '12 rows')]
+    : [step('draft', 'Claude is drafting the report', 'now', 'Claude Sonnet 5.5'), step('check', 'Check the draft against your data', 'wait'), step('preview', 'Preview the rows', 'wait')]
+}
 function assistantReply(prompt: string, modelId: string, asked: { unmapped?: boolean; documents?: File[]; images?: number } = {}) {
   const model = assistantModels.find((m) => m.id === modelId) ?? assistantModels[0]
-  const base = { prompt, model: { id: model.id, provider: model.provider, provider_name: model.provider_name, mark: model.mark, model: model.model, label: model.label }, duration_ms: 3200, message: null }
+  const base = { prompt, model: { id: model.id, provider: model.provider, provider_name: model.provider_name, mark: model.mark, model: model.model, label: model.label }, duration_ms: 3200, message: null,
+    steps: assistantSteps('done') }
   if (/last month\?/.test(prompt)) {
     return { ...base, id: 'ask-q', kind: 'question', counted: false, question: 'Which period is last month?',
       answers: [{ label: 'September 2026, the calendar month', prompt: 'Revenue by campaign for September 2026' }, { label: 'The last 30 days', prompt: 'Revenue by campaign for the last 30 days' }], usage: insightsAssistantNow.usage }
@@ -116,7 +124,7 @@ function assistantReply(prompt: string, modelId: string, asked: { unmapped?: boo
       suggestions: [{ label: 'Clicks by Campaign', prompt: 'Delivered count by campaign for September' }], usage: insightsAssistantNow.usage }
   }
   insightsAssistantNow.usage = { ...insightsAssistantNow.usage, used: insightsAssistantNow.usage.used + 1, words: `${insightsAssistantNow.usage.used + 1} of 200 prompts used in October` }
-  const read = asked.documents?.length || asked.images ? { documents: (asked.documents ?? []).map((file) => ({ name: file.name, kind: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'word' : 'text' })), images: asked.images ?? 0 } : null
+  const read = asked.documents?.length || asked.images ? { documents: (asked.documents ?? []).map((file) => ({ name: file.name, kind: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'word' : file.name.endsWith('.xlsx') ? 'excel' : 'text' })), images: asked.images ?? 0 } : null
   if (asked.unmapped) {
     const field = (key: string, label: string, type: string, role: string, aggregates: string[] = []) => ({ key, label, type, role, aggregates, operators: ['='], buckets: type === 'date' ? ['week', 'month'] : [], format: null, sensitivity: 'NORMAL' })
     return { ...base, id: 'ask-new', kind: 'draft', counted: true, name: 'Net Sales by Store and Week', dataset: 'new_dataset', dataset_label: 'Store Sales', view: { type: 'grid' },
@@ -1715,6 +1723,7 @@ export function installMockApi(options: MockOptions = {}) {
         if (/website/i.test(asked.prompt)) return json({ kind: 'no_field', message: 'No dataset has website visits.', suggestions: [], counted: false })
         return json({ kind: 'draft', counted: true, view: { type: 'chart', chart: 'bar' }, definition: { ...asked.definition, columns: [{ field: 'channel' }, ...asked.definition.columns.filter((c) => c.aggregate)], view: { type: 'chart', chart: 'bar' } } })
       }
+      if (/\/insights\/assistant\/progress\/[\w-]+\/$/.test(path)) return json({ steps: assistantSteps('now'), finished: false })
       if (path.endsWith('/insights/assistant/ask/')) {
         const form = init.body instanceof FormData ? init.body : null                          // with images or documents it comes as multipart
         const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true', component: form.get('component') ?? undefined } : body ?? {}) as { prompt: string; model: string; unmapped?: boolean; component?: string }
@@ -1723,7 +1732,7 @@ export function installMockApi(options: MockOptions = {}) {
       }
       const opened = /\/insights\/assistant\/([\w-]+)\/open\/$/.exec(path)
       if (opened && method === 'POST') {
-        const made = { ...insightsSummary, id: 'rep-ai', name: 'Sent and Delivered by Campaign' }
+        const made = { ...insightsSummary, id: 'rep-ai', name: (body as { name?: string } | null)?.name || 'Sent and Delivered by Campaign' }
         insightsReportsNow.push(made)
         return json({ ...insightsReport, ...made, row_version: 1, can_edit: true }, 201)
       }
