@@ -43,8 +43,8 @@ test('the box sits above the list with the month’s use and the examples; Gener
   await user.click(within(box).getByRole('button', { name: 'Generate Report' }))
   const card = await screen.findByRole('region', { name: 'Draft Report' })
   const asked = calls.find((call) => call.url.endsWith('/insights/assistant/ask/'))?.body as Record<string, unknown>
-  expect(asked).toEqual({ prompt: 'Sent and delivered by campaign for September', model: 'openai:gpt-5-mini' })
-  expect(within(card).getByText('Sent and Delivered by Campaign')).toBeTruthy()
+  expect(asked).toEqual({ prompt: 'Sent and delivered by campaign for September', model: 'openai:gpt-5-mini', progress: expect.stringMatching(/^[0-9a-f-]{36}$/) })
+  expect((within(card).getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Sent and Delivered by Campaign')
   expect(within(card).getByText('Campaign')).toBeTruthy()                                   // Rows
   expect(within(card).getByText('Sum of Sent Count, Sum of Delivered Count')).toBeTruthy()   // Values
   expect(within(card).getByText('Sent between 2026-09-01 and 2026-09-30')).toBeTruthy()      // Filter
@@ -239,7 +239,7 @@ test('Ask About: the data to ask about, remembered; a database with its tables n
   await user.click(within(box).getByRole('button', { name: 'Generate Report' }))
   const card = await screen.findByRole('region', { name: 'Draft Report' })
   const asked = calls.find((call) => call.url.endsWith('/insights/assistant/ask/'))?.body as Record<string, unknown>
-  expect(asked).toEqual({ prompt: 'Net sales by store and week', model: 'anthropic:claude-sonnet-5-5', scope: 'db:db-cg', unmapped: true })
+  expect(asked).toEqual({ prompt: 'Net sales by store and week', model: 'anthropic:claude-sonnet-5-5', scope: 'db:db-cg', unmapped: true, progress: expect.any(String) })
   expect(within(card).getByText('Not Mapped Yet')).toBeTruthy()
   expect(within(card).getByText(/CG-Prod · sales_lines \+ stores/)).toBeTruthy()
   expect(within(card).getByText('Store')).toBeTruthy()                                          // Rows, in the new dataset's words
@@ -277,4 +277,27 @@ test('an Excel workbook and a CSV go with the prompt as documents, shown as Exce
   const sent = calls.find((call) => call.url.endsWith('/insights/assistant/ask/'))?.form
   expect(((sent?.getAll('documents') ?? []) as File[]).map((f) => f.name)).toEqual(['Store targets.xlsx', 'weeks.csv'])
   expect(within(card).getByText(/read Store targets\.xlsx \(Excel\)/)).toBeTruthy()
+})
+
+test('the draft: its name is yours to change before Open in Editor, and the steps it took fold under Show', async () => {
+  const calls = await renderAppAt('/insights/reports')
+  const user = userEvent.setup()
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  await user.type(within(box).getByRole('textbox', { name: 'What do you want to see?' }), 'Sent and delivered by campaign for September')
+  await user.click(within(box).getByRole('button', { name: 'Generate Report' }))
+  const card = await screen.findByRole('region', { name: 'Draft Report' })
+  expect(within(card).getByText(/built in 3\.2 s · 3 steps/)).toBeTruthy()
+  expect(within(card).queryByRole('list', { name: 'Steps taken' })).toBeNull()
+  await user.click(within(card).getByRole('button', { name: 'Show' }))
+  const steps = within(card).getByRole('list', { name: 'Steps taken' })
+  expect(within(steps).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+    'Done: Claude is drafting the reportClaude Sonnet 5.5', 'Done: Check the draft against your data', 'Done: Preview the rows12 rows'])
+  const name = within(card).getByRole('textbox', { name: 'Name' }) as HTMLInputElement
+  expect(name.value).toBe('Sent and Delivered by Campaign')
+  await user.clear(name)
+  expect((within(card).getByRole('button', { name: 'Open in Editor' }) as HTMLButtonElement).disabled).toBe(true)
+  await user.type(name, 'September Sends')
+  await user.click(within(card).getByRole('button', { name: 'Open in Editor' }))
+  await screen.findByRole('textbox', { name: 'Report name' })
+  expect(calls.find((call) => call.url.endsWith('/insights/assistant/ask-1/open/'))?.body).toEqual({ name: 'September Sends' })
 })

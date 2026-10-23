@@ -185,6 +185,7 @@ urlpatterns = [
     path("insights/engine/", insights_api.EngineView.as_view(), name="insights-engine"),
     path("insights/assistant/", insights_assistant.AssistantView.as_view(), name="insights-assistant"),
     path("insights/assistant/ask/", insights_assistant.AskView.as_view(), name="insights-assistant-ask"),
+    path("insights/assistant/progress/<uuid:progress_id>/", insights_assistant.ProgressView.as_view(), name="insights-assistant-progress"),
     path("insights/assistant/change/", insights_ai.ChangeView.as_view(), name="insights-assistant-change"),
     path("insights/assistant/<uuid:prompt_id>/open/", insights_assistant.OpenDraftView.as_view(), name="insights-assistant-open"),
     path("insights/dashboards/", insights_dashboards.DashboardListView.as_view(), name="insights-dashboards"),

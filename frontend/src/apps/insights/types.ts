@@ -802,6 +802,15 @@ export interface AskNewDataset {
   fields: number
   dataset: CatalogDataset
 }
+/** one step of a prompt as Ask for a Report builds the report (apps/insights/ask_progress.py) */
+export interface AskStep {
+  key: string
+  label: string
+  detail: string | null
+  state: 'wait' | 'now' | 'done' | 'failed'
+  started_at: number | null
+  ended_at: number | null
+}
 export interface AskResult {
   id: string
   kind: 'draft' | 'question' | 'no_field' | 'failed'
@@ -823,6 +832,8 @@ export interface AskResult {
   note?: string
   /** the component the report will be listed under, when one was chosen with the prompt */
   component?: string
+  /** the steps it took, as the box showed them while it waited */
+  steps?: AskStep[]
   new_dataset?: AskNewDataset
   /** the documents and images the model read with the prompt */
   read?: { documents: { name: string; kind: 'pdf' | 'word' | 'excel' | 'csv' | 'text' | 'markdown'; pages?: number; words?: number }[]; images: number } | null
