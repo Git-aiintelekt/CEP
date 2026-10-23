@@ -23,7 +23,9 @@ go with the prompt and are never stored. A prompt may run to 100,000 characters.
     GET, PUT /workspace/ai-assistant/          the workspace's switches and its own keys (user.admin)
     POST     /workspace/ai-assistant/check/    {provider} -> the workspace's own key checked
 """
+import copy
 import json
+import re
 import time
 import uuid
 from datetime import timedelta
@@ -61,6 +63,13 @@ IMAGES_NOTE = ("The person attached {n} image{s} with this request: a sketch of 
                "spreadsheet. Read them for the fields, groupings, periods and view to propose; they hold no rows to use as data.")
 RECENT = 8
 TIMEOUT_S = 60
+# Claude replies through structured outputs (output_config.format): the current models (Sonnet 5.5, Opus 5.5, Fable 5.1) refuse a
+# forced tool_choice. Only older models that lack structured outputs still get the forced tool.
+FORCED_TOOL_MODELS = re.compile(r"^claude-(3|sonnet-4-5|opus-4-1)")
+CLAUDE_MAX_TOKENS = 16000                                           # room for adaptive thinking (always on for the 5.x models) and a full draft
+CLAUDE_5 = re.compile(r"^claude-(opus|sonnet|haiku|fable)-5")       # takes output_config.effort; medium keeps a draft inside the server's time
+ANY_VALUE = {"anyOf": [{"type": "string"}, {"type": "number"}, {"type": "boolean"}, {"type": "null"},
+                       {"type": "array", "items": {"anyOf": [{"type": "string"}, {"type": "number"}]}}]}
 
 PROVIDERS = {
     "anthropic": {"name": "Claude (Anthropic)", "mark": "A", "base": "https://api.anthropic.com", "keys": "console.anthropic.com → API Keys"},
@@ -451,6 +460,25 @@ def read_images(files) -> list[dict]:
     return out
 
 
+def strict_schema(schema: dict) -> dict:
+    """the schema as structured outputs take it: every object closed (additionalProperties false) and a value of any type spelled
+    out as the types a filter value can have; the schema the code reads with is unchanged"""
+    def walk(node):
+        if not isinstance(node, dict):
+            return node
+        if not node:                                                    # {} = any value
+            return copy.deepcopy(ANY_VALUE)
+        out = {k: walk(v) if k in ("items",) else v for k, v in node.items()}
+        if "properties" in node:
+            out["properties"] = {name: walk(sub) for name, sub in node["properties"].items()}
+        if "anyOf" in node:
+            out["anyOf"] = [walk(sub) for sub in node["anyOf"]]
+        if node.get("type") == "object":
+            out["additionalProperties"] = False
+        return out
+    return walk(copy.deepcopy(schema))
+
+
 def call_model(provider: str, row: dict, model: str, system: str, user: str, *, timeout_s: int = TIMEOUT_S, schema: dict | None = None, tool: str = "propose_report",
                images: list[dict] | None = None, documents: list[dict] | None = None) -> tuple[dict, dict]:
     """One exchange with the provider, forced into the schema: the reply as a dict, and the usage {"in", "out"}. images: read_images()'s,
@@ -464,15 +492,31 @@ def call_model(provider: str, row: dict, model: str, system: str, user: str, *, 
         if provider == "anthropic":
             content = [*ask_documents.anthropic_blocks(documents), *({"type": "image", "source": {"type": "base64", "media_type": i["media_type"], "data": i["data"]}} for i in images),
                        {"type": "text", "text": user}] if images or documents else user
-            body = {"model": model, "max_tokens": 4000, "system": system, "messages": [{"role": "user", "content": content}],
-                    "tools": [{"name": tool, "description": "The reply, in the shape asked for.", "input_schema": schema}],
-                    "tool_choice": {"type": "tool", "name": tool}}
+            body = {"model": model, "max_tokens": CLAUDE_MAX_TOKENS, "system": system, "messages": [{"role": "user", "content": content}]}
+            forced = bool(FORCED_TOOL_MODELS.match(model))
+            if forced:
+                body.update({"max_tokens": 4000, "tools": [{"name": tool, "description": "The reply, in the shape asked for.", "input_schema": schema}],
+                             "tool_choice": {"type": "tool", "name": tool}})
+            else:
+                body["output_config"] = {"format": {"type": "json_schema", "schema": strict_schema(schema)}, **({"effort": "medium"} if CLAUDE_5.match(model) else {})}
             response = requests.post(f"{base}/v1/messages", json=body, timeout=timeout_s,
                                      headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
             data = _json_of(response)
-            reply = next((block["input"] for block in data.get("content", []) if block.get("type") == "tool_use"), None)
             usage = data.get("usage") or {}
-            return reply or {}, {"in": int(usage.get("input_tokens") or 0), "out": int(usage.get("output_tokens") or 0)}
+            used = {"in": int(usage.get("input_tokens") or 0), "out": int(usage.get("output_tokens") or 0)}
+            if data.get("stop_reason") == "refusal":
+                raise ProviderError("Claude declined to answer this request. Try putting it differently.")
+            if data.get("stop_reason") == "max_tokens":
+                raise ProviderError("Claude's answer was cut off before it was complete. Ask for less at once.")
+            if forced:
+                reply = next((block["input"] for block in data.get("content", []) if block.get("type") == "tool_use"), None)
+                return reply or {}, used
+            text = "".join(block.get("text") or "" for block in data.get("content", []) if block.get("type") == "text")
+            try:
+                reply = json.loads(text) if text.strip() else {}
+            except ValueError:
+                reply = {}
+            return reply if isinstance(reply, dict) else {}, used
         content = [{"type": "text", "text": user}, *ask_documents.openai_parts(documents),
                    *({"type": "image_url", "image_url": {"url": f"data:{i['media_type']};base64,{i['data']}"}} for i in images)] if images or documents else user
         body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],

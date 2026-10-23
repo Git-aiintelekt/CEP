@@ -86,7 +86,8 @@ def test_reading_documents(check):
     def fake_post(url, json=None, **kwargs):
         sent.append(json)
         if "anthropic" in url:
-            return Answer({"content": [{"type": "tool_use", "input": {"kind": "question"}}], "usage": {"input_tokens": 10, "output_tokens": 2}})
+            return Answer({"content": [{"type": "thinking", "thinking": ""}, {"type": "text", "text": "{\"kind\": \"question\"}"}], "stop_reason": "end_turn",
+                           "usage": {"input_tokens": 10, "output_tokens": 2}})
         return Answer({"choices": [{"message": {"content": "{\"kind\": \"question\"}"}}], "usage": {"prompt_tokens": 10, "completion_tokens": 2}})
 
     original = assistant.requests.post
@@ -104,7 +105,7 @@ def test_reading_documents(check):
     check("OpenAI gets the text, the Word text in a document wrapper and the PDF as a file",
           gpt[0] == {"type": "text", "text": "Build this"} and gpt[1]["text"].startswith('<document name="Store sales spec v3.docx">') and gpt[2]["type"] == "file"
           and gpt[2]["file"]["file_data"].startswith("data:application/pdf;base64,"), json.dumps(gpt)[:300])
-    check("the model reads up to 4,000 tokens back, room for a new dataset", sent[0]["max_tokens"] == 4000)
+    check("Claude may answer in up to 16,000 tokens, room for its thinking and a new dataset", sent[0]["max_tokens"] == 16000)
     check.done()
 
 

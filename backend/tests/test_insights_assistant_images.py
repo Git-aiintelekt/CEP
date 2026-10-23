@@ -63,7 +63,8 @@ def test_prompt_and_images(check):
     def fake_post(url, json=None, **kwargs):
         sent.append(json)
         if "anthropic" in url:
-            return Answer({"content": [{"type": "tool_use", "input": {"kind": "question"}}], "usage": {"input_tokens": 10, "output_tokens": 2}})
+            return Answer({"content": [{"type": "thinking", "thinking": ""}, {"type": "text", "text": "{\"kind\": \"question\"}"}], "stop_reason": "end_turn",
+                           "usage": {"input_tokens": 10, "output_tokens": 2}})
         return Answer({"choices": [{"message": {"content": "{\"kind\": \"question\"}"}}], "usage": {"prompt_tokens": 10, "completion_tokens": 2}})
 
     original = assistant.requests.post
