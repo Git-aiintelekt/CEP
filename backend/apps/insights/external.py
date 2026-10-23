@@ -25,7 +25,13 @@ from apps.platform_ops import crypto
 ALLOWED_MYSQL = {"SELECT", "SHOW VIEW", "USAGE"}
 ALLOWED_PG = {"SELECT", "REFERENCES"}
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CONNECT_TIMEOUT_S = 8
+CONNECT_TIMEOUT_S = 15                                              # a server behind a slow firewall takes a while to answer at all
+# reading the database's own catalogue (the tables, their columns, the connection test): a big schema on MySQL 5.7 opens every
+# table to answer information_schema, so this is longer than a report's limit; samples and join checks read data, so shorter
+CATALOG_TIMEOUT_MS = 60_000
+SAMPLE_TIMEOUT_MS = 30_000
+JOIN_SAMPLE_ROWS = 10_000                                            # a join is checked on the base's first rows, never a whole table
+MYSQL_TIMEOUT = 3024                                                # ER_QUERY_TIMEOUT: max_execution_time stopped the statement
 NUMERIC = {"tinyint", "smallint", "mediumint", "int", "integer", "bigint", "decimal", "numeric", "float", "double", "real", "double precision", "money"}
 ENGINES = {"mysql57": "MySQL 5.7", "mysql80": "MySQL 8.0", "postgresql": "PostgreSQL", "clickhouse": "ClickHouse"}
 DEFAULT_PORT = {"mysql57": 3306, "mysql80": 3306, "postgresql": 5432, "clickhouse": 8443}
@@ -86,6 +92,8 @@ def _message(exc: Exception) -> str:
             return "The account cannot use that database."
         if code == 1049:
             return "No database of that name on the server."
+        if code in (MYSQL_TIMEOUT, 2013):                               # the server's time limit, or the read timeout behind it
+            return "The database took too long to answer and the request was stopped. Try again; a large or busy database answers faster outside working hours."
         return f"The server answered {code}: {detail[:200]}"
     text = str(exc)
     if isinstance(exc, psycopg.OperationalError):
@@ -246,10 +254,10 @@ def _ch_test(row: dict) -> dict:
     whatever it was granted; otherwise it may hold nothing beyond SELECT and SHOW"""
     started = time.monotonic()
     try:
-        version, zone, readonly = _ch(row, "SELECT version(), timezone(), toUInt8(getSetting('readonly'))", plain=True, timeout_ms=10_000)["data"][0]
+        version, zone, readonly = _ch(row, "SELECT version(), timezone(), toUInt8(getSetting('readonly'))", plain=True, timeout_ms=CATALOG_TIMEOUT_MS)["data"][0]
         counts = {bool(is_view): int(n) for is_view, n in _ch(row, f"SELECT engine IN {CH_VIEWS!r} AS is_view, count() FROM system.tables WHERE database = {{db:String}} GROUP BY is_view",
-                                                                {"db": row["database_name"]}, timeout_ms=10_000)["data"]}
-        offending = [] if int(readonly) >= 1 else _ch_grants([str(r[0]) for r in _ch(row, "SHOW GRANTS", plain=True, timeout_ms=10_000)["data"]])
+                                                                {"db": row["database_name"]}, timeout_ms=CATALOG_TIMEOUT_MS)["data"]}
+        offending = [] if int(readonly) >= 1 else _ch_grants([str(r[0]) for r in _ch(row, "SHOW GRANTS", plain=True, timeout_ms=CATALOG_TIMEOUT_MS)["data"]])
     except clickhouse.ClickHouseError as exc:
         return {"ok": False, "error": _ch_message(exc), "ms": int((time.monotonic() - started) * 1000)}
     return {"ok": True, "version": str(version), "timezone": str(zone), "tables": counts.get(False, 0), "views": counts.get(True, 0), "read_only": not offending,
@@ -259,8 +267,8 @@ def _ch_test(row: dict) -> dict:
 def _ch_sources(row: dict) -> list[dict]:
     db = {"db": row["database_name"]}
     try:
-        tables = _ch(row, "SELECT name, engine, total_rows FROM system.tables WHERE database = {db:String} AND NOT is_temporary ORDER BY name", db, timeout_ms=10_000)["data"]
-        counts = dict(_ch(row, "SELECT table, count() FROM system.columns WHERE database = {db:String} GROUP BY table", db, timeout_ms=10_000)["data"])
+        tables = _ch(row, "SELECT name, engine, total_rows FROM system.tables WHERE database = {db:String} AND NOT is_temporary ORDER BY name", db, timeout_ms=CATALOG_TIMEOUT_MS)["data"]
+        counts = dict(_ch(row, "SELECT table, count() FROM system.columns WHERE database = {db:String} GROUP BY table", db, timeout_ms=CATALOG_TIMEOUT_MS)["data"])
     except clickhouse.ClickHouseError as exc:
         raise ExternalError(_ch_message(exc)) from None
     out = [{"name": name, "kind": "view" if engine in CH_VIEWS else "table", "rows": int(rows) if rows is not None and engine not in CH_VIEWS else None,
@@ -271,7 +279,7 @@ def _ch_sources(row: dict) -> list[dict]:
 def _ch_columns(row: dict, source: str) -> list[tuple]:
     try:
         found = _ch(row, "SELECT name, type, is_in_primary_key FROM system.columns WHERE database = {db:String} AND table = {t:String} ORDER BY position",
-                    {"db": row["database_name"], "t": source}, timeout_ms=10_000)["data"]
+                    {"db": row["database_name"], "t": source}, timeout_ms=CATALOG_TIMEOUT_MS)["data"]
     except clickhouse.ClickHouseError as exc:
         raise ExternalError(_ch_message(exc)) from None
     return [(name, _ch_type(type_), type_, "PRI" if key else "") for name, type_, key in found]
@@ -335,12 +343,18 @@ def _grants_pg(cursor, schema: str) -> tuple[bool, list[str]]:
 
 
 # ---------------------------------------------------------------------------------------------------- what Test Connection proves
+def catalog_ms(row: dict) -> int:
+    """Reading the database's catalogue: CATALOG_TIMEOUT_MS, or the connection's own time limit when that is longer."""
+    from apps.insights import connection_limits
+    return max(CATALOG_TIMEOUT_MS, connection_limits.own_timeout_s(row) * 1000)
+
+
 def test(row: dict) -> dict:
     if is_ch(row):
         return _ch_test(row)
     started = time.monotonic()
     try:
-        conn = connect(row, timeout_ms=10_000)
+        conn = connect(row, timeout_ms=catalog_ms(row))
     except ExternalError as exc:
         return {"ok": False, "error": str(exc), "ms": int((time.monotonic() - started) * 1000)}
     schema = schema_of(row)
@@ -357,8 +371,10 @@ def test(row: dict) -> dict:
                 cursor.execute("SELECT VERSION(), @@session.time_zone, @@system_time_zone")
                 version, zone, system_zone = cursor.fetchone()
                 zone = system_zone if zone == "SYSTEM" else zone
-                cursor.execute("SELECT TABLE_TYPE, count(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s GROUP BY TABLE_TYPE", [schema])
-                counts = {kind: int(n) for kind, n in cursor.fetchall()}
+                cursor.execute("SHOW FULL TABLES FROM `" + schema.replace("`", "``") + "`")             # names and kinds only: no table is opened
+                counts = {}
+                for _name, kind in cursor.fetchall():
+                    counts[kind] = counts.get(kind, 0) + 1
                 read_only, offending = _grants(cursor)
     except _errors(row) as exc:
         return {"ok": False, "error": _message(exc), "ms": int((time.monotonic() - started) * 1000)}
@@ -372,7 +388,7 @@ def test(row: dict) -> dict:
 def sources(row: dict) -> list[dict]:
     if is_ch(row):
         return _ch_sources(row)
-    conn = connect(row, timeout_ms=10_000)
+    conn = connect(row, timeout_ms=catalog_ms(row))
     schema = schema_of(row)
     try:
         with conn.cursor() as cursor:
@@ -384,8 +400,7 @@ def sources(row: dict) -> list[dict]:
                                    WHERE t.table_schema = %s AND has_table_privilege(current_user, quote_ident(t.table_schema) || '.' || quote_ident(t.table_name), 'SELECT')
                                    ORDER BY t.table_type DESC, t.table_name""", [schema])
             else:
-                cursor.execute("""SELECT t.TABLE_NAME, t.TABLE_TYPE, t.TABLE_ROWS, (SELECT count(*) FROM information_schema.COLUMNS c WHERE c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME)
-                                    FROM information_schema.TABLES t WHERE t.TABLE_SCHEMA = %s ORDER BY t.TABLE_TYPE DESC, t.TABLE_NAME""", [schema])
+                return _mysql_sources(conn, cursor, row, schema)
             out = [{"name": name, "kind": "view" if kind == "VIEW" else "table", "rows": int(rows) if rows is not None and kind != "VIEW" and int(rows) >= 0 else None,
                     "columns": int(cols), "mappable": bool(IDENT.match(name))} for name, kind, rows, cols in cursor.fetchall()]
     except _errors(row) as exc:
@@ -393,6 +408,75 @@ def sources(row: dict) -> list[dict]:
     finally:
         conn.close()
     return out
+
+
+def _mysql_sources(conn, cursor, row: dict, schema: str) -> list[dict]:
+    """The tables and views by name and kind alone: SHOW FULL TABLES reads only the directory and opens no table, so a database of
+    1,000+ tables answers in milliseconds (counting rows or columns makes MySQL 5.7 open every one). A table's row estimate and
+    columns are read when it is chosen (table_rows, columns)."""
+    cursor.execute("SHOW FULL TABLES FROM `" + schema.replace("`", "``") + "`")
+    listed = sorted(cursor.fetchall(), key=lambda pair: (pair[1] != "VIEW", pair[0]))
+    return [{"name": name, "kind": "view" if kind == "VIEW" else "table", "rows": None, "columns": None, "mappable": bool(IDENT.match(name))} for name, kind in listed]
+
+
+def table_rows(row: dict, source: str) -> int | None:
+    """One table's row estimate from the catalogue: MySQL opens that one table, PostgreSQL reads pg_class, ClickHouse system.tables.
+    None for a view, or when the server does not say in time: the estimate is a courtesy, never needed."""
+    if not IDENT.match(source):
+        return None
+    try:
+        if is_ch(row):
+            data = _ch(row, "SELECT total_rows FROM system.tables WHERE database = {db:String} AND name = {t:String}", {"db": row["database_name"], "t": source},
+                       timeout_ms=catalog_ms(row))["data"]
+            return int(data[0][0]) if data and data[0][0] is not None else None
+        conn = connect(row, timeout_ms=catalog_ms(row))
+        try:
+            with conn.cursor() as cursor:
+                if is_pg(row):
+                    cursor.execute("SELECT c.reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = %s AND c.relname = %s AND c.relkind IN ('r', 'p', 'm')",
+                                   [schema_of(row), source])
+                else:
+                    cursor.execute("SELECT TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND TABLE_TYPE = 'BASE TABLE'", [schema_of(row), source])
+                found = cursor.fetchone()
+        finally:
+            conn.close()
+    except Exception:                                                  # noqa: BLE001  an estimate the page can do without
+        return None
+    return int(found[0]) if found and found[0] is not None and int(found[0]) >= 0 else None
+
+
+SYSTEM_SCHEMAS = {"information_schema", "mysql", "performance_schema", "sys", "pg_catalog", "pg_toast", "system", "INFORMATION_SCHEMA"}
+
+
+def databases_of(row: dict) -> dict:
+    """What Find Databases offers in the connection dialog: the databases the account can see (MySQL, ClickHouse) or the schemas of
+    the database (PostgreSQL), by name, with their table counts when the server gives them without opening a table."""
+    if is_ch(row):
+        names = [str(r[0]) for r in _ch(row, "SHOW DATABASES", plain=True, timeout_ms=catalog_ms(row))["data"]]
+        counts = {str(d): int(n) for d, n in _ch(row, "SELECT database, count() FROM system.tables GROUP BY database", plain=True, timeout_ms=catalog_ms(row))["data"]}
+        return {"kind": "database", "found": [{"name": n, "tables": counts.get(n)} for n in names if n not in SYSTEM_SCHEMAS]}
+    conn = connect(row, timeout_ms=catalog_ms(row))
+    try:
+        with conn.cursor() as cursor:
+            if is_pg(row):
+                cursor.execute("""SELECT n.nspname, count(c.oid) FROM pg_namespace n
+                                    LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind IN ('r', 'v', 'p', 'm')
+                                   WHERE has_schema_privilege(n.nspname, 'USAGE') AND n.nspname NOT LIKE 'pg\\_%%' AND n.nspname <> 'information_schema'
+                                   GROUP BY n.nspname ORDER BY n.nspname""")
+                return {"kind": "schema", "found": [{"name": name, "tables": int(n)} for name, n in cursor.fetchall()]}
+            cursor.execute("SHOW DATABASES")
+            names = [str(r[0]) for r in cursor.fetchall() if str(r[0]) not in SYSTEM_SCHEMAS]
+            counts = {}
+            try:                                                           # names only from TABLES: no table is opened
+                cursor.execute("SELECT TABLE_SCHEMA, count(*) FROM information_schema.TABLES GROUP BY TABLE_SCHEMA")
+                counts = {str(s): int(n) for s, n in cursor.fetchall()}
+            except _errors(row):
+                pass
+            return {"kind": "database", "found": [{"name": n, "tables": counts.get(n)} for n in names]}
+    except _errors(row) as exc:
+        raise ExternalError(_message(exc)) from None
+    finally:
+        conn.close()
 
 
 def _typed(data_type: str, column_type: str, name: str) -> dict:
@@ -421,7 +505,7 @@ def columns(row: dict, source: str) -> list[dict]:
             raise ExternalError("No table or view of that name, or the account cannot read it.")
         return [{"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)) and data_type != "complex", **_typed(data_type, column_type, name)}
                 for name, data_type, column_type, column_key in rows]
-    conn = connect(row, timeout_ms=10_000)
+    conn = connect(row, timeout_ms=catalog_ms(row))
     schema = schema_of(row)
     try:
         with conn.cursor() as cursor:
@@ -444,6 +528,45 @@ def columns(row: dict, source: str) -> list[dict]:
     return [{"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)), **_typed(data_type, column_type, name)} for name, data_type, column_type, column_key in rows]
 
 
+def columns_of(row: dict, sources: list[str]) -> dict[str, list[dict]]:
+    """The columns of several tables in one statement (Ask for a Report on tables not mapped yet), by table; a name the account
+    cannot read is left out. Each column as columns() gives it."""
+    names = [s for s in dict.fromkeys(sources) if IDENT.match(s)]
+    if not names:
+        return {}
+    if is_ch(row):
+        return {name: found for name in names if (found := _ch_columns_or_none(row, name))}
+    conn = connect(row, timeout_ms=catalog_ms(row))
+    schema = schema_of(row)
+    marks = ", ".join(["%s"] * len(names))
+    try:
+        with conn.cursor() as cursor:
+            if is_pg(row):
+                cursor.execute(f"""SELECT c.table_name, c.column_name, c.data_type, c.data_type, EXISTS (
+                                          SELECT 1 FROM information_schema.key_column_usage k JOIN information_schema.table_constraints tc ON tc.constraint_name = k.constraint_name AND tc.constraint_schema = k.constraint_schema
+                                           WHERE tc.constraint_type = 'PRIMARY KEY' AND k.table_schema = c.table_schema AND k.table_name = c.table_name AND k.column_name = c.column_name)
+                                     FROM information_schema.columns c WHERE c.table_schema = %s AND c.table_name IN ({marks}) ORDER BY c.table_name, c.ordinal_position""", [schema, *names])
+                rows = [(table, name, data_type, column_type, "PRI" if key else "") for table, name, data_type, column_type, key in cursor.fetchall()]
+            else:
+                cursor.execute(f"""SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_KEY FROM information_schema.COLUMNS
+                                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME IN ({marks}) ORDER BY TABLE_NAME, ORDINAL_POSITION""", [schema, *names])
+                rows = cursor.fetchall()
+    except _errors(row) as exc:
+        raise ExternalError(_message(exc)) from None
+    finally:
+        conn.close()
+    out: dict[str, list[dict]] = {}
+    for table, name, data_type, column_type, column_key in rows:
+        out.setdefault(str(table), []).append({"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)), **_typed(data_type, column_type, name)})
+    return out
+
+
+def _ch_columns_or_none(row: dict, source: str) -> list[dict] | None:
+    found = _ch_columns(row, source)
+    return [{"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)) and data_type != "complex", **_typed(data_type, column_type, name)}
+            for name, data_type, column_type, column_key in found] or None
+
+
 def _from(row: dict, source: str, joins: list[dict] | None) -> str:
     """the FROM for a sample or a check: the base alone, or the base as t0 with its joins (compiler.join_clause)"""
     from apps.insights import compiler
@@ -461,22 +584,27 @@ def sample(row: dict, source: str, names: list, *, limit: int = 5, zone: str | N
         raise ExternalError("Only columns named with letters, digits and underscores can be read.")
     selected = ", ".join(f"{quote(a, row)}.{quote(c, row)}" if a else quote(c, row) for a, c in pairs)
     if is_ch(row):
-        return query(row, f"SELECT {selected} FROM {_from(row, source, joins)} LIMIT {int(limit)}", None, timeout_ms=10_000, zone=zone)
+        return query(row, f"SELECT {selected} FROM {_from(row, source, joins)} LIMIT {int(limit)}", None, timeout_ms=SAMPLE_TIMEOUT_MS, zone=zone)
     sql = f"SELECT {selected} FROM {_from(row, source, joins)} LIMIT %s"
-    return query(row, sql, [int(limit)], timeout_ms=10_000, zone=zone)
+    return query(row, sql, [int(limit)], timeout_ms=SAMPLE_TIMEOUT_MS, zone=zone)
 
 
 def join_check(row: dict, source: str, joins: list[dict], *, zone: str | None = None) -> dict:
     """What a join does to the rows: the base's count, the joined count, the share of base rows that match the last join."""
     if not IDENT.match(source) or not joins:
         raise ExternalError("Only tables named with letters, digits and underscores can be joined.")
+    from apps.insights import compiler
     last = joins[-1]
-    with_last = _from(row, source, joins)
-    without_last = _from(row, source, joins[:-1])
+    dialect = dialect_of(row)                                            # the same text _from builds, so the base can be swapped for its sample
+    base = f"{compiler._source(f'{schema_of(row)}.{source}', dialect)} AS {compiler._ident('t0', dialect)}"
+    sampled = f"(SELECT * FROM {compiler._source(f'{schema_of(row)}.{source}', dialect)} LIMIT {JOIN_SAMPLE_ROWS}) AS {compiler._ident('t0', dialect)}"
+    with_last = _from(row, source, joins).replace(base, sampled, 1)
+    without_last = _from(row, source, joins[:-1]).replace(base, sampled, 1) if joins[:-1] else sampled   # the base alone: its sample
     probe = f"{quote(last['alias'], row)}.{quote(last['on'][0][1], row)}"
     sql = (f"SELECT (SELECT count(*) FROM {without_last}) AS base_rows, count(*) AS joined_rows, count({probe}) AS matched_rows FROM {with_last}")
-    base_rows, joined_rows, matched_rows = query(row, sql, [], timeout_ms=10_000, zone=zone)[0]
-    return {"base_rows": int(base_rows), "joined_rows": int(joined_rows), "matched_rows": int(matched_rows),
+    base_rows, joined_rows, matched_rows = query(row, sql, [], timeout_ms=SAMPLE_TIMEOUT_MS, zone=zone)[0]
+    return {"base_rows": int(base_rows), "joined_rows": int(joined_rows), "matched_rows": int(matched_rows), "sample": JOIN_SAMPLE_ROWS,
+            "sampled": int(base_rows) >= JOIN_SAMPLE_ROWS,
             "multiplies": int(joined_rows) > int(base_rows), "factor": round(int(joined_rows) / int(base_rows), 2) if int(base_rows) else None}
 
 

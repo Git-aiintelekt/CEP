@@ -42,6 +42,9 @@ SHOTS = {
     "dashboard-theme": ("/dev/dashboard?theme=navy", 1100),
     "dashboard-phone": ("/dev/dashboard?canvas=1&phone=1", 1300),
     "ask": ("/dev/ask?state=busy", 900),
+    "ask-spec": ("/dev/ask?state=spec&demo=attached", 760),
+    "ask-unmapped-draft": ("/dev/ask?state=spec&demo=draft", 1300),
+    "ask-data-menu": ("/dev/ask?state=spec&demo=menu", 900),
 }
 
 

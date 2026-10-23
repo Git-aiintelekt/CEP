@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, CustomField, FiscalYear, FormulaCheck, ParameterChoices, SharedFormula, SharedFormulaBody, ParameterValues, UploadColumn, UploadedFile } from './types'
 import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
-import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
+import type { AskResult, AskScope, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -157,12 +157,13 @@ export const schedulesApi = {
 
 export const assistantApi = {
   state: (signal?: AbortSignal) => api.get<AssistantState>('/insights/assistant/', undefined, signal),
-  /** with images, sent as multipart (the files under `images`); the images go to the model and are not kept */
-  ask: (body: { prompt: string; model: string; answer_to?: string }, images: File[] = []) => {
-    if (!images.length) return api.post<AskResult>('/insights/assistant/ask/', body)
+  /** with images or documents, sent as multipart (the files under `images` and `documents`); they go to the model and are not kept */
+  ask: (body: { prompt: string; model: string; answer_to?: string; scope?: AskScope; unmapped?: boolean }, images: File[] = [], documents: File[] = []) => {
+    if (!images.length && !documents.length) return api.post<AskResult>('/insights/assistant/ask/', body)
     const form = new FormData()
-    for (const [key, value] of Object.entries(body)) if (value !== undefined) form.append(key, value)
+    for (const [key, value] of Object.entries(body)) if (value !== undefined) form.append(key, String(value))
     for (const image of images) form.append('images', image)
+    for (const document of documents) form.append('documents', document)
     return api.post<AskResult>('/insights/assistant/ask/', form)
   },
   /** the draft becomes a private report, opened in the editor */

@@ -3017,6 +3017,22 @@ ALTER TABLE tenant_operation DROP CONSTRAINT IF EXISTS ck_tenant_operation_opera
 ALTER TABLE tenant_operation ADD CONSTRAINT ck_tenant_operation_operation
     CHECK (operation IN ('EXPORT', 'EXPORT_FOR_COPY', 'IMPORT', 'MOVE_TO_DEDICATED', 'PURGE_SOURCE', 'OFFBOARD'));
 
+-- -------------------------------------------------------------------------------------
+-- 0074: how reports treat a Report Database, and its pinned tables (2026-10-23). A preset (Standard follows the workspace's limits; Large or Slow
+-- 60 s and 2 reports at once; Live Production Database 60 s and 1) or Custom with its own time limit and reports at once,
+-- set by workspace administrators (apps/insights/connection_limits.py). The next report uses them; nothing restarts.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS limit_profile VARCHAR(10) NOT NULL DEFAULT 'STANDARD';
+ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS query_timeout_s INTEGER;
+ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS max_concurrent SMALLINT;
+-- the tables pinned to the top of Map a Dataset's list: the only thing kept about the customer's database (names are read live)
+ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS pinned_tables JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE report_connection DROP CONSTRAINT IF EXISTS ck_report_connection_limits;
+ALTER TABLE report_connection ADD CONSTRAINT ck_report_connection_limits CHECK (
+    limit_profile IN ('STANDARD', 'LARGE', 'LIVE', 'CUSTOM')
+    AND (query_timeout_s IS NULL OR query_timeout_s BETWEEN 5 AND 110)
+    AND (max_concurrent IS NULL OR max_concurrent BETWEEN 1 AND 4));
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

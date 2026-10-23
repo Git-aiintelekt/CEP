@@ -2703,18 +2703,26 @@ The enrol job reads events every minute. An event counts for a journey that was 
 **Ask for a Report** (anyone who can build reports)
 
 1. Open Insights → Reports. The Ask for a Report box sits above the list; it is there once your platform has switched on an AI provider and your workspace allows it.
-2. Write what you want to see in your own words, pick a model at the bottom of the box, and press **Generate Report** (or Ctrl+Enter).
-3. Read what comes back. A **draft**: check its name, view, data, rows, columns, values and filter, then **Open in Editor** to make it a private report of yours and open the editor. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
-4. Your recent prompts sit under the box, each with the report it became. The line at the top right counts the month's prompts against your plan; only a draft counts.
+2. Choose what the prompt is about with **Ask About** at the top of the box: **All My Data**, the platform's datasets (**C360**), one of your Report Databases, or your **Uploaded Files**. The model then reads only those fields, so its answers are sharper. Your choice is remembered.
+3. Write what you want to see in your own words, pick a model at the bottom of the box, and press **Generate Report** (or Ctrl+Enter).
+4. Read what comes back. A **draft**: check its name, view, data, rows, columns, values and filter, then **Open in Editor** to make it a private report of yours and open the editor. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
+5. Your recent prompts sit under the box, each with the report it became. The line at the top right counts the month's prompts against your plan; only a draft counts.
 
-**Add images to a prompt** (anyone who can build reports)
+**Add a spec or images to a prompt** (anyone who can build reports)
 
-1. In Insights → Reports, write your prompt in the Ask for a Report box. Say what the image is for: "Build this table from the screenshot", "A chart like this sketch, by month".
-2. Add up to five images, whichever way is handiest: drag them from your computer onto the Ask for a Report panel and let go when the box shows **Drop images here**; or press the paperclip at the bottom left of the box and choose the files; or copy an image, such as a screenshot, and paste it into the box with Ctrl+V.
-3. Check the thumbnails at the top of the box, each with its file name. The count beside the paperclip says how many there are ("2 of 5"); remove one with its ✕. Once there are five, the paperclip is greyed out, and a sixth image is left out with a note under the box.
-4. Press **Generate Report** (or Ctrl+Enter). The images go to the model with your prompt and the field names. They stay in the box, so **Try Again** sends them again.
+1. In Insights → Reports, write your prompt in the Ask for a Report box. Say what the files are for: "Build the report described in the spec", "A chart like this sketch, by month", "Use the targets in the PDF".
+2. Add up to three documents (the report's spec as a PDF, a Word .docx, a text or a Markdown file) and up to five images (PNG, JPEG, GIF or WebP), whichever way is handiest: drag them from your computer onto the Ask for a Report panel and let go when the box shows **Drop images or documents here**; or press the paperclip at the bottom left of the box and choose the files; or copy an image, such as a screenshot, and paste it into the box with Ctrl+V.
+3. Check the attachments at the top of the box: each document as a tile with its kind and size, each image as a thumbnail. The line beside the paperclip says how many there are ("2 documents · 1 image"); remove one with its ✕. A fourth document or a sixth image is left out with a note under the box.
+4. Press **Generate Report** (or Ctrl+Enter). The documents and images go to the model with your prompt and the field names. They stay in the box, so **Try Again** sends them again. The draft's top line says what the model read.
 
-The images may be PNG, JPEG, GIF or WebP; a large one is scaled down in your browser before it is sent, and each may be up to 3.75 MB after that. Another kind of file is refused with a note under the box. The images are not kept: only your prompt is saved with the draft. Good images to send are a hand sketch of the table or chart you want, or a screenshot of a spreadsheet or of a report from another tool to rebuild here.
+A document may be up to 10 MB, PDFs up to 100 pages together, and the documents and images up to 20 MB together. An old Word file (.doc) needs saving as .docx first. A large image is scaled down in your browser before it is sent. Another kind of file is refused with a note under the box. Documents and images are not kept: only your prompt is saved with the draft. The prompt itself may run to 100,000 characters (about 25,000 words); the counter under the box appears from 90,000. A longer spec goes in as a document.
+
+**Ask about a database's tables not mapped yet** (anyone who can build reports)
+
+1. In the Ask for a Report box, open **Ask About** and pick one of your Report Databases.
+2. Under it, keep **Also Look at Tables Not Mapped Yet** ticked (it is by default). The model is then told the names of the database's tables and, when you press Generate, given the columns of the tables your prompt or its documents name (up to 20). It may ask for more tables' columns once. Nothing is stored.
+3. Name the tables you mean when you know them: "Net sales from sales_lines joined to stores, by store and week".
+4. A draft on such tables says **Not Mapped Yet** beside its data, with the tables it joins. **Open in Editor** maps them as a dataset with the fields the report needs (as Map a Dataset would), then opens the report. Until then nothing is mapped. Your administrator can rename the dataset's fields later under Settings → Report Databases.
 
 **Use AI in your workspace** (workspace administrator)
 
@@ -3145,11 +3153,12 @@ Insights → Reports lists every report you can open, grouped by the component w
 
 When your platform has switched on an AI provider and your workspace allows it (Settings → AI Assistant), a prompt box sits above the report list for people who can build reports.
 
-1. Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start. The box takes up to 4,000 characters; put the details on more lines (the filters, the order, what to compare). The counter under it shows how much is used.
-   **Images:** drop them on the box, press the paperclip at its bottom left, or paste them, to send up to five with the prompt: a sketch of the report you want, or a screenshot of a chart, a table or a spreadsheet. PNG, JPEG, GIF or WebP; a large image is scaled down before it is sent. Remove one with its ✕. The images go to the model with your prompt and are not kept; only the prompt is saved with the draft.
+1. Choose the data with **Ask About** at the top of the box: All My Data, the platform's datasets, one of your Report Databases (with **Also Look at Tables Not Mapped Yet** for its tables nobody has mapped), or your Uploaded Files. The model reads only the fields of your choice. The choice is remembered in your browser.
+   Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start. The box takes up to 100,000 characters; put the details on more lines (the filters, the order, what to compare). A counter appears from 90,000.
+   **Documents and images:** drop them on the box, press the paperclip at its bottom left, or paste them, to send up to three documents (the report's spec as PDF, Word .docx, text or Markdown) and up to five images (a sketch of the report you want, or a screenshot of a chart, a table or a spreadsheet) with the prompt. Remove one with its ✕. They go to the model with your prompt and are not kept; only the prompt is saved with the draft.
 2. Pick a model at the bottom of the box, beside Generate: Claude or OpenAI, whichever your platform offers, each with a "best for reports" and a "fastest" model. Your last choice is remembered.
-3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt, any images you added and the names of the fields you may use, never customer rows, and answers in one of three ways:
-   - **A draft**, in words: its name, view, data, rows, columns, values and filter, with how many rows the preview gives. **Open in Editor** makes it a private report of yours and opens it in the editor; nothing is shared until you save and share it. **Try Again** asks once more; **Edit Prompt** puts your words back in the box.
+3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt, any documents and images you added and the names of the fields you may use (and, for a database's tables not mapped yet, their names and columns), never customer rows, and answers in one of three ways:
+   - **A draft**, in words: its name, view, data, rows, columns, values and filter, with how many rows the preview gives, what it read, and a note on anything in the request it could not follow. A draft on tables not mapped yet says **Not Mapped Yet**; **Open in Editor** maps them as a dataset first. **Open in Editor** makes it a private report of yours and opens it in the editor; nothing is shared until you save and share it. **Try Again** asks once more; **Edit Prompt** puts your words back in the box.
    - **One question first**, when the prompt has two readings ("which period is last month?"), with the answers as buttons. Answering does not use another prompt.
    - **No field for this**, when no dataset holds what you asked for, with the closest prompts the catalogue can answer. The model never makes a field up; ask your platform team to map the data if you need it.
 4. The line at the top right counts the month's prompts against your plan. Only a draft counts. Your recent prompts sit under the box, with the report each became.
@@ -3244,13 +3253,25 @@ database from Insights → New Report → **Connect a Database**; changing or re
 **Connect a database** (workspace administrator)
 
 1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL, PostgreSQL and ClickHouse.
-2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL.
+2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL. **Find Databases** (on PostgreSQL **Find Schemas**) lists the databases the account can see with their table counts, so you pick one instead of typing it; it reads names only.
 3. Press **Test Connection**. Four facts come back: reached and the version, what the account can read, whether it is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds beyond SELECT; have the account fixed before mapping anything.
 4. Press **Save**. The password is stored encrypted and never shown; leave it empty on a later edit to keep it.
 
+**Set how reports treat a database** (workspace administrator)
+
+1. Open Settings → Report Databases and press **Edit** on the database's card (or set it while you connect it).
+2. Under **How Reports Treat This Database**, pick what kind of database it is:
+   **Standard** for a reporting copy or a small database (the workspace's limits, usually 15 seconds and 4 reports at once);
+   **Large or Slow** for big tables or a server behind a slow link (60 seconds, 2 at once);
+   **Live Production Database** for the database the business runs on (60 seconds, 1 at once);
+   or **Custom** to set the **Time Limit** (5 to 110 seconds) and **Reports at Once** (1 to 4) yourself.
+3. Press **Save**. The next report uses it; nothing restarts. The card shows the choice and its two values.
+
+A report that needs longer than the time limit is stopped, with a message that names the database and its limit. A report that finds the database busy with as many reports as it allows waits up to 10 seconds for its turn, then asks you to try again. Reading the database's list of tables and columns may take at least 60 seconds, or the time limit when that is longer.
+
 **Map a dataset from a table** (workspace administrator)
 
-1. On the database's card, press **Map a Dataset**. Pick a table or view on the left; views come first.
+1. On the database's card, press **Map a Dataset**. The list on the left holds every table and view by name, read live from the database when the page opens (one statement that opens no table; nothing about the database is stored). A large database opens on your **pinned** tables and on folded groups by name prefix (`sales_`, `inv_` ...); type part of a name to search them all, narrow the matches with the chips, and press **Show 50 More** for the next ones. The star pins a table to the top for everyone who maps datasets here. **Reload the List** reads the names again after the database changed. Pick a table or view: its columns and row estimate are read then, for that table only.
 2. Name the dataset and describe it. Choose the **Row Key** (what one row is) and the **Time Field** (the date a period filter applies to).
 3. For each column: tick it to keep it, give it a label, check its type and role, pick the calculations a measure allows, and set the sensitivity (**Personal** is masked for readers without the right, **Confidential** is hidden from everyone).
 4. Watch the preview under the fields update with your labels, then press **Save Dataset**. It appears in New Report under **Your Databases**.
@@ -3368,7 +3389,7 @@ A dataset can read more than one table. The diagram above the fields shows the b
    the joined fields empty) or only the rows that match (**Inner**).
 3. Say which columns are equal, one pair or more. The first pair is suggested from the names (store_id = id).
 4. **Check the Join** before adding it: how many rows match, and a warning when the join multiplies rows, which would
-   count the base's rows more than once in totals.
+   count the base's rows more than once in totals. It checks the first 10,000 rows of the base, never a whole table, and says so.
 
 The joined table appears as a card with the key drawn to it, its columns ticked as fields and labelled with the table's
 name ("Store Name", "Store City"). A key column is read for the join whether or not it is a field. Up to five joins;

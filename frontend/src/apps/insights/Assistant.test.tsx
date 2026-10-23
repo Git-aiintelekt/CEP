@@ -1,9 +1,10 @@
-/** AI · Ask for a Report: the box above the report list, a draft and Open in Editor, a question back, when the box is absent, and Settings → AI Assistant. */
+/** AI · Ask for a Report: the box above the report list, a draft and Open in Editor, a question back, when the box is absent, the data to ask
+ * about, images and documents, a draft on tables not mapped yet, and Settings → AI Assistant. */
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, insightsAssistantNow, me, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, insightsAssistantNow, me, reportDatabasesNow, signIn } from '@/test/mockApi'
 
 const withInsights = { ...me, principal: { ...me.principal, permissions: [...(me.principal.permissions ?? []), 'report.edit'] },
   components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }], insights: { mode: 'integrated', standalone_path: '/insights' } }
@@ -132,26 +133,25 @@ test('a workspace adds its own key for a provider: the form, one PUT with the ke
   expect(within(screen.getByRole('listitem', { name: 'OpenAI' })).getByRole('button', { name: 'Use the Platform’s Key' })).toBeTruthy()
 })
 
-test('a long prompt over several lines with images: Add Images takes up to five PNG, JPEG, GIF or WebP files, refuses others, shows them to remove, and Generate sends them with the prompt', async () => {
+test('a long prompt over several lines with images: the paperclip takes up to five PNG, JPEG, GIF or WebP files, refuses other kinds, shows them to remove, and Generate sends them with the prompt', async () => {
   const calls = await renderAppAt('/insights/reports')
   const user = userEvent.setup({ applyAccept: false })
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   const prompt = within(box).getByRole('textbox', { name: 'What do you want to see?' }) as HTMLTextAreaElement
-  expect(prompt.maxLength).toBe(4000)
+  expect(prompt.maxLength).toBe(100_000)
   await user.type(prompt, 'Net sales by store, like the sketch{Shift>}{Enter}{/Shift}- one bar per store{Shift>}{Enter}{/Shift}- last quarter')
   expect(prompt.value).toBe('Net sales by store, like the sketch\n- one bar per store\n- last quarter')
-  expect(within(box).getByText('70 / 4,000')).toBeTruthy()
+  expect(within(box).queryByText(/ \/ 100,000/)).toBeNull()                                   // the counter shows only near the end
 
   const picker = box.querySelector('input[type="file"]') as HTMLInputElement
   const png = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
-  await user.upload(picker, [new File(['notes'], 'notes.txt', { type: 'text/plain' })])
-  expect(within(box).getByRole('alert').textContent).toBe('notes.txt is not a PNG, JPEG, GIF or WebP image.')
+  await user.upload(picker, [new File(['zip'], 'budget.xlsx', { type: 'application/vnd.ms-excel' })])
+  expect(within(box).getByRole('alert').textContent).toBe('budget.xlsx is not an image (PNG, JPEG, GIF, WebP) or a document (PDF, Word, text, Markdown).')
   await user.upload(picker, [png('sketch.png'), png('chart.png'), png('table.png'), png('bars.png'), png('pie.png'), png('sixth.png')])
   expect(within(box).getByRole('alert').textContent).toBe('Add up to 5 images. sixth.png was not added.')
   const shown = within(box).getByRole('list', { name: 'Images' })
   expect(within(shown).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['sketch.png', 'chart.png', 'table.png', 'bars.png', 'pie.png'])
-  expect(within(box).getByText('5 of 5')).toBeTruthy()
-  expect((within(box).getByRole('button', { name: 'Add Images' }) as HTMLButtonElement).disabled).toBe(true)
+  expect(within(box).getByText('5 images')).toBeTruthy()
   for (const name of ['bars.png', 'pie.png']) await user.click(within(shown).getByRole('button', { name: `Remove ${name}` }))
   await user.click(within(shown).getByRole('button', { name: 'Remove chart.png' }))
   expect(within(shown).getAllByRole('img')).toHaveLength(2)
@@ -168,26 +168,95 @@ test('a long prompt over several lines with images: Add Images takes up to five 
 test('files dragged over the panel show the drop target; dropping adds the images, and a file that is not one is refused', async () => {
   await renderAppAt('/insights/reports')
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
-  expect(within(box).getByText('Drop, paste or attach up to 5 images')).toBeTruthy()
+  expect(within(box).getByText('Drop, paste or attach up to 5 images and 3 documents')).toBeTruthy()
   const png = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
   const carrying = (files: File[]) => ({ dataTransfer: { files, types: ['Files'], dropEffect: 'none' } })
 
   fireEvent.dragOver(within(box).getByRole('heading', { name: 'Ask for a Report' }), carrying([png('sketch.png')]))
-  expect(within(box).getByText('Drop images here')).toBeTruthy()
+  expect(within(box).getByText('Drop images or documents here')).toBeTruthy()
   fireEvent.dragLeave(box, { relatedTarget: document.body })
-  expect(within(box).queryByText('Drop images here')).toBeNull()
+  expect(within(box).queryByText('Drop images or documents here')).toBeNull()
 
   fireEvent.dragOver(box, carrying([png('sketch.png'), png('chart.png')]))
   fireEvent.drop(within(box).getByRole('textbox', { name: 'What do you want to see?' }), carrying([png('sketch.png'), png('chart.png')]))
-  expect(within(box).queryByText('Drop images here')).toBeNull()
+  expect(within(box).queryByText('Drop images or documents here')).toBeNull()
   const shown = await within(box).findByRole('list', { name: 'Images' })
   expect(within(shown).getAllByRole('img').map((img) => img.getAttribute('alt'))).toEqual(['sketch.png', 'chart.png'])
-  expect(within(box).getByText('2 of 5')).toBeTruthy()
+  expect(within(box).getByText('2 images')).toBeTruthy()
 
   fireEvent.drop(box, carrying([new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' })]))
-  expect((await within(box).findByRole('alert')).textContent).toBe('plan.pdf is not a PNG, JPEG, GIF or WebP image.')
+  const documents = await within(box).findByRole('list', { name: 'Documents' })
+  expect(within(documents).getByText('plan.pdf')).toBeTruthy()
+  expect(within(box).getByText('1 document · 2 images')).toBeTruthy()
+  fireEvent.drop(box, carrying([new File(['x'], 'sheet.xlsx', { type: 'application/vnd.ms-excel' })]))
+  expect((await within(box).findByRole('alert')).textContent).toMatch(/^sheet\.xlsx is not an image/)
   expect(within(shown).getAllByRole('img')).toHaveLength(2)
 
   fireEvent.dragOver(box, { dataTransfer: { files: [], types: ['text/plain'], dropEffect: 'none' } })
-  expect(within(box).queryByText('Drop images here')).toBeNull()
+  expect(within(box).queryByText('Drop images or documents here')).toBeNull()
+})
+
+test('documents beside images: a Word spec and a PDF go with the prompt as documents, a fourth is refused, and the draft says what it read', async () => {
+  const calls = await renderAppAt('/insights/reports')
+  const user = userEvent.setup({ applyAccept: false })
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  const picker = box.querySelector('input[type="file"]') as HTMLInputElement
+  const file = (name: string, type: string) => new File(['spec'], name, { type })
+  await user.upload(picker, [file('Store sales spec v3.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'), file('Regional KPIs.pdf', 'application/pdf'),
+    file('notes.md', ''), file('extra.txt', 'text/plain')])
+  expect(within(box).getByRole('alert').textContent).toBe('Add up to 3 documents. extra.txt was not added.')
+  const listed = within(box).getByRole('list', { name: 'Documents' })
+  expect(within(listed).getAllByRole('listitem').map((item) => item.getAttribute('title'))).toEqual(['Store sales spec v3.docx', 'Regional KPIs.pdf', 'notes.md'])
+  expect(within(listed).getByText('Word · 1 KB')).toBeTruthy()
+  await user.click(within(listed).getByRole('button', { name: 'Remove notes.md' }))
+  expect(within(box).getByText(/Sends your prompt, the documents and the field names, never your data\. Documents are not kept\./)).toBeTruthy()
+  await user.type(within(box).getByRole('textbox', { name: 'What do you want to see?' }), 'Build the report in the spec')
+  await user.click(within(box).getByRole('button', { name: 'Generate Report' }))
+  const card = await screen.findByRole('region', { name: 'Draft Report' })
+  const sent = calls.find((call) => call.url.endsWith('/insights/assistant/ask/'))?.form
+  expect(((sent?.getAll('documents') ?? []) as File[]).map((f) => f.name)).toEqual(['Store sales spec v3.docx', 'Regional KPIs.pdf'])
+  expect(sent?.get('scope')).toBeNull()                                                          // All My Data is the default, not sent
+  expect(within(card).getByText(/read Store sales spec v3\.docx \(Word\) and Regional KPIs\.pdf \(PDF\)/)).toBeTruthy()
+})
+
+test('Ask About: the data to ask about, remembered; a database with its tables not mapped yet gives a draft that says so, and Open in Editor maps it', async () => {
+  const calls = await renderAppAt('/insights/reports', withInsights, () => {
+    reportDatabasesNow.push({ id: 'db-cg', name: 'CG-Prod', engine: 'mysql57', engine_name: 'MySQL 5.7', host: 'db', port: 3306, database_name: 'shop', schema_name: 'shop', username: 'r', ssl_mode: 'REQUIRED',
+      status: 'ACTIVE', last_tested_at: null, last_test_ok: true, last_test_error: null, read_only: true, server_version: '5.7.44', server_timezone: 'UTC', created_at: '2026-10-20T09:00:00Z',
+      updated_at: '2026-10-20T09:00:00Z', row_version: 1, usable: true, datasets: [], limit_profile: 'LIVE', query_timeout_s: null, max_concurrent: null, limits: { timeout_s: 60, concurrent: 1 }, pinned_tables: [] })
+  })
+  const user = userEvent.setup()
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  await user.click(within(box).getByRole('button', { name: /All My Data/ }))
+  const menu = await screen.findByRole('region', { name: 'Data to Ask About' })
+  expect(within(menu).getByRole('button', { name: /C360/ })).toBeTruthy()
+  await user.click(await within(menu).findByRole('button', { name: /CG-Prod/ }))
+  expect(within(menu).getByRole('checkbox', { name: 'Also Look at Tables Not Mapped Yet' })).toHaveProperty('checked', true)
+  expect(window.localStorage.getItem('insights.ai.scope')).toBe('db:db-cg')
+  expect(within(box).getAllByRole('button', { name: /CG-Prod/ })[0].textContent).toContain('0 datasets · and its tables')         // the trigger, before the open menu
+  expect(within(box).getByText(/the names of CG-Prod’s fields and tables, never your data/)).toBeTruthy()
+  await user.type(within(box).getByRole('textbox', { name: 'What do you want to see?' }), 'Net sales by store and week')
+  await user.click(within(box).getByRole('button', { name: 'Generate Report' }))
+  const card = await screen.findByRole('region', { name: 'Draft Report' })
+  const asked = calls.find((call) => call.url.endsWith('/insights/assistant/ask/'))?.body as Record<string, unknown>
+  expect(asked).toEqual({ prompt: 'Net sales by store and week', model: 'anthropic:claude-sonnet-5-5', scope: 'db:db-cg', unmapped: true })
+  expect(within(card).getByText('Not Mapped Yet')).toBeTruthy()
+  expect(within(card).getByText(/CG-Prod · sales_lines \+ stores/)).toBeTruthy()
+  expect(within(card).getByText('Store')).toBeTruthy()                                          // Rows, in the new dataset's words
+  expect(within(card).getByText('The spec asks for stores open all quarter; the tables have no opening date.')).toBeTruthy()
+  expect(within(card).getByText(/Open in Editor maps sales_lines joined to stores as the dataset “Store Sales” \(3 fields\)/)).toBeTruthy()
+  await user.click(within(card).getByRole('button', { name: 'Open in Editor' }))
+  expect(calls.some((call) => call.url.endsWith('/insights/assistant/ask-new/open/') && call.method === 'POST')).toBe(true)
+})
+
+test('a remembered database that is gone falls back to All My Data; the counter shows from 90,000 characters', async () => {
+  window.localStorage.setItem('insights.ai.scope', 'db:gone')
+  await renderAppAt('/insights/reports')
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  expect(await within(box).findByRole('button', { name: /All My Data/ })).toBeTruthy()
+  const prompt = within(box).getByRole('textbox', { name: 'What do you want to see?' })
+  fireEvent.change(prompt, { target: { value: 'x'.repeat(89_999) } })
+  expect(within(box).queryByText(/ \/ 100,000/)).toBeNull()
+  fireEvent.change(prompt, { target: { value: 'x'.repeat(96_140) } })
+  expect(within(box).getByText('96,140 / 100,000')).toBeTruthy()
 })

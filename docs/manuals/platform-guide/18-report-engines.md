@@ -70,7 +70,7 @@ One row per workspace. A workspace without a row runs on PostgreSQL with the def
 | Engine | `postgresql`, `clickhouse` | The engine the workspace is on, or moving to. |
 | Status | `ACTIVE`, `MIGRATING`, `READ_ONLY` | With ClickHouse, `MIGRATING` means the tables are being loaded or checked and reports **still run on PostgreSQL**. `ACTIVE` means reports run on the engine named. |
 | Freshness SLA | `LIVE`, `QUARTER_HOUR`, `MINUTES_5`, `HOURLY`, `DAILY` | What the line under a report's title tells people: "live data", or "data as of the last quarter hour". |
-| Query limits | JSON | `statement_timeout_ms` (15,000), `preview_rows` (200), `run_rows` (5,000), `export_rows` (100,000), `concurrent` (4). Empty means these defaults. Raise them for a workspace that needs more; the limits protect everyone else. |
+| Query limits | JSON | `statement_timeout_ms` (15,000), `preview_rows` (200), `run_rows` (5,000), `export_rows` (100,000), `concurrent` (4). Empty means these defaults. Raise them for a workspace that needs more; the limits protect everyone else. `statement_timeout_ms` also applies to the workspace's Report Databases, and may be at most 110,000 (110 seconds): the web server stops a request after 120. Example for a slow or very large customer database: `{"statement_timeout_ms": 60000}`. A Report Database's own setting (Settings → Report Databases → How Reports Treat This Database, set by the workspace's administrators) wins over these for the reports on that database; Standard follows them. |
 | Connection profile | a Report Engine Connection, or empty | The ClickHouse this workspace loads into and reads from. Empty: the server's environment. |
 | Last reconciled | time | Set by Reconcile. |
 
@@ -122,7 +122,8 @@ views again. The ClickHouse tables keep their rows, so a later switch is Backfil
 
 | What people see | Where to look | What it usually is |
 |---|---|---|
-| "The report took longer than 15 seconds and was stopped" | Run Log, outcome Timed Out | A report over a large dataset without a filter. Suggest a period or a filter; raise `statement_timeout_ms` only for that workspace if it is legitimate. |
+| "The report took longer than 15 seconds and was stopped" | Run Log, outcome Timed Out | A report over a large dataset without a filter. Suggest a period or a filter; raise `statement_timeout_ms` only for that workspace if it is legitimate (up to 110 seconds). |
+| "The database took too long to answer" on Map a Dataset or Test Connection | The Report Database's host | Reading a customer database's own catalogue (its tables and columns) may take 60 seconds; a MySQL 5.7 server with a large schema, or behind a slow firewall, can take longer. When counting the tables is too slow, the list comes back with the names alone. Try again outside working hours, or ask the customer for an account limited to the schema reports need. |
 | "This workspace's reports are moving to a new engine" | Report Engines, status | The row is `MIGRATING` on an engine that is not yet active. Finish the switch or roll back. |
 | "Insights is not part of this workspace" | Tenant → Components | The Insights component is not on for the workspace or its plan. |
 | A dataset missing from New Report | Report Datasets → Sources | No ACTIVE source for the workspace's engine. |

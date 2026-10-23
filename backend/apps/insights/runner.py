@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 from apps.reporting import reports
-from . import access, catalog, clickhouse, compare, compiler, derived, external, fiscal, links, parameters, topn
+from . import access, catalog, clickhouse, compare, compiler, connection_limits, derived, external, fiscal, links, parameters, topn
 from .catalog import engine_of
 from .definition import signature
 from apps.spreadsheet import safe_row
@@ -43,27 +43,67 @@ def _audit(tenant_id, user_id, dataset_key, kind, signature_, outcome, *, report
                         duration_ms, row_count, outcome, (detail or "")[:300] or None])
 
 
-def _slot(tenant_id, limit: int):
-    """A concurrency slot: the count of running reports per workspace lives in the cache, never past the cap."""
-    key = f"cep:insights:running:{tenant_id}"
-    cache.add(key, 0, 120)
+SLOT_SECONDS = 180                                                    # outlives the longest report (110 s), so a count never expires mid-run
+CONNECTION_WAIT_S = 10                                                # how long a report waits for its turn on a Report Database
+
+
+def _take(key: str, limit: int) -> bool:
+    cache.add(key, 0, SLOT_SECONDS)
     try:
         running = cache.incr(key)
     except ValueError:
-        cache.set(key, 1, 120)
+        cache.set(key, 1, SLOT_SECONDS)
         running = 1
     if running > limit:
         cache.decr(key)
-        raise RunRefused("REFUSED", f"Insights is busy with {limit} reports for this workspace. Try again in a moment.")
-    return key
+        return False
+    return True
 
 
-def _release(key):
-    try:
-        if cache.decr(key) < 0:
-            cache.set(key, 0, 120)
-    except ValueError:
-        pass
+def _for_dataset(limits: dict, dataset: dict) -> dict:
+    """A report on a Report Database runs with that database's time limit and reports at once (connection_limits)."""
+    if not dataset.get("external") or not dataset.get("connection"):
+        return limits
+    own = connection_limits.effective(dataset["connection"], limits)
+    return {**limits, "statement_timeout_ms": own["timeout_s"] * 1000, "connection_concurrent": own["concurrent"]}
+
+
+def _slot(tenant_id, limits: dict, dataset: dict | None = None) -> list[str]:
+    """Concurrency slots, counted in the cache and never past their caps: the workspace's (refused at once when full), and for a
+    Report Database its own, where a report waits up to CONNECTION_WAIT_S for its turn rather than adding to the load."""
+    key = f"cep:insights:running:{tenant_id}"
+    if not _take(key, limits["concurrent"]):
+        raise RunRefused("REFUSED", f"Insights is busy with {limits['concurrent']} reports for this workspace. Try again in a moment.")
+    if not (dataset and dataset.get("external") and limits.get("connection_concurrent")):
+        return [key]
+    own, cap = f"cep:insights:running-db:{dataset['connection']['id']}", limits["connection_concurrent"]
+    deadline = time.monotonic() + CONNECTION_WAIT_S
+    while not _take(own, cap):
+        if time.monotonic() >= deadline:
+            _release([key])
+            name = dataset["database"]["name"]
+            raise RunRefused("REFUSED", f"{name} reads {cap} report{'' if cap == 1 else 's'} at a time and is busy. Try again in a moment.")
+        time.sleep(0.5)
+    return [key, own]
+
+
+def _release(keys: list[str]):
+    for key in keys:
+        try:
+            if cache.decr(key) < 0:
+                cache.set(key, 0, SLOT_SECONDS)
+        except ValueError:
+            pass
+
+
+def _too_long(limits: dict, dataset: dict, what: str = "report") -> str:
+    seconds = limits["statement_timeout_ms"] // 1000
+    if dataset.get("external") and dataset.get("database"):
+        return (f"Stopped after {seconds} seconds, the limit for {dataset['database']['name']}. Narrow the {what} with a filter or a shorter period, "
+                "or ask your administrator to raise the limit under Settings → Report Databases.")
+    if what == "export":
+        return f"The export took longer than {seconds} seconds and was stopped. Narrow the report with a filter."
+    return f"The report took longer than {seconds} seconds and was stopped. Narrow it with a filter or a shorter period."
 
 
 def _json_safe(value):
@@ -145,7 +185,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view. params: the answers to the
     report's parameters (apps/insights/parameters.py); without them, the defaults."""
     engine = engine_of(tenant.pk)
-    limits = engine["limits"]
+    limits = _for_dataset(engine["limits"], dataset)
     try:                                                              # the person's row access rules, before anything else
         definition, limited = access.restrict(tenant.pk, user, dataset, definition)
     except access.AccessError as exc:
@@ -170,7 +210,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     dialect = _dialect_of(dataset, engine)
     compared = _whole(definition)                                    # comparisons and Top N need every row up to the cap, then the page is cut from them
     compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=(cap + 1) if compared else page + 1, offset=0 if compared else offset, dialect=dialect)
-    slot = _slot(tenant.pk, limits["concurrent"])
+    slot = _slot(tenant.pk, limits, dataset)
     try:
         try:
             rows, duration = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect, dataset, zone)
@@ -188,7 +228,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
             outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"
             _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, outcome, report_id=report_id, report_version=report_version, detail=message)
             if outcome == "TIMEOUT":
-                raise RunRefused(outcome, f"The report took longer than {limits['statement_timeout_ms'] // 1000} seconds and was stopped. Narrow it with a filter or a shorter period.") from None
+                raise RunRefused(outcome, _too_long(limits, dataset)) from None
             if dataset.get("external"):
                 raise RunRefused(outcome, f"{dataset['database']['name']} did not answer: {message[:160]}") from None
             raise RunRefused(outcome, "The report could not be run. If it happens again, tell your administrator.") from None
@@ -322,11 +362,11 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
         return
     definition = fiscal.prepared(tenant, _bound(derived.augment(dataset, definition), definition, params))
     engine = engine_of(tenant.pk)
-    limits = engine["limits"]
+    limits = _for_dataset(engine["limits"], dataset)
     zone = reports.zone_of(tenant).key
     dialect = _dialect_of(dataset, engine)
     sig = signature(definition)
-    slot = _slot(tenant.pk, limits["concurrent"])
+    slot = _slot(tenant.pk, limits, dataset)
     started = time.monotonic()
     dataset = derived.augment(dataset, definition)
     total, columns = 0, None
@@ -384,11 +424,11 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
         raise RunRefused("REFUSED", str(exc)) from None
     definition = fiscal.prepared(tenant, _bound(derived.augment(dataset, definition), definition, params))
     engine = engine_of(tenant.pk)
-    limits = engine["limits"]
+    limits = _for_dataset(engine["limits"], dataset)
     zone = reports.zone_of(tenant).key
     dialect = _dialect_of(dataset, engine)
     sig = signature(definition)
-    slot = _slot(tenant.pk, limits["concurrent"])
+    slot = _slot(tenant.pk, limits, dataset)
     started = time.monotonic()
     columns, out, totals = None, [], None
     sets = None if definition.get("blend") else compiler.totals_sets(definition, definition.get("view"))
@@ -424,7 +464,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
                 outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, outcome, report_id=report_id, report_version=report_version, detail=message)
                 if outcome == "TIMEOUT":
-                    raise RunRefused(outcome, f"The export took longer than {limits['statement_timeout_ms'] // 1000} seconds and was stopped. Narrow the report with a filter.") from None
+                    raise RunRefused(outcome, _too_long(limits, dataset, "export")) from None
                 raise RunRefused(outcome, "The export could not be run. If it happens again, tell your administrator.") from None
             page_columns, rows = mask(dataset, compiled.columns, rows, mask_pii)
             if columns is None:

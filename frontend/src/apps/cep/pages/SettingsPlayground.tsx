@@ -10,6 +10,10 @@ import { AttributionPage } from '@/apps/cep/pages/settings/AttributionPage'
 import { DeliveryPage } from '@/apps/cep/pages/settings/DeliveryPage'
 import { DOMAINS } from '@/apps/cep/pages/settings/sendingDomains'
 import { UtmTrackingPage } from '@/apps/cep/pages/settings/UtmTrackingPage'
+import { ReportDatabasesPage } from '@/apps/cep/pages/settings/ReportDatabasesPage'
+import { MapDatasetPage } from '@/apps/cep/pages/settings/MapDatasetPage'
+import { DATABASES_KEY } from '@/apps/cep/pages/settings/reportDatabases'
+import type { ReportDatabase, SourceColumns, SourceList } from '@/apps/insights/types'
 import { UTM_KEY } from '@/apps/cep/pages/settings/utm'
 import { LinkTrackingCard } from '@/apps/cep/features/campaigns/wizard/LinkTrackingCard'
 import type { CampaignFormValues } from '@/apps/cep/features/campaigns/schema'
@@ -203,6 +207,51 @@ function SampleUtm() {
   )
 }
 
+/** Settings → Report Databases on sample data: a live production MySQL 5.7 database of 1,284 tables (CG-Prod), a warehouse and a
+ * reporting copy, and Map a Dataset on CG-Prod with two pins and sales_lines' columns; saving has no API here */
+const PLAYGROUND_DB = (over: Partial<ReportDatabase>): ReportDatabase => ({ id: 'db-1', name: 'CG-Prod', engine: 'mysql57', engine_name: 'MySQL 5.7', host: 'db.cg-retail.internal', port: 3306,
+  database_name: 'shop', schema_name: 'shop', username: 'c360_reports', ssl_mode: 'REQUIRED', status: 'ACTIVE', last_tested_at: '2026-10-23T09:14:00Z', last_test_ok: true, last_test_error: null,
+  read_only: true, server_version: '5.7.44', server_timezone: 'UTC', created_at: '2026-10-20T09:00:00Z', updated_at: '2026-10-23T09:14:00Z', row_version: 3, usable: true, datasets: [],
+  limit_profile: 'LIVE', query_timeout_s: null, max_concurrent: null, limits: { timeout_s: 60, concurrent: 1 }, pinned_tables: ['sales_lines', 'v_daily_sales'], ...over })
+const PREFIXES = ['sales_', 'inv_', 'pos_', 'cust_', 'rpt_', 'fin_']
+const WORDS = ['lines', 'header', 'payments', 'returns', 'tax_lines', 'vouchers', 'stock', 'moves', 'counts', 'members', 'points', 'daily', 'weekly', 'ledger', 'budget', 'audit']
+const PLAYGROUND_SOURCES: SourceList = {
+  read_at: '2026-10-23T10:41:00Z', database: 'shop', pinned: ['sales_lines', 'v_daily_sales'],
+  sources: [
+    ...Array.from({ length: 96 }, (_, n) => ({ name: n === 0 ? 'v_daily_sales' : `v_${WORDS[n % WORDS.length]}_${n}`, kind: 'view' as const })),
+    { name: 'sales_lines', kind: 'table' as const },
+    ...Array.from({ length: 1187 }, (_, n) => ({ name: `${PREFIXES[n % PREFIXES.length]}${WORDS[n % WORDS.length]}_${n}`, kind: 'table' as const })),
+  ].map((x) => ({ ...x, rows: null, columns: null, mappable: true, mapped_as: null })),
+}
+const PLAYGROUND_COLUMNS: SourceColumns = {
+  source: 'sales_lines', rows: 412_000_000, mapped_as: null,
+  columns: [
+    { column: 'line_id', column_type: 'bigint', key: true, mappable: true, type: 'number', role: 'dimension', aggregates: [], format: 'integer' },
+    { column: 'sale_day', column_type: 'date', key: false, mappable: true, type: 'date', role: 'dimension', aggregates: [], format: 'date' },
+    { column: 'store_id', column_type: 'int', key: false, mappable: true, type: 'number', role: 'dimension', aggregates: [], format: 'integer' },
+    { column: 'sku', column_type: 'varchar(32)', key: false, mappable: true, type: 'string', role: 'dimension', aggregates: [], format: null },
+    { column: 'quantity', column_type: 'decimal(10,3)', key: false, mappable: true, type: 'number', role: 'measure', aggregates: ['sum', 'avg'], format: 'decimal' },
+    { column: 'net_amount', column_type: 'decimal(12,2)', key: false, mappable: true, type: 'number', role: 'measure', aggregates: ['sum', 'avg'], format: 'money' },
+  ],
+  sample: { columns: ['line_id', 'sale_day', 'store_id', 'sku', 'quantity', 'net_amount'], rows: [[90412, '2026-10-22', 12, 'TS-0042', 2, 59.9]] },
+}
+
+function SampleReportDatabases({ map = false }: { map?: boolean }) {
+  const [client] = useState(() => {
+    const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchInterval: false } } })
+    const cg = PLAYGROUND_DB({})
+    seeded.setQueryData(DATABASES_KEY, { ready: true, limits_ready: true, workspace_limits: { timeout_s: 15, concurrent: 4 }, grant_examples: { mysql: "GRANT SELECT ON shop_reporting.* TO 'c360_reports'@'192.168.10.18';", postgresql: 'GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO c360_reports;' },
+      databases: [cg,
+        PLAYGROUND_DB({ id: 'db-2', name: 'Finance Warehouse', engine: 'postgresql', engine_name: 'PostgreSQL', host: 'dwh.internal', port: 5432, database_name: 'finance', schema_name: 'reporting', username: 'c360_read', server_version: '16.4', limit_profile: 'LARGE', limits: { timeout_s: 60, concurrent: 2 } }),
+        PLAYGROUND_DB({ id: 'db-3', name: 'Loyalty Copy', engine: 'mysql80', engine_name: 'MySQL 8.0', host: 'loyalty-ro.internal', database_name: 'loyalty', schema_name: 'loyalty', server_version: '8.0.36', limit_profile: 'STANDARD', limits: { timeout_s: 15, concurrent: 4 } })] })
+    seeded.setQueryData(['workspace', 'report-database', 'db-1'], cg)
+    seeded.setQueryData(['workspace', 'report-database', 'db-1', 'sources'], PLAYGROUND_SOURCES)
+    seeded.setQueryData(['workspace', 'report-database', 'db-1', 'source', 'sales_lines'], PLAYGROUND_COLUMNS)
+    return seeded
+  })
+  return <QueryClientProvider client={client}>{map ? <Routes><Route path=":id/map" element={<MapDatasetPage />} /></Routes> : <ReportDatabasesPage />}</QueryClientProvider>
+}
+
 export default function SettingsPlayground() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -216,7 +265,9 @@ export default function SettingsPlayground() {
               <Route path="attribution" element={<SampleAttribution />} />
               <Route path="delivery" element={<SampleEngines />} />
               <Route path="utm-tracking" element={<SampleUtm />} />
-              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
+              <Route path="report-databases" element={<SampleReportDatabases />} />
+              <Route path="report-databases/*" element={<SampleReportDatabases map />} />
+              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking', '/settings/report-databases'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
               <Route index element={<StandIn path="/settings/users" />} />
             </Route>
           </Routes>

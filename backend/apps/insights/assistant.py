@@ -5,6 +5,11 @@ a definition, checked against the catalogue like any report built by hand and re
 question when the prompt has two readings, or "no field for this" with the closest prompts the catalogue can answer.
 Only a draft counts against the plan's prompts a month.
 
+The box (docs/mockups/ask-for-report-data-and-specs.html, option A) also says which data to ask about: all of it, the platform's
+datasets, one Report Database (with its tables not mapped yet, apps/insights/ask_tables.py) or the uploaded files; the model then
+reads only those fields. Up to five images and three documents (a spec as PDF, Word, text or Markdown, apps/insights/ask_documents.py)
+go with the prompt and are never stored. A prompt may run to 100,000 characters.
+
     Platform:   Configuration -> AI Assistant (apps/platform_ops/admin_ai.py): ai_provider rows without a tenant, one per provider,
                 the key encrypted; ai.default_model and ai.explain_allowed among the global parameters (patch 0055).
     Workspace:  Settings -> AI Assistant: tenant.settings.ai_assistant = {enabled, providers: {anthropic, openai}, explain}, and the
@@ -13,7 +18,7 @@ Only a draft counts against the plan's prompts a month.
     Prompts:    ai_prompt, in the workspace (RLS), kept 90 days.
 
     GET  /insights/assistant/                  what this person may ask: the models, the default, the month's use, recent prompts
-    POST /insights/assistant/ask/              {prompt, model, answer_to?} -> the reply
+    POST /insights/assistant/ask/              {prompt, model, answer_to?, scope?, unmapped?} (+ images, documents) -> the reply
     POST /insights/assistant/<id>/open/        the draft becomes a private report, opened in the editor
     GET, PUT /workspace/ai-assistant/          the workspace's switches and its own keys (user.admin)
     POST     /workspace/ai-assistant/check/    {provider} -> the workspace's own key checked
@@ -29,14 +34,14 @@ from django.db import connections
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.engine import session
-from apps.insights import catalog, runner
+from apps.insights import ask_documents, ask_tables, catalog, external, runner
 from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _serialize, _tenant
 from apps.insights.definition import DefinitionError, validate
 from apps.platform_ops import billing, crypto, params
@@ -46,7 +51,8 @@ from apps.tenants import context
 P = settings.PLATFORM_ALIAS
 SETTINGS_KEY = "ai_assistant"
 RETENTION_DAYS = 90
-PROMPT_MAX = 4000
+PROMPT_MAX = 100_000                                                # about 25,000 words; a longer spec goes in as a document
+DEADLINE_S = 100                                                    # one prompt's calls together, inside the server's 120 s
 # images sent with Ask for a Report (a sketch of the report, a screenshot of a chart or a table): read for the request, never stored
 IMAGES_MAX = 5
 IMAGE_BYTES_MAX = 3_750_000                                         # the providers' 5 MB limit once base64-encoded
@@ -93,9 +99,46 @@ SCHEMA = {
                                                "required": ["label", "prompt"]}},
         "message": {"type": "string", "description": "What the catalogue cannot answer, in one sentence, naming the closest fields (no_field)"},
         "suggestions": {"type": "array", "items": {"type": "object", "properties": {"label": {"type": "string"}, "prompt": {"type": "string"}}, "required": ["label", "prompt"]}},
+        "note": {"type": "string", "description": "One sentence on a part of the request or its documents the draft could not follow, or empty (draft)"},
     },
     "required": ["kind"],
 }
+
+
+def schema_for(unmapped: bool) -> dict:
+    """the reply's schema; with a database's tables not mapped yet, a draft may carry a new dataset, or ask for tables' columns"""
+    if not unmapped:
+        return SCHEMA
+    properties = {**SCHEMA["properties"], "kind": {"type": "string", "enum": ["draft", "question", "no_field", "need_tables"]},
+                  "new_dataset": ask_tables.NEW_DATASET,
+                  "tables": {"type": "array", "items": {"type": "string"}, "description": f"The tables whose columns you need (need_tables), {ask_tables.TABLES_MAX} at most"}}
+    return {**SCHEMA, "properties": properties}
+
+
+SCOPES = ("all", "platform", "uploads")
+
+
+def scoped(datasets: list[dict], scope: str) -> list[dict]:
+    """the datasets the box asks about: all, the platform's, the uploaded files', or one database's (db:<id>)"""
+    if scope == "all":
+        return datasets
+    if scope == "platform":
+        return [d for d in datasets if not d.get("external") and d.get("kind") != "upload"]
+    if scope == "uploads":
+        return [d for d in datasets if d.get("kind") == "upload"]
+    return [d for d in datasets if (d.get("database") or {}).get("id") == scope[3:]]
+
+
+def valid_scope(scope: str) -> str:
+    scope = scope or "all"
+    if scope in SCOPES:
+        return scope
+    if scope.startswith("db:"):
+        try:
+            return f"db:{uuid.UUID(scope[3:])}"
+        except ValueError:
+            pass
+    raise ValidationError({"scope": "All, the platform's datasets, one of your databases or the uploaded files."})
 
 
 class AssistantError(Exception):
@@ -342,7 +385,7 @@ def catalogue_words(datasets: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def system_prompt(datasets: list[dict], zone: str, today) -> str:
+def system_prompt(datasets: list[dict], zone: str, today, tables: str = "") -> str:
     return f"""You turn a person's request into a report definition for CEP Insights, a reporting tool. Reply only through the propose_report schema.
 
 Rules:
@@ -359,7 +402,7 @@ Rules:
 - Today is {today.isoformat()} in the {zone} time zone. "Last month" is the previous calendar month; "this year" starts on 1 January; "last 30 days" is last_days 30.
 
 Catalogue:
-{catalogue_words(datasets)}"""
+{catalogue_words(datasets) or "(no mapped dataset: use the tables below)"}{chr(10) + chr(10) + tables if tables else ""}"""
 
 
 def _key_of(row: dict) -> str:
@@ -409,17 +452,19 @@ def read_images(files) -> list[dict]:
 
 
 def call_model(provider: str, row: dict, model: str, system: str, user: str, *, timeout_s: int = TIMEOUT_S, schema: dict | None = None, tool: str = "propose_report",
-               images: list[dict] | None = None) -> tuple[dict, dict]:
+               images: list[dict] | None = None, documents: list[dict] | None = None) -> tuple[dict, dict]:
     """One exchange with the provider, forced into the schema: the reply as a dict, and the usage {"in", "out"}. images: read_images()'s,
-    sent before the text (Anthropic) or after it (OpenAI), as each provider takes them."""
+    documents: ask_documents.read_documents()'s; sent before the text (Anthropic) or after it (OpenAI), as each provider takes them."""
     base = PROVIDERS[provider]["base"]
     key = _key_of(row)
     schema = schema or SCHEMA
     images = images or []
+    documents = documents or []
     try:
         if provider == "anthropic":
-            content = [*({"type": "image", "source": {"type": "base64", "media_type": i["media_type"], "data": i["data"]}} for i in images), {"type": "text", "text": user}] if images else user
-            body = {"model": model, "max_tokens": 2000, "system": system, "messages": [{"role": "user", "content": content}],
+            content = [*ask_documents.anthropic_blocks(documents), *({"type": "image", "source": {"type": "base64", "media_type": i["media_type"], "data": i["data"]}} for i in images),
+                       {"type": "text", "text": user}] if images or documents else user
+            body = {"model": model, "max_tokens": 4000, "system": system, "messages": [{"role": "user", "content": content}],
                     "tools": [{"name": tool, "description": "The reply, in the shape asked for.", "input_schema": schema}],
                     "tool_choice": {"type": "tool", "name": tool}}
             response = requests.post(f"{base}/v1/messages", json=body, timeout=timeout_s,
@@ -428,7 +473,8 @@ def call_model(provider: str, row: dict, model: str, system: str, user: str, *, 
             reply = next((block["input"] for block in data.get("content", []) if block.get("type") == "tool_use"), None)
             usage = data.get("usage") or {}
             return reply or {}, {"in": int(usage.get("input_tokens") or 0), "out": int(usage.get("output_tokens") or 0)}
-        content = [{"type": "text", "text": user}, *({"type": "image_url", "image_url": {"url": f"data:{i['media_type']};base64,{i['data']}"}} for i in images)] if images else user
+        content = [{"type": "text", "text": user}, *ask_documents.openai_parts(documents),
+                   *({"type": "image_url", "image_url": {"url": f"data:{i['media_type']};base64,{i['data']}"}} for i in images)] if images or documents else user
         body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
                 "response_format": {"type": "json_schema", "json_schema": {"name": tool, "schema": schema}}}
         response = requests.post(f"{base}/v1/chat/completions", json=body, timeout=timeout_s, headers={"Authorization": f"Bearer {key}"})
@@ -504,8 +550,9 @@ def interpret(reply: dict, datasets: list[dict], *, max_limit: int) -> dict:
     raw = {**raw, "view": view}
     definition = validate(dataset, raw, max_limit=max_limit)
     name = " ".join(str(reply.get("name") or "").split())[:60] or f"{dataset['label']} report"
+    note = " ".join(str(reply.get("note") or "").split())[:400]
     return {"kind": "draft", "name": name, "dataset": dataset["key"], "dataset_label": dataset["label"], "view": definition.get("view") or {"type": "grid"},
-            "definition": definition}
+            "definition": definition, **({"note": note} if note else {})}
 
 
 def _prompts(raw, most: int) -> list[dict]:
@@ -520,10 +567,12 @@ def _prompts(raw, most: int) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------------------------------- asking
-def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = None, images: list[dict] | None = None) -> dict:
-    """The whole exchange: the allowance, the catalogue, one call (and one retry when the draft does not fit), the preview's row
-    count, the row in ai_prompt. images go to the model with the prompt and are not kept. Raises AssistantError for the person;
-    ValidationError for a bad body."""
+def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = None, images: list[dict] | None = None, documents: list[dict] | None = None,
+        scope: str = "all", unmapped: bool = False) -> dict:
+    """The whole exchange: the allowance, the catalogue (the scope's datasets, and a database's tables not mapped yet when asked),
+    one call (another when the model asks for tables' columns, and one retry when the draft does not fit), the preview's row count,
+    the row in ai_prompt. images and documents go to the model with the prompt and are not kept. Raises AssistantError for the
+    person; ValidationError for a bad body."""
     state = offer(tenant, request)
     if not state["enabled"]:
         raise AssistantError({"no_right": "Asking for a report needs the report.edit permission.", "no_provider": "No AI provider is switched on for the platform.",
@@ -536,38 +585,99 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
     if chosen["source"] == "platform" and use["limit"] is not None and use["used"] >= use["limit"]:
         raise AssistantError(f"The workspace has used its {use['limit']} prompts for {timezone.now().strftime('%B')}. Ask the platform team for more, add your own key under Settings → AI Assistant, or build the report in the editor.")
     row = effective_providers(tenant)[chosen["provider"]]
-    datasets = catalog.for_tenant(tenant.pk, _can_see_pii(request))
+    datasets = scoped(catalog.for_tenant(tenant.pk, _can_see_pii(request)), scope)
+    images, documents = images or [], documents or []
+    tables = None
+    if scope.startswith("db:") and unmapped:
+        tables = _tables_context(tenant, scope[3:], prompt, documents)
+    elif not datasets:
+        raise AssistantError({"platform": "No platform dataset is offered to this workspace.", "uploads": "No uploaded file is ready to report on yet (Insights → Uploaded Files)."}.get(
+            scope, "This database has no mapped dataset yet: tick Also Look at Tables Not Mapped Yet, or map one under Settings → Report Databases."))
+    mapped = {d["source"].split(".")[-1] for d in datasets if d.get("kind") == "table" and d.get("source")}
     limits = catalog.engine_of(tenant.pk)["limits"]
-    system = system_prompt(datasets, reports.zone_of(tenant).key, timezone.now().astimezone(reports.zone_of(tenant)).date())
+    zone = reports.zone_of(tenant)
+    today = timezone.now().astimezone(zone).date()
+    system = system_prompt(datasets, zone.key, today, ask_tables.words(tables, mapped) if tables else "")
     started = time.monotonic()
     usage = {"in": 0, "out": 0}
-    outcome, result, failure = "FAILED", None, None
-    images = images or []
-    asked = f"{prompt}\n\n{IMAGES_NOTE.format(n=len(images), s='' if len(images) == 1 else 's')}" if images else prompt
+    outcome, result, failure, entry = "FAILED", None, None, None
+    notes = [*([ask_documents.note(documents)] if documents else []), *([IMAGES_NOTE.format(n=len(images), s='' if len(images) == 1 else 's')] if images else [])]
+    asked = "\n\n".join([prompt, *notes])
+    text, retried, widened = asked, False, False
     try:
-        reply, used = call_model(chosen["provider"], row, chosen["model"], system, asked, images=images)
-        usage = {k: usage[k] + used[k] for k in usage}
-        try:
-            result = interpret(reply, datasets, max_limit=limits["run_rows"])
-        except DefinitionError as exc:
-            note = f"{asked}\n\n(An earlier draft was refused: {exc.field}: {exc}. Keep to the catalogue and the rules.)"
-            reply, used = call_model(chosen["provider"], row, chosen["model"], system, note, images=images)
+        while True:
+            left = DEADLINE_S - (time.monotonic() - started)
+            if left < 10:
+                failure = "The model took too long. Try again, or ask for less at once."
+                break
+            reply, used = call_model(chosen["provider"], row, chosen["model"], system, text, images=images, documents=documents, schema=schema_for(tables is not None),
+                                     timeout_s=int(min(TIMEOUT_S * 1.5, left)))
             usage = {k: usage[k] + used[k] for k in usage}
             try:
-                result = interpret(reply, datasets, max_limit=limits["run_rows"])
-            except DefinitionError as exc2:
-                failure = f"The model's draft did not fit the catalogue ({exc2.field}: {exc2}). Try putting the request differently."
+                if reply.get("kind") == "need_tables":
+                    wanted = [t for t in reply.get("tables") or [] if isinstance(t, str)][:ask_tables.TABLES_MAX]
+                    if tables is None or widened or not wanted:
+                        raise DefinitionError("kind", "Draft from the tables whose columns are listed, or answer no_field.")
+                    tables, widened = ask_tables.more(tables, wanted), True
+                    system = system_prompt(datasets, zone.key, today, ask_tables.words(tables, mapped))
+                    continue
+                result, entry = _read_reply(reply, datasets, tables, limits["run_rows"])
+                break
+            except DefinitionError as exc:
+                if retried:
+                    failure = f"The model's draft did not fit the catalogue ({exc.field}: {exc}). Try putting the request differently."
+                    break
+                retried = True
+                text = f"{asked}\n\n(An earlier draft was refused: {exc.field}: {exc}. Keep to the catalogue and the rules.)"
     except ProviderError as exc:
         failure = str(exc)
+    except external.ExternalError as exc:
+        failure = f"The database could not be read: {exc}"
     duration_ms = int((time.monotonic() - started) * 1000)
     if result is not None:
         outcome = {"draft": "DRAFT", "question": "QUESTION", "no_field": "NO_FIELD"}[result["kind"]]
         if result["kind"] == "draft":
-            result["preview"] = _preview(tenant, request, datasets, result)
+            result["preview"] = _preview(tenant, request, [*datasets, *([entry] if entry else [])], result)
+            result["scope"] = scope
+        result["read"] = ask_documents.read_words(documents, len(images)) if documents or images else None
     prompt_id = _record(tenant.pk, request.user.pk, chosen, prompt, outcome, result, failure, usage, duration_ms, answer_to)
     return {"id": prompt_id, "kind": result["kind"] if result else "failed", "prompt": prompt, "model": {k: chosen[k] for k in ("id", "provider", "provider_name", "mark", "model", "label", "source")},
-            "duration_ms": duration_ms, "counted": outcome == "DRAFT", "message": failure, **({k: v for k, v in result.items() if k != "kind"} if result else {}),
+            "duration_ms": duration_ms, "counted": outcome == "DRAFT", "message": failure, **({k: v for k, v in result.items() if k not in ("kind", "map")} if result else {}),
             "usage": {**allowance(tenant.pk)}}
+
+
+def _tables_context(tenant, connection_id: str, prompt: str, documents: list[dict]) -> dict:
+    """the database's tables not mapped yet, as ask_tables reads them; AssistantError when the database cannot be used or read"""
+    from apps.insights import databases
+    if not databases._present():
+        raise AssistantError("Report Databases are not set up on this installation.")
+    try:
+        connection = databases.connection(tenant.pk, connection_id)
+        databases._usable(connection)
+    except NotFound:
+        raise AssistantError("That database is no longer connected.") from None
+    except APIException as exc:
+        raise AssistantError(str(exc.detail)) from None
+    try:
+        return ask_tables.context_for(connection, "\n".join([prompt, *(d.get("text") or "" for d in documents)]))
+    except external.ExternalError as exc:
+        raise AssistantError(f"{connection['name']} could not be read: {exc}") from None
+
+
+def _read_reply(reply: dict, datasets: list[dict], tables: dict | None, max_limit: int) -> tuple[dict, dict | None]:
+    """interpret(), and a draft on tables not mapped yet: its dataset built from the tables read, the fields put to their keys, and
+    what Open in Editor maps kept with it ("map", stored with the draft, not sent back)"""
+    if reply.get("kind") != "draft" or reply.get("dataset") != ask_tables.NEW_KEY:
+        return interpret(reply, datasets, max_limit=max_limit), None
+    if tables is None:
+        raise DefinitionError("dataset", f"Name one of the datasets: {', '.join(d['key'] for d in datasets)}.")
+    body, entry = ask_tables.build(tables, reply.get("new_dataset"))
+    definition, view = ask_tables.remap(reply.get("definition") if isinstance(reply.get("definition"), dict) else {}, reply.get("view") if isinstance(reply.get("view"), dict) else {}, entry)
+    result = interpret({**reply, "definition": definition, "view": view}, [*datasets, entry], max_limit=max_limit)
+    shown = {k: entry[k] for k in ("key", "label", "description", "component", "primary_key", "time_field", "freshness", "fields", "kind", "database")}
+    result["new_dataset"] = {**ask_tables.summary(body, tables["connection"]), "dataset": shown}
+    result["map"] = {"connection_id": tables["connection"]["id"], "body": body}
+    return result, entry
 
 
 def _preview(tenant, request, datasets: list[dict], draft: dict) -> dict | None:
@@ -585,7 +695,7 @@ def _preview(tenant, request, datasets: list[dict], draft: dict) -> dict | None:
 
 def _record(tenant_id, user_id, chosen: dict, prompt: str, outcome: str, result: dict | None, failure: str | None, usage: dict, duration_ms: int, answer_to, kind: str = "report") -> str:
     prompt_id = str(uuid.uuid4())
-    draft = {k: result[k] for k in ("name", "dataset", "view", "definition", "sql") if k in result} if result and result["kind"] in ("draft", "sql") else None
+    draft = {k: result[k] for k in ("name", "dataset", "view", "definition", "sql", "note", "scope", "map", "new_dataset") if k in result} if result and result["kind"] in ("draft", "sql") else None
     reply = {k: v for k, v in (result or {}).items() if k in ("question", "answers", "message", "suggestions")} or None
     with session.tx():
         _q("DELETE FROM ai_prompt WHERE tenant_id = %s AND created_at < %s", [str(tenant_id), timezone.now() - timedelta(days=RETENTION_DAYS)])
@@ -664,6 +774,8 @@ def open_draft(tenant, request, prompt_id) -> dict:
     if found["report_id"]:
         return _serialize(_report_row(found["report_id"], request))
     draft = json.loads(found["draft"]) if isinstance(found["draft"], str) else found["draft"]
+    if draft.get("map"):                                               # a draft on tables not mapped yet: the dataset is mapped now
+        draft = {**draft, "dataset": _map_draft(tenant, request, draft["map"])}
     dataset = catalog.dataset(tenant.pk, draft["dataset"], _can_see_pii(request))
     if dataset is None:
         raise ValidationError({"draft": "The draft's dataset is no longer offered."})
@@ -684,6 +796,16 @@ def open_draft(tenant, request, prompt_id) -> dict:
     return _serialize(_report_row(report_id, request))
 
 
+def _map_draft(tenant, request, mapping: dict) -> str:
+    """the draft's tables mapped as a dataset (as Map a Dataset saves one); its key"""
+    from apps.insights import databases
+    connection = databases.connection(tenant.pk, mapping["connection_id"])
+    databases._usable(connection)
+    data = databases._dataset_body(mapping["body"], None, connection["engine"])
+    dataset_id = databases.create_dataset(tenant.pk, request.user.pk, connection["id"], data)
+    return next(d["key"] for d in databases.datasets(tenant.pk, connection["id"]) if d["id"] == dataset_id)
+
+
 # ---------------------------------------------------------------------------------------------------- the API
 class AssistantView(APIView):
     permission_classes = VIEW
@@ -700,11 +822,17 @@ class AskView(APIView):
 
     @extend_schema(request=None, responses={200: None})
     def post(self, request, version=None):
-        body = request.data if isinstance(request.data, dict) else {}                  # JSON, or multipart when images come with it
+        body = request.data if isinstance(request.data, dict) else {}                  # JSON, or multipart when images or documents come with it
         prompt = clean_prompt(body.get("prompt"))
         if not prompt or len(prompt) > PROMPT_MAX:
             raise ValidationError({"prompt": f"Say what you want to see, in up to {PROMPT_MAX:,} characters."})
+        sent = sum(upload.size for name in ("images", "documents") for upload in request.FILES.getlist(name)) if request.FILES else 0
+        if sent > ask_documents.ATTACHMENTS_BYTES_MAX:
+            raise ValidationError({"documents": f"The images and documents come to {sent / 1_000_000:.1f} MB; together they may be up to {ask_documents.ATTACHMENTS_BYTES_MAX // 1_000_000} MB."})
         images = read_images(request.FILES.getlist("images")) if request.FILES else []
+        documents = ask_documents.read_documents(request.FILES.getlist("documents")) if request.FILES else []
+        scope = valid_scope(str(body.get("scope") or "all"))
+        unmapped = str(body.get("unmapped") or "").lower() in ("1", "true", "yes")
         answer_to = body.get("answer_to")
         if answer_to is not None:
             try:
@@ -712,7 +840,7 @@ class AskView(APIView):
             except ValueError:
                 raise ValidationError({"answer_to": "Not a prompt."}) from None
         try:
-            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images))
+            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images, documents=documents, scope=scope, unmapped=unmapped))
         except AssistantError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
