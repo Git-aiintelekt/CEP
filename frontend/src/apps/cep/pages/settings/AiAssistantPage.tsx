@@ -28,7 +28,8 @@ export function AiAssistantPage() {
   const toast = useToast()
   const [editing, setEditing] = useState<WorkspaceAssistantProvider | null>(null)
   const settings = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<WorkspaceAssistant>('/workspace/ai-assistant/', undefined, signal) })
-  const settle = (next: WorkspaceAssistant) => { queryClient.setQueryData(KEY, next); void queryClient.invalidateQueries({ queryKey: ['insights', 'assistant'] }) }
+  // the AI Reports menu item follows these switches (GET /me insights.ai_reports)
+  const settle = (next: WorkspaceAssistant) => { queryClient.setQueryData(KEY, next); void queryClient.invalidateQueries({ queryKey: ['insights', 'assistant'] }); void queryClient.invalidateQueries({ queryKey: ['me'] }) }
   const save = useMutation({ mutationFn: (body: Body) => api.put<WorkspaceAssistant>('/workspace/ai-assistant/', body), onSuccess: settle })
   const check = useMutation({
     mutationFn: (provider: ProviderKey) => api.post<{ ok: boolean; detail: string }>('/workspace/ai-assistant/check/', { provider }),

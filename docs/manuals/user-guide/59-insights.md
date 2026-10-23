@@ -6,15 +6,18 @@
 
 **Ask for a Report** (anyone who can build reports)
 
-1. Open Insights → Reports. The Ask for a Report box sits above the list; it is there once your platform has switched on an AI provider and your workspace allows it.
+1. Open Insights → **AI Reports**, above Reports in the menu. The item is there once an AI provider with a key is switched on (the platform's, or your workspace's own under Settings → AI Assistant) and your workspace allows AI; otherwise it is not in the menu at all.
 2. Choose what the prompt is about with **Ask About** at the top of the box: **All My Data**, the platform's datasets (**C360**), one of your Report Databases, or your **Uploaded Files**. The model then reads only those fields, so its answers are sharper. Your choice is remembered.
-3. Write what you want to see in your own words, pick a model at the bottom of the box, and press **Generate Report** (or Ctrl+Enter). While it works, the box lists the steps as they happen: reading your documents, reading the database's tables, the model drafting the report (with the time so far), checking the draft against your data and previewing the rows. A step ticks when it finishes; if one stops, it says why.
-4. Read what comes back. A **draft**: check its view, data, rows, columns, values and filter, change its **Name** if you like, then **Open in Editor** to make it a private report of yours, under that name, and open the editor. **Show** beside the time lists the steps it took. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
-5. Your recent prompts sit under the box, each with the report it became. The line at the top right counts the month's prompts against your plan; only a draft counts.
+3. Give the report a name in **Report Name** at the top of the box if you like; leave it empty and the model names it.
+4. Write what you want to see in your own words, pick a model at the bottom of the box, and press **Generate Report** (or Ctrl+Enter). While it works, **Run Details** under the box lists the steps as they happen: reading your documents, reading the database's tables, the model drafting the report (with the time so far), checking the draft against your data and previewing the rows. A step ticks when it finishes; if one stops, it says why.
+5. Read what comes back in Run Details. A **draft**: check its view, data, rows, columns, values and filter, change its **Name** if you like, then **Open in Editor** to make it a private report of yours, under that name, and open the editor. **Show** beside the time lists the steps it took. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
+6. **Earlier This Visit** in Run Details lists the prompts you ran while this browser tab is open, newest first: when each started, how long it took, the tokens it used, the model and what came of it (Draft, Saved, Question, No Field or Failed), with its steps under **Show Steps**. The list scrolls.
+7. **Prompt History** under Run Details holds your prompts of the last 90 days, newest first; scroll down and older ones load. **Use Again** puts a prompt back in the box. The pencil beside a name renames the report the prompt became (or its draft, if you have not opened it yet): type the new name, Enter saves, Esc cancels. **Show** hides or shows the list (remembered in your browser). **Clear History…** asks first, then takes your prompts off the list; the reports they became are not touched and the month's prompt count stays as it is. The line at the top right of the box counts the month's prompts against your plan; only a draft counts.
+8. The reports you make here are ordinary reports: they are listed under Insights → Reports with an **AI** mark beside the name, and you put them on a dashboard like any other (Dashboards → Edit → Add Tile).
 
 **Add a spec or images to a prompt** (anyone who can build reports)
 
-1. In Insights → Reports, write your prompt in the Ask for a Report box. Say what the files are for: "Build the report described in the spec", "A chart like this sketch, by month", "Use the targets in the PDF".
+1. In Insights → AI Reports, write your prompt in the Ask for a Report box. Say what the files are for: "Build the report described in the spec", "A chart like this sketch, by month", "Use the targets in the PDF".
 2. Add up to three documents (the report's spec as a PDF, a Word .docx, an Excel .xlsx, a CSV, a text or a Markdown file) and up to five images (PNG, JPEG, GIF or WebP), whichever way is handiest: drag them from your computer onto the Ask for a Report panel and let go when the box shows **Drop images or documents here**; or press the paperclip at the bottom left of the box and choose the files; or copy an image, such as a screenshot, and paste it into the box with Ctrl+V.
 3. Check the attachments at the top of the box: each document as a tile with its kind and size, each image as a thumbnail. The line beside the paperclip says how many there are ("2 documents · 1 image"); remove one with its ✕. A fourth document or a sixth image is left out with a note under the box.
 4. Press **Generate Report** (or Ctrl+Enter). The documents and images go to the model with your prompt and the field names. They stay in the box, so **Try Again** sends them again. The draft's top line says what the model read.
@@ -447,7 +450,7 @@ Fields marked **PII** carry personal data (a customer's identifier, an email add
 
 ### The list
 
-Insights → Reports lists every report you can open, grouped by its component (the one chosen for it, or Automatic: its data's), with its view, dataset, owner and last run. Your **favourites** sit first: press the star on any row to add one. **Folders** group a workspace's reports; the chips at the top filter by folder or by No Folder, and the folder shows under the report's name. Search finds a report by name.
+Insights → Reports lists every report you can open, grouped by its component (the one chosen for it, or Automatic: its data's), with its view, dataset, owner and last run. A report drafted with AI carries an **AI** mark beside its name. Your **favourites** sit first: press the star on any row to add one. **Folders** group a workspace's reports; the chips at the top filter by folder or by No Folder, and the folder shows under the report's name. Search finds a report by name.
 
 ### Making a report
 
@@ -462,18 +465,22 @@ Insights → Reports lists every report you can open, grouped by its component (
 
 ### Ask for a Report, with AI
 
-When your platform has switched on an AI provider and your workspace allows it (Settings → AI Assistant), a prompt box sits above the report list for people who can build reports.
+When an AI provider with a key is switched on (the platform's, or your workspace's own) and your workspace allows AI (Settings → AI Assistant), people who can build reports see **AI Reports** in the Insights menu, above Reports. Its page holds the prompt box, **Run Details** below it and **Prompt History** below that.
+
+**Report Name** at the top of the box names the report; leave it empty and the model names it. The name field on the draft still changes it before you open it.
+
 
 1. Choose the data with **Ask About** at the top of the box: All My Data, the platform's datasets, one of your Report Databases (with **Also Look at Tables Not Mapped Yet** for its tables nobody has mapped), or your Uploaded Files. The model reads only the fields of your choice. The choice is remembered in your browser.
    Write what you want to see, in your own words: "Revenue by channel and month for the last quarter, as a pivot". The examples under the box are a start. The box takes up to 100,000 characters; put the details on more lines (the filters, the order, what to compare). A counter appears from 90,000.
    **Documents and images:** drop them on the box, press the paperclip at its bottom left, or paste them, to send up to three documents (the report's spec as PDF, Word .docx, Excel .xlsx, CSV, text or Markdown) and up to five images (a sketch of the report you want, or a screenshot of a chart, a table or a spreadsheet) with the prompt. Remove one with its ✕. They go to the model with your prompt and are not kept; only the prompt is saved with the draft.
 2. Pick a model at the bottom of the box, beside Generate: Claude or OpenAI, whichever your platform offers, each with a "best for reports" and a "fastest" model. Your last choice is remembered.
 3. Press **Generate Report** (or Ctrl+Enter). The model receives your prompt, any documents and images you added and the names of the fields you may use (and, for a database's tables not mapped yet, their names and columns), never customer rows, and answers in one of three ways:
-   While it works the box lists the steps as the server takes them, each ticked as it finishes, the one under way with the time so far; a second step for the model appears when it asks for more tables or its first draft did not fit, and a step that stops says why.
+   While it works **Run Details** lists the steps as the server takes them, each ticked as it finishes, the one under way with the time so far; a second step for the model appears when it asks for more tables or its first draft did not fit, and a step that stops says why. The answer shows there too, and the runs before it stay under **Earlier This Visit** (with their time, tokens, model and outcome) while the browser tab is open.
    - **A draft**, in words: its name (a field you can change before you open it), view, data, rows, columns, values and filter, with how many rows the preview gives, what it read, how long it took and its steps (**Show**), and a note on anything in the request it could not follow. A draft on tables not mapped yet says **Not Mapped Yet**; **Open in Editor** maps them as a dataset first. **Open in Editor** makes it a private report of yours and opens it in the editor; nothing is shared until you save and share it. **Try Again** asks once more; **Edit Prompt** puts your words back in the box.
    - **One question first**, when the prompt has two readings ("which period is last month?"), with the answers as buttons. Answering does not use another prompt.
    - **No field for this**, when no dataset holds what you asked for, with the closest prompts the catalogue can answer. The model never makes a field up; ask your platform team to map the data if you need it.
-4. The line at the top right counts the month's prompts against your plan. Only a draft counts. Your recent prompts sit under the box, with the report each became.
+4. The line at the top right counts the month's prompts against your plan. Only a draft counts.
+5. **Prompt History** lists your prompts of the last 90 days, newest first, with the report each became; older ones load as you scroll. **Use Again** puts one back in the box, the pencil renames its report (or its draft not opened yet), **Show** hides the list, and **Clear History…** takes your prompts off it after asking. Clearing does not give prompts back: the month's count and the workspace's records are unchanged.
 
 Prompts and drafts are kept in the workspace for 90 days. Settings → AI Assistant switches AI off for the whole workspace, or allows only one of the providers.
 

@@ -1662,8 +1662,8 @@ Report Datasets and Report Engines (switching any workspace between PostgreSQL a
 
 ## What this page is for
 
-Insights can turn a prompt into a report: a person writes what they want to see above the report list, picks a
-model, and gets a draft back in words, checked against the report catalogue the same way as a report built by hand.
+Insights can turn a prompt into a report: a person writes what they want to see on Insights → AI Reports (in the menu
+only while a provider with a key is switched on and the workspace allows AI), picks a model, and gets a draft back in words, checked against the report catalogue the same way as a report built by hand.
 The model is Claude (Anthropic) or OpenAI, reached from CEP's own server with a key the platform team enters here. The
 browser never sees a key, and no customer row ever leaves CEP: the model receives the prompt and the names of the
 fields that person may use. A prompt may run to 100,000 characters and carry up to three documents (a spec as PDF,

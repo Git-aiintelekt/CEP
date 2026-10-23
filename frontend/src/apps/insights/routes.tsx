@@ -17,6 +17,7 @@ const QueryBuilderPage = lazy(() => import('./pages/QueryBuilderPage').then((m) 
 const UsagePage = lazy(() => import('./pages/UsagePage').then((m) => ({ default: m.UsagePage })))
 const UploadsPage = lazy(() => import('./pages/UploadsPage').then((m) => ({ default: m.UploadsPage })))
 const SharedFormulasPage = lazy(() => import('./pages/SharedFormulasPage').then((m) => ({ default: m.SharedFormulasPage })))
+const AiReportsPage = lazy(() => import('./pages/AiReportsPage').then((m) => ({ default: m.AiReportsPage })))
 const later = (page: ReactNode) => <Suspense fallback={<Spinner label="Loading" />}>{page}</Suspense>
 import { ReportViewerPage } from './pages/ReportViewerPage'
 import { RunLogPage } from './pages/RunLogPage'
@@ -27,6 +28,7 @@ export default function InsightsRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="reports" replace />} />
+        <Route path="ai-reports" element={later(<AiReportsPage />)} />
         <Route path="reports" element={<ReportListPage />} />
         <Route path="reports/new" element={<NewReportPage />} />
         <Route path="reports/new/query/:dbId" element={later(<QueryBuilderPage />)} />

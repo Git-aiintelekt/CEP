@@ -1,7 +1,7 @@
 /**
  * Insights → Reports: every report this person may see, grouped by the component whose data it uses (the shared list of
  * docs/mockups/report-builder.html). ?component=cep opens it on one component's reports, as each component's Insights
- * menu item does. New Report starts from a dataset.
+ * menu item does. New Report starts from a dataset; reports drafted by AI (AI Reports, its own page) carry the AI mark.
  */
 import { Plus, Search } from 'lucide-react'
 import { useState } from 'react'
@@ -15,7 +15,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { formatDateTime } from '@/lib/format'
 import { useCatalog, useFolders, useReports } from '../api'
-import { AskForReport } from '../components/AskForReport'
+import { AiPill } from '../components/AskForReport'
 import { FavouriteStar } from '../components/FavouriteStar'
 import type { ReportSummary } from '../types'
 
@@ -51,7 +51,6 @@ export function ReportListPage() {
         description={reports.data ? `${rows.length} report${rows.length === 1 ? '' : 's'}${component ? '' : ' · grouped by component'}` : undefined}
         actions={canCreate ? <button type="button" className={buttonPrimary} onClick={() => navigate(`/insights/reports/new${component ? `?component=${component}` : ''}`)}><Plus size={16} strokeWidth={1.5} aria-hidden />New Report</button> : undefined}
       />
-      {canCreate && <AskForReport />}
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative">
           <span className="sr-only">Search all reports</span>
@@ -114,7 +113,7 @@ function GroupRows({ name, count, reports }: { name: string; count: number; repo
       {reports.map((report) => (
         <tr key={report.id} className="border-t border-line-subtle">
           <td className="px-1 py-1.5 text-center"><FavouriteStar kind="report" id={report.id} name={report.name} on={report.favourite} /></td>
-          <td className="px-3 py-2"><Link to={`/insights/reports/${report.id}`} className="font-medium text-ink-900 hover:underline">{report.name}</Link>
+          <td className="px-3 py-2"><span className="flex items-center gap-1.5">{report.ai && <AiPill />}<Link to={`/insights/reports/${report.id}`} className="font-medium text-ink-900 hover:underline">{report.name}</Link></span>
             {(report.description || report.folder_name) && <span className="block text-xs text-ink-800">{[report.folder_name, report.description].filter(Boolean).join(' · ')}</span>}</td>
           <td className="px-3 py-2"><Tag tone="brand">{VIEW_LABEL[report.view_type]}</Tag></td>
           <td className="px-3 py-2 text-ink-800">{report.dataset_label}</td>

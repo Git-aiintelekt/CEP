@@ -97,6 +97,13 @@ const assistantModels = [
 export const insightsAssistantNow = { enabled: true, reason: null as string | null, models: assistantModels, default_model: 'anthropic:claude-sonnet-5-5',
   usage: { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth', words: '38 of 200 prompts used in October' },
   examples: ['Which campaigns made the most revenue last month?', 'Delivered rate by sending engine, by week'], recent: [] as unknown[] }
+/** AI Reports → Prompt History: this person's prompts, newest first (apps/insights/assistant.history) */
+export type MockHistoryPrompt = import('@/apps/insights/types').AssistantRecent
+export const insightsHistoryNow = { prompts: [] as MockHistoryPrompt[], clearable: true }
+export function historyPrompt(n: number, change: Partial<MockHistoryPrompt> = {}): MockHistoryPrompt {
+  return { id: `hist-${n}`, prompt: `Prompt number ${n}`, model: 'Claude Sonnet 5.5', provider: 'anthropic', outcome: 'DRAFT', created_at: `2026-10-${String(Math.max(1, 23 - Math.floor(n / 10))).padStart(2, '0')}T10:00:00Z`,
+    report_id: null, report_name: null, draft_name: `Draft ${n}`, tokens_in: 2830, tokens_out: 235, duration_ms: 30_000, ...change }
+}
 type OwnKey = { configured: boolean; model_reports: string | null; model_fast: string | null; last_checked_at: string | null; last_check_ok: boolean | null; last_check_error: string | null } | null
 const assistantProviders = () => [
   { key: 'anthropic', name: 'Claude (Anthropic)', mark: 'A', keys: 'console.anthropic.com → API Keys', platform: true, platform_models: ['Claude Sonnet 5.5', 'Claude Haiku 5.5'], own: null as OwnKey, default_models: ['claude-sonnet-5-5', 'claude-haiku-5-5'] },
@@ -997,6 +1004,8 @@ export function installMockApi(options: MockOptions = {}) {
   insightsAssistantNow.reason = null
   insightsAssistantNow.usage = { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth', words: '38 of 200 prompts used in October' }
   insightsAssistantNow.recent = []
+  insightsHistoryNow.prompts = []
+  insightsHistoryNow.clearable = true
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders() })
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true })
   reportDatabasesNow.splice(0, reportDatabasesNow.length)
@@ -1724,16 +1733,42 @@ export function installMockApi(options: MockOptions = {}) {
         return json({ kind: 'draft', counted: true, view: { type: 'chart', chart: 'bar' }, definition: { ...asked.definition, columns: [{ field: 'channel' }, ...asked.definition.columns.filter((c) => c.aggregate)], view: { type: 'chart', chart: 'bar' } } })
       }
       if (/\/insights\/assistant\/progress\/[\w-]+\/$/.test(path)) return json({ steps: assistantSteps('now'), finished: false })
+      if (path.endsWith('/insights/assistant/history/')) {
+        const params = new URL(url, 'http://test.local').searchParams
+        const before = params.get('before')
+        const from = before ? insightsHistoryNow.prompts.findIndex((p) => p.id === before) + 1 : 0
+        const limit = Number(params.get('limit') ?? 30)
+        return json({ prompts: insightsHistoryNow.prompts.slice(from, from + limit), more: insightsHistoryNow.prompts.length > from + limit, clearable: insightsHistoryNow.clearable })
+      }
+      if (path.endsWith('/insights/assistant/history/clear/') && method === 'POST') {
+        const cleared = insightsHistoryNow.prompts.length
+        insightsHistoryNow.prompts = []
+        return json({ cleared })
+      }
+      const renamed = /\/insights\/assistant\/([\w-]+)\/rename\/$/.exec(path)
+      if (renamed && method === 'POST') {
+        const found = insightsHistoryNow.prompts.find((p) => p.id === renamed[1])
+        const name = String((body as { name?: string } | null)?.name ?? '').trim()
+        if (!found) return json({ detail: 'No such prompt.' }, 404)
+        if (!name) return json({ errors: { name: 'Give the report a name of up to 200 characters.' } }, 400)
+        Object.assign(found, found.report_id ? { report_name: name } : { draft_name: name })
+        return json({ id: found.id, report_id: found.report_id, report_name: found.report_id ? name : null, draft_name: found.report_id ? null : name })
+      }
       if (path.endsWith('/insights/assistant/ask/')) {
         const form = init.body instanceof FormData ? init.body : null                          // with images or documents it comes as multipart
-        const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true', component: form.get('component') ?? undefined } : body ?? {}) as { prompt: string; model: string; unmapped?: boolean; component?: string }
-        const reply = assistantReply(asked.prompt, asked.model, { unmapped: asked.unmapped, documents: form ? form.getAll('documents') as File[] : [], images: form ? form.getAll('images').length : 0 })
-        return json(asked.component && reply.kind === 'draft' ? { ...reply, component: asked.component } : reply)
+        const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true', component: form.get('component') ?? undefined, name: form.get('name') ?? undefined } : body ?? {}) as { prompt: string; model: string; unmapped?: boolean; component?: string; name?: string }
+        const answered = assistantReply(asked.prompt, asked.model, { unmapped: asked.unmapped, documents: form ? form.getAll('documents') as File[] : [], images: form ? form.getAll('images').length : 0 })
+        const reply = { ...answered, tokens: { in: 2830, out: 235 }, ...(asked.name && answered.kind === 'draft' ? { name: asked.name } : {}), ...(asked.component && answered.kind === 'draft' ? { component: asked.component } : {}) }
+        insightsHistoryNow.prompts.unshift({ id: reply.id, prompt: asked.prompt, model: reply.model.label, provider: reply.model.provider, created_at: '2026-10-24T10:00:00Z',
+          outcome: reply.kind === 'draft' ? 'DRAFT' : reply.kind === 'question' ? 'QUESTION' : 'NO_FIELD', report_id: null, report_name: null, draft_name: 'name' in reply ? reply.name ?? null : null, tokens_in: 2830, tokens_out: 235, duration_ms: 3200 })
+        return json(reply)
       }
       const opened = /\/insights\/assistant\/([\w-]+)\/open\/$/.exec(path)
       if (opened && method === 'POST') {
-        const made = { ...insightsSummary, id: 'rep-ai', name: (body as { name?: string } | null)?.name || 'Sent and Delivered by Campaign' }
+        const made = { ...insightsSummary, id: 'rep-ai', name: (body as { name?: string } | null)?.name || 'Sent and Delivered by Campaign', ai: true }
         insightsReportsNow.push(made)
+        const asked = insightsHistoryNow.prompts.find((p) => p.id === opened[1])
+        if (asked) Object.assign(asked, { report_id: made.id, report_name: made.name, draft_name: null })
         return json({ ...insightsReport, ...made, row_version: 1, can_edit: true }, 201)
       }
       if (path.endsWith('/insights/schedules/') && method === 'POST') {

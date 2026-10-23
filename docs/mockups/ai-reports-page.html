@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Reports Page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .pill-ai { height:20px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+  .box { position:relative; border:1px solid var(--line-control); border-radius:12px; background:#fff }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .askabout { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .datapick { height:28px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-900); background:#fff }
+  .datapick b { font-weight:600 } .datapick small { color:var(--ink-700); font-size:11.5px } .datapick::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .datapick.ghost { border-color:transparent }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .thumb { width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#f9fafb; position:relative; flex:none }
+  .doc { height:64px; min-width:180px; max-width:240px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center; position:relative }
+  .doc .ico { width:34px; height:42px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:9px; font-weight:700; color:var(--ink-800); padding-bottom:5px; flex:none }
+  .doc .ico.pdf { background:#fae2e2; color:var(--danger-text) } .doc .ico.word { background:var(--brand-100); color:var(--brand-800) }
+  .doc b { display:block; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px } .doc small { font-size:11.5px; color:var(--ink-700) }
+  .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .muted { font-size:12px; color:var(--ink-800) } .grow { flex:1 }
+  .counter { font-size:12px; color:var(--warning-text); font-variant-numeric:tabular-nums; font-weight:500 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 8px; font-size:13px; border-radius:999px } .model::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-subtle) }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; padding:0 14px; font:600 13px/32px var(--font) }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .small { font-size:12px; color:var(--ink-800) }
+
+  .menu { position:absolute; z-index:2; top:42px; left:12px; width:380px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:6px }
+  .menu .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .menu .opt { display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:8px; font-size:13.5px }
+  .menu .opt.on { background:var(--callout-bg) } .menu .opt small { display:block; font-size:12px; color:var(--ink-800) }
+  .menu .opt .m { width:26px; height:26px; border-radius:8px; background:var(--brand-100); color:var(--brand-800); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .menu .opt .m.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .menu .check { display:flex; gap:8px; align-items:flex-start; margin:4px 8px 6px 44px; font-size:12.5px; color:var(--ink-900) }
+  .cb { width:15px; height:15px; border-radius:4px; background:var(--brand-600); flex:none; margin-top:2px; position:relative } .cb::after { content:"✓"; color:#fff; font-size:11px; position:absolute; left:2px; top:-2px }
+
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:12px; background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--brand-800); text-align:center }
+  .drop b { font-size:15px } .drop small { font-size:12px; color:var(--ink-800) }
+
+  .result { border:1px solid var(--line); border-radius:12px; background:var(--surface-subtle); padding:14px 16px; display:flex; flex-direction:column; gap:8px; font-size:13.5px }
+  .result dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0 } .result dt { font-weight:600 } .result dd { margin:0 }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--brand-100); color:var(--brand-800) }
+  .tag.new { background:var(--warning-bg); color:var(--warning-text) }
+  .btns { display:flex; gap:8px } .btn { height:32px; border-radius:999px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</style>
+</head>
+<style>
+  :root { --navy:#20265d; --navy-hover:#2c336f; --navy-text:#e7e8ef; --navy-icon:#a9afd0 }
+  .shell { display:grid; grid-template-columns:200px minmax(0,1fr); min-height:560px; background:var(--canvas) }
+  .nav { background:#fff; border-right:1px solid var(--line); padding:14px 10px; display:flex; flex-direction:column; gap:2px; font-size:13.5px }
+  .nav h4 { font-size:14px; margin:0 6px 2px } .nav small { display:block; font-size:12px; color:var(--ink-800); margin:0 6px 10px }
+  .nav a { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:6px; color:var(--ink-900) }
+  .nav a.on { background:var(--callout-bg); color:var(--brand-800); font-weight:600 }
+  .nav a .ai { margin-left:auto; height:18px; padding:0 5px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); font-size:10px; font-weight:700; display:inline-flex; align-items:center }
+  .nav .ico { width:16px; text-align:center; color:var(--ink-700) }
+  .main { padding:18px 22px; display:flex; flex-direction:column; gap:14px; min-width:0 }
+  .main h1 { font-size:22px; line-height:30px } .main .sub { font-size:13px; color:var(--ink-800); margin-top:-10px }
+  .box2 { border:1px solid var(--line-control); border-radius:8px; background:#fff }
+  .namebar { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .nameinput { flex:1; max-width:420px; height:30px; border:1px solid var(--line); border-radius:6px; padding:0 10px; display:flex; align-items:center; color:var(--ink-900); font-size:13.5px }
+  .nameinput.ph { color:var(--ink-300) }
+  .panel2 { background:#fff; border:1px solid var(--line); border-radius:8px; display:flex; flex-direction:column; min-height:0 }
+  .panel2 > header { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line-subtle) }
+  .panel2 > header h3 { font-size:14px } .panel2 > header .right { margin-left:auto; display:flex; gap:8px; align-items:center; font-size:12.5px }
+  .scroll { overflow:auto; padding:6px 14px 10px }
+  .step { display:flex; gap:9px; align-items:flex-start; font-size:13px; padding:4px 0 } .step b { font-weight:600 }
+  .dot { width:16px; height:16px; border-radius:999px; flex:none; margin-top:1px; display:inline-flex; align-items:center; justify-content:center; font-size:10px }
+  .dot.ok { background:var(--success-bg); color:var(--success-text) } .dot.now { border:2px solid var(--brand-600); border-right-color:transparent } .dot.wait { border:1px solid var(--line-control) }
+  .run { border-top:1px solid var(--line-subtle); padding:8px 0 } .run:first-child { border-top:0 }
+  .run .meta { font-size:12px; color:var(--ink-800) }
+  .hist { display:flex; gap:10px; padding:9px 0; border-top:1px solid var(--line-subtle); font-size:13px } .hist:first-child { border-top:0 }
+  .hist .p { flex:1; min-width:0 } .hist .p .t { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
+  .hist .p small { display:block; font-size:12px; color:var(--ink-800); margin-top:2px }
+  .hist .rep { display:inline-flex; align-items:center; gap:5px; font-weight:600; color:var(--brand-800) }
+  .pen { width:22px; height:22px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-700); border:1px solid transparent; font-size:12px }
+  .pen:hover { border-color:var(--line) }
+  .hist .when { font-size:12px; color:var(--ink-700); white-space:nowrap } .hist .acts { display:flex; flex-direction:column; gap:4px; align-items:flex-end }
+  .lnk { color:var(--brand-800); font-weight:500; font-size:12.5px }
+  .switch { width:30px; height:18px; border-radius:999px; background:var(--brand-600); position:relative; display:inline-block } .switch::after { content:""; position:absolute; right:2px; top:2px; width:14px; height:14px; border-radius:999px; background:#fff }
+  .switch.off { background:var(--line-control) } .switch.off::after { right:auto; left:2px }
+  .two { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:14px; align-items:start }
+  .tagx { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--fill-subtle); color:var(--ink-800) }
+  .tagx.ok { background:var(--success-bg); color:var(--success-text) } .tagx.warn { background:var(--warning-bg); color:var(--warning-text) }
+  .rlist { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; font-size:13.5px }
+  .rlist .r { display:flex; gap:12px; align-items:center; padding:8px 12px; border-top:1px solid var(--line-subtle) } .rlist .r:first-child { border-top:0 }
+  .rlist .r small { color:var(--ink-800); margin-left:auto; font-size:12px }
+  .ai-tag { height:18px; padding:0 5px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); font-size:10px; font-weight:700; display:inline-flex; align-items:center }
+  .confirm { border:1px solid var(--line); border-radius:8px; background:#fff; box-shadow:0 8px 24px rgb(20 23 31 / 0.16); padding:14px; width:360px; font-size:13px; display:flex; flex-direction:column; gap:10px }
+  .confirm h4 { font-size:14.5px }
+</style>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Insights gets its own <b>AI Reports</b> page above Reports; Reports goes back to the plain list. Sample prompts from the Citi Trends eReceipts work.</div>
+  <p class="note"><strong>AI Reports</strong> shows in the Insights menu only when AI can be used: an AI provider with a key is on (the platform's or the workspace's own), AI is switched on for the workspace, and the person may build reports. Otherwise the item is not there at all. The page holds the prompt box with an optional <strong>Report Name</strong>, the <strong>run details</strong> of the prompts below it, and the <strong>prompt history</strong>, newest first, scrolled, which you can hide or clear. A report a prompt became is renamed with the pencil. The reports themselves are ordinary reports: they stay in <strong>Reports</strong> (marked AI) and can be put on any dashboard under <strong>Dashboards</strong>. The options differ in where the history sits.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: one column, the box, then run details, then history</h2>
+  <p>Everything stacked in reading order; run details and history each scroll inside their own panel, so the box stays near the top.</p>
+
+  <div class="label">A1 · Busy: a run under way, a long history <span>The run details show the prompt being built step by step, then the earlier runs of this session. The history has 46 prompts in the last 90 days.</span></div>
+  <div class="frame"><div class="cap">Option A · busy</div>
+    <div class="shell">
+      <nav class="nav"><h4>Insights</h4><small>Reports, dashboards, datasets</small>
+        <a><span class="ico">▦</span>Overview</a>
+        <a class="on"><span class="ico">✦</span>AI Reports<span class="ai">AI</span></a>
+        <a><span class="ico">▤</span>Reports</a>
+        <a><span class="ico">▣</span>Dashboards</a>
+        <a><span class="ico">◷</span>Scheduled</a>
+        <a><span class="ico">⇪</span>Uploaded Files</a>
+        <a><span class="ico">Σ</span>Shared Formulas</a>
+      </nav>
+      <div class="main">
+        <h1>AI Reports</h1><p class="sub">Describe a report, or attach its spec; the draft opens in the editor. 14 of 200 prompts used in October.</p>
+        <div class="box2">
+          <div class="namebar">Report Name <span class="nameinput">01 Store Delivery Leaderboard</span> <span class="muted">optional; the model names it otherwise</span></div>
+          <div class="askabout">Ask About <span class="datapick"><span class="mark">MY</span><b>Citi-TT-Analysis DB 8.0</b><small>2 datasets</small></span></div>
+          <div class="text">Delivery Rate, Receipts Sent and Failure Rate by Region, District and Store Name for the last 30 days, every store, sorted by Delivery Rate descending.</div>
+          <div class="bar"><span class="icon">📎</span><span class="muted">Drop, paste or attach up to 5 images and 3 documents</span><span class="grow"></span>
+            <span class="muted">Add To</span><span class="tagx">Insights ▾</span><span class="model"><span class="mark">A</span>Claude Sonnet 5.5</span><span class="primary off">Generating…</span></div>
+        </div>
+        <section class="panel2"><header><h3>Run Details</h3><span class="right"><span class="muted">this session</span></span></header>
+          <div class="scroll" style="max-height:190px">
+            <div class="run"><div class="meta"><b>01 Store Delivery Leaderboard</b> · started 10:42 · 0:21 so far</div>
+              <div class="step"><span class="dot ok">✓</span>Read the catalogue: Citi-TT-Analysis DB 8.0, 2 datasets, 36 fields</div>
+              <div class="step"><span class="dot ok">✓</span>Asked Claude Sonnet 5.5</div>
+              <div class="step"><span class="dot now"></span><b>Checking the draft against the catalogue</b></div>
+              <div class="step"><span class="dot wait"></span>Previewing the rows</div></div>
+            <div class="run"><div class="meta"><b>01 Failure Reasons</b> · 10:39 · 30 s · 2,830 tokens in, 235 out · <span class="tagx ok">Draft</span> <span class="lnk">Open in Editor</span></div>
+              <div class="step"><span class="dot ok">✓</span>Draft: Failure Reason, Error Code, Failed with % of total · preview 22 rows</div></div>
+            <div class="run"><div class="meta"><b>01 Weekly Sent, Delivered, Clicked</b> · 10:36 · 40 s · <span class="tagx ok">Saved</span></div></div>
+          </div></section>
+        <section class="panel2"><header><h3>Prompt History</h3><span class="muted">46 in the last 90 days, newest first</span>
+          <span class="right">Show <span class="switch"></span> <span class="lnk">Clear History…</span></span></header>
+          <div class="scroll" style="max-height:220px">
+            <div class="hist"><div class="p"><span class="rep">01 Delivery by Carrier <span class="pen" title="Rename">✎</span></span><div class="t">Receipts Sent, Delivery Rate and Failure Rate by Carrier for the last 30 days, sorted by Receipts Sent descending.</div><small>Claude Sonnet 5.5 · saved as a report</small></div>
+              <div class="acts"><span class="when">10:31</span><span class="lnk">Use Again</span></div></div>
+            <div class="hist"><div class="p"><span class="rep">01 Delivered, Failed, Pending <span class="pen">✎</span></span><div class="t">Receipts Sent by Status for the last 30 days as a pie, one slice each for delivered, failed and sent (pending).</div><small>Claude Sonnet 5.5 · saved as a report</small></div>
+              <div class="acts"><span class="when">10:28</span><span class="lnk">Use Again</span></div></div>
+            <div class="hist"><div class="p"><span class="muted">Not saved</span><div class="t">Coverage by store and weekday as a heatmap</div><small>GPT-5 · draft not opened</small></div>
+              <div class="acts"><span class="when">Yesterday</span><span class="lnk">Use Again</span></div></div>
+            <div class="hist"><div class="p"><span class="muted">Asked a question</span><div class="t">Revenue last month</div><small>Claude Sonnet 5.5</small></div>
+              <div class="acts"><span class="when">21 Oct</span><span class="lnk">Use Again</span></div></div>
+          </div></section>
+      </div>
+    </div>
+  </div>
+
+  <div class="label">A2 · Sparse: first visit, and the history hidden <span>No runs yet in this session; the history switched off shows one line. The examples stay until the first prompt.</span></div>
+  <div class="frame"><div class="cap">Option A · sparse</div>
+    <div class="shell" style="min-height:380px">
+      <nav class="nav"><h4>Insights</h4><small>Reports, dashboards, datasets</small>
+        <a><span class="ico">▦</span>Overview</a><a class="on"><span class="ico">✦</span>AI Reports<span class="ai">AI</span></a><a><span class="ico">▤</span>Reports</a><a><span class="ico">▣</span>Dashboards</a></nav>
+      <div class="main">
+        <h1>AI Reports</h1><p class="sub">200 prompts a month on the Growth plan.</p>
+        <div class="box2">
+          <div class="namebar">Report Name <span class="nameinput ph">Optional: the model names it otherwise</span></div>
+          <div class="askabout">Ask About <span class="datapick"><span class="mark">ALL</span><b>All My Data</b></span></div>
+          <div class="text ph">e.g. Revenue by channel and month for the last quarter, as a pivot.</div>
+          <div class="bar"><span class="icon">📎</span><span class="muted">Drop, paste or attach up to 5 images and 3 documents</span><span class="grow"></span><span class="model"><span class="mark">A</span>Claude Sonnet 5.5</span><span class="primary off">Generate Report</span></div>
+        </div>
+        <section class="panel2"><header><h3>Run Details</h3></header><div class="scroll"><p class="small">The steps of each prompt show here while it runs, and stay for this session.</p></div></section>
+        <section class="panel2"><header><h3>Prompt History</h3><span class="right">Show <span class="switch off"></span></span></header><div class="scroll"><p class="small">Hidden. Your 3 earlier prompts are kept; switch Show on to see them.</p></div></section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: the box and run details on the left, the history down the right</h2>
+  <p>The history is a column of its own, always in view beside the box on a wide screen (below it on a narrow one); hiding it gives the box the full width.</p>
+  <div class="label">B1 · Busy <span>The same moment as A1.</span></div>
+  <div class="frame"><div class="cap">Option B · busy</div>
+    <div class="shell">
+      <nav class="nav"><h4>Insights</h4><small>Reports, dashboards, datasets</small>
+        <a><span class="ico">▦</span>Overview</a><a class="on"><span class="ico">✦</span>AI Reports<span class="ai">AI</span></a><a><span class="ico">▤</span>Reports</a><a><span class="ico">▣</span>Dashboards</a><a><span class="ico">◷</span>Scheduled</a></nav>
+      <div class="main">
+        <h1>AI Reports</h1>
+        <div class="two">
+          <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+            <div class="box2">
+              <div class="namebar">Report Name <span class="nameinput">01 Store Delivery Leaderboard</span></div>
+              <div class="askabout">Ask About <span class="datapick"><span class="mark">MY</span><b>Citi-TT-Analysis DB 8.0</b></span></div>
+              <div class="text">Delivery Rate, Receipts Sent and Failure Rate by Region, District and Store Name for the last 30 days…</div>
+              <div class="bar"><span class="icon">📎</span><span class="grow"></span><span class="model"><span class="mark">A</span>Claude Sonnet 5.5</span><span class="primary off">Generating…</span></div>
+            </div>
+            <section class="panel2"><header><h3>Run Details</h3></header>
+              <div class="scroll" style="max-height:200px">
+                <div class="run"><div class="meta"><b>01 Store Delivery Leaderboard</b> · 0:21 so far</div>
+                  <div class="step"><span class="dot ok">✓</span>Read the catalogue</div><div class="step"><span class="dot ok">✓</span>Asked Claude Sonnet 5.5</div><div class="step"><span class="dot now"></span><b>Checking the draft</b></div></div>
+                <div class="run"><div class="meta"><b>01 Failure Reasons</b> · 30 s · <span class="tagx ok">Draft</span> <span class="lnk">Open in Editor</span></div></div>
+              </div></section>
+          </div>
+          <section class="panel2"><header><h3>Prompt History</h3><span class="right"><span class="lnk">Hide</span> · <span class="lnk">Clear…</span></span></header>
+            <div class="scroll" style="max-height:430px">
+              <div class="hist"><div class="p"><span class="rep">01 Delivery by Carrier <span class="pen">✎</span></span><div class="t">Receipts Sent, Delivery Rate and Failure Rate by Carrier…</div><small>10:31 · saved</small></div></div>
+              <div class="hist"><div class="p"><span class="rep">01 Delivered, Failed, Pending <span class="pen">✎</span></span><div class="t">Receipts Sent by Status for the last 30 days as a pie…</div><small>10:28 · saved</small></div></div>
+              <div class="hist"><div class="p"><span class="muted">Not saved</span><div class="t">Coverage by store and weekday as a heatmap</div><small>Yesterday · draft not opened</small></div></div>
+              <div class="hist"><div class="p"><span class="muted">Asked a question</span><div class="t">Revenue last month</div><small>21 Oct</small></div></div>
+              <div class="hist"><div class="p"><span class="rep">Sent by Campaign <span class="pen">✎</span></span><div class="t">Sent and delivered by campaign for September</div><small>20 Oct · saved</small></div></div>
+            </div></section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================== BOTH -->
+  <h2 class="part">Both options: renaming, clearing, and where the reports go</h2>
+  <div class="row2">
+    <div><div class="label">Rename with the pencil <span>In place in the history; Enter saves, Escape cancels. It renames the report itself (owner or administrator).</span></div>
+      <div class="frame"><div class="page"><div class="panel2"><div class="scroll"><div class="hist"><div class="p"><span class="nameinput" style="max-width:none">01 Delivery by Carrier, Last 30 Days</span><small>Enter to save · Esc to cancel</small></div></div></div></div></div></div></div>
+    <div><div class="label">Clear History <span>Clears the list for you; the prompts still count in the month's allowance and stay in the workspace's records.</span></div>
+      <div class="frame"><div class="page"><div class="confirm"><h4>Clear your prompt history?</h4><p>Your 46 prompts leave this list. The reports they became are not touched, and the month's prompt count stays as it is.</p><div class="btns"><span class="btn">Cancel</span><span class="btn p">Clear History</span></div></div></div></div></div>
+  </div>
+  <div class="label">Reports and Dashboards <span>Reports is the plain list again (no AI box); a report a prompt made carries a small AI mark. Any of them can be added as a tile in Dashboards → Add Tile.</span></div>
+  <div class="frame"><div class="cap">Insights → Reports</div><div class="page">
+    <div class="rlist">
+      <div class="r"><span class="ai-tag">AI</span> 01 Store Delivery Leaderboard<small>SMS Receipt Messages · Aby John</small></div>
+      <div class="r"><span class="ai-tag">AI</span> 01 Delivery KPIs<small>SMS Receipt Messages · Aby John</small></div>
+      <div class="r">Sends by Campaign<small>Messages · Aby John</small></div>
+    </div>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>AI Reports in the menu</strong>, above Reports, shown only when Ask for a Report is available to the person (a provider with a key switched on, AI on for the workspace, the report.edit right); hidden otherwise. Its page holds the box, Run Details and Prompt History. <strong>Reports</strong> loses the AI box and keeps the list.</li>
+      <li><strong>Report Name</strong>: an optional field at the top of the box; the draft takes it, and the name field on the draft (already there) still edits it before Open in Editor.</li>
+      <li><strong>Run Details</strong>: the steps of the prompt under way (as today), then the earlier runs of this visit with their time, tokens and outcome, scrolling inside the panel.</li>
+      <li><strong>Prompt History</strong>: the person's prompts of the last 90 days, newest first, 30 at a time as you scroll; <strong>Show</strong> on or off is remembered per browser; <strong>Clear History</strong> hides them from the list (patch 0078 adds <code>ai_prompt.cleared_at</code>), never deletes them, so the month's count is unchanged; <strong>Use Again</strong> puts a prompt back in the box; the <strong>pencil</strong> renames the report a prompt became.</li>
+      <li><strong>Reports and Dashboards</strong>: AI-made reports keep living in Reports, with an AI mark, and are added to dashboards like any report.</li>
+      <li><strong>Help and tests</strong>: the Insights help's AI steps move to the new page; tests for the menu rule, history paging, hide, clear (count kept), rename, and the name field.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A.</strong> The page reads top to bottom in the order you work (name, prompt, watch it run, look back), the box stays wide enough for a long spec, and it works the same on a narrow screen. Option B suits wide screens where you reuse old prompts often, but squeezes the box.</div>
+</div>
+</body>
+</html>

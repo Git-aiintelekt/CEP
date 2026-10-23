@@ -320,6 +320,8 @@ export interface ReportSummary {
   own_dataset?: boolean
   /** shared with people or roles */
   shared?: boolean
+  /** drafted by AI (AI Reports) */
+  ai?: boolean
   /** the owner, or a report administrator: may change who it is shared with */
   can_share?: boolean
 }
@@ -775,6 +777,18 @@ export interface AssistantRecent {
   created_at: string
   report_id: string | null
   report_name: string | null
+  /** a draft not opened yet: its name, which the pencil changes */
+  draft_name?: string | null
+  tokens_in?: number
+  tokens_out?: number
+  duration_ms?: number | null
+}
+/** AI Reports → Prompt History: a page of the person's prompts, newest first */
+export interface AssistantHistory {
+  prompts: AssistantRecent[]
+  more: boolean
+  /** Clear History is possible (database patch 0078) */
+  clearable: boolean
 }
 export interface AssistantState {
   enabled: boolean
@@ -837,6 +851,8 @@ export interface AskResult {
   new_dataset?: AskNewDataset
   /** the documents and images the model read with the prompt */
   read?: { documents: { name: string; kind: 'pdf' | 'word' | 'excel' | 'csv' | 'text' | 'markdown'; pages?: number; words?: number }[]; images: number } | null
+  /** what the prompt used of the provider */
+  tokens?: { in: number; out: number }
   usage: AssistantUsage
 }
 /** Settings → AI Assistant: one provider, the platform's key and the workspace's own */

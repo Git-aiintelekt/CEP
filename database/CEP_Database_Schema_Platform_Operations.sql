@@ -2609,6 +2609,7 @@ CREATE TABLE IF NOT EXISTS ai_prompt (
 ALTER TABLE ai_prompt ADD COLUMN IF NOT EXISTS account VARCHAR(10) NOT NULL DEFAULT 'PLATFORM';   -- likewise
 ALTER TABLE ai_prompt DROP CONSTRAINT IF EXISTS ck_ai_prompt_account;
 ALTER TABLE ai_prompt ADD CONSTRAINT ck_ai_prompt_account CHECK (account IN ('PLATFORM', 'OWN'));
+ALTER TABLE ai_prompt ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMPTZ;         -- AI Reports → Clear History: gone from the person's list, still counted (patch 0078)
 CREATE INDEX IF NOT EXISTS ix_ai_prompt_tenant ON ai_prompt(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_ai_prompt_user ON ai_prompt(user_id, created_at DESC);
 ALTER TABLE ai_prompt ENABLE ROW LEVEL SECURITY;
