@@ -825,7 +825,7 @@ export interface AskResult {
   component?: string
   new_dataset?: AskNewDataset
   /** the documents and images the model read with the prompt */
-  read?: { documents: { name: string; kind: 'pdf' | 'word' | 'text' | 'markdown'; pages?: number; words?: number }[]; images: number } | null
+  read?: { documents: { name: string; kind: 'pdf' | 'word' | 'excel' | 'csv' | 'text' | 'markdown'; pages?: number; words?: number }[]; images: number } | null
   usage: AssistantUsage
 }
 /** Settings → AI Assistant: one provider, the platform's key and the workspace's own */
