@@ -20,7 +20,7 @@ import { insightsApi, keys } from '../api'
 import { starterDefinition } from '../starter'
 import { matches, PAGE } from '../sourceGroups'
 import type { ReportDatabase, ReportDatabaseTest, ReportDataset, SourceList } from '../types'
-import { connectionBody, connectionForm, ENGINE_LABEL, testWords, type ConnectionForm } from '../databaseConnection'
+import { connectionBody, connectionForm, ENGINE_LABEL, testUsable, testWords, type ConnectionForm } from '../databaseConnection'
 import { ConnectionFields, LimitFields, TestChecks } from './DatabaseConnectionForm'
 
 export function ConnectDatabaseDrawer({ onClose }: { onClose: () => void }) {
@@ -35,7 +35,7 @@ function ConnectionStep({ onSaved, onClose }: { onSaved: (database: ReportDataba
   const [outcome, setOutcome] = useState<ReportDatabaseTest | null>(null)
   const [tested, setTested] = useState<string | null>(null)                    // the form as it was when the test passed
   const snapshot = JSON.stringify(form)
-  const readOnly = Boolean(outcome?.ok && outcome.read_only) && tested === snapshot
+  const usable = Boolean(outcome && testUsable(outcome)) && tested === snapshot
   const test = useMutation({
     mutationFn: () => api.post<{ test: ReportDatabaseTest }>('/workspace/report-databases/test/', connectionBody(form, null)),
     onSuccess: ({ test: result }) => { setOutcome(result); setTested(snapshot); setErrors({}) },
@@ -50,22 +50,22 @@ function ConnectionStep({ onSaved, onClose }: { onSaved: (database: ReportDataba
     },
     onError: (error) => setErrors(error instanceof ApiError ? error.fieldErrors : { name: 'The database was not saved.' }),
   })
-  const submit = (event: FormEvent) => { event.preventDefault(); if (readOnly) save.mutate() }
+  const submit = (event: FormEvent) => { event.preventDefault(); if (usable) save.mutate() }
   return (
     <Drawer title="Connect a Database" eyebrow="1 Connection · 2 What to Report On" onClose={onClose}
       footer={<>
         <Button variant="secondary" loading={test.isPending} onClick={() => test.mutate()}>Test Connection</Button>
-        <button type="submit" form="connect-database" className={`${buttonPrimary} ml-auto`} disabled={!readOnly || save.isPending}>Save and Continue</button>
+        <button type="submit" form="connect-database" className={`${buttonPrimary} ml-auto`} disabled={!usable || save.isPending}>Save and Continue</button>
       </>}>
       <form id="connect-database" className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-ink-800">Read-only. The password stays on the server, and the engine only ever selects from the database.</p>
         <ConnectionFields form={form} onChange={setForm} errors={errors} />
         <LimitFields form={form} onChange={setForm} errors={errors} />
         {outcome && <TestChecks outcome={outcome} engine={form.engine} />}
-        {outcome && !readOnly && tested === snapshot && outcome.ok && (
+        {outcome && !usable && tested === snapshot && outcome.ok && (
           <p className="rounded-md bg-callout-bg p-3 text-sm text-callout-text">Ask whoever runs the database for an account that can only read, then test again.</p>
         )}
-        {!outcome && <p className="text-xs text-ink-800">Test the connection first: it is saved only once the account is shown to read and nothing else.</p>}
+        {!outcome && <p className="text-xs text-ink-800">Test the connection first: it is saved once the test passes.</p>}
       </form>
     </Drawer>
   )

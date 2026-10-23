@@ -18,7 +18,7 @@ import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
 import { ConnectionFields, LimitFields, TestChecks } from '@/apps/insights/components/DatabaseConnectionForm'
-import { connectionBody, connectionForm, LIMIT_PRESETS, testWords, type ConnectionForm } from '@/apps/insights/databaseConnection'
+import { connectionBody, connectionForm, LIMIT_PRESETS, testUsable, testWords, type ConnectionForm } from '@/apps/insights/databaseConnection'
 import type { ReportDatabase, ReportDatabaseTest, ReportDatabases } from '@/apps/insights/types'
 import { DATABASES_KEY, engineMark } from './reportDatabases'
 
@@ -32,6 +32,7 @@ export function ReportDatabasesPage() {
     mutationFn: (id: string) => api.post<{ test: ReportDatabaseTest; database: ReportDatabase }>(`/workspace/report-databases/${id}/test/`, {}),
     onSuccess: ({ test: outcome, database }) => {
       if (outcome.ok && outcome.read_only) toast.success(`${database.name}: connected and read-only`)
+      else if (testUsable(outcome)) toast.success(`${database.name}: connected`, 'The account can write; it is used because read-only is not required here.')
       else toast.failure(new Error(testWords(outcome)), `${database.name}: the test failed`)
       void refresh()
     },
@@ -69,7 +70,7 @@ export function ReportDatabasesPage() {
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3" aria-label="Databases">
           {data.databases.map((db) => (
-            <li key={db.id} className={`flex flex-col gap-2.5 rounded-lg border bg-surface p-4 ${db.read_only === false ? 'border-danger-text' : 'border-line'}`} aria-label={db.name}>
+            <li key={db.id} className={`flex flex-col gap-2.5 rounded-lg border bg-surface p-4 ${db.read_only === false && !db.usable ? 'border-danger-text' : 'border-line'}`} aria-label={db.name}>
               <div className="flex items-start gap-3">
                 <span aria-hidden className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[10px] leading-tight font-bold ${db.usable ? 'bg-brand-100 text-brand-800' : 'bg-fill-subtle text-ink-800'}`}>{engineMark(db.engine)}</span>
                 <div className="min-w-0 flex-1">
@@ -134,6 +135,7 @@ function LimitsMark({ db }: { db: ReportDatabase }) {
 
 function ReadOnlyMark({ db }: { db: ReportDatabase }) {
   if (db.read_only === true) return <span className="ml-1 font-semibold text-success-text">✓ Read-only</span>
+  if (db.read_only === false && db.usable) return <span className="ml-1 font-semibold text-warning-text" title="Used because read-only is not required here; C360 still reads only">! Can write</span>
   if (db.read_only === false) return <span className="ml-1 font-semibold text-danger-text">✕ Can write</span>
   return <span className="ml-1 text-ink-700">· not tested</span>
 }

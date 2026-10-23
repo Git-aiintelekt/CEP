@@ -49,6 +49,11 @@ export function connectionBody(form: ConnectionForm, database: ReportDatabase | 
     ...(form.limitProfile === 'CUSTOM' ? { query_timeout_s: Number(form.timeout) || undefined, max_concurrent: Number(form.concurrent) || undefined } : {}) }
 }
 
+/** the test passed and the account may be used: read-only, or able to write where the installation does not require read-only */
+export function testUsable(outcome: ReportDatabaseTest): boolean {
+  return outcome.ok && (outcome.read_only !== false || outcome.read_only_required === false)
+}
+
 export function testWords(outcome: ReportDatabaseTest): string {
   if (!outcome.ok) return outcome.error ?? 'the server did not answer.'
   if (outcome.read_only === false) return `the account can write (${(outcome.offending ?? []).join('; ')}).`

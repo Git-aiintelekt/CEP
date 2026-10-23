@@ -585,6 +585,8 @@ export interface ReportDatabaseTest {
   views?: number
   read_only?: boolean
   offending?: string[]
+  /** the installation requires a read-only account (the global parameter insights.report_db_read_only_required) */
+  read_only_required?: boolean
   ms: number
   error: string | null
 }
@@ -674,6 +676,8 @@ export type LimitProfile = 'STANDARD' | 'LARGE' | 'LIVE' | 'CUSTOM'
 export interface ReportDatabases {
   databases: ReportDatabase[]
   grant_examples: { mysql: string; postgresql: string; clickhouse?: string }
+  /** the installation requires a read-only account; off, an account that can write is used, with a warning */
+  read_only_required?: boolean
   /** the tables exist (patch 0056) */
   ready: boolean
   /** a connection's limits can be stored (patch 0074) */

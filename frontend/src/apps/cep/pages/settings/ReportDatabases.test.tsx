@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, reportDatabasesNow, reportSourcesNow, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, reportDatabasesNow, reportDbPolicy, reportSourcesNow, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string, before: () => void = () => undefined) {
   const calls = installMockApi()
@@ -387,3 +387,22 @@ test('Find Databases lists what the account can see, and the Database field beco
 })
 
 const BIG_DB = { ...DB, name: 'CG-Prod', engine: 'mysql57' as const, engine_name: 'MySQL 5.7', database_name: 'shop', schema_name: 'shop' }
+
+test('read-only not required (the global parameter off): an account that can write is shown with a warning, saved and used', async () => {
+  const calls = await renderNewReport(['report.view', 'report.edit'])
+  reportDbPolicy.readOnlyRequired = false
+  const user = userEvent.setup()
+  await user.click(within(await screen.findByRole('list', { name: 'Your Databases' }, { timeout: 5000 })).getByRole('button', { name: /Connect a Database/ }))
+  const panel = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  await user.type(within(panel).getByLabelText(/^Name/), 'Loyalty')
+  await user.type(within(panel).getByLabelText(/^Host/), 'loyalty.example.com')
+  await user.type(within(panel).getByLabelText(/^Database/), 'loyalty')
+  await user.type(within(panel).getByLabelText(/^User/), 'cep_writer')
+  await user.type(within(panel).getByLabelText(/^Password/), 'secret')
+  await user.click(within(panel).getByRole('button', { name: 'Test Connection' }))
+  expect(await within(panel).findByText(/Can write: the account holds INSERT, UPDATE .* Allowed here, because read-only is not required/)).toBeTruthy()
+  expect(within(panel).queryByText(/Ask whoever runs the database/)).toBeNull()
+  await user.click(within(panel).getByRole('button', { name: 'Save and Continue' }))
+  expect(await screen.findByRole('dialog', { name: 'Loyalty' })).toBeTruthy()
+  expect(calls.some((c) => c.url.endsWith('/workspace/report-databases/') && c.method === 'POST')).toBe(true)
+})

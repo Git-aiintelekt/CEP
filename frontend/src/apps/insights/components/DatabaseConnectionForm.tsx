@@ -132,17 +132,21 @@ export function LimitFields({ form, onChange, errors, workspace }: {
 export function TestChecks({ outcome, engine }: { outcome: ReportDatabaseTest; engine: DatabaseEngine }) {
   const ok = (text: string) => <li className="flex items-start gap-2"><span aria-hidden className="text-success-text">✓</span><span>{text}</span></li>
   const bad = (text: string) => <li className="flex items-start gap-2"><span aria-hidden className="text-danger-text">✕</span><span>{text}</span></li>
+  const warn = (text: string) => <li className="flex items-start gap-2"><span aria-hidden className="font-semibold text-warning-text">!</span><span>{text}</span></li>
+  const writerAllowed = outcome.read_only === false && outcome.read_only_required === false
   return (
     <ul className="flex flex-col gap-1.5 rounded-md border border-line bg-surface-subtle p-3 text-sm text-ink-900" aria-label="Test Connection">
       {!outcome.ok ? bad(outcome.error ?? 'The server did not answer.') : (
         <>
           {ok(`Reached the server · ${ENGINE_LABEL[engine]} ${outcome.version ?? ''} · ${outcome.ms} ms`)}
           {ok(`The account can read ${formatNumber(outcome.tables ?? 0)} table${outcome.tables === 1 ? '' : 's'} and ${formatNumber(outcome.views ?? 0)} view${outcome.views === 1 ? '' : 's'}`)}
-          {outcome.read_only ? ok('Read-only: the account holds SELECT and no write or schema right') : bad(`Not read-only: the account holds ${(outcome.offending ?? []).join('; ')}`)}
+          {outcome.read_only ? ok('Read-only: the account holds SELECT and no write or schema right')
+            : writerAllowed ? warn(`Can write: the account holds ${(outcome.offending ?? []).join('; ')}. Allowed here, because read-only is not required; C360 still opens every session read-only and runs SELECT only`)
+            : bad(`Not read-only: the account holds ${(outcome.offending ?? []).join('; ')}`)}
           {ok(`Time zone of the server: ${outcome.timezone ?? 'unknown'} · reports convert to the workspace’s zone`)}
         </>
       )}
-      {outcome.ok && !outcome.read_only && <li className="text-xs text-ink-800">The connection can be saved but not used until the account holds SELECT only.</li>}
+      {outcome.ok && !outcome.read_only && !writerAllowed && <li className="text-xs text-ink-800">The connection can be saved but not used until the account holds SELECT only.</li>}
     </ul>
   )
 }

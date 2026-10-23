@@ -38,6 +38,7 @@ Platform administrators.
 | lists.import_chunk_rows | number | 5000 | Rows per chunk of an upload. |
 | integrations.inbound_per_minute | object | 60 / 600 / unlimited per plan | The inbound pace limit per plan code for the point of sale and other callers. |
 | integrations.log_body_max_bytes | number | 65536 | How much of a request or answer body the call log keeps. |
+| insights.report_db_read_only_required | yes/no | yes | Whether a workspace's Report Database account must hold SELECT only. Yes refuses an account that can write until it is fixed. No uses it, with a ! Can write warning on its card; C360 still opens every session on it read-only and runs SELECT only. Takes effect within a minute; test a refused connection again to use it. |
 | integrations.log_retention_days, integrations.metric_retention_months | number | 90, 13 | How long the call log and its roll-up are kept. |
 | engine_health.callback_silence_minutes | number | 60 | An engine that took messages but has not called back for this long is Failing (Engine Health). |
 | engine_health.rejection_rate_pct, engine_health.p95_ms | decimal, number | 1, 5000 | The share of refused or failed calls, and the call time 95% of calls stay under, before an engine needs attention. |

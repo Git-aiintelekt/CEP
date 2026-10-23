@@ -41,7 +41,7 @@ from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.engine import session
 from apps.insights import catalog, connection_limits, external
 from apps.insights.api import _q, _tenant
-from apps.platform_ops import crypto
+from apps.platform_ops import crypto, params
 from apps.reporting import reports
 from apps.tenants import context
 
@@ -166,7 +166,7 @@ def serialize_connection(row: dict, with_datasets: list[dict] | None = None, cou
     out.update({"limit_profile": limits["profile"], "query_timeout_s": row.get("query_timeout_s"), "max_concurrent": row.get("max_concurrent"),
                 "limits": {"timeout_s": limits["timeout_s"], "concurrent": limits["concurrent"]}, "pinned_tables": _pins(row)})
     out["engine_name"] = external.ENGINES.get(row["engine"], row["engine"])
-    out["usable"] = bool(row["status"] == "ACTIVE" and row["password_enc"] and row["read_only"] is not False)
+    out["usable"] = bool(row["status"] == "ACTIVE" and row["password_enc"] and (row["read_only"] is not False or not read_only_required()))
     if with_datasets is not None:
         out["datasets"] = [serialize_dataset(d, counts or {}) for d in with_datasets]
     return out
@@ -234,11 +234,22 @@ def _save_limits(tenant_id, connection_id, data: dict) -> None:
        [data["limit_profile"], data["query_timeout_s"], data["max_concurrent"], str(tenant_id), str(connection_id)])
 
 
+def read_only_required() -> bool:
+    """the global parameter (patch 0076): must a database's account hold SELECT only? Yes until the parameter says otherwise"""
+    return bool(params.get("insights.report_db_read_only_required", True))
+
+
+def _tested(row: dict) -> dict:
+    """Test Connection's outcome, with whether this installation requires a read-only account"""
+    return {**external.test(row), "read_only_required": read_only_required()}
+
+
 def _record_test(tenant_id, connection_id, outcome: dict) -> None:
+    refused = outcome["ok"] and outcome.get("read_only") is False and outcome.get("read_only_required", True)
     with session.tx():
         _q("""UPDATE report_connection SET last_tested_at = %s, last_test_ok = %s, last_test_error = %s, read_only = %s, server_version = %s, server_timezone = %s, updated_at = now()
                WHERE tenant_id = %s AND id = %s""",
-           [timezone.now(), outcome["ok"] and outcome.get("read_only", False), (outcome.get("error") or (None if outcome.get("read_only", True) else "The account can write: " + "; ".join(outcome.get("offending") or [])) or "")[:300] or None,
+           [timezone.now(), outcome["ok"] and not refused, (outcome.get("error") or ("The account can write: " + "; ".join(outcome.get("offending") or []) if refused else None) or "")[:300] or None,
             outcome.get("read_only") if outcome["ok"] else None, (outcome.get("version") or "")[:40] or None, (outcome.get("timezone") or "")[:40] or None, str(tenant_id), str(connection_id)])
     invalidate(tenant_id)
 
@@ -246,10 +257,10 @@ def _record_test(tenant_id, connection_id, outcome: dict) -> None:
 def _usable(row: dict) -> None:
     if row["status"] != "ACTIVE":
         raise Conflict("This database is switched off.")
-    if row["read_only"] is False:
+    if row["read_only"] is False and read_only_required():
         raise Conflict("The account can write. Give the engine a SELECT-only account and test the connection again.")
-    if row["read_only"] is not True:
-        raise Conflict("Test the connection first: the engine reads only through an account the test has shown to be read-only.")
+    if row["read_only"] is None:
+        raise Conflict("Test the connection first: the engine reads only through an account the test has shown it can use.")
 
 
 # ---------------------------------------------------------------------------------------------------- the dataset's body
@@ -440,13 +451,14 @@ class DatabasesView(APIView):
     def get(self, request, version=None):
         tenant = _tenant()
         if not _present():
-            return Response({"databases": [], "grant_examples": GRANT_EXAMPLES, "ready": False})
+            return Response({"databases": [], "grant_examples": GRANT_EXAMPLES, "ready": False, "read_only_required": read_only_required()})
         rows, counts = connections(tenant.pk), _report_counts(tenant.pk)
         by_connection: dict[str, list] = {}
         for d in datasets(tenant.pk):
             by_connection.setdefault(d["connection_id"], []).append(d)
         workspace = _workspace_limits(tenant)
         return Response({"databases": [serialize_connection(r, by_connection.get(r["id"], []), counts, workspace) for r in rows], "grant_examples": GRANT_EXAMPLES, "ready": True,
+                         "read_only_required": read_only_required(),
                          "limits_ready": _limits_present(), "workspace_limits": {"timeout_s": int(workspace["statement_timeout_ms"]) // 1000, "concurrent": min(4, int(workspace["concurrent"]))}})
 
     @extend_schema(request=None, responses={201: None})
@@ -461,7 +473,7 @@ class DatabasesView(APIView):
                 str(request.user.pk), str(request.user.pk)])
             _save_limits(tenant.pk, connection_id, data)
         row = connection(tenant.pk, connection_id)
-        outcome = external.test(row)
+        outcome = _tested(row)
         _record_test(tenant.pk, connection_id, outcome)
         return Response({**serialize_connection(connection(tenant.pk, connection_id), [], None, _workspace_limits(tenant)), "test": outcome}, status=status.HTTP_201_CREATED)
 
@@ -475,13 +487,13 @@ class DatabaseTestView(APIView):
         tenant = _tenant()
         if connection_id:
             row = connection(tenant.pk, connection_id)
-            outcome = external.test(row)
+            outcome = _tested(row)
             _record_test(tenant.pk, connection_id, outcome)
             return Response({"test": outcome, "database": serialize_connection(connection(tenant.pk, connection_id), None, None, _workspace_limits(tenant))})
         body = request.data if isinstance(request.data, dict) else {}
         current = connection(tenant.pk, body["id"]) if body.get("id") else None
         data = _connection_body(body, current)
-        return Response({"test": external.test(data)})
+        return Response({"test": _tested(data)})
 
 
 class DatabaseView(APIView):
@@ -516,7 +528,7 @@ class DatabaseView(APIView):
                [data["name"], data["engine"], data["host"], data["port"], data["database_name"], data["schema_name"], data["username"], data["password_enc"], data["ssl_mode"], str(request.user.pk),
                 str(tenant.pk), str(connection_id)])
             _save_limits(tenant.pk, connection_id, data)
-        outcome = external.test(connection(tenant.pk, connection_id)) if changed else None
+        outcome = _tested(connection(tenant.pk, connection_id)) if changed else None
         if outcome:
             _record_test(tenant.pk, connection_id, outcome)
         invalidate(tenant.pk)
@@ -661,7 +673,7 @@ class QueryTargetsView(APIView):
         tenant = _tenant()
         if not _present():
             return Response({"databases": []})
-        rows = [r for r in connections(tenant.pk) if r["status"] == "ACTIVE" and r["password_enc"] and r["read_only"] is not False]
+        rows = [r for r in connections(tenant.pk) if r["status"] == "ACTIVE" and r["password_enc"] and (r["read_only"] is not False or not read_only_required())]
         return Response({"databases": [{"id": r["id"], "name": r["name"], "engine": r["engine"], "engine_name": external.ENGINES.get(r["engine"], r["engine"]), "database_name": r["database_name"],
                                         "schema_name": r["schema_name"]} for r in rows]})
 
