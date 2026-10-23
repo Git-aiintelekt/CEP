@@ -5,7 +5,7 @@
  * makes it a private report and opens it), one question with its answers as buttons, or "no field for this" with the
  * closest prompts. The model sees the prompt and the field names, never customer rows. Only a draft counts against the month.
  * The prompt may run to 100,000 characters over several lines (the counter shows from 90,000), and up to five images (a sketch, a
- * screenshot of a chart or a table) and three documents (the report's spec as PDF, Word, text or Markdown) may go with it. They go
+ * screenshot of a chart or a table) and three documents (the report's spec as PDF, Word, Excel, CSV, text or Markdown) may go with it. They go
  * to the model and are not kept. One box holds "Ask About" (the data the prompt is about; AskAbout.tsx), the attachments, the text
  * and a bar with the paperclip, the counter, the model and Generate (docs/mockups/ask-for-report-data-and-specs.html, option A);
  * files dragged anywhere over the panel show the drop target on it, and pasting into the text adds them too. "Add To" beside the
@@ -43,6 +43,7 @@ type AttachedDocument = { file: File; kind: DocumentKind }
 const VIEW_LABEL: Record<ReportSummary['view_type'], string> = { grid: 'Grid', chart: 'Chart', pivot: 'Pivot', hierarchy: 'Hierarchy', influencers: 'Key Influencers', decomposition: 'Decomposition Tree' }
 const DOCUMENT_MARK: Record<DocumentKind, { text: string; tone: string }> = {
   pdf: { text: 'PDF', tone: 'bg-danger-bg text-danger-text' }, word: { text: 'DOC', tone: 'bg-brand-100 text-brand-800' },
+  excel: { text: 'XLS', tone: 'bg-success-bg text-success-text' }, csv: { text: 'CSV', tone: 'bg-fill-subtle text-ink-800' },
   text: { text: 'TXT', tone: 'bg-fill-subtle text-ink-800' }, markdown: { text: 'MD', tone: 'bg-fill-subtle text-ink-800' },
 }
 
@@ -117,7 +118,7 @@ export function AskForReport() {
       errors.push(`Add up to ${most} ${what}. ${left.join(', ')} ${left.length === 1 ? 'was' : 'were'} not added.`)
     }
     const wrong = files.find((file) => !isImage(file) && !documentKind(file))
-    if (wrong) errors.push(`${wrong.name || 'That file'} is not an image (PNG, JPEG, GIF, WebP) or a document (PDF, Word, text, Markdown).`)
+    if (wrong) errors.push(`${wrong.name || 'That file'} is not an image (PNG, JPEG, GIF, WebP) or a document (PDF, Word, Excel, CSV, text, Markdown).`)
     let room = ATTACHMENTS_BYTES_MAX - [...images, ...documents].reduce((sum, item) => sum + item.file.size, 0)
     const fitsTogether = (file: File) => {
       if (file.size > room) { errors.push(`Images and documents may come to ${ATTACHMENTS_BYTES_MAX / 1_000_000} MB together. ${file.name} was not added.`); return false }
@@ -250,7 +251,7 @@ export function AskForReport() {
           <div aria-hidden className="pointer-events-none absolute -inset-px flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-brand-600 bg-brand-100 text-center">
             <Upload size={24} strokeWidth={1.5} className="text-brand-800" />
             <span className="text-base font-semibold text-brand-800">Drop images or documents here</span>
-            <span className="text-xs text-ink-800">PNG, JPEG, GIF, WebP · PDF, Word, text, Markdown · up to {IMAGES_MAX} images and {DOCUMENTS_MAX} documents</span>
+            <span className="text-xs text-ink-800">PNG, JPEG, GIF, WebP · PDF, Word, Excel, CSV, text, Markdown · up to {IMAGES_MAX} images and {DOCUMENTS_MAX} documents</span>
           </div>
         )}
       </div>

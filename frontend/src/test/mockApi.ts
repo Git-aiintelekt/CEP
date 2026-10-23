@@ -106,7 +106,7 @@ function assistantReply(prompt: string, modelId: string, asked: { unmapped?: boo
       suggestions: [{ label: 'Clicks by Campaign', prompt: 'Delivered count by campaign for September' }], usage: insightsAssistantNow.usage }
   }
   insightsAssistantNow.usage = { ...insightsAssistantNow.usage, used: insightsAssistantNow.usage.used + 1, words: `${insightsAssistantNow.usage.used + 1} of 200 prompts used in October` }
-  const read = asked.documents?.length || asked.images ? { documents: (asked.documents ?? []).map((file) => ({ name: file.name, kind: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'word' : 'text' })), images: asked.images ?? 0 } : null
+  const read = asked.documents?.length || asked.images ? { documents: (asked.documents ?? []).map((file) => ({ name: file.name, kind: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'word' : file.name.endsWith('.xlsx') ? 'excel' : 'text' })), images: asked.images ?? 0 } : null
   if (asked.unmapped) {
     const field = (key: string, label: string, type: string, role: string, aggregates: string[] = []) => ({ key, label, type, role, aggregates, operators: ['='], buckets: type === 'date' ? ['week', 'month'] : [], format: null, sensitivity: 'NORMAL' })
     return { ...base, id: 'ask-new', kind: 'draft', counted: true, name: 'Net Sales by Store and Week', dataset: 'new_dataset', dataset_label: 'Store Sales', view: { type: 'grid' },

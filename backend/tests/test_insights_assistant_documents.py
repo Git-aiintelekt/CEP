@@ -40,6 +40,28 @@ def docx(body: str) -> bytes:
     return out.getvalue()
 
 
+def workbook(rows: int = 0) -> bytes:
+    """Targets: a header, two stores and an empty row between them; Notes: one line. rows: that many rows of one sheet instead."""
+    from datetime import date
+
+    import openpyxl
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet.title = "Targets"
+    if rows:
+        for n in range(rows):
+            sheet.append([f"Store {n}", n])
+    else:
+        sheet.append(["Store", "Week", "Target"])
+        sheet.append(["Dallas", date(2026, 7, 6), 1200])
+        sheet.append([])
+        sheet.append(["Austin", date(2026, 7, 6), 950.5])
+        book.create_sheet("Notes").append(["Only stores open all quarter"])
+    out = io.BytesIO()
+    book.save(out)
+    return out.getvalue()
+
+
 SPEC = docx('<w:p><w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs></w:pPr><w:r><w:t>Net sales by store</w:t></w:r><w:r><w:tab/><w:t xml:space="preserve">and week</w:t></w:r></w:p>'
             '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Store</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Week &amp; year</w:t></w:r></w:p></w:tc></w:tr></w:tbl>'
             '<w:p><w:r><w:delText>gone</w:delText><w:t>Only stores open all quarter.</w:t></w:r></w:p>')
@@ -63,7 +85,7 @@ def test_reading_documents(check):
     check("text keeps its lines", read[2]["text"] == "# Notes\n- by week" or read[2]["text"] == "# Notes\n- by week\n", repr(read[2]["text"]))
     check("four documents are refused", "up to 3 documents" in refused([SimpleUploadedFile(f"{i}.md", b"x") for i in range(4)]))
     check("an old Word file is refused, saying to save it as .docx", "save it as .docx" in refused([SimpleUploadedFile("spec.doc", b"\xd0\xcf\x11\xe0 old word")]))
-    check("a file of another kind is refused, named", "budget.xlsx is not a PDF, Word (.docx), text or Markdown file" in refused([SimpleUploadedFile("budget.xlsx", b"\x00\x01binary")]))
+    check("a file of another kind is refused, named", "budget.bin is not a PDF, Word (.docx), Excel (.xlsx), CSV, text or Markdown file" in refused([SimpleUploadedFile("budget.bin", b"\x00\x01binary")]))
     check("a PDF of more than 100 pages is refused", "more than 100 pages" in refused([SimpleUploadedFile("all.pdf", pdf(150))]))
     check("a document over 10 MB is refused with its size", "big.md is 10.0 MB" in refused([SimpleUploadedFile("big.md", b"x" * (ask_documents.DOCUMENT_BYTES_MAX + 1))]))
     check("documents whose text runs past 300,000 characters are refused", "300,000 characters" in refused([SimpleUploadedFile("a.txt", b"word " * 70_000)]))
@@ -71,6 +93,19 @@ def test_reading_documents(check):
     with zipfile.ZipFile(other, "w") as packed:
         packed.writestr("readme.txt", "not a Word file")
     check("a ZIP that is not a Word file is refused", "pack.docx is not a Word (.docx) file" in refused([SimpleUploadedFile("pack.docx", other.getvalue())]))
+
+    sheets = ask_documents.read_documents([SimpleUploadedFile("Store targets.xlsx", workbook()), SimpleUploadedFile("weeks.csv", b"week,target\r\n2026-W27,1200\r\n")])
+    check("an Excel workbook is read sheet by sheet as tab-separated rows: values, dates as dates, empty rows left out",
+          sheets[0]["kind"] == "excel" and sheets[0]["text"] == "## Sheet: Targets\nStore\tWeek\tTarget\nDallas\t2026-07-06\t1200\nAustin\t2026-07-06\t950.5\n\n## Sheet: Notes\nOnly stores open all quarter",
+          repr(sheets[0]["text"]))
+    check("CSV is read as text", sheets[1]["kind"] == "csv" and sheets[1]["text"] == "week,target\n2026-W27,1200\n", repr(sheets[1]["text"]))
+    check("an old Excel file is refused, saying to save it as .xlsx", "save it as .xlsx" in refused([SimpleUploadedFile("budget.xls", b"\xd0\xcf\x11\xe0 old excel")]))
+    broken = io.BytesIO()
+    with zipfile.ZipFile(broken, "w") as packed:
+        packed.writestr("xl/workbook.xml", "not a workbook")
+    check("a damaged workbook is refused, named", "broken.xlsx is not an Excel (.xlsx) workbook" in refused([SimpleUploadedFile("broken.xlsx", broken.getvalue())]))
+    long = ask_documents.read_documents([SimpleUploadedFile("long.xlsx", workbook(rows=ask_documents.SHEET_ROWS + 25))])[0]["text"]
+    check("a long sheet gives its first rows and says how many were left out", long.count("\n") == ask_documents.SHEET_ROWS + 1 and long.endswith("(25 more rows not shown)"), long[-80:])
 
     sent = []
 

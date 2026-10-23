@@ -17,8 +17,8 @@ model, and gets a draft back in words, checked against the report catalogue the 
 The model is Claude (Anthropic) or OpenAI, reached from CEP's own server with a key the platform team enters here. The
 browser never sees a key, and no customer row ever leaves CEP: the model receives the prompt and the names of the
 fields that person may use. A prompt may run to 100,000 characters and carry up to three documents (a spec as PDF,
-Word, text or Markdown) and five images, sent to the provider with the prompt and never stored; a PDF goes to the
-model as it is, a Word file as its text. For one of a workspace's Report Databases the model may also be given the
+Word, Excel, CSV, text or Markdown) and five images, sent to the provider with the prompt and never stored; a PDF goes to the
+model as it is, a Word file as its text, an Excel workbook as its sheets' rows (500 a sheet at most). For one of a workspace's Report Databases the model may also be given the
 names and columns of tables not mapped yet; a draft on them is mapped as a dataset only when someone opens it.
 
 Each workspace decides for itself whether AI is used in its reports (Settings → AI Assistant), and its plan sets how

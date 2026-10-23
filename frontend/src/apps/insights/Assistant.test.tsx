@@ -145,8 +145,8 @@ test('a long prompt over several lines with images: the paperclip takes up to fi
 
   const picker = box.querySelector('input[type="file"]') as HTMLInputElement
   const png = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
-  await user.upload(picker, [new File(['zip'], 'budget.xlsx', { type: 'application/vnd.ms-excel' })])
-  expect(within(box).getByRole('alert').textContent).toBe('budget.xlsx is not an image (PNG, JPEG, GIF, WebP) or a document (PDF, Word, text, Markdown).')
+  await user.upload(picker, [new File(['zip'], 'budget.zip', { type: 'application/zip' })])
+  expect(within(box).getByRole('alert').textContent).toBe('budget.zip is not an image (PNG, JPEG, GIF, WebP) or a document (PDF, Word, Excel, CSV, text, Markdown).')
   await user.upload(picker, [png('sketch.png'), png('chart.png'), png('table.png'), png('bars.png'), png('pie.png'), png('sixth.png')])
   expect(within(box).getByRole('alert').textContent).toBe('Add up to 5 images. sixth.png was not added.')
   const shown = within(box).getByRole('list', { name: 'Images' })
@@ -188,8 +188,8 @@ test('files dragged over the panel show the drop target; dropping adds the image
   const documents = await within(box).findByRole('list', { name: 'Documents' })
   expect(within(documents).getByText('plan.pdf')).toBeTruthy()
   expect(within(box).getByText('1 document · 2 images')).toBeTruthy()
-  fireEvent.drop(box, carrying([new File(['x'], 'sheet.xlsx', { type: 'application/vnd.ms-excel' })]))
-  expect((await within(box).findByRole('alert')).textContent).toMatch(/^sheet\.xlsx is not an image/)
+  fireEvent.drop(box, carrying([new File(['x'], 'slides.pptx', { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })]))
+  expect((await within(box).findByRole('alert')).textContent).toMatch(/^slides\.pptx is not an image/)
   expect(within(shown).getAllByRole('img')).toHaveLength(2)
 
   fireEvent.dragOver(box, { dataTransfer: { files: [], types: ['text/plain'], dropEffect: 'none' } })
@@ -259,4 +259,22 @@ test('a remembered database that is gone falls back to All My Data; the counter 
   expect(within(box).queryByText(/ \/ 100,000/)).toBeNull()
   fireEvent.change(prompt, { target: { value: 'x'.repeat(96_140) } })
   expect(within(box).getByText('96,140 / 100,000')).toBeTruthy()
+})
+
+test('an Excel workbook and a CSV go with the prompt as documents, shown as Excel and CSV', async () => {
+  const calls = await renderAppAt('/insights/reports')
+  const user = userEvent.setup({ applyAccept: false })
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  const picker = box.querySelector('input[type="file"]') as HTMLInputElement
+  await user.upload(picker, [new File(['xlsx'], 'Store targets.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), new File(['week,target'], 'weeks.csv', { type: 'text/csv' })])
+  const listed = within(box).getByRole('list', { name: 'Documents' })
+  expect(within(listed).getByText('Excel · 1 KB')).toBeTruthy()
+  expect(within(listed).getByText('CSV · 1 KB')).toBeTruthy()
+  expect(within(box).queryByRole('alert')).toBeNull()
+  await user.type(within(box).getByRole('textbox', { name: 'What do you want to see?' }), 'Net sales against the targets in the workbook')
+  await user.click(within(box).getByRole('button', { name: 'Generate Report' }))
+  const card = await screen.findByRole('region', { name: 'Draft Report' })
+  const sent = calls.find((call) => call.url.endsWith('/insights/assistant/ask/'))?.form
+  expect(((sent?.getAll('documents') ?? []) as File[]).map((f) => f.name)).toEqual(['Store targets.xlsx', 'weeks.csv'])
+  expect(within(card).getByText(/read Store targets\.xlsx \(Excel\)/)).toBeTruthy()
 })
