@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, CustomField, FiscalYear, FormulaCheck, ParameterChoices, SharedFormula, SharedFormulaBody, ParameterValues, UploadColumn, UploadedFile } from './types'
 import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
-import type { AskResult, AskScope, AskStep, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
+import type { AskResult, AskScope, AskStep, AssistantHistory, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -158,7 +158,7 @@ export const schedulesApi = {
 export const assistantApi = {
   state: (signal?: AbortSignal) => api.get<AssistantState>('/insights/assistant/', undefined, signal),
   /** with images or documents, sent as multipart (the files under `images` and `documents`); they go to the model and are not kept */
-  ask: (body: { prompt: string; model: string; answer_to?: string; scope?: AskScope; unmapped?: boolean; component?: string; progress?: string }, images: File[] = [], documents: File[] = []) => {
+  ask: (body: { prompt: string; model: string; name?: string; answer_to?: string; scope?: AskScope; unmapped?: boolean; component?: string; progress?: string }, images: File[] = [], documents: File[] = []) => {
     if (!images.length && !documents.length) return api.post<AskResult>('/insights/assistant/ask/', body)
     const form = new FormData()
     for (const [key, value] of Object.entries(body)) if (value !== undefined) form.append(key, String(value))
@@ -170,6 +170,11 @@ export const assistantApi = {
   progress: (id: string, signal?: AbortSignal) => api.get<{ steps: AskStep[]; finished: boolean }>(`/insights/assistant/progress/${id}/`, undefined, signal),
   /** the draft becomes a private report, opened in the editor; name: the one the person gave it */
   open: (id: string, name?: string) => api.post<Report>(`/insights/assistant/${id}/open/`, name ? { name } : {}),
+  /** a page of the person's prompts, newest first; before: the last prompt of the page shown */
+  history: (before?: string, signal?: AbortSignal) => api.get<AssistantHistory>('/insights/assistant/history/', before ? { before } : undefined, signal),
+  clearHistory: () => api.post<{ cleared: number }>('/insights/assistant/history/clear/', {}),
+  /** the report the prompt became, or its draft not opened yet */
+  rename: (id: string, name: string) => api.post<{ id: string; report_id: string | null; report_name: string | null; draft_name: string | null }>(`/insights/assistant/${id}/rename/`, { name }),
   change: (body: { dataset: string; definition: ReportDefinition; prompt: string; model?: string }) => api.post<ChangeResult>('/insights/assistant/change/', body),
 }
 
@@ -184,6 +189,7 @@ export const usageApi = {
 
 export const keys = {
   assistant: ['insights', 'assistant'] as const,
+  history: ['insights', 'assistant', 'history'] as const,
   schedules: ['insights', 'schedules'] as const,
   folders: ['insights', 'folders'] as const,
   runs: (query: { days?: '7' | '30'; outcome?: string; user?: string; q?: string }) => ['insights', 'runs', query] as const,

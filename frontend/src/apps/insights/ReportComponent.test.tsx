@@ -67,7 +67,7 @@ test('the report page: Component beside Folder moves the report at once; the edi
 })
 
 test('Ask for a Report: Add To files the draft, which says so', async () => {
-  const calls = await renderAppAt('/insights/reports')
+  const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup()
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   const addTo = await within(box).findByRole('combobox', { name: 'Add To' }) as HTMLSelectElement

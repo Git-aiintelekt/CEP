@@ -18,9 +18,15 @@ go with the prompt and are never stored. A prompt may run to 100,000 characters.
     Prompts:    ai_prompt, in the workspace (RLS), kept 90 days.
 
     GET  /insights/assistant/                  what this person may ask: the models, the default, the month's use, recent prompts
-    POST /insights/assistant/ask/              {prompt, model, answer_to?, scope?, unmapped?, component?, progress?} (+ images, documents) -> the reply
+    POST /insights/assistant/ask/              {prompt, model, name?, answer_to?, scope?, unmapped?, component?, progress?} (+ images, documents) -> the reply
     GET  /insights/assistant/progress/<id>/    the steps of the prompt sent with that progress id, while it runs (ask_progress.py)
+    GET  /insights/assistant/history/          ?before=<id>&limit= this person's prompts of the last 90 days, newest first, a page at a time
+    POST /insights/assistant/history/clear/    the person's prompts leave their history (ai_prompt.cleared_at, patch 0078); the month's count stays
     POST /insights/assistant/<id>/open/        {name?} the draft becomes a private report, opened in the editor
+    POST /insights/assistant/<id>/rename/      {name} the report the prompt became, or its draft not opened yet, renamed
+
+AI Reports (docs/mockups/ai-reports-page.html, option A) is the Insights page that holds the box; its menu item shows only when the box
+would (ai_reports_available, read by GET /me as insights.ai_reports).
     GET, PUT /workspace/ai-assistant/          the workspace's switches and its own keys (user.admin)
     POST     /workspace/ai-assistant/check/    {provider} -> the workspace's own key checked
 """
@@ -63,6 +69,7 @@ IMAGE_FORMATS = {"PNG": "image/png", "JPEG": "image/jpeg", "GIF": "image/gif", "
 IMAGES_NOTE = ("The person attached {n} image{s} with this request: a sketch of the report they want, or a screenshot of a chart, a table or a "
                "spreadsheet. Read them for the fields, groupings, periods and view to propose; they hold no rows to use as data.")
 RECENT = 8
+HISTORY_PAGE = 30
 TIMEOUT_S = 60
 # Claude replies through structured outputs (output_config.format): the current models (Sonnet 5.5, Opus 5.5, Fable 5.1) refuse a
 # forced tool_choice. Only older models that lack structured outputs still get the forced tool.
@@ -366,6 +373,14 @@ def offer(tenant, request, *, need_edit: bool = True) -> dict:
             "own": own, "examples": EXAMPLES}
 
 
+def ai_reports_available(request) -> bool:
+    """whether this person sees AI Reports in the Insights menu: the box would be there for them"""
+    try:
+        return bool(offer(_tenant(), request)["enabled"])
+    except Exception:                                                  # a database without the AI tables, or a provider row it cannot read
+        return False
+
+
 def explain_state(tenant, request) -> dict:
     """whether this person may have a report explained (any reader, when the platform and the workspace allow it), and by which model"""
     if not explain_allowed() or not workspace_settings(tenant)["explain"]:
@@ -643,11 +658,11 @@ def _prompts(raw, most: int) -> list[dict]:
 
 # ---------------------------------------------------------------------------------------------------- asking
 def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = None, images: list[dict] | None = None, documents: list[dict] | None = None,
-        scope: str = "all", unmapped: bool = False, component: str | None = None, progress_id: str | None = None) -> dict:
+        scope: str = "all", unmapped: bool = False, component: str | None = None, progress_id: str | None = None, name: str | None = None) -> dict:
     """The whole exchange: the allowance, the catalogue (the scope's datasets, and a database's tables not mapped yet when asked),
     one call (another when the model asks for tables' columns, and one retry when the draft does not fit), the preview's row count,
-    the row in ai_prompt. images and documents go to the model with the prompt and are not kept. Raises AssistantError for the
-    person; ValidationError for a bad body."""
+    the row in ai_prompt. images and documents go to the model with the prompt and are not kept. A name given by the person is the
+    draft's, instead of the model's. Raises AssistantError for the person; ValidationError for a bad body."""
     state = offer(tenant, request)
     if not state["enabled"]:
         raise AssistantError({"no_right": "Asking for a report needs the report.edit permission.", "no_provider": "No AI provider is switched on for the platform.",
@@ -749,6 +764,8 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
             result["preview"] = _preview(tenant, request, [*datasets, *([entry] if entry else [])], result)
             progress.done("preview", (f"{result['preview']['rows']}{' or more' if result['preview']['more'] else ''} rows") if result["preview"] else "Not run now: the report runs in the editor")
             result["scope"] = scope
+            if name:
+                result["name"] = name
             if component:
                 result["component"] = component
         else:
@@ -760,7 +777,7 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
     prompt_id = _record(tenant.pk, request.user.pk, chosen, prompt, outcome, result, failure, usage, duration_ms, answer_to)
     return {"id": prompt_id, "kind": result["kind"] if result else "failed", "prompt": prompt, "model": {k: chosen[k] for k in ("id", "provider", "provider_name", "mark", "model", "label", "source")},
             "duration_ms": duration_ms, "counted": outcome == "DRAFT", "message": failure, **({k: v for k, v in result.items() if k not in ("kind", "map")} if result else {}),
-            "steps": progress.as_list(), "usage": {**allowance(tenant.pk)}}
+            "steps": progress.as_list(), "tokens": usage, "usage": {**allowance(tenant.pk)}}
 
 
 def _tables_context(tenant, connection_id: str, prompt: str, documents: list[dict]) -> dict:
@@ -871,13 +888,80 @@ Schema:
             "duration_ms": duration_ms, "usage": allowance(tenant.pk)}
 
 
+def clearable() -> bool:
+    """ai_prompt.cleared_at exists (patch 0078); without it the history cannot be cleared and shows every prompt"""
+    return bool(_q("""SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ai_prompt'
+                                     AND column_name = 'cleared_at') AS present""")[0]["present"])
+
+
+def _history_row(r: dict) -> dict:
+    draft = r.get("draft")
+    draft = json.loads(draft) if isinstance(draft, str) else draft or {}
+    return {"id": r["id"], "prompt": r["prompt"], "model": model_label(r["model"]), "provider": r["provider"], "outcome": r["outcome"], "created_at": r["created_at"],
+            "report_id": r["report_id"] if r["report_name"] else None, "report_name": r["report_name"],
+            "draft_name": draft.get("name") if r["outcome"] == "DRAFT" and not r["report_name"] else None,
+            "tokens_in": r["tokens_in"], "tokens_out": r["tokens_out"], "duration_ms": r["duration_ms"]}
+
+
+def _history(user_id, *, before=None, limit: int = RECENT) -> list[dict]:
+    """this person's report prompts not cleared, newest first, with the report a draft became (or the draft's name)"""
+    filters, args = ["p.user_id = %s", "p.kind = 'report'"], [str(user_id)]
+    if clearable():
+        filters.append("p.cleared_at IS NULL")
+    if before:                                                         # the last prompt of the page shown: the next page starts after it
+        filters.append("(p.created_at, p.id) < (SELECT b.created_at, b.id FROM ai_prompt b WHERE b.id = %s)")
+        args.append(str(before))
+    rows = _q(f"""SELECT p.id::text, p.prompt, p.provider, p.model, p.outcome, p.created_at, p.report_id::text, r.name AS report_name, p.draft,
+                         p.tokens_in, p.tokens_out, p.duration_ms
+                    FROM ai_prompt p LEFT JOIN report r ON r.id = p.report_id AND r.deleted_at IS NULL
+                   WHERE {' AND '.join(filters)} ORDER BY p.created_at DESC, p.id DESC LIMIT %s""", [*args, limit])
+    return [_history_row(r) for r in rows]
+
+
 def recent(user_id) -> list[dict]:
     """this person's last prompts, newest first, with the report a draft became"""
-    rows = _q("""SELECT p.id::text, p.prompt, p.provider, p.model, p.outcome, p.created_at, p.report_id::text, r.name AS report_name
-                   FROM ai_prompt p LEFT JOIN report r ON r.id = p.report_id AND r.deleted_at IS NULL
-                  WHERE p.user_id = %s ORDER BY p.created_at DESC LIMIT %s""", [str(user_id), RECENT])
-    return [{"id": r["id"], "prompt": r["prompt"], "model": model_label(r["model"]), "provider": r["provider"], "outcome": r["outcome"], "created_at": r["created_at"],
-             "report_id": r["report_id"] if r["report_name"] else None, "report_name": r["report_name"]} for r in rows]
+    return _history(user_id)
+
+
+def history(user_id, before=None, limit: int = HISTORY_PAGE) -> dict:
+    """a page of the person's prompt history, and whether there is more before it"""
+    rows = _history(user_id, before=before, limit=limit + 1)
+    return {"prompts": rows[:limit], "more": len(rows) > limit, "clearable": clearable()}
+
+
+def clear_history(user_id) -> int:
+    """the person's prompts leave their history; they stay in ai_prompt, so the month's count and the workspace's record are unchanged"""
+    if not clearable():
+        raise AssistantError("Clearing the history needs database patch 0078. Ask the platform team to apply it.")
+    with session.tx():
+        rows = _q("UPDATE ai_prompt SET cleared_at = now() WHERE user_id = %s AND kind = 'report' AND cleared_at IS NULL RETURNING id", [str(user_id)])
+    return len(rows)
+
+
+def rename(tenant, request, prompt_id, name) -> dict:
+    """the pencil in the history: the report the prompt became (its owner or a report administrator), or the draft not opened yet"""
+    name = " ".join(str(name or "").split())
+    if not name or len(name) > 200:
+        raise ValidationError({"name": "Give the report a name of up to 200 characters."})
+    rows = _q("SELECT id::text, user_id::text, outcome, draft, report_id::text FROM ai_prompt WHERE id = %s", [str(prompt_id)])
+    if not rows or rows[0]["user_id"] != str(request.user.pk):
+        raise NotFound("No such prompt.")
+    found = rows[0]
+    if found["report_id"] and _q("SELECT 1 FROM report WHERE id = %s AND deleted_at IS NULL", [found["report_id"]]):
+        from apps.insights.api import _may_edit
+        report = _report_row(found["report_id"], request)
+        if not _may_edit(request, report):
+            raise PermissionDenied("Only the report's owner, or a report administrator, can rename it.")
+        with session.tx():
+            _q("UPDATE report SET name = %s, updated_by = %s, updated_at = now(), row_version = row_version + 1 WHERE id = %s",
+               [name, str(request.user.pk), found["report_id"]])
+        return {"id": found["id"], "report_id": found["report_id"], "report_name": name, "draft_name": None}
+    if found["outcome"] != "DRAFT" or not found["draft"]:
+        raise ValidationError({"name": "This prompt gave no report to name."})
+    draft = json.loads(found["draft"]) if isinstance(found["draft"], str) else found["draft"]
+    with session.tx():
+        _q("UPDATE ai_prompt SET draft = %s WHERE id = %s", [json.dumps({**draft, "name": name}), found["id"]])
+    return {"id": found["id"], "report_id": None, "report_name": None, "draft_name": name}
 
 
 def open_draft(tenant, request, prompt_id, name: str | None = None) -> dict:
@@ -959,6 +1043,9 @@ class AskView(APIView):
         unmapped = str(body.get("unmapped") or "").lower() in ("1", "true", "yes")
         component = component_of(body.get("component"))
         progress_id = str(body.get("progress") or "") or None
+        name = " ".join(str(body.get("name") or "").split())
+        if len(name) > 200:
+            raise ValidationError({"name": "Give the report a name of up to 200 characters."})
         answer_to = body.get("answer_to")
         if answer_to is not None:
             try:
@@ -966,7 +1053,7 @@ class AskView(APIView):
             except ValueError:
                 raise ValidationError({"answer_to": "Not a prompt."}) from None
         try:
-            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images, documents=documents, scope=scope, unmapped=unmapped, component=component, progress_id=progress_id))
+            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images, documents=documents, scope=scope, unmapped=unmapped, component=component, progress_id=progress_id, name=name or None))
         except AssistantError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
@@ -978,6 +1065,45 @@ class ProgressView(APIView):
     @extend_schema(responses={200: None})
     def get(self, request, version=None, progress_id=None):
         return Response(ask_progress.read(_tenant().pk, request.user.pk, progress_id))
+
+
+class HistoryView(APIView):
+    """AI Reports → Prompt History: a page of this person's prompts, newest first"""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        before = request.query_params.get("before") or None
+        if before:
+            try:
+                before = uuid.UUID(before)
+            except ValueError:
+                raise ValidationError({"before": "The id of the last prompt of the page shown."}) from None
+        try:
+            limit = max(1, min(int(request.query_params.get("limit") or HISTORY_PAGE), 100))
+        except ValueError:
+            raise ValidationError({"limit": "A number from 1 to 100."}) from None
+        return Response(history(request.user.pk, before, limit))
+
+
+class ClearHistoryView(APIView):
+    permission_classes = VIEW
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None):
+        try:
+            return Response({"cleared": clear_history(request.user.pk)})
+        except AssistantError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+
+class RenameView(APIView):
+    permission_classes = VIEW
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None, prompt_id=None):
+        body = request.data if isinstance(request.data, dict) else {}
+        return Response(rename(_tenant(), request, prompt_id, body.get("name")))
 
 
 class OpenDraftView(APIView):

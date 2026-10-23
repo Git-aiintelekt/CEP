@@ -13,6 +13,8 @@ export interface NavItem {
   permission?: string
   /** shown only when the workspace has this suite component (and, for insights, the mode offers it in menus) */
   requires?: string
+  /** shown only when AI can draft reports for this person (a provider with a key on, AI on for the workspace): AI Reports */
+  ai?: boolean
 }
 
 /** The second group, below the divider: for workspace admins only */

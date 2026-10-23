@@ -147,7 +147,7 @@ export function AppShell() {
   const hasComponent = (key: string) => (me?.components ?? []).some((component) => component.key === key)
   // an Insights item in a component's menu is the integrated mode; standalone offers Insights only as an app of its own
   const offered = (item: NavItem) => !item.requires || (hasComponent(item.requires) && (item.requires !== 'insights' || (me?.insights?.mode ?? 'integrated') !== 'standalone'))
-  const allowed = (item: NavItem) => offered(item) && (!item.feature || has(item.feature)) && (!item.permission || can(item.permission))
+  const allowed = (item: NavItem) => offered(item) && (!item.feature || has(item.feature)) && (!item.permission || can(item.permission)) && (!item.ai || Boolean(me?.insights?.ai_reports))
   // support never manages users, roles, keys or security: the API refuses, so the menu does not offer it
   const showSettings = !enrolFirst && can('user.admin') && !support
   const components: EntitledComponent[] = enrolFirst ? [] : entitled(me).map((component) => ({ ...component, menu: component.menu.filter(allowed) }))

@@ -10,20 +10,20 @@
  * and a bar with the paperclip, the counter, the model and Generate (docs/mockups/ask-for-report-data-and-specs.html, option A);
  * files dragged anywhere over the panel show the drop target on it, and pasting into the text adds them too. "Add To" beside the
  * model files the report under a component of the suite (docs/mockups/report-component.html, option A); Automatic is its data's.
+ * On the AI Reports page (docs/mockups/ai-reports-page.html, option A) the box takes an optional Report Name, and Run Details below it
+ * shows the prompt under way step by step, then its outcome, then the earlier runs of this visit (kept per browser tab).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, Paperclip, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import { IconButton } from '@/components/Button'
 import { buttonPrimary, buttonSecondary, Counter, TextInput } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
 import { Popover } from '@/components/Popover'
-import { Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { ApiError } from '@/lib/api'
-import { formatDateTime } from '@/lib/format'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { assistantApi, keys, useAssistant, useCatalog } from '../api'
 import { ATTACHMENTS_BYTES_MAX, DOCUMENT_ACCEPT, DOCUMENT_BYTES_MAX, documentKind, DOCUMENTS_MAX, KIND_LABEL, sizeWords, type DocumentKind } from '../askDocuments'
@@ -35,6 +35,8 @@ import type { AskResult, AskScope, AssistantModel, CatalogDataset, ReportSummary
 import { AskAbout } from './AskAbout'
 import { AskProgress } from './AskProgress'
 import { ComponentSelect } from './ComponentSelect'
+import { addRun, finishRun, readRuns, resultOf, type Run } from '../askRuns'
+import { RunDetails } from './RunDetails'
 
 const MODEL_KEY = 'insights.ai.model'
 const PROMPT_MAX = 100_000
@@ -66,7 +68,8 @@ function Mark({ model }: { model: Pick<AssistantModel, 'mark' | 'provider_name'>
   return <span aria-hidden className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm border border-line bg-surface-subtle text-[10px] font-bold text-ink-900">{model.mark}</span>
 }
 
-export function AskForReport() {
+/** seed: a prompt put back in the box from the history (Use Again); at tells one use from the next */
+export function AskForReport({ seed }: { seed?: { prompt: string; at: number } } = {}) {
   const state = useAssistant()
   const catalog = useCatalog()
   const client = useQueryClient()
@@ -74,6 +77,8 @@ export function AskForReport() {
   const box = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   const [prompt, setPrompt] = useState('')
+  const [reportName, setReportName] = useState('')
+  const [runs, setRuns] = useState<Run[]>(readRuns)
   const [images, setImages] = useState<Attached[]>([])
   const [documents, setDocuments] = useState<AttachedDocument[]>([])
   const [fileError, setFileError] = useState<string | null>(null)
@@ -95,12 +100,21 @@ export function AskForReport() {
   const ask = useMutation({
     mutationFn: ({ body, files, docs }: { body: Parameters<typeof assistantApi.ask>[0]; files: File[]; docs: File[] }) => assistantApi.ask(body, files, docs),
     onMutate: () => setFailure(null),
-    onSuccess: (reply) => { setResult(reply); void client.invalidateQueries({ queryKey: keys.assistant }) },
-    onError: (error) => setFailure(error instanceof ApiError ? error.message : 'The request did not go through.'),
+    onSuccess: (reply, { body }) => {
+      setResult(reply)
+      setRuns((now) => finishRun(now, body.progress as string, { result: resultOf(reply) }))
+      void client.invalidateQueries({ queryKey: keys.assistant })                                // the month's use and the history
+    },
+    onError: (error, { body }) => {
+      const message = error instanceof ApiError ? error.message : 'The request did not go through.'
+      setFailure(message)
+      setRuns((now) => finishRun(now, body.progress as string, { failure: message }))
+    },
   })
   const open = useMutation({
     mutationFn: ({ id, name }: { id: string; name?: string }) => assistantApi.open(id, name),
-    onSuccess: (report) => {
+    onSuccess: (report, { id }) => {
+      setRuns((now) => { const run = now.find((r) => r.result?.id === id); return run ? finishRun(now, run.id, { report: { id: report.id, name: report.name } }) : now })
       void client.invalidateQueries({ queryKey: ['insights', 'reports'] })
       void client.invalidateQueries({ queryKey: keys.catalog })                                // a draft on tables not mapped yet mapped a dataset
       navigate(`/insights/reports/${report.id}/edit`)
@@ -116,6 +130,17 @@ export function AskForReport() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [ask.isPending])
+  // Use Again: the prompt back in the box, ready to change or send
+  const [seenSeed, setSeenSeed] = useState(seed)
+  if (seed !== seenSeed) {
+    setSeenSeed(seed)
+    if (seed) { setPrompt(seed.prompt); setResult(null) }
+  }
+  useEffect(() => {
+    if (!seed) return
+    box.current?.focus()
+    box.current?.scrollIntoView?.({ block: 'center' })
+  }, [seed])
   if (!state.data?.enabled) return null
   const data = state.data
   const models = data.models
@@ -126,10 +151,12 @@ export function AskForReport() {
   const send = (text: string, answerTo?: string) => {
     if (!text.trim() || !model) return
     const progress = newProgressId()
+    const name = reportName.trim()
     setProgressId(progress)
     setStartedAt(Date.now())
     setNow(Date.now())
-    ask.mutate({ body: { prompt: text.trim(), model: model.id, progress, ...(answerTo ? { answer_to: answerTo } : {}), ...(asking !== 'all' ? { scope: asking } : {}), ...(database && unmapped ? { unmapped: true } : {}), ...(component ? { component } : {}) },
+    setRuns((now) => addRun(now, { id: progress, prompt: text.trim(), name: name || null, started_at: Date.now() }))
+    ask.mutate({ body: { prompt: text.trim(), model: model.id, progress, ...(name ? { name } : {}), ...(answerTo ? { answer_to: answerTo } : {}), ...(asking !== 'all' ? { scope: asking } : {}), ...(database && unmapped ? { unmapped: true } : {}), ...(component ? { component } : {}) },
       files: images.map((image) => image.file), docs: documents.map((document) => document.file) })
   }
   const attach = async (files: File[]) => {
@@ -195,9 +222,10 @@ export function AskForReport() {
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send(prompt) } }
   const edit = (text: string) => { setPrompt(text); setResult(null); box.current?.focus() }
   const dataset = (key: string | undefined) => catalog.data?.datasets.find((d) => d.key === key) ?? null
-  const showExamples = !result && data.recent.length === 0
+  const showExamples = !result && data.recent.length === 0 && runs.length === 0
 
   return (
+    <>
     <section aria-label="Ask for a Report" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
       <div className="flex flex-wrap items-center gap-2">
         <AiPill />
@@ -205,6 +233,11 @@ export function AskForReport() {
         {data.usage && <span className="ml-auto text-xs text-ink-800">{data.usage.words}</span>}
       </div>
       <div className="relative flex min-w-0 flex-col rounded-md border border-line-control bg-surface transition-colors duration-base ease-standard focus-within:border-focus focus-within:shadow-focus">
+        <div className="flex flex-wrap items-center gap-2 px-3 pt-2.5">
+          <label htmlFor="ai-report-name" className="text-xs font-medium text-ink-800">Report Name</label>
+          <input id="ai-report-name" value={reportName} maxLength={200} onChange={(event) => setReportName(event.target.value)} placeholder="Optional: the model names it otherwise"
+            className="h-7 min-w-0 flex-1 basis-56 rounded-control-md border border-line bg-surface px-2 text-sm text-ink-900 placeholder:text-ink-700 focus-visible:border-focus focus-visible:outline-none sm:max-w-md" />
+        </div>
         <AskAbout scope={asking} unmapped={unmapped} data={askData} menu={menu} onScope={setScope} onUnmapped={setUnmapped} />
         {(documents.length > 0 || images.length > 0) && (
           <div className="flex flex-wrap gap-2 px-3 pt-3 pb-1">
@@ -239,13 +272,6 @@ export function AskForReport() {
         <textarea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={4} maxLength={PROMPT_MAX}
           placeholder={'e.g. Revenue by channel and month for the last quarter, as a pivot.\nOr attach the report’s spec, a PDF or Word document, and say “build this”.'}
           className="cep-input-bare min-h-24 w-full resize-y border-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-ink-900 outline-none" />
-        {ask.isPending && (
-          <div className="px-3 pb-1" role="status">
-            {live.data?.steps.length
-              ? <AskProgress steps={live.data.steps} elapsed={startedAt ? (now - startedAt) / 1000 : undefined} />
-              : <p className="flex items-center gap-2 text-xs text-ink-800"><Spinner size="sm" /> Sending your prompt</p>}
-          </div>
-        )}
         <div className="flex flex-wrap items-center gap-2 px-2 pt-1 pb-2">
           <input ref={picker} type="file" accept={[...IMAGE_TYPES, ...DOCUMENT_ACCEPT].join(',')} multiple hidden aria-hidden tabIndex={-1}
             onChange={(event) => { void attach(Array.from(event.target.files ?? [])); event.target.value = '' }} />
@@ -288,13 +314,7 @@ export function AskForReport() {
       <p className="text-xs text-ink-800">{sends}</p>
       {failure && <p role="alert" className="text-sm text-danger-text">{failure}</p>}
 
-      {result && (
-        <ResultCard result={result} dataset={dataset(result.dataset)} busy={ask.isPending || open.isPending}
-          onRetry={() => send(result.prompt)} onEdit={() => edit(result.prompt)} onOpen={(name) => open.mutate({ id: result.id, name })}
-          onAnswer={(text) => send(text, result.kind === 'question' ? result.id : undefined)} />
-      )}
-
-      {showExamples ? (
+      {showExamples && (
         <div className="flex flex-col gap-2">
           <h3 className="text-xs font-semibold tracking-wide text-ink-800 uppercase">Try One of These</h3>
           <div className="flex flex-wrap gap-1.5">
@@ -304,25 +324,17 @@ export function AskForReport() {
           </div>
           <p className="text-xs text-ink-800">The report opens in the editor as a draft. Check it before you save or share it.</p>
         </div>
-      ) : data.recent.length > 0 && !result ? (
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-xs font-semibold tracking-wide text-ink-800 uppercase">Recent Prompts</h3>
-          <table className="w-full text-sm" aria-label="Recent prompts">
-            <tbody>
-              {data.recent.map((item) => (
-                <tr key={item.id} className="border-t border-line-subtle">
-                  <td className="py-1.5 pr-3">
-                    <button type="button" onClick={() => edit(item.prompt)} className="line-clamp-3 text-left whitespace-pre-line text-ink-900 hover:underline">{item.prompt}</button>
-                    <span className="block text-xs text-ink-800">{item.model} · {item.report_id && item.report_name ? <>saved as <Link to={`/insights/reports/${item.report_id}`} className="hover:underline">{item.report_name}</Link></> : item.outcome === 'DRAFT' ? 'not saved' : item.outcome === 'QUESTION' ? 'asked a question' : item.outcome === 'NO_FIELD' ? 'no field for it' : 'did not answer'}</span>
-                  </td>
-                  <td className="cep-num py-1.5 text-right text-xs whitespace-nowrap text-ink-800">{formatDateTime(item.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      )}
     </section>
+
+    <RunDetails runs={runs} current={progressId} steps={live.data?.steps} elapsed={startedAt ? (now - startedAt) / 1000 : undefined} pending={ask.isPending}>
+      {result && (
+        <ResultCard key={result.id} result={result} dataset={dataset(result.dataset)} busy={ask.isPending || open.isPending}
+          onRetry={() => send(result.prompt)} onEdit={() => edit(result.prompt)} onOpen={(name) => open.mutate({ id: result.id, name })}
+          onAnswer={(text) => send(text, result.kind === 'question' ? result.id : undefined)} />
+      )}
+    </RunDetails>
+    </>
   )
 }
 

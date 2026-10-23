@@ -206,7 +206,8 @@ class ReportListView(APIView):
         upload_join = "LEFT JOIN report_upload up ON up.key = r.dataset_key AND up.tenant_id = r.tenant_id AND up.deleted_at IS NULL" if uploaded else ""
         rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, COALESCE(d.label, x.label, {'up.name, ' if uploaded else ''}r.dataset_key) AS dataset_label, c.key AS component_key, c.name AS component_name, r.view_type,
                              r.visibility, r.version, r.owner_user_id::text, u.display_name AS owner_name, r.last_run_at, r.updated_at,
-                             r.folder_id::text, f.name AS folder_name, {starred} AS favourite, x.id::text AS own_dataset_id, {edit} AS shared_edit, {shared} AS shared
+                             r.folder_id::text, f.name AS folder_name, {starred} AS favourite, x.id::text AS own_dataset_id, {edit} AS shared_edit, {shared} AS shared,
+                             EXISTS (SELECT 1 FROM report_version v WHERE v.report_id = r.id AND v.version = 1 AND v.note = 'Drafted by AI') AS ai
                         FROM report r LEFT JOIN report_dataset d ON d.key = r.dataset_key
                         LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id {upload_join}
                         JOIN suite_component c ON c.key = {_component_sql()}
@@ -216,7 +217,7 @@ class ReportListView(APIView):
                                       "component": {"key": r["component_key"], "name": r["component_name"]}, "view_type": r["view_type"], "visibility": r["visibility"],
                                       "version": r["version"], "owner_user_id": r["owner_user_id"], "owner_name": r["owner_name"], "last_run_at": r["last_run_at"],
                                       "updated_at": r["updated_at"], "can_edit": _may_edit(request, r), "folder_id": r["folder_id"], "folder_name": r["folder_name"],
-                                      "favourite": bool(r["favourite"]), "own_dataset": bool(r["own_dataset_id"]), "shared": bool(r["shared"])} for r in rows]})
+                                      "favourite": bool(r["favourite"]), "own_dataset": bool(r["own_dataset_id"]), "shared": bool(r["shared"]), "ai": bool(r["ai"])} for r in rows]})
 
     @extend_schema(responses={201: None})
     def post(self, request, version=None):

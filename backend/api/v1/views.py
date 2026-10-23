@@ -530,10 +530,14 @@ class MeViewSet(viewsets.ViewSet):
             principal["mfa_enabled"] = user.mfa_enabled
             principal["auth_provider"] = user.auth_provider
         token = getattr(request, "auth", None)
+        ai_reports = False
+        if principal["kind"] == "user" and any(component.get("key") == "insights" for component in workspace["components"] or []):
+            from apps.insights import assistant
+            ai_reports = assistant.ai_reports_available(request)
         return Response({"principal": principal, "tenant": request.tenant, "industry": workspace["industry"], "features": workspace["features"],
                          "terminology": workspace["terminology"], "workspace": workspace["workspace"], "components": workspace["components"], "coming": workspace["coming"],
                          "insights": {"mode": str(params.get("insights.mode", "integrated") or "integrated").lower(),
-                                      "standalone_path": str(params.get("insights.standalone_path", "/insights") or "/insights")},
+                                      "standalone_path": str(params.get("insights.standalone_path", "/insights") or "/insights"), "ai_reports": ai_reports},
                          "mfa_setup_required": bool(token is not None and hasattr(token, "get") and token.get("mfa_setup") and not getattr(user, "mfa_enabled", True)),
                          "support_session": {"by": session.staff_name or "Platform support", "mode": session.access_mode, "expires_at": session.expires_at,
                                              "reason": session.reason} if session else None,

@@ -1,4 +1,4 @@
-/** AI · Ask for a Report: the box above the report list, a draft and Open in Editor, a question back, when the box is absent, the data to ask
+/** AI · Ask for a Report: the box on the AI Reports page, a draft and Open in Editor, a question back, when the box is absent, the data to ask
  * about, images and documents, a draft on tables not mapped yet, and Settings → AI Assistant. */
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { cepReady, installMockApi, insightsAssistantNow, me, reportDatabasesNow, signIn } from '@/test/mockApi'
 
 const withInsights = { ...me, principal: { ...me.principal, permissions: [...(me.principal.permissions ?? []), 'report.edit'] },
-  components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }], insights: { mode: 'integrated', standalone_path: '/insights' } }
+  components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }], insights: { mode: 'integrated', standalone_path: '/insights', ai_reports: true } }
 
 async function renderAppAt(path: string, meOverride: object = withInsights, before: () => void = () => undefined) {
   const calls = installMockApi({ me: meOverride as never })
@@ -26,7 +26,7 @@ afterEach(() => {
 })
 
 test('the box sits above the list with the month’s use and the examples; Generate sends the prompt and the model; the draft reads in words and Open in Editor opens the new report', async () => {
-  const calls = await renderAppAt('/insights/reports')
+  const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup()
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   expect(within(box).getByText('38 of 200 prompts used in October')).toBeTruthy()
@@ -57,7 +57,7 @@ test('the box sits above the list with the month’s use and the examples; Gener
 })
 
 test('a question back offers its answers as buttons, and an answer is sent as the next prompt without a count', async () => {
-  const calls = await renderAppAt('/insights/reports')
+  const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup()
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   await user.type(within(box).getByRole('textbox', { name: 'What do you want to see?' }), 'Which campaigns made the most revenue last month?')
@@ -72,7 +72,7 @@ test('a question back offers its answers as buttons, and an answer is sent as th
 })
 
 test('no field for it: the message and the closest prompts; a failure says so with Try Again', async () => {
-  await renderAppAt('/insights/reports')
+  await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup()
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   await user.type(within(box).getByRole('textbox', { name: 'What do you want to see?' }), 'Website visits by campaign')
@@ -85,13 +85,14 @@ test('no field for it: the message and the closest prompts; a failure says so wi
   await screen.findByRole('region', { name: 'Draft Report' })
 })
 
-test('the box is absent without the right, when the platform has no provider, and when the workspace switched AI off', async () => {
-  await renderAppAt('/insights/reports', { ...withInsights, principal: me.principal })
+test('the box is gone from Reports; AI Reports says why it is not available when the platform has no provider', async () => {
+  await renderAppAt('/insights/reports')
   await screen.findByRole('table', { name: 'Reports' })
   expect(screen.queryByRole('region', { name: 'Ask for a Report' })).toBeNull()
   cleanup()
-  await renderAppAt('/insights/reports', withInsights, () => { insightsAssistantNow.enabled = false; insightsAssistantNow.reason = 'no_provider' })
-  await screen.findByRole('table', { name: 'Reports' })
+  await renderAppAt('/insights/ai-reports', withInsights, () => { insightsAssistantNow.enabled = false; insightsAssistantNow.reason = 'no_provider' })
+  expect(await screen.findByText('AI Reports is not available')).toBeTruthy()
+  expect(screen.getByText(/No AI provider is switched on/)).toBeTruthy()
   expect(screen.queryByRole('region', { name: 'Ask for a Report' })).toBeNull()
 })
 
@@ -134,7 +135,7 @@ test('a workspace adds its own key for a provider: the form, one PUT with the ke
 })
 
 test('a long prompt over several lines with images: the paperclip takes up to five PNG, JPEG, GIF or WebP files, refuses other kinds, shows them to remove, and Generate sends them with the prompt', async () => {
-  const calls = await renderAppAt('/insights/reports')
+  const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup({ applyAccept: false })
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   const prompt = within(box).getByRole('textbox', { name: 'What do you want to see?' }) as HTMLTextAreaElement
@@ -166,7 +167,7 @@ test('a long prompt over several lines with images: the paperclip takes up to fi
 })
 
 test('files dragged over the panel show the drop target; dropping adds the images, and a file that is not one is refused', async () => {
-  await renderAppAt('/insights/reports')
+  await renderAppAt('/insights/ai-reports')
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   expect(within(box).getByText('Drop, paste or attach up to 5 images and 3 documents')).toBeTruthy()
   const png = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
@@ -197,7 +198,7 @@ test('files dragged over the panel show the drop target; dropping adds the image
 })
 
 test('documents beside images: a Word spec and a PDF go with the prompt as documents, a fourth is refused, and the draft says what it read', async () => {
-  const calls = await renderAppAt('/insights/reports')
+  const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup({ applyAccept: false })
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   const picker = box.querySelector('input[type="file"]') as HTMLInputElement
@@ -220,7 +221,7 @@ test('documents beside images: a Word spec and a PDF go with the prompt as docum
 })
 
 test('Ask About: the data to ask about, remembered; a database with its tables not mapped yet gives a draft that says so, and Open in Editor maps it', async () => {
-  const calls = await renderAppAt('/insights/reports', withInsights, () => {
+  const calls = await renderAppAt('/insights/ai-reports', withInsights, () => {
     reportDatabasesNow.push({ id: 'db-cg', name: 'CG-Prod', engine: 'mysql57', engine_name: 'MySQL 5.7', host: 'db', port: 3306, database_name: 'shop', schema_name: 'shop', username: 'r', ssl_mode: 'REQUIRED',
       status: 'ACTIVE', last_tested_at: null, last_test_ok: true, last_test_error: null, read_only: true, server_version: '5.7.44', server_timezone: 'UTC', created_at: '2026-10-20T09:00:00Z',
       updated_at: '2026-10-20T09:00:00Z', row_version: 1, usable: true, datasets: [], limit_profile: 'LIVE', query_timeout_s: null, max_concurrent: null, limits: { timeout_s: 60, concurrent: 1 }, pinned_tables: [] })
@@ -251,7 +252,7 @@ test('Ask About: the data to ask about, remembered; a database with its tables n
 
 test('a remembered database that is gone falls back to All My Data; the counter shows from 90,000 characters', async () => {
   window.localStorage.setItem('insights.ai.scope', 'db:gone')
-  await renderAppAt('/insights/reports')
+  await renderAppAt('/insights/ai-reports')
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   expect(await within(box).findByRole('button', { name: /All My Data/ })).toBeTruthy()
   const prompt = within(box).getByRole('textbox', { name: 'What do you want to see?' })
@@ -262,7 +263,7 @@ test('a remembered database that is gone falls back to All My Data; the counter 
 })
 
 test('an Excel workbook and a CSV go with the prompt as documents, shown as Excel and CSV', async () => {
-  const calls = await renderAppAt('/insights/reports')
+  const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup({ applyAccept: false })
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   const picker = box.querySelector('input[type="file"]') as HTMLInputElement
@@ -280,7 +281,7 @@ test('an Excel workbook and a CSV go with the prompt as documents, shown as Exce
 })
 
 test('the draft: its name is yours to change before Open in Editor, and the steps it took fold under Show', async () => {
-  const calls = await renderAppAt('/insights/reports')
+  const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup()
   const box = await screen.findByRole('region', { name: 'Ask for a Report' })
   await user.type(within(box).getByRole('textbox', { name: 'What do you want to see?' }), 'Sent and delivered by campaign for September')

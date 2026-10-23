@@ -1,8 +1,8 @@
 /**
  * /dev/ask: AI · Ask for a Report without a backend. The assistant's state and the catalogue are primed into the query cache,
  * and the ask and open calls are answered here: a prompt ending in "?" gets a question back, one naming "website visits"
- * gets no field, a prompt on CG-Prod's tables not mapped yet a draft on a new dataset, anything else a draft. ?state=busy shows
- * recent prompts under the box; ?state=spec opens on CG-Prod with its tables not mapped yet, and &demo=attached or &demo=draft
+ * gets no field, a prompt on CG-Prod's tables not mapped yet a draft on a new dataset, anything else a draft. Laid out as the AI
+ * Reports page: the box, Run Details and Prompt History. ?state=busy fills the history; ?state=spec opens on CG-Prod with its tables not mapped yet, and &demo=attached or &demo=draft
  * drops a spec, a PDF and a sketch on the box and writes the prompt (and presses Generate), &demo=menu opens Ask About, and
  * &demo=building presses Generate on a prompt that stays under way, its steps part done, for the guide's screenshots.
  */
@@ -12,6 +12,7 @@ import { useSearchParams } from 'react-router-dom'
 
 import { keys } from '../api'
 import { AskForReport } from '../components/AskForReport'
+import { PromptHistory } from '../components/PromptHistory'
 import type { AskResult, AskStep, AssistantState, Catalog, CatalogDataset, CatalogField } from '../types'
 
 const field = (key: string, label: string, type: CatalogField['type'], role: CatalogField['role'], aggregates: CatalogField['aggregates'] = []): CatalogField =>
@@ -53,8 +54,9 @@ function state(busy: boolean): AssistantState {
     recent: busy ? [
       { id: 'p1', prompt: 'Weekly revenue by channel for September as bars', model: 'Claude Sonnet 5.5', provider: 'anthropic', outcome: 'DRAFT', created_at: '2026-10-05T13:14:00Z', report_id: 'r1', report_name: 'Weekly Revenue by Channel' },
       { id: 'p2', prompt: 'Contacts by home store with email and text consent', model: 'GPT-5', provider: 'openai', outcome: 'DRAFT', created_at: '2026-10-02T20:02:00Z', report_id: 'r2', report_name: 'Contacts by Store and Consent' },
-      { id: 'p3', prompt: 'Bounce rate by sending engine, last 30 days', model: 'Claude Haiku 5.5', provider: 'anthropic', outcome: 'DRAFT', created_at: '2026-09-30T14:48:00Z', report_id: null, report_name: null },
-    ] : [],
+      { id: 'p3', prompt: 'Bounce rate by sending engine, last 30 days', model: 'Claude Haiku 5.5', provider: 'anthropic', outcome: 'DRAFT', created_at: '2026-09-30T14:48:00Z', report_id: null, report_name: null, draft_name: 'Bounce Rate by Engine' },
+      { id: 'p4', prompt: 'Revenue last month?', model: 'Claude Sonnet 5.5', provider: 'anthropic', outcome: 'QUESTION', created_at: '2026-09-29T09:12:00Z', report_id: null, report_name: null },
+    ].map((p): AssistantState['recent'][number] => ({ ...p, outcome: p.outcome as AssistantState['recent'][number]['outcome'], tokens_in: 2830, tokens_out: 235, duration_ms: 30_000 })) : [],
   }
 }
 
@@ -136,6 +138,7 @@ export default function AskPlayground() {
   const [params] = useSearchParams()
   const client = useQueryClient()
   const busy = params.get('state') === 'busy'
+  const [seed, setSeed] = useState<{ prompt: string; at: number }>()
   const [primed] = useState(() => {
     if (params.get('state') === 'spec') {
       window.localStorage.setItem('insights.ai.scope', 'db:db-cg')
@@ -152,12 +155,16 @@ export default function AskPlayground() {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       if (url.includes('/insights/assistant/ask/')) {
         const form = init?.body instanceof FormData ? init.body : null                     // with images or documents it comes as multipart
-        const body = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true' } : JSON.parse(String(init?.body ?? '{}'))) as { prompt: string; model: string; unmapped?: boolean }
+        const body = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true', name: form.get('name') ?? undefined } : JSON.parse(String(init?.body ?? '{}'))) as { prompt: string; model: string; unmapped?: boolean; name?: string }
         await new Promise((resolve) => setTimeout(resolve, params.get('demo') === 'building' ? 20_000 : 600))
-        return new Response(JSON.stringify({ steps: BUILT, ...reply(body.prompt, body.model, Boolean(body.unmapped), form ? form.getAll('documents') as File[] : [], form ? form.getAll('images').length : 0) }),
+        const answered = reply(body.prompt, body.model, Boolean(body.unmapped), form ? form.getAll('documents') as File[] : [], form ? form.getAll('images').length : 0)
+        return new Response(JSON.stringify({ steps: BUILT, tokens: { in: 2830, out: 235 }, ...answered, ...(body.name && answered.kind === 'draft' ? { name: body.name } : {}) }),
           { status: 200, headers: { 'content-type': 'application/json' } })
       }
       if (url.includes('/insights/assistant/progress/')) return new Response(JSON.stringify({ steps: BUILDING, finished: false }), { status: 200, headers: { 'content-type': 'application/json' } })
+      if (url.includes('/insights/assistant/history/clear/')) return new Response(JSON.stringify({ cleared: state(busy).recent.length }), { status: 200, headers: { 'content-type': 'application/json' } })
+      if (url.includes('/insights/assistant/history/')) return new Response(JSON.stringify({ prompts: url.includes('before=') ? [] : state(busy).recent, more: false, clearable: true }), { status: 200, headers: { 'content-type': 'application/json' } })
+      if (url.includes('/rename/')) return new Response(JSON.stringify({ ...JSON.parse(String(init?.body ?? '{}')), id: 'p' }), { status: 200, headers: { 'content-type': 'application/json' } })
       if (url.includes('/insights/assistant/')) return new Response(JSON.stringify(state(busy)), { status: 200, headers: { 'content-type': 'application/json' } })
       return real(input, init)
     }
@@ -172,8 +179,9 @@ export default function AskPlayground() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-5 p-6">
-      <h1 className="font-display text-page-title font-semibold text-ink-900">All Reports</h1>
-      {primed && <AskForReport />}
+      <h1 className="font-display text-page-title font-semibold text-ink-900">AI Reports</h1>
+      {primed && <AskForReport seed={seed} />}
+      {primed && <PromptHistory onUse={(prompt) => setSeed({ prompt, at: Date.now() })} />}
     </main>
   )
 }
