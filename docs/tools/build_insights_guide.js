@@ -53,6 +53,9 @@ const FIGURES = {
   'See and shape the phone layout': [['dashboard-phone', 'The phone layout: the tiles stacked top to bottom, tiles hidden on a phone left out.']],
   'Give a dashboard a theme': [['dashboard-theme', 'The Navy theme: every chart on the dashboard takes its colours.']],
   'Ask for a Report': [['ask', 'Ask for a Report above the report list, with the model to use and your recent prompts.']],
+  'Add a spec or images to a prompt': [['ask-spec', 'A Word spec, a PDF and a sketch attached to a prompt, on CG-Prod. They go to the model with the prompt and are not kept.']],
+  'Ask about a database\'s tables not mapped yet': [['ask-data-menu', 'Ask About: all your data, the platform\'s datasets, each database (with its tables not mapped yet) and the uploaded files.'],
+    ['ask-unmapped-draft', 'A draft on tables not mapped yet: Open in Editor maps them as a dataset first. The top line says what the model read.']],
 }
 let figureNumber = 0
 
@@ -144,7 +147,7 @@ const PARTS = [
     'Save a dashboard view (bookmarks)', 'Spread a dashboard over pages', 'Lay a dashboard out freely (Free Canvas)', 'See and shape the phone layout', 'Give a dashboard a theme',
     'Add text to a dashboard', 'Add a button that opens a saved view, a page or a report', 'Add a written summary to a dashboard'] },
   { title: 'AI Features', intro: 'Reports from a sentence, explanations of a report, and changes to a report in words. Each is there once your platform offers an AI provider and your workspace allows it.', items: [
-    'Ask for a Report', 'Add images to a prompt', 'Use AI in your workspace', 'Explain This Report, with AI', 'Change a report with a prompt, with AI'] },
+    'Ask for a Report', 'Add a spec or images to a prompt', 'Ask about a database\'s tables not mapped yet', 'Use AI in your workspace', 'Explain This Report, with AI', 'Change a report with a prompt, with AI'] },
   { title: 'Sharing, Delivery and Exports', intro: 'Who sees what, links for other sites, comments, alerts, scheduled emails and every file a report can become.', items: [
     'Share a report or a dashboard', 'Limit what a person sees (Report Access)', 'Embed a report or a dashboard on another site',
     'Comment on a report or a dashboard, and pin a note to a value', 'Get an email when a value crosses a threshold (Alerts)', { custom: 'schedule' },

@@ -1,4 +1,4 @@
-"""AI · Ask for a Report with longer prompts and images: the prompt keeps its line breaks up to 4,000 characters; images are read
+"""AI · Ask for a Report with longer prompts and images: the prompt keeps its line breaks up to 100,000 characters; images are read
 (PNG, JPEG, GIF or WebP, whatever the file is called; at most three, none over the size limit), sent to the provider in its own
 shape (Anthropic before the text, OpenAI after it) with a note saying what they are, and never kept. The provider is faked."""
 import io
@@ -116,10 +116,10 @@ def test_api_with_images(check, admin_email, monkeypatch):
         kept = cursor.fetchone()
     check("only the prompt is kept, not the images or the note", kept and kept[0] == prompt, str(kept))
 
-    long = "Sales by store and month. " * 150                                          # about 3,900 characters
-    check("a prompt of almost 4,000 characters is taken", client.post("/api/v1/insights/assistant/ask/", {"prompt": long, "model": "anthropic:claude-sonnet-5-5"}).status_code == 200)
-    over = client.post("/api/v1/insights/assistant/ask/", {"prompt": "x" * 4001, "model": "anthropic:claude-sonnet-5-5"})
-    check("over 4,000 characters is refused, saying the limit", over.status_code == 400 and "4,000 characters" in json.dumps(over.json()), str(over.content[:200]))
+    long = "Sales by store and month. " * 3800                                         # about 98,800 characters
+    check("a prompt of almost 100,000 characters is taken", client.post("/api/v1/insights/assistant/ask/", {"prompt": long, "model": "anthropic:claude-sonnet-5-5"}).status_code == 200)
+    over = client.post("/api/v1/insights/assistant/ask/", {"prompt": "x" * 100_001, "model": "anthropic:claude-sonnet-5-5"})
+    check("over 100,000 characters is refused, saying the limit", over.status_code == 400 and "100,000 characters" in json.dumps(over.json()), str(over.content[:200]))
     fake = client.post("/api/v1/insights/assistant/ask/", {"prompt": "Sales by store", "model": "anthropic:claude-sonnet-5-5", "images": [SimpleUploadedFile("chart.png", b"<svg/>")]})
     check("a file that is not an image is refused before the model is asked", fake.status_code == 400 and "images" in fake.json().get("errors", {}) and len(calls) == 2, str(fake.content[:200]))
     check.done()

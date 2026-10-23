@@ -90,7 +90,7 @@ const assistantProviders = () => [
 ]
 export const workspaceAssistantNow = { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders(),
   explain_allowed: true, usage: { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth' }, retention_days: 90 }
-function assistantReply(prompt: string, modelId: string) {
+function assistantReply(prompt: string, modelId: string, asked: { unmapped?: boolean; documents?: File[]; images?: number } = {}) {
   const model = assistantModels.find((m) => m.id === modelId) ?? assistantModels[0]
   const base = { prompt, model: { id: model.id, provider: model.provider, provider_name: model.provider_name, mark: model.mark, model: model.model, label: model.label }, duration_ms: 3200, message: null }
   if (/last month\?/.test(prompt)) {
@@ -102,7 +102,17 @@ function assistantReply(prompt: string, modelId: string) {
       suggestions: [{ label: 'Clicks by Campaign', prompt: 'Delivered count by campaign for September' }], usage: insightsAssistantNow.usage }
   }
   insightsAssistantNow.usage = { ...insightsAssistantNow.usage, used: insightsAssistantNow.usage.used + 1, words: `${insightsAssistantNow.usage.used + 1} of 200 prompts used in October` }
-  return { ...base, id: 'ask-1', kind: 'draft', counted: true, name: 'Sent and Delivered by Campaign', dataset: 'messages', dataset_label: 'Messages', view: { type: 'grid' },
+  const read = asked.documents?.length || asked.images ? { documents: (asked.documents ?? []).map((file) => ({ name: file.name, kind: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'word' : 'text' })), images: asked.images ?? 0 } : null
+  if (asked.unmapped) {
+    const field = (key: string, label: string, type: string, role: string, aggregates: string[] = []) => ({ key, label, type, role, aggregates, operators: ['='], buckets: type === 'date' ? ['week', 'month'] : [], format: null, sensitivity: 'NORMAL' })
+    return { ...base, id: 'ask-new', kind: 'draft', counted: true, name: 'Net Sales by Store and Week', dataset: 'new_dataset', dataset_label: 'Store Sales', view: { type: 'grid' },
+      definition: { columns: [{ field: 'store' }, { field: 'net_sales', aggregate: 'sum' }], filters: { combinator: 'and', rules: [] }, orderBy: [{ field: 'net_sales', direction: 'desc' }], limit: 500 },
+      note: 'The spec asks for stores open all quarter; the tables have no opening date.', preview: { rows: 48, more: false }, read, usage: insightsAssistantNow.usage,
+      new_dataset: { connection_id: 'db-cg', database: 'CG-Prod', label: 'Store Sales', source: 'sales_lines', joins: ['stores'], fields: 3,
+        dataset: { key: 'new_dataset', label: 'Store Sales', description: null, component: { key: 'cep', name: 'Engagement' }, primary_key: null, time_field: 'sale_day', freshness: 'LIVE', kind: 'table',
+          fields: [field('store', 'Store', 'string', 'dimension'), field('sale_day', 'Sale Day', 'date', 'dimension'), field('net_sales', 'Net Sales', 'number', 'measure', ['sum', 'avg'])] } } }
+  }
+  return { ...base, id: 'ask-1', kind: 'draft', counted: true, read, name: 'Sent and Delivered by Campaign', dataset: 'messages', dataset_label: 'Messages', view: { type: 'grid' },
     definition: { columns: [{ field: 'campaign_name' }, { field: 'sent', aggregate: 'sum' }, { field: 'delivered', aggregate: 'sum' }],
       filters: { combinator: 'and', rules: [{ field: 'submitted_at', operator: 'between', value: ['2026-09-01', '2026-09-30'] }] }, orderBy: [{ field: 'sent', direction: 'desc' }], limit: 500 },
     preview: { rows: 12, more: false }, usage: insightsAssistantNow.usage }
@@ -1672,9 +1682,9 @@ export function installMockApi(options: MockOptions = {}) {
         return json({ kind: 'draft', counted: true, view: { type: 'chart', chart: 'bar' }, definition: { ...asked.definition, columns: [{ field: 'channel' }, ...asked.definition.columns.filter((c) => c.aggregate)], view: { type: 'chart', chart: 'bar' } } })
       }
       if (path.endsWith('/insights/assistant/ask/')) {
-        const form = init.body instanceof FormData ? init.body : null                          // with images it comes as multipart
-        const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')) } : body ?? {}) as { prompt: string; model: string }
-        return json(assistantReply(asked.prompt, asked.model))
+        const form = init.body instanceof FormData ? init.body : null                          // with images or documents it comes as multipart
+        const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true' } : body ?? {}) as { prompt: string; model: string; unmapped?: boolean }
+        return json(assistantReply(asked.prompt, asked.model, { unmapped: asked.unmapped, documents: form ? form.getAll('documents') as File[] : [], images: form ? form.getAll('images').length : 0 }))
       }
       const opened = /\/insights\/assistant\/([\w-]+)\/open\/$/.exec(path)
       if (opened && method === 'POST') {

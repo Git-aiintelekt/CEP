@@ -133,20 +133,25 @@ def custom_datasets(tenant_id) -> list[dict]:
         conn = by_connection.get(row["connection_id"])
         if row["status"] != "ACTIVE" or conn is None or conn["status"] != "ACTIVE":
             continue
-        schema = external.schema_of(conn)
-        joins = row["joins"] or []
-        query = row.get("query_sql") or None
-        fields = [{"key": f["key"], "label": f["label"], "column": f.get("column"), **({"table": f.get("table") or "t0"} if (joins or query) and f.get("column") else {}), "type": f["type"], "role": f["role"],
-                   "aggregates": f.get("aggregates") or [], "operators": catalog.OPERATORS[f["type"]], "buckets": catalog.BUCKETS if f["type"] in ("date", "datetime") else [],
-                   "format": f.get("format"), "sensitivity": f.get("sensitivity") or "NORMAL", **({"formula": f["formula"]} if f.get("formula") else {})} for f in row["fields"]]
-        data.append({"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row["component_key"], "name": "Engagement"},
-                     "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{schema}.{row['source_name']}",
-                     "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins], **({"query": query, "kind": "query"} if query else {"kind": "table"}),
-                     "workspace_field": None, "engine": external.dialect_of(conn), "external": True, "fields": fields,
-                     "database": {"id": conn["id"], "name": conn["name"], "engine": conn["engine"], "engine_name": external.ENGINES.get(conn["engine"], conn["engine"])},
-                     "connection": conn})
+        data.append(catalogue_entry(row, conn))
     cache.set(key, data, catalog.TTL)
     return data
+
+
+def catalogue_entry(row: dict, conn: dict) -> dict:
+    """one mapped dataset (a report_dataset_custom row, or _dataset_body's result with a key) as the catalogue gives it"""
+    schema = external.schema_of(conn)
+    joins = row["joins"] or []
+    query = row.get("query_sql") or None
+    fields = [{"key": f["key"], "label": f["label"], "column": f.get("column"), **({"table": f.get("table") or "t0"} if (joins or query) and f.get("column") else {}), "type": f["type"], "role": f["role"],
+               "aggregates": f.get("aggregates") or [], "operators": catalog.OPERATORS[f["type"]], "buckets": catalog.BUCKETS if f["type"] in ("date", "datetime") else [],
+               "format": f.get("format"), "sensitivity": f.get("sensitivity") or "NORMAL", **({"formula": f["formula"]} if f.get("formula") else {})} for f in row["fields"]]
+    return {"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row.get("component_key") or "cep", "name": "Engagement"},
+            "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{schema}.{row['source_name']}",
+            "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins], **({"query": query, "kind": "query"} if query else {"kind": "table"}),
+            "workspace_field": None, "engine": external.dialect_of(conn), "external": True, "fields": fields,
+            "database": {"id": conn["id"], "name": conn["name"], "engine": conn["engine"], "engine_name": external.ENGINES.get(conn["engine"], conn["engine"])},
+            "connection": conn}
 
 
 def invalidate(tenant_id) -> None:
@@ -533,6 +538,16 @@ class DatabaseView(APIView):
 SOURCES_TTL = 600                                                    # the table names, held in memory for the search, then dropped
 
 
+def source_names(row: dict, *, reload: bool = False) -> dict:
+    """{sources, read_at}: the tables and views by name, read live and held in memory SOURCES_TTL; ExternalError when unreadable"""
+    key = f"cep:insights:sources:{row['id']}:{row['row_version']}"
+    held = None if reload else cache.get(key)
+    if held is None:
+        held = {"sources": external.sources(row), "read_at": timezone.now().isoformat()}
+        cache.set(key, held, SOURCES_TTL)
+    return held
+
+
 class SourcesView(APIView):
     """The tables and views by name, read live (one statement, no table opened) and held in memory SOURCES_TTL for the search;
     ?reload=1 reads them again. Nothing about the database is stored. One source: its columns, row estimate and 5 sample rows."""
@@ -552,11 +567,7 @@ class SourcesView(APIView):
                 return Response({"source": source, "columns": cols, "rows": external.table_rows(row, source),
                                  "sample": {"columns": names, "rows": [[_json_safe(v) for v in r] for r in rows]},
                                  "mapped_as": serialize_dataset(mapped[source]) if source in mapped else None})
-            key = f"cep:insights:sources:{row['id']}:{row['row_version']}"
-            held = None if request.query_params.get("reload") else cache.get(key)
-            if held is None:
-                held = {"sources": external.sources(row), "read_at": timezone.now().isoformat()}
-                cache.set(key, held, SOURCES_TTL)
+            held = source_names(row, reload=bool(request.query_params.get("reload")))
         except external.ExternalError as exc:
             raise Conflict(str(exc)) from None
         return Response({"sources": [{**s, "mapped_as": mapped[s["name"]]["label"] if s["name"] in mapped else None} for s in held["sources"]], "read_at": held["read_at"],
@@ -797,14 +808,20 @@ class DatasetsView(APIView):
             keyed = dict(zip((f["column"] for f in body["fields"]), data["fields"]))
             data["time_field"] = data["time_field"] or next((f["key"] for f in data["fields"] if f["type"] in ("date", "datetime")), None)
             data["primary_key"] = data["primary_key"] or next((keyed[c["column"]]["key"] for c in columns if c.get("key") and c["column"] in keyed), None)
-        dataset_id, key = str(uuid.uuid4()), _unique_key(tenant.pk, data["label"], None)
-        with session.tx():
-            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-               [dataset_id, str(tenant.pk), str(connection_id), key, data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]),
-                json.dumps(data["joins"]), data["query_sql"], str(request.user.pk), str(request.user.pk)])
-        invalidate(tenant.pk)
+        dataset_id = create_dataset(tenant.pk, request.user.pk, connection_id, data)
         return Response(serialize_dataset(next(d for d in datasets(tenant.pk, connection_id) if d["id"] == dataset_id)), status=status.HTTP_201_CREATED)
+
+
+def create_dataset(tenant_id, user_id, connection_id, data: dict) -> str:
+    """_dataset_body's result stored as a new dataset under a fresh key; its id"""
+    dataset_id, key = str(uuid.uuid4()), _unique_key(tenant_id, data["label"], None)
+    with session.tx():
+        _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
+              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+           [dataset_id, str(tenant_id), str(connection_id), key, data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]),
+            json.dumps(data["joins"]), data["query_sql"], str(user_id), str(user_id)])
+    invalidate(tenant_id)
+    return dataset_id
 
 
 class DatasetView(APIView):

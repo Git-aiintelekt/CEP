@@ -528,6 +528,45 @@ def columns(row: dict, source: str) -> list[dict]:
     return [{"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)), **_typed(data_type, column_type, name)} for name, data_type, column_type, column_key in rows]
 
 
+def columns_of(row: dict, sources: list[str]) -> dict[str, list[dict]]:
+    """The columns of several tables in one statement (Ask for a Report on tables not mapped yet), by table; a name the account
+    cannot read is left out. Each column as columns() gives it."""
+    names = [s for s in dict.fromkeys(sources) if IDENT.match(s)]
+    if not names:
+        return {}
+    if is_ch(row):
+        return {name: found for name in names if (found := _ch_columns_or_none(row, name))}
+    conn = connect(row, timeout_ms=catalog_ms(row))
+    schema = schema_of(row)
+    marks = ", ".join(["%s"] * len(names))
+    try:
+        with conn.cursor() as cursor:
+            if is_pg(row):
+                cursor.execute(f"""SELECT c.table_name, c.column_name, c.data_type, c.data_type, EXISTS (
+                                          SELECT 1 FROM information_schema.key_column_usage k JOIN information_schema.table_constraints tc ON tc.constraint_name = k.constraint_name AND tc.constraint_schema = k.constraint_schema
+                                           WHERE tc.constraint_type = 'PRIMARY KEY' AND k.table_schema = c.table_schema AND k.table_name = c.table_name AND k.column_name = c.column_name)
+                                     FROM information_schema.columns c WHERE c.table_schema = %s AND c.table_name IN ({marks}) ORDER BY c.table_name, c.ordinal_position""", [schema, *names])
+                rows = [(table, name, data_type, column_type, "PRI" if key else "") for table, name, data_type, column_type, key in cursor.fetchall()]
+            else:
+                cursor.execute(f"""SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_KEY FROM information_schema.COLUMNS
+                                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME IN ({marks}) ORDER BY TABLE_NAME, ORDINAL_POSITION""", [schema, *names])
+                rows = cursor.fetchall()
+    except _errors(row) as exc:
+        raise ExternalError(_message(exc)) from None
+    finally:
+        conn.close()
+    out: dict[str, list[dict]] = {}
+    for table, name, data_type, column_type, column_key in rows:
+        out.setdefault(str(table), []).append({"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)), **_typed(data_type, column_type, name)})
+    return out
+
+
+def _ch_columns_or_none(row: dict, source: str) -> list[dict] | None:
+    found = _ch_columns(row, source)
+    return [{"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)) and data_type != "complex", **_typed(data_type, column_type, name)}
+            for name, data_type, column_type, column_key in found] or None
+
+
 def _from(row: dict, source: str, joins: list[dict] | None) -> str:
     """the FROM for a sample or a check: the base alone, or the base as t0 with its joins (compiler.join_clause)"""
     from apps.insights import compiler

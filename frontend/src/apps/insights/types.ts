@@ -779,6 +779,18 @@ export interface AssistantState {
   explain?: { enabled: boolean; model: { id: string; label: string; provider_name: string } | null }
 }
 export interface AskPrompt { label: string; prompt: string }
+/** the data a prompt asks about: all, the platform's datasets, the uploaded files', or one Report Database's (db:<id>) */
+export type AskScope = 'all' | 'platform' | 'uploads' | `db:${string}`
+/** a draft on a Report Database's tables not mapped yet: Open in Editor maps this dataset first */
+export interface AskNewDataset {
+  connection_id: string
+  database: string
+  label: string
+  source: string
+  joins: string[]
+  fields: number
+  dataset: CatalogDataset
+}
 export interface AskResult {
   id: string
   kind: 'draft' | 'question' | 'no_field' | 'failed'
@@ -796,6 +808,11 @@ export interface AskResult {
   question?: string
   answers?: AskPrompt[]
   suggestions?: AskPrompt[]
+  /** a part of the request or its documents the draft could not follow */
+  note?: string
+  new_dataset?: AskNewDataset
+  /** the documents and images the model read with the prompt */
+  read?: { documents: { name: string; kind: 'pdf' | 'word' | 'text' | 'markdown'; pages?: number; words?: number }[]; images: number } | null
   usage: AssistantUsage
 }
 /** Settings → AI Assistant: one provider, the platform's key and the workspace's own */

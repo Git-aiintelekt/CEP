@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask for a Report Data and Specs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .pill-ai { height:20px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+  .box { position:relative; border:1px solid var(--line-control); border-radius:12px; background:#fff }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .askabout { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .datapick { height:28px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-900); background:#fff }
+  .datapick b { font-weight:600 } .datapick small { color:var(--ink-700); font-size:11.5px } .datapick::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .datapick.ghost { border-color:transparent }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .thumb { width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#f9fafb; position:relative; flex:none }
+  .doc { height:64px; min-width:180px; max-width:240px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center; position:relative }
+  .doc .ico { width:34px; height:42px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:9px; font-weight:700; color:var(--ink-800); padding-bottom:5px; flex:none }
+  .doc .ico.pdf { background:#fae2e2; color:var(--danger-text) } .doc .ico.word { background:var(--brand-100); color:var(--brand-800) }
+  .doc b { display:block; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px } .doc small { font-size:11.5px; color:var(--ink-700) }
+  .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .muted { font-size:12px; color:var(--ink-800) } .grow { flex:1 }
+  .counter { font-size:12px; color:var(--warning-text); font-variant-numeric:tabular-nums; font-weight:500 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 8px; font-size:13px; border-radius:999px } .model::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-subtle) }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; padding:0 14px; font:600 13px/32px var(--font) }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .small { font-size:12px; color:var(--ink-800) }
+
+  .menu { position:absolute; z-index:2; top:42px; left:12px; width:380px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:6px }
+  .menu .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .menu .opt { display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:8px; font-size:13.5px }
+  .menu .opt.on { background:var(--callout-bg) } .menu .opt small { display:block; font-size:12px; color:var(--ink-800) }
+  .menu .opt .m { width:26px; height:26px; border-radius:8px; background:var(--brand-100); color:var(--brand-800); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .menu .opt .m.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .menu .check { display:flex; gap:8px; align-items:flex-start; margin:4px 8px 6px 44px; font-size:12.5px; color:var(--ink-900) }
+  .cb { width:15px; height:15px; border-radius:4px; background:var(--brand-600); flex:none; margin-top:2px; position:relative } .cb::after { content:"✓"; color:#fff; font-size:11px; position:absolute; left:2px; top:-2px }
+
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:12px; background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--brand-800); text-align:center }
+  .drop b { font-size:15px } .drop small { font-size:12px; color:var(--ink-800) }
+
+  .result { border:1px solid var(--line); border-radius:12px; background:var(--surface-subtle); padding:14px 16px; display:flex; flex-direction:column; gap:8px; font-size:13.5px }
+  .result dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0 } .result dt { font-weight:600 } .result dd { margin:0 }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--brand-100); color:var(--brand-800) }
+  .tag.new { background:var(--warning-bg); color:var(--warning-text) }
+  .btns { display:flex; gap:8px } .btn { height:32px; border-radius:999px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Insights → Reports, the Ask for a Report box as built (one box, paperclip, drop target), with the data to ask about, documents as attachments, and longer prompts. Sample names.</div>
+  <p class="note">Three additions to the box: <strong>the data to ask about</strong> (all of it, the platform's, one of your databases, or your uploaded files), so the model reads only those fields; <strong>documents</strong> (PDF, Word, text, Markdown) beside images, for a report spec; and <strong>prompts up to 100,000 characters</strong>, with the counter shown only near the end. Documents and images go to the model with the prompt and are never stored. The options differ in where the data choice sits.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: "Ask About" at the top of the box</h2>
+  <p>The first thing in the box: what the prompt is about. You choose the data, write (or attach the spec), then Generate, the order you described.</p>
+
+  <div class="label">A1 · CG-Prod chosen, a spec in Word and a PDF, a sketch, a long prompt <span>The busy case. Unmapped tables are allowed for this prompt (see A2's menu), so the model may draft from tables nobody has mapped yet.</span></div>
+  <div class="frame"><div class="cap">Option A · busy</div><div class="page">
+    <section class="panel">
+      <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">14 of 200 prompts this month</span></div>
+      <div class="box focus">
+        <div class="askabout">Ask about <span class="datapick"><span class="mark">MY</span><b>CG-Prod</b><small>3 datasets · and its tables</small></span></div>
+        <div class="atts">
+          <div class="doc"><span class="ico word">DOC</span><div><b>Store sales report spec v3.docx</b><small>Word · 2,840 words</small></div><span class="x">✕</span></div>
+          <div class="doc"><span class="ico pdf">PDF</span><div><b>Regional KPIs 2026.pdf</b><small>PDF · 14 pages</small></div><span class="x">✕</span></div>
+          <div class="thumb"><svg viewBox="0 0 64 64" width="62" height="62"><rect width="64" height="64" fill="#fffdf4"/><g fill="none" stroke="#4b4f5b" stroke-width="1.4"><path d="M9 12h46v40H9zM9 22h46M28 12v40"/></g></svg><span class="x">✕</span></div>
+        </div>
+        <div class="text">Build the report described in the spec: net sales by store and week for Q3, compared with the same week last year, stores down the side as in the sketch.
+Use the regional targets in the PDF as a target line.
+Only stores open all quarter; leave out franchise stores (store_type = 'F').
+…</div>
+        <div class="bar">
+          <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="muted">2 documents · 1 image</span>
+          <span class="grow"></span>
+          <span class="counter">96,140 / 100,000</span>
+          <span class="model"><span class="mark">C</span>Claude · Best for Reports</span>
+          <span class="primary">Generate Report</span>
+        </div>
+      </div>
+      <p class="small">Sends your prompt, the documents and images, and the names of CG-Prod's fields and tables, never your data. Documents and images are not kept.</p>
+    </section>
+  </div></div>
+
+  <div class="label">A2 · Choosing the data <span>The menu under "Ask about": all your data, the platform's, each Report Database with its mapped datasets and a switch for its tables not mapped yet, and the uploaded files.</span></div>
+  <div class="row2">
+    <div class="frame"><div class="cap">Option A · the menu open</div><div class="page" style="min-height:700px">
+      <section class="panel" style="position:relative">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2></div>
+        <div class="box" style="min-height:600px">
+          <div class="askabout">Ask about <span class="datapick"><b>CG-Prod</b></span></div>
+          <div class="menu">
+            <div class="opt"><span class="m gray">ALL</span><div>All My Data<small>Every dataset you can report on</small></div></div>
+            <div class="sec">C360</div>
+            <div class="opt"><span class="m gray">C360</span><div>Engagement and Orders<small>Messages, Attributed Orders, Contacts, Journey Enrolments</small></div></div>
+            <div class="sec">Your Databases</div>
+            <div class="opt on"><span class="m">MY</span><div>CG-Prod<small>MySQL 5.7 · 3 mapped datasets · 1,284 tables</small></div></div>
+            <div class="check"><span class="cb"></span><span>Also look at tables not mapped yet<br><span class="small">The names, and the columns of the tables your prompt mentions, read when you press Generate.</span></span></div>
+            <div class="opt"><span class="m">PG</span><div>Finance Warehouse<small>PostgreSQL 16 · 2 mapped datasets</small></div></div>
+            <div class="sec">Uploaded Files</div>
+            <div class="opt"><span class="m gray">CSV</span><div>POS Transactions, POS Returns<small>2 files</small></div></div>
+          </div>
+        </div>
+      </section>
+    </div></div>
+    <div class="frame"><div class="cap">Option A · empty, the defaults</div><div class="page">
+      <section class="panel">
+        <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">12 of 200 prompts this month</span></div>
+        <div class="box">
+          <div class="askabout">Ask about <span class="datapick"><b>All My Data</b></span></div>
+          <div class="text ph">e.g. Revenue by channel and month for the last quarter, as a pivot.
+Or attach the report's spec, a PDF or Word document, and say "build this".</div>
+          <div class="bar"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="muted">Drop, paste or attach: up to 5 images and 3 documents (PDF, Word, text)</span><span class="grow"></span>
+            <span class="model"><span class="mark">C</span>Claude · Best for Reports</span><span class="primary off">Generate Report</span></div>
+        </div>
+        <p class="small">Sends your prompt and the field names, never your data.</p>
+      </section>
+      <div class="label" style="margin-top:18px">While a file is dragged over it</div>
+      <section class="panel"><div class="box" style="min-height:150px"><div class="drop"><b>Drop images or documents here</b><small>PNG, JPEG, GIF, WebP · PDF, Word, text, Markdown · up to 5 images and 3 documents</small></div></div></section>
+    </div></div>
+  </div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: the data in the bottom bar, beside the model</h2>
+  <p>The data choice sits with the other settings of the prompt (the model, Generate), as a quiet pill; the text gets the top of the box.</p>
+  <div class="label">B1 · the same busy case</div>
+  <div class="frame"><div class="cap">Option B · busy</div><div class="page">
+    <section class="panel">
+      <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">14 of 200 prompts this month</span></div>
+      <div class="box focus">
+        <div class="atts">
+          <div class="doc"><span class="ico word">DOC</span><div><b>Store sales report spec v3.docx</b><small>Word · 2,840 words</small></div><span class="x">✕</span></div>
+          <div class="doc"><span class="ico pdf">PDF</span><div><b>Regional KPIs 2026.pdf</b><small>PDF · 14 pages</small></div><span class="x">✕</span></div>
+        </div>
+        <div class="text">Build the report described in the spec: net sales by store and week for Q3, compared with the same week last year…</div>
+        <div class="bar">
+          <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="muted">2 documents</span>
+          <span class="grow"></span>
+          <span class="datapick ghost"><span class="mark">MY</span><b>CG-Prod</b></span>
+          <span class="model"><span class="mark">C</span>Claude · Best for Reports</span>
+          <span class="primary">Generate Report</span>
+        </div>
+      </div>
+    </section>
+  </div></div>
+
+  <!-- ===================================================== RESULT -->
+  <h2 class="part">Both options: what comes back</h2>
+  <p>A draft from a table nobody had mapped says so: Open in Editor maps it as a dataset (with the fields the report needs) and opens the report; nothing is mapped until then.</p>
+  <div class="frame"><div class="cap">The draft</div><div class="page">
+    <div class="result">
+      <div style="display:flex;gap:8px;align-items:center"><span class="pill-ai">AI</span><b>Draft Report</b><span class="small" style="margin-left:auto">Claude · Best for Reports · 6.2 s · read the spec (Word), the PDF and 1 image</span></div>
+      <dl>
+        <dt>Name</dt><dd>Net Sales by Store and Week, Q3 vs Last Year</dd>
+        <dt>Data</dt><dd>CG-Prod · <span class="tag new">sales_lines + stores, not mapped yet</span></dd>
+        <dt>Rows</dt><dd>Store, then Week</dd>
+        <dt>Values</dt><dd>Net Sales, with Change vs Same Week Last Year; target line from the PDF (Regional KPIs, page 6)</dd>
+        <dt>Filter</dt><dd>Week in Q3 2026 and Store Type is not F</dd>
+      </dl>
+      <p class="small">Open in Editor maps sales_lines joined to stores as the dataset "Store Sales" (7 fields), then opens the report. The spec's line "only stores open all quarter" needs an opening date the tables don't have; the draft notes it.</p>
+      <div class="btns"><span class="btn">Try Again</span><span class="btn">Edit Prompt</span><span class="btn p">Open in Editor</span></div>
+    </div>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>The data to ask about</strong>: All My Data (as today), the platform's datasets, each Report Database (its mapped datasets), or the uploaded files. The model is sent only the chosen fields, so answers are sharper and prompts cheaper. The last choice is remembered per browser.</li>
+      <li><strong>Tables not mapped yet</strong> (a switch under a Report Database, on by default for administrators and report builders): the table names are read live (the same one statement as Map a Dataset), and the columns of the tables the prompt names or the model asks for, at most 20 tables. Nothing is stored. A draft on them is mapped as a dataset only when someone opens it.</li>
+      <li><strong>Documents</strong>: up to 3, PDF, Word (.docx), text and Markdown, up to 10 MB and 100 pages each, by the paperclip, a drop or a paste. Claude reads PDFs as they are; OpenAI takes them as files; a Word file is read as text by C360 (no new package). Like images, they go to the model with the prompt and are never stored; the draft says what it read.</li>
+      <li><strong>Prompts up to 100,000 characters</strong> (about 25,000 words), checked on the server too; the counter appears from 90,000. Truly unlimited is not possible: a model reads about 200,000 tokens a request, and every character is paid for. A longer spec goes in as a document.</li>
+      <li><strong>Usage</strong>: a prompt with documents still counts as one prompt; the AI provider bills the tokens, so the month line on the box stays the guide.</li>
+      <li><strong>Help</strong>: Ask for a Report and "Add images to a prompt" become "Add a spec or images to a prompt"; tests for the data choice, documents, the limits, and a draft on an unmapped table.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A.</strong> You described the order as choose the database, then run the prompt; "Ask about" at the top of the box makes that the first thing seen, and with documents and a long prompt the choice is too important to sit as a quiet pill next to the model. Option B is tidier for people who mostly keep All My Data.</div>
+</div>
+</body>
+</html>
