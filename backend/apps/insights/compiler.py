@@ -38,8 +38,9 @@ def _ident(name: str, dialect: str = "postgresql") -> str:
 
 
 def _source(name: str, dialect: str = "postgresql") -> str:
+    """schema.table (or a table alone), quoted; a schema or database name may hold hyphens (txpostalprod-server-7), a table not"""
     parts = name.split(".")
-    assert all(part.replace("_", "").isalnum() for part in parts), name
+    assert parts[-1].replace("_", "").isalnum() and all(part.replace("_", "").replace("-", "").isalnum() for part in parts[:-1]), name
     return ".".join(f"`{part}`" if dialect == "mysql" else f'"{part}"' for part in parts)
 
 

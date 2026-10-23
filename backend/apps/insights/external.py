@@ -25,6 +25,8 @@ from apps.platform_ops import crypto
 ALLOWED_MYSQL = {"SELECT", "SHOW VIEW", "USAGE"}
 ALLOWED_PG = {"SELECT", "REFERENCES"}
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# a database's (or a PostgreSQL schema's) own name may also hold hyphens (txpostalprod-server-7): always quoted when it reaches SQL
+DB_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]{0,63}$")
 CONNECT_TIMEOUT_S = 15                                              # a server behind a slow firewall takes a while to answer at all
 # reading the database's own catalogue (the tables, their columns, the connection test): a big schema on MySQL 5.7 opens every
 # table to answer information_schema, so this is longer than a report's limit; samples and join checks read data, so shorter
@@ -77,6 +79,12 @@ def schema_of(row: dict) -> str:
 
 def quote(name: str, row: dict) -> str:
     assert IDENT.match(name), name
+    return f'"{name}"' if is_pg(row) else f"`{name}`"
+
+
+def quote_schema(name: str, row: dict) -> str:
+    """a database or schema name, which may hold hyphens"""
+    assert DB_NAME.match(name), name
     return f'"{name}"' if is_pg(row) else f"`{name}`"
 
 
@@ -572,7 +580,7 @@ def _from(row: dict, source: str, joins: list[dict] | None) -> str:
     from apps.insights import compiler
     schema = schema_of(row)
     if not joins:
-        return f"{quote(schema, row)}.{quote(source, row)}"
+        return f"{quote_schema(schema, row)}.{quote(source, row)}"
     dialect = "postgresql" if is_pg(row) else "mysql"
     return compiler.join_clause(f"{schema}.{source}", [{**j, "table": f"{schema}.{j['table']}"} for j in joins], dialect_of(row))
 

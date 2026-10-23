@@ -210,8 +210,8 @@ def test_api(check, world, monkeypatch):
     empty = world.api("get", "/api/v1/workspace/report-databases/").json()
     check("nothing connected yet, with the grant to give for each engine", empty["ready"] and empty["databases"] == [] and "GRANT SELECT ON your_db.*" in empty["grant_examples"]["mysql"]
           and "GRANT SELECT ON ALL TABLES IN SCHEMA public" in empty["grant_examples"]["postgresql"])
-    bad = world.api("post", "/api/v1/workspace/report-databases/", {"name": "Store Operations", "host": "ops db", "database": "nwa-ops", "username": "cep_reader"})
-    check("a connection needs a host without spaces, a plain database name and a password", bad.status_code == 400 and {"host", "database", "password"} <= set(bad.json()["errors"]), str(bad.content[:300]))
+    bad = world.api("post", "/api/v1/workspace/report-databases/", {"name": "Store Operations", "host": "ops db", "database": "nwa ops", "username": "cep_reader"})
+    check("a connection needs a host without spaces, a database name without spaces (hyphens are fine) and a password", bad.status_code == 400 and {"host", "database", "password"} <= set(bad.json()["errors"]), str(bad.content[:300]))
     made = world.api("post", "/api/v1/workspace/report-databases/", {"name": "Store Operations", "engine": "mysql80", "host": "ops-db.northwind.local", "port": 3306, "database": "nwa_ops",
                                                                       "username": "cep_reader", "password": "s3cret", "ssl": "REQUIRED"})
     body = made.json()
