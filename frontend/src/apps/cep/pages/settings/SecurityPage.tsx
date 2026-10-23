@@ -11,7 +11,7 @@ import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
-import type { IdentityProvider, Role, SecuritySettings, SupportAccess } from '@/lib/types'
+import type { IdentityProvider, PlatformVisit, Role, SecuritySettings, SupportAccess } from '@/lib/types'
 
 const KEY = ['workspace', 'security']
 
@@ -126,6 +126,27 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
   )
 }
 
+function PlatformVisits() {
+  const log = useQuery({ queryKey: ['workspace', 'platform-visits'], queryFn: ({ signal }) => api.get<PlatformVisit[]>('/workspace/platform-visits/', undefined, signal) })
+  const columns: Column<PlatformVisit>[] = [
+    { key: 'who', header: 'Who', render: (row) => row.who },
+    { key: 'from', header: 'From', render: (row) => formatDateTime(row.started_at) },
+    { key: 'until', header: 'Until', render: (row) => (row.open ? <StatusBadge status="ACTIVE" label="In the Workspace Now" /> : row.until ? formatDateTime(row.until) : '—') },
+    { key: 'why', header: 'Reason', render: (row) => row.reason },
+    { key: 'changes', header: 'Changes', render: (row) => <span className="cep-num">{row.writes}</span> },
+  ]
+  return (
+    <section aria-labelledby="platform-visits">
+      <h2 id="platform-visits" className="text-card-title font-semibold text-ink-900">Platform Visits</h2>
+      <p className="mt-0.5 mb-3 text-sm text-ink-800">Every time a platform administrator entered this workspace as themselves, with their reason, from when to when.</p>
+      {log.isError ? <ErrorState error={log.error} onRetry={() => void log.refetch()} />
+        : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
+        : log.data.length === 0 ? <EmptyState title="No platform administrator has entered this workspace" />
+        : <DataTable columns={columns} rows={log.data} rowKey={(row) => row.id} caption="Platform Visits" />}
+    </section>
+  )
+}
+
 function SupportLog() {
   const log = useQuery({ queryKey: ['workspace', 'support-access'], queryFn: ({ signal }) => api.get<SupportAccess[]>('/workspace/support-access/', undefined, signal) })
   const columns: Column<SupportAccess>[] = [
@@ -170,6 +191,7 @@ export function SecurityPage() {
           </>)}
       </section>
       <SupportLog />
+      <PlatformVisits />
     </div>
   )
 }

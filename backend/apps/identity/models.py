@@ -77,8 +77,10 @@ class AppUser(AbstractBaseUser):
         return True
 
     def permission_codes(self):
-        """Permission codes granted through role assignments (identity.role_permission)."""
-        from django.db.models import Q
+        """Permission codes granted through role assignments (identity.role_permission); a platform administrator holds them all
+        (HasPermissionCode lets them through already; this keeps /me and the direct checks the same, in a visited workspace too)."""
+        if self.is_platform_admin:
+            return set(Permission.objects.values_list('code', flat=True))
         return set(Permission.objects.filter(role_permissions__role__user_roles__user=self).values_list('code', flat=True))
 
     def has_perm(self, perm, obj=None):

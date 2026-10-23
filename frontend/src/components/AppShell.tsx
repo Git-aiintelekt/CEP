@@ -8,6 +8,7 @@ import { LegalFooter } from '@/components/LegalFooter'
 import { UploadsIndicator } from '@/apps/cep/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { leaveVisit } from '@/lib/visit'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { AppRail, ComponentMenu } from '@/shell/LeftNav'
 import { componentAt, entitled, type EntitledComponent } from '@/shell/manifests'
@@ -51,6 +52,20 @@ function SupportBanner({ by, mode, expiresAt, onEnded }: { by: string; mode: 'RE
       </p>
       <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="h-8 rounded-control-md bg-toast px-3 text-xs font-semibold text-on-brand transition-colors hover:bg-toast/85 disabled:bg-fill-subtle disabled:text-ink-300">
         End session
+      </button>
+    </div>
+  )
+}
+
+/** a platform administrator inside another workspace as themselves (Switch Workspace): said on every page, with the way back */
+function VisitBanner({ workspace, home }: { workspace: string; home: string }) {
+  const [leaving, setLeaving] = useState(false)
+  return (
+    <div role="status" className="flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2 text-sm font-medium text-on-warning md:px-8">
+      <p>You are in {workspace} as a platform administrator, with full rights. This visit is recorded and shown to the workspace’s administrators.</p>
+      <button type="button" disabled={leaving} onClick={() => { setLeaving(true); void leaveVisit(home) }}
+        className="h-8 rounded-control-md bg-toast px-3 text-xs font-semibold text-on-brand transition-colors hover:bg-toast/85 disabled:bg-fill-subtle disabled:text-ink-300">
+        Back to Platform
       </button>
     </div>
   )
@@ -127,6 +142,7 @@ export function AppShell() {
   const overlay = open && !isXl
   const showNav = isMd || open
   const support = me?.support_session ?? null
+  const visit = me?.platform_visit ?? null
   const enrolFirst = Boolean(me?.mfa_setup_required)
   const hasComponent = (key: string) => (me?.components ?? []).some((component) => component.key === key)
   // an Insights item in a component's menu is the integrated mode; standalone offers Insights only as an app of its own
@@ -221,6 +237,7 @@ export function AppShell() {
 
       <div className={`flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
+        {visit && <VisitBanner workspace={me?.workspace?.name ?? me?.tenant.code ?? 'this workspace'} home={visit.home} />}
         {/* same side padding as the top bar's search and account, and no width cap, so content lines up with them */}
         <main className="flex w-full min-w-0 flex-1 flex-col bg-canvas px-4 py-5 md:px-8 md:py-6">
           <div className="flex-1"><Outlet /></div>

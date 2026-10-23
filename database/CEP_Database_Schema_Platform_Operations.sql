@@ -3050,6 +3050,32 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
      'Whether a Report Database''s account must hold SELECT only. On: an account that can write is refused until it is fixed. Off: it is used, with a warning; C360 still opens every session on it read-only and runs SELECT only')
 ON CONFLICT (key) DO NOTHING;
 
+-- -------------------------------------------------------------------------------------
+-- 0077: Switch Workspace (2026-10-23, docs/mockups/switch-workspace.html option B). A platform administrator enters another
+-- workspace as themselves, with full rights, giving a reason (apps/platform_ops/visits.py). One row per visit, written by the
+-- platform; the workspace's administrators read theirs (Settings -> Security -> Platform Visits), the back-office all of them.
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS platform_visit (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),             -- the workspace visited
+    staff_user_id       UUID NOT NULL REFERENCES app_user(id),           -- the platform administrator, as themselves
+    staff_name          VARCHAR(200),                                    -- their name at the time (RLS hides their row from the workspace)
+    home_tenant_id      UUID REFERENCES tenant(id),                      -- where Back to Platform returns
+    reason              TEXT NOT NULL,
+    started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen_at        TIMESTAMPTZ,
+    ended_at            TIMESTAMPTZ,                                     -- Back to Platform, or signing out
+    ip_address          INET,
+    writes              INTEGER NOT NULL DEFAULT 0,                      -- changes made during the visit
+    CONSTRAINT ck_platform_visit_reason CHECK (length(btrim(reason)) >= 5)
+);
+COMMENT ON TABLE platform_visit IS 'Every time a platform administrator entered a workspace as themselves (Switch Workspace): who, why, from when to when. Visible to the workspace.';
+CREATE INDEX IF NOT EXISTS ix_platform_visit_tenant ON platform_visit(tenant_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS ix_platform_visit_staff ON platform_visit(staff_user_id, started_at DESC);
+GRANT ALL ON platform_visit TO cep_admin;
+GRANT SELECT ON platform_visit TO cep_app;
+REVOKE INSERT, UPDATE, DELETE ON platform_visit FROM cep_app;                -- the workspace reads its visits; only the platform writes them
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

@@ -87,7 +87,20 @@ MFA_SETUP_ALLOWED = ("/auth/mfa/", "/me/", "/auth/token/refresh/")
 class CepJWTAuthentication(JWTAuthentication):
     """* a support session (claim `imp`) is read-only unless opened for writing, never touches users / roles / keys /
          sign-in security, and stops working the moment it is ended or expires;
+       * a visit (claim `visit`, Switch Workspace): a platform administrator in another workspace as themselves, read through the
+         platform connection (the workspace's row-level security hides them), only in that workspace and while the visit is open;
        * a user who must enrol MFA first (claim `mfa_setup`) reaches only the enrolment endpoints and /me."""
+
+    def get_user(self, validated_token):
+        if validated_token.get("visit"):
+            from django.conf import settings
+
+            from apps.identity.models import AppUser
+            user = AppUser.objects.using(settings.PLATFORM_ALIAS).filter(pk=validated_token.get("sub"), is_active=True, is_platform_admin=True).first()
+            if user is None:
+                raise exceptions.AuthenticationFailed("This visit has ended.")
+            return user
+        return super().get_user(validated_token)
 
     def authenticate(self, request):
         from django.conf import settings
@@ -113,6 +126,16 @@ class CepJWTAuthentication(JWTAuthentication):
                     raise exceptions.PermissionDenied("This support session is read-only.")
                 with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
                     cursor.execute("UPDATE support_access_log SET writes = writes + 1 WHERE id = %s", [str(session.pk)])
+
+        visit_id = token.get("visit")
+        if visit_id:
+            from apps.platform_ops import visits
+            tenant = getattr(request._request, "tenant", None) or {}
+            visit = visits.open_visit(visit_id, user.pk, tenant.get("id"))
+            if visit is None:
+                raise exceptions.AuthenticationFailed("This visit has ended. Go back to your workspace and switch again.")
+            request._request.platform_visit = visit
+            visits.touch(visit_id, request.method not in SAFE)
 
         if token.get("mfa_setup") and not user.mfa_enabled and not any(path.startswith(prefix) for prefix in MFA_SETUP_ALLOWED):
             raise exceptions.PermissionDenied("Set up multi-factor authentication first: your workspace requires it.")

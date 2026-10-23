@@ -61,6 +61,8 @@ export interface Me {
   mfa_setup_required?: boolean
   /** set when platform support is acting as this user */
   support_session?: { by: string; mode: 'READ' | 'WRITE'; expires_at: string; reason?: string } | null
+  /** set while a platform administrator is in this workspace as themselves (Switch Workspace); home is where Back to Platform returns */
+  platform_visit?: { home: string; home_name: string | null; started_at: string; reason: string } | null
   /** how long the browser waits before warning of inactivity, and how long the warning stays up before signing out (global parameters) */
   session?: { idle_timeout_minutes: number; idle_warning_seconds: number }
 }
@@ -366,6 +368,37 @@ export interface MailServerSettings {
   in_use: 'tenant' | 'platform' | 'environment' | 'console' | string
   /** the campaign sender profile backed by this server, when offered */
   sender_profile: { id: string; display_name: string; from_address: string; verification_status: 'PENDING' | 'VERIFIED' | 'FAILED'; is_default: boolean } | null
+}
+
+/** a workspace a platform administrator may switch to (GET /platform/workspaces/) */
+export interface PlatformWorkspace {
+  id: string
+  code: string
+  name: string
+  status: string
+  plan: string | null
+  users: number
+  last_visit: string | null
+}
+
+/** POST /platform/visits/: the visit's tokens, in the administrator's own name */
+export interface VisitStart {
+  access: string
+  refresh: string
+  tenant: string
+  workspace: string
+  visit: string
+}
+
+/** one visit of a platform administrator, for the workspace's administrators (Settings -> Security) */
+export interface PlatformVisit {
+  id: string
+  who: string
+  reason: string
+  started_at: string
+  until: string | null
+  open: boolean
+  writes: number
 }
 
 export interface SupportAccess {

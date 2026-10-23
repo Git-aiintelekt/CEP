@@ -244,8 +244,31 @@ def _spend(token: RefreshToken, *, at: float) -> bool:
     return spent is not None and time.time() - spent <= REUSE_GRACE
 
 
+def _visit_refresh(attrs) -> dict | None:
+    """A visit's refresh (Switch Workspace): the administrator is read through the platform connection, since the visited
+    workspace's row-level security hides them, and only while the visit is open. None for any other token."""
+    refresh = RefreshToken(attrs["refresh"])
+    if not refresh.get("visit"):
+        return None
+    from apps.platform_ops import visits
+    if not AppUser.objects.using(settings.PLATFORM_ALIAS).filter(pk=refresh.get("sub"), is_active=True, is_platform_admin=True).exists() \
+            or visits.open_visit(refresh["visit"], refresh.get("sub")) is None:
+        raise InvalidToken("This visit has ended.")
+    if not _spend(refresh, at=time.time()):
+        raise InvalidToken("This sign-in has ended. Sign in again.")
+    data = {"access": str(refresh.access_token)}
+    refresh.set_jti()
+    refresh.set_exp()
+    refresh.set_iat()
+    data["refresh"] = str(refresh)
+    return data
+
+
 class RefreshSerializer(TokenRefreshSerializer):
     def validate(self, attrs):
+        visit = _visit_refresh(attrs)
+        if visit is not None:
+            return visit
         answer = super().validate(attrs)                   # signature, expiry, an active user
         if not _spend(RefreshToken(attrs["refresh"], verify=False), at=time.time()):
             raise InvalidToken("This sign-in has ended. Sign in again.")
@@ -262,6 +285,9 @@ class TokenRevokeView(PublicAuthView):
         except TokenError:
             return Response(status=204)                     # already unusable
         _spend(token, at=time.time() - REUSE_GRACE - 1)
+        if token.get("visit"):                              # signing out of a visit ends it
+            from apps.platform_ops import visits
+            visits.end(token["visit"])
         return Response(status=204)
 
 

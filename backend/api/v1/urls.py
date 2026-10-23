@@ -1,3 +1,4 @@
+from apps.platform_ops import visits as platform_visits
 from apps.insights import api as insights_api
 from apps.insights import dashboards as insights_dashboards
 from apps.insights import audit as insights_audit
@@ -64,6 +65,10 @@ urlpatterns = [
     path("workspace/invoices/", workspace_api.InvoicesView.as_view(), name="workspace_invoices"),
     path("workspace/security/", workspace_api.SecurityView.as_view(), name="workspace_security"),
     path("workspace/support-access/", workspace_api.SupportAccessView.as_view(), name="workspace_support_access"),
+    path("workspace/platform-visits/", platform_visits.WorkspaceVisitsView.as_view(), name="workspace_platform_visits"),
+    path("platform/workspaces/", platform_visits.WorkspacesView.as_view(), name="platform_workspaces"),
+    path("platform/visits/", platform_visits.VisitsView.as_view(), name="platform_visits"),
+    path("auth/visit/end/", platform_visits.VisitEndView.as_view(), name="auth_visit_end"),
     path("workspace/approvals/", workspace_api.ApprovalsView.as_view(), name="workspace_approvals"),
     path("workspace/notifications/", workspace_api.NotificationsView.as_view(), name="workspace_notifications"),
     path("workspace/notifications/test/", workspace_api.NotificationsTestView.as_view(), name="workspace_notifications_test"),
