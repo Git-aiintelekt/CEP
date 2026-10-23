@@ -200,11 +200,11 @@ def _connection_body(body: dict, current: dict | None) -> dict:
         port = 3306
         errors["port"] = "A port from 1 to 65535."
     database = str(body.get("database") or body.get("database_name") or (current or {}).get("database_name") or "").strip()
-    if not database or not external.IDENT.match(database):
-        errors["database"] = "The database name: letters, digits and underscores."
+    if not database or not external.DB_NAME.match(database):
+        errors["database"] = "The database name: letters, digits, underscores and hyphens."
     schema = str(body.get("schema") or body.get("schema_name") or (current or {}).get("schema_name") or "public").strip() if engine == "postgresql" else database
-    if not external.IDENT.match(schema):
-        errors["schema"] = "The schema name: letters, digits and underscores."
+    if not external.DB_NAME.match(schema):
+        errors["schema"] = "The schema name: letters, digits, underscores and hyphens."
     username = str(body.get("username") or (current or {}).get("username") or "").strip()
     if not username or len(username) > 100:
         errors["username"] = "The account the engine connects as."
