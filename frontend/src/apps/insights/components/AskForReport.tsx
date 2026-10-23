@@ -11,13 +11,13 @@
  * files dragged anywhere over the panel show the drop target on it, and pasting into the text adds them too. "Add To" beside the
  * model files the report under a component of the suite (docs/mockups/report-component.html, option A); Automatic is its data's.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, Paperclip, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { IconButton } from '@/components/Button'
-import { buttonPrimary, buttonSecondary, Counter } from '@/components/Form'
+import { buttonPrimary, buttonSecondary, Counter, TextInput } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
 import { Popover } from '@/components/Popover'
 import { Spinner } from '@/components/States'
@@ -33,6 +33,7 @@ import { columnWords, ruleWords } from '../editor/definition'
 import { useComponents } from '../reportComponents'
 import type { AskResult, AskScope, AssistantModel, CatalogDataset, ReportSummary } from '../types'
 import { AskAbout } from './AskAbout'
+import { AskProgress } from './AskProgress'
 import { ComponentSelect } from './ComponentSelect'
 
 const MODEL_KEY = 'insights.ai.model'
@@ -49,6 +50,12 @@ const DOCUMENT_MARK: Record<DocumentKind, { text: string; tone: string }> = {
 
 function joined(items: string[]): string {
   return items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
+}
+
+/** an id the box and the server share for one prompt's steps */
+function newProgressId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) => (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16))
 }
 
 export function AiPill() {
@@ -82,6 +89,9 @@ export function AskForReport() {
   const [failure, setFailure] = useState<string | null>(null)
   const menu = useSingleDropdown<'model' | 'data'>()
   const askData = useAskData(catalog.data?.datasets)
+  const [progressId, setProgressId] = useState<string | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   const ask = useMutation({
     mutationFn: ({ body, files, docs }: { body: Parameters<typeof assistantApi.ask>[0]; files: File[]; docs: File[] }) => assistantApi.ask(body, files, docs),
     onMutate: () => setFailure(null),
@@ -89,7 +99,7 @@ export function AskForReport() {
     onError: (error) => setFailure(error instanceof ApiError ? error.message : 'The request did not go through.'),
   })
   const open = useMutation({
-    mutationFn: (id: string) => assistantApi.open(id),
+    mutationFn: ({ id, name }: { id: string; name?: string }) => assistantApi.open(id, name),
     onSuccess: (report) => {
       void client.invalidateQueries({ queryKey: ['insights', 'reports'] })
       void client.invalidateQueries({ queryKey: keys.catalog })                                // a draft on tables not mapped yet mapped a dataset
@@ -98,6 +108,14 @@ export function AskForReport() {
     onError: (error) => setFailure(error instanceof ApiError ? error.message : 'The report was not created.'),
   })
 
+  // the server's steps for the prompt under way, every second while the box waits, and the clock beside the one under way
+  const live = useQuery({ queryKey: ['insights', 'assistant', 'progress', progressId], queryFn: ({ signal }) => assistantApi.progress(progressId as string, signal),
+    enabled: ask.isPending && Boolean(progressId), refetchInterval: 1000, retry: false })
+  useEffect(() => {
+    if (!ask.isPending) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [ask.isPending])
   if (!state.data?.enabled) return null
   const data = state.data
   const models = data.models
@@ -107,7 +125,11 @@ export function AskForReport() {
   const database = databaseOf(asking, askData)
   const send = (text: string, answerTo?: string) => {
     if (!text.trim() || !model) return
-    ask.mutate({ body: { prompt: text.trim(), model: model.id, ...(answerTo ? { answer_to: answerTo } : {}), ...(asking !== 'all' ? { scope: asking } : {}), ...(database && unmapped ? { unmapped: true } : {}), ...(component ? { component } : {}) },
+    const progress = newProgressId()
+    setProgressId(progress)
+    setStartedAt(Date.now())
+    setNow(Date.now())
+    ask.mutate({ body: { prompt: text.trim(), model: model.id, progress, ...(answerTo ? { answer_to: answerTo } : {}), ...(asking !== 'all' ? { scope: asking } : {}), ...(database && unmapped ? { unmapped: true } : {}), ...(component ? { component } : {}) },
       files: images.map((image) => image.file), docs: documents.map((document) => document.file) })
   }
   const attach = async (files: File[]) => {
@@ -217,6 +239,13 @@ export function AskForReport() {
         <textarea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={4} maxLength={PROMPT_MAX}
           placeholder={'e.g. Revenue by channel and month for the last quarter, as a pivot.\nOr attach the report’s spec, a PDF or Word document, and say “build this”.'}
           className="cep-input-bare min-h-24 w-full resize-y border-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-ink-900 outline-none" />
+        {ask.isPending && (
+          <div className="px-3 pb-1" role="status">
+            {live.data?.steps.length
+              ? <AskProgress steps={live.data.steps} elapsed={startedAt ? (now - startedAt) / 1000 : undefined} />
+              : <p className="flex items-center gap-2 text-xs text-ink-800"><Spinner size="sm" /> Sending your prompt</p>}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2 px-2 pt-1 pb-2">
           <input ref={picker} type="file" accept={[...IMAGE_TYPES, ...DOCUMENT_ACCEPT].join(',')} multiple hidden aria-hidden tabIndex={-1}
             onChange={(event) => { void attach(Array.from(event.target.files ?? [])); event.target.value = '' }} />
@@ -244,7 +273,7 @@ export function AskForReport() {
             )}
           </div>
           <button type="button" className={buttonPrimary} onClick={() => send(prompt)} disabled={!prompt.trim() || !model || ask.isPending}>
-            {ask.isPending ? <><Spinner size="sm" /> Thinking</> : 'Generate Report'}
+            {ask.isPending ? 'Generating…' : 'Generate Report'}
           </button>
         </div>
         {dragging && (
@@ -261,7 +290,7 @@ export function AskForReport() {
 
       {result && (
         <ResultCard result={result} dataset={dataset(result.dataset)} busy={ask.isPending || open.isPending}
-          onRetry={() => send(result.prompt)} onEdit={() => edit(result.prompt)} onOpen={() => open.mutate(result.id)}
+          onRetry={() => send(result.prompt)} onEdit={() => edit(result.prompt)} onOpen={(name) => open.mutate({ id: result.id, name })}
           onAnswer={(text) => send(text, result.kind === 'question' ? result.id : undefined)} />
       )}
 
@@ -300,9 +329,12 @@ export function AskForReport() {
 const TITLE: Record<AskResult['kind'], string> = { draft: 'Draft Report', question: 'One Question First', no_field: 'No Field for This', failed: 'Nothing Came Back' }
 
 function ResultCard({ result, dataset: known, busy, onRetry, onEdit, onOpen, onAnswer }: {
-  result: AskResult; dataset: CatalogDataset | null; busy: boolean; onRetry: () => void; onEdit: () => void; onOpen: () => void; onAnswer: (prompt: string) => void
+  result: AskResult; dataset: CatalogDataset | null; busy: boolean; onRetry: () => void; onEdit: () => void; onOpen: (name: string) => void; onAnswer: (prompt: string) => void
 }) {
   const seconds = (result.duration_ms / 1000).toFixed(1)
+  const [name, setName] = useState(result.name ?? '')
+  const [showSteps, setShowSteps] = useState(result.kind === 'failed')
+  const steps = result.steps ?? []
   const definition = result.definition
   const fresh = result.new_dataset
   const dataset = known ?? fresh?.dataset ?? null
@@ -319,13 +351,18 @@ function ResultCard({ result, dataset: known, busy, onRetry, onEdit, onOpen, onA
       <div className="flex flex-wrap items-center gap-2">
         <AiPill />
         <h3 className="text-sm font-semibold text-ink-900">{TITLE[result.kind]}</h3>
-        <span className="ml-auto text-xs text-ink-800">{result.model.label} · {seconds} s{read.length ? ` · read ${joined(read)}` : ''}</span>
+        <span className="ml-auto text-xs text-ink-800">
+          {result.model.label} · built in {seconds} s{read.length ? ` · read ${joined(read)}` : ''}
+          {steps.length > 0 && <> · {plural(steps.length, 'step')} <button type="button" aria-expanded={showSteps} onClick={() => setShowSteps((open) => !open)} className="font-medium text-link hover:underline">{showSteps ? 'Hide' : 'Show'}</button></>}
+        </span>
       </div>
+      {showSteps && steps.length > 0 && <AskProgress steps={steps} label="Steps taken" />}
       <p className="text-sm text-ink-800">“{result.prompt}”</p>
       {result.kind === 'draft' && (
         <>
           <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="font-semibold text-ink-900">Name</dt><dd className="text-ink-900">{result.name}</dd>
+            <dt className="pt-1.5 font-semibold text-ink-900"><label htmlFor={`ai-name-${result.id}`}>Name</label></dt>
+            <dd><TextInput id={`ai-name-${result.id}`} controlSize="sm" value={name} maxLength={200} onChange={(event) => setName(event.target.value)} className="!mt-0 w-full max-w-md" /></dd>
             <dt className="font-semibold text-ink-900">View</dt><dd><Tag tone="brand">{VIEW_LABEL[result.view?.type ?? 'grid']}</Tag></dd>
             <dt className="font-semibold text-ink-900">Data</dt>
             <dd className="flex flex-wrap items-center gap-2 text-ink-900">
@@ -347,7 +384,7 @@ function ResultCard({ result, dataset: known, busy, onRetry, onEdit, onOpen, onA
           <div className="flex flex-wrap gap-2">
             <button type="button" className={buttonSecondary} onClick={onRetry} disabled={busy}>Try Again</button>
             <button type="button" className={buttonSecondary} onClick={onEdit} disabled={busy}>Edit Prompt</button>
-            <button type="button" className={buttonPrimary} onClick={onOpen} disabled={busy}>Open in Editor</button>
+            <button type="button" className={buttonPrimary} onClick={() => onOpen(name.trim())} disabled={busy || !name.trim()}>Open in Editor</button>
           </div>
         </>
       )}

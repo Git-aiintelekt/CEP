@@ -18,8 +18,9 @@ go with the prompt and are never stored. A prompt may run to 100,000 characters.
     Prompts:    ai_prompt, in the workspace (RLS), kept 90 days.
 
     GET  /insights/assistant/                  what this person may ask: the models, the default, the month's use, recent prompts
-    POST /insights/assistant/ask/              {prompt, model, answer_to?, scope?, unmapped?, component?} (+ images, documents) -> the reply
-    POST /insights/assistant/<id>/open/        the draft becomes a private report, opened in the editor
+    POST /insights/assistant/ask/              {prompt, model, answer_to?, scope?, unmapped?, component?, progress?} (+ images, documents) -> the reply
+    GET  /insights/assistant/progress/<id>/    the steps of the prompt sent with that progress id, while it runs (ask_progress.py)
+    POST /insights/assistant/<id>/open/        {name?} the draft becomes a private report, opened in the editor
     GET, PUT /workspace/ai-assistant/          the workspace's switches and its own keys (user.admin)
     POST     /workspace/ai-assistant/check/    {provider} -> the workspace's own key checked
 """
@@ -43,7 +44,7 @@ from rest_framework.views import APIView
 
 from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.engine import session
-from apps.insights import ask_documents, ask_tables, catalog, external, runner
+from apps.insights import ask_documents, ask_progress, ask_tables, catalog, external, runner
 from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _serialize, _tenant, component_of
 from apps.insights.definition import DefinitionError, validate
 from apps.platform_ops import billing, crypto, params
@@ -612,7 +613,7 @@ def _prompts(raw, most: int) -> list[dict]:
 
 # ---------------------------------------------------------------------------------------------------- asking
 def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = None, images: list[dict] | None = None, documents: list[dict] | None = None,
-        scope: str = "all", unmapped: bool = False, component: str | None = None) -> dict:
+        scope: str = "all", unmapped: bool = False, component: str | None = None, progress_id: str | None = None) -> dict:
     """The whole exchange: the allowance, the catalogue (the scope's datasets, and a database's tables not mapped yet when asked),
     one call (another when the model asks for tables' columns, and one retry when the draft does not fit), the preview's row count,
     the row in ai_prompt. images and documents go to the model with the prompt and are not kept. Raises AssistantError for the
@@ -631,9 +632,24 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
     row = effective_providers(tenant)[chosen["provider"]]
     datasets = scoped(catalog.for_tenant(tenant.pk, _can_see_pii(request)), scope)
     images, documents = images or [], documents or []
+    who = "Claude" if chosen["provider"] == "anthropic" else "OpenAI"
+    progress = ask_progress.Progress(tenant.pk, request.user.pk, progress_id)
+    attached = [*(f"{d['name']} ({d['pages']} pages)" if d.get("pages") else d["name"] for d in documents), *([f"{len(images)} image{'' if len(images) == 1 else 's'}"] if images else [])]
+    progress.plan([*([("documents", "Read your " + " and ".join(x for x in (f"{len(documents)} document{'' if len(documents) == 1 else 's'}" if documents else "",
+                                                                         f"{len(images)} image{'' if len(images) == 1 else 's'}" if images else "") if x))] if attached else []),
+                   *([("tables", "Read the database's tables")] if scope.startswith("db:") and unmapped else []),
+                   ("draft", f"{who} is drafting the report"), ("check", "Check the draft against your data"), ("preview", "Preview the rows")])
+    if attached:
+        progress.done("documents", " · ".join(attached))
     tables = None
     if scope.startswith("db:") and unmapped:
-        tables = _tables_context(tenant, scope[3:], prompt, documents)
+        progress.start("tables")
+        try:
+            tables = _tables_context(tenant, scope[3:], prompt, documents)
+        except AssistantError as exc:
+            progress.fail(str(exc))
+            raise
+        progress.done("tables", f"{tables['connection']['name']}: {len(tables['names']):,} names" + (f" · the columns of {', '.join(tables['columns'])}" if tables["columns"] else ""))
     elif not datasets:
         raise AssistantError({"platform": "No platform dataset is offered to this workspace.", "uploads": "No uploaded file is ready to report on yet (Insights → Uploaded Files)."}.get(
             scope, "This database has no mapped dataset yet: tick Also Look at Tables Not Mapped Yet, or map one under Settings → Report Databases."))
@@ -647,13 +663,14 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
     outcome, result, failure, entry = "FAILED", None, None, None
     notes = [*([ask_documents.note(documents)] if documents else []), *([IMAGES_NOTE.format(n=len(images), s='' if len(images) == 1 else 's')] if images else [])]
     asked = "\n\n".join([prompt, *notes])
-    text, retried, widened = asked, False, False
+    text, retried, widened, step = asked, False, False, "draft"
     try:
         while True:
             left = DEADLINE_S - (time.monotonic() - started)
             if left < 10:
                 failure = "The model took too long. Try again, or ask for less at once."
                 break
+            progress.start(step, chosen["label"])
             reply, used = call_model(chosen["provider"], row, chosen["model"], system, text, images=images, documents=documents, schema=schema_for(tables is not None),
                                      timeout_s=int(min(TIMEOUT_S * 1.5, left)))
             usage = {k: usage[k] + used[k] for k in usage}
@@ -662,34 +679,58 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
                     wanted = [t for t in reply.get("tables") or [] if isinstance(t, str)][:ask_tables.TABLES_MAX]
                     if tables is None or widened or not wanted:
                         raise DefinitionError("kind", "Draft from the tables whose columns are listed, or answer no_field.")
+                    progress.done(step, f"{who} asked for the columns of {', '.join(wanted)}")
+                    progress.add("more_tables", "Read the tables asked for", before="check")
+                    progress.start("more_tables")
                     tables, widened = ask_tables.more(tables, wanted), True
+                    progress.done("more_tables", f"the columns of {', '.join(t for t in wanted if t in tables['columns'])}")
                     system = system_prompt(datasets, zone.key, today, ask_tables.words(tables, mapped))
+                    step = "draft_tables"
+                    progress.add(step, f"{who} is drafting the report from those tables", before="check")
                     continue
+                progress.done(step)
+                progress.start("check")
                 result, entry = _read_reply(reply, datasets, tables, limits["run_rows"])
+                progress.done("check", {"draft": None, "question": f"{who} asked one question first", "no_field": "No field holds this"}[result["kind"]])
                 break
             except DefinitionError as exc:
                 if retried:
                     failure = f"The model's draft did not fit the catalogue ({exc.field}: {exc}). Try putting the request differently."
                     break
                 retried = True
+                progress.done(step)
+                progress.done("check", f"The first draft did not fit ({exc.field}: {exc})")
                 text = f"{asked}\n\n(An earlier draft was refused: {exc.field}: {exc}. Keep to the catalogue and the rules.)"
+                step = "retry"
+                progress.add(step, f"{who} is trying again", before="preview")
+                progress.add("check_again", "Check the new draft", before="preview")
     except ProviderError as exc:
         failure = str(exc)
     except external.ExternalError as exc:
         failure = f"The database could not be read: {exc}"
+    if retried and result is not None:
+        progress.start("check_again")
+        progress.done("check_again")
     duration_ms = int((time.monotonic() - started) * 1000)
     if result is not None:
         outcome = {"draft": "DRAFT", "question": "QUESTION", "no_field": "NO_FIELD"}[result["kind"]]
         if result["kind"] == "draft":
+            progress.start("preview")
             result["preview"] = _preview(tenant, request, [*datasets, *([entry] if entry else [])], result)
+            progress.done("preview", (f"{result['preview']['rows']}{' or more' if result['preview']['more'] else ''} rows") if result["preview"] else "Not run now: the report runs in the editor")
             result["scope"] = scope
             if component:
                 result["component"] = component
+        else:
+            progress.drop("preview")
         result["read"] = ask_documents.read_words(documents, len(images)) if documents or images else None
+        progress.finish()
+    else:
+        progress.fail(failure or "Nothing came back.")
     prompt_id = _record(tenant.pk, request.user.pk, chosen, prompt, outcome, result, failure, usage, duration_ms, answer_to)
     return {"id": prompt_id, "kind": result["kind"] if result else "failed", "prompt": prompt, "model": {k: chosen[k] for k in ("id", "provider", "provider_name", "mark", "model", "label", "source")},
             "duration_ms": duration_ms, "counted": outcome == "DRAFT", "message": failure, **({k: v for k, v in result.items() if k not in ("kind", "map")} if result else {}),
-            "usage": {**allowance(tenant.pk)}}
+            "steps": progress.as_list(), "usage": {**allowance(tenant.pk)}}
 
 
 def _tables_context(tenant, connection_id: str, prompt: str, documents: list[dict]) -> dict:
@@ -809,7 +850,7 @@ def recent(user_id) -> list[dict]:
              "report_id": r["report_id"] if r["report_name"] else None, "report_name": r["report_name"]} for r in rows]
 
 
-def open_draft(tenant, request, prompt_id) -> dict:
+def open_draft(tenant, request, prompt_id, name: str | None = None) -> dict:
     """The draft becomes a private report owned by the person (a first version, like New Report), remembered on the prompt."""
     rows = _q("SELECT id::text, user_id::text, outcome, draft, report_id::text FROM ai_prompt WHERE id = %s", [str(prompt_id)])
     if not rows or rows[0]["user_id"] != str(request.user.pk):
@@ -820,6 +861,11 @@ def open_draft(tenant, request, prompt_id) -> dict:
     if found["report_id"]:
         return _serialize(_report_row(found["report_id"], request))
     draft = json.loads(found["draft"]) if isinstance(found["draft"], str) else found["draft"]
+    name = " ".join(str(name or "").split())
+    if len(name) > 200:
+        raise ValidationError({"name": "Give the report a name of up to 200 characters."})
+    if name:
+        draft = {**draft, "name": name}
     if draft.get("map"):                                               # a draft on tables not mapped yet: the dataset is mapped now
         draft = {**draft, "dataset": _map_draft(tenant, request, draft["map"])}
     dataset = catalog.dataset(tenant.pk, draft["dataset"], _can_see_pii(request))
@@ -882,6 +928,7 @@ class AskView(APIView):
         scope = valid_scope(str(body.get("scope") or "all"))
         unmapped = str(body.get("unmapped") or "").lower() in ("1", "true", "yes")
         component = component_of(body.get("component"))
+        progress_id = str(body.get("progress") or "") or None
         answer_to = body.get("answer_to")
         if answer_to is not None:
             try:
@@ -889,9 +936,18 @@ class AskView(APIView):
             except ValueError:
                 raise ValidationError({"answer_to": "Not a prompt."}) from None
         try:
-            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images, documents=documents, scope=scope, unmapped=unmapped, component=component))
+            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images, documents=documents, scope=scope, unmapped=unmapped, component=component, progress_id=progress_id))
         except AssistantError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+
+class ProgressView(APIView):
+    """the steps of a prompt this person sent with that progress id, while it runs"""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None, progress_id=None):
+        return Response(ask_progress.read(_tenant().pk, request.user.pk, progress_id))
 
 
 class OpenDraftView(APIView):
@@ -901,7 +957,8 @@ class OpenDraftView(APIView):
     def post(self, request, version=None, prompt_id=None):
         if not (_has(request, "report.edit") or _has(request, "report.admin")):
             raise PermissionDenied("Creating a report needs the report.edit permission.")
-        return Response(open_draft(_tenant(), request, prompt_id), status=status.HTTP_201_CREATED)
+        body = request.data if isinstance(request.data, dict) else {}
+        return Response(open_draft(_tenant(), request, prompt_id, body.get("name")), status=status.HTTP_201_CREATED)
 
 
 class WorkspaceAssistantView(APIView):
