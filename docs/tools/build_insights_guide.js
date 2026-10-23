@@ -124,7 +124,7 @@ function functionList() {
 // ---------------------------------------------------------------- the outline
 const PARTS = [
   { title: 'Getting Started', intro: 'What Insights is, who can use which part of it, the data it reports on, and how a report is made and read.', items: [
-    { custom: 'about' }, { custom: 'who' }, { custom: 'datasets' }, { custom: 'make' }, { custom: 'views' }, { custom: 'viewer' }] },
+    { custom: 'about' }, { custom: 'who' }, { custom: 'datasets' }, { custom: 'make' }, 'File a report under a component', { custom: 'views' }, { custom: 'viewer' }] },
   { title: 'Measures and Comparisons', intro: 'Totals, rates and the comparisons that set a number against an earlier period, a target or the rest.', items: [
     'Use a calculated measure in a report', 'Compare a measure with an earlier period', 'Year to date, a moving average, a rank, a target',
     'Keep the top values and fold the rest into Others (Top N)', 'Set your fiscal year (Settings → Fiscal Year)', 'Add measures from a linked dataset'] },

@@ -32,8 +32,12 @@ export function ReportListPage() {
   const catalog = useCatalog()
   const folders = useFolders()
   const setFilters = (next: { component?: string; folder?: string }) => setParams(Object.fromEntries(Object.entries({ component, folder, ...next }).filter(([, v]) => v)))
-  const components = Array.from(new Map((catalog.data?.datasets ?? []).map((d) => [d.component.key, d.component])).values())
   const rows = reports.data?.reports ?? []
+  // a chip per component with datasets or reports (a report may be filed under a component with no data of its own), in the suite's order
+  const offered = new Map([...(catalog.data?.datasets ?? []).map((d) => [d.component.key, d.component] as const), ...rows.map((r) => [r.component.key, r.component] as const)])
+  const components = catalog.data?.components?.length
+    ? catalog.data.components.filter((c) => offered.has(c.key) || c.key === component)
+    : Array.from(offered.values())
   const starred = rows.filter((r) => r.favourite)
   const rest = rows.filter((r) => !r.favourite)
   const groups = Array.from(new Map(rest.map((r) => [r.component.key, r.component])).values()).map((c) => ({ component: c, reports: rest.filter((r) => r.component.key === c.key) }))

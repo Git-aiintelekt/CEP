@@ -23,6 +23,7 @@ const upload = (key: string, label: string): CatalogDataset => ({ key, label, de
   kind: 'upload', fields: [field('store', 'Store', 'string', 'dimension')] })
 
 const CATALOG: Catalog = {
+  components: [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }, { key: 'crm', name: 'CRM' }, { key: 'sales', name: 'Sales' }, { key: 'pur', name: 'Purchasing' }, { key: 'inv', name: 'Inventory' }, { key: 'pim', name: 'PIM' }], can_choose_component: true,
   engine: { engine: 'postgresql', status: 'ACTIVE', freshness_sla: 'LIVE', limits: { statement_timeout_ms: 15000, preview_rows: 200, run_rows: 5000, export_rows: 100000, concurrent: 4 } },
   datasets: [{
     key: 'messages', label: 'Messages', description: 'Every email and text a campaign sent', component: { key: 'cep', name: 'Engagement' }, primary_key: 'message_id', time_field: 'submitted_at', freshness: 'LIVE',

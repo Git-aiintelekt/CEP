@@ -22,6 +22,7 @@ import { api, ApiError } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import { insightsApi, keys, useAssistant } from '../api'
 import { AiPill } from '../components/AskForReport'
+import { ComponentSelect } from '../components/ComponentSelect'
 import { starterDefinition } from '../starter'
 import type { CatalogDataset, QueryRun, QueryTarget, ReportDataset, SourceColumns, SourceInfo } from '../types'
 import { CALC, EMPTY_VISUAL, OPS, visualSql, type Op, type Visual, type VisualColumn, type VisualJoin } from './queryBuilder'
@@ -50,6 +51,7 @@ export function QueryBuilderPage({ settings = false }: { settings?: boolean }) {
   const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState<string | null>(null)
   const [name, setName] = useState('')
+  const [component, setComponent] = useState<string | null>(null)
   const box = useRef<HTMLTextAreaElement>(null)
   const [loaded, setLoaded] = useState(false)
   useEffect(() => {                                   // a saved query opens in the window
@@ -91,7 +93,7 @@ export function QueryBuilderPage({ settings = false }: { settings?: boolean }) {
       if (settings) return { dataset, report: null }
       const catalog = await insightsApi.catalog()
       const found = catalog.datasets.find((d) => d.key === dataset.key) as CatalogDataset
-      const report = await insightsApi.create({ name: label, dataset: dataset.key, definition: starterDefinition(found) })
+      const report = await insightsApi.create({ name: label, dataset: dataset.key, definition: starterDefinition(found), ...(component ? { component } : {}) })
       return { dataset, report }
     },
     onSuccess: ({ dataset, report }) => {
@@ -197,6 +199,7 @@ export function QueryBuilderPage({ settings = false }: { settings?: boolean }) {
           )}
 
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-subtle pt-3">
+            {!settings && !existing.data && <ComponentSelect inline value={component} auto="cep" onChange={setComponent} />}
             <label className="flex items-center gap-2 text-sm text-ink-900"><span>{settings ? 'Dataset name' : 'Report name'}</span><TextInput aria-label={settings ? 'Dataset name' : 'Report name'} value={name} onChange={(e) => setName(e.target.value)} placeholder={visual.base ? titleCase(visual.base) : 'From the query'} className="!mt-0 h-8 w-64" maxLength={100} /></label>
             <button type="button" className={buttonPrimary} disabled={!result || create.isPending} onClick={() => create.mutate()}>{finish}</button>
           </div>

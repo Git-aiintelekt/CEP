@@ -20,6 +20,8 @@ import { useAuth } from '@/auth/AuthContext'
 import { engineMark } from '@/apps/cep/pages/settings/reportDatabases'
 import { DatabaseZap, FileUp } from 'lucide-react'
 import { insightsApi, useCatalog } from '../api'
+import { ComponentSelect } from '../components/ComponentSelect'
+import { useComponents } from '../reportComponents'
 import { ConnectDatabaseDrawer } from '../components/ConnectDatabaseDrawer'
 import { starterDefinition } from '../starter'
 import type { CatalogDataset, QueryTarget } from '../types'
@@ -36,13 +38,19 @@ export function NewReportPage({ canConnect }: { canConnect?: boolean } = {}) {
   const toast = useToast()
   const [dataset, setDataset] = useState<string>(params.get('dataset') ?? '')
   const [name, setName] = useState('')
-  const datasets = (catalog.data?.datasets ?? []).filter((d) => !params.get('component') || d.component.key === params.get('component'))
+  const [component, setComponent] = useState<string | null | undefined>(undefined)       // undefined: not chosen here
+  const components = useComponents()
+  const wanted = params.get('component')
+  const narrowed = (catalog.data?.datasets ?? []).filter((d) => !wanted || d.component.key === wanted)
+  // opened from a component with no datasets of its own (reports filed under it): every dataset, the report filed there
+  const datasets = narrowed.length || !catalog.data ? narrowed : catalog.data.datasets
+  const filed = component === undefined ? (wanted && !narrowed.length && components.nameOf(wanted) ? wanted : null) : component
   const platform = datasets.filter((d) => !d.database && d.kind !== 'upload')
   const own = datasets.filter((d) => d.database)
   const files = datasets.filter((d) => d.kind === 'upload')
   const chosen = datasets.find((d) => d.key === dataset) ?? null
   const create = useMutation({
-    mutationFn: () => insightsApi.create({ name: name.trim() || `${chosen?.label} report`, dataset, definition: starterDefinition(chosen as CatalogDataset) }),
+    mutationFn: () => insightsApi.create({ name: name.trim() || `${chosen?.label} report`, dataset, definition: starterDefinition(chosen as CatalogDataset), ...(filed ? { component: filed } : {}) }),
     onSuccess: (report) => navigate(`/insights/reports/${report.id}/edit`, { replace: true }),
     onError: (error) => toast.failure(error, 'The report was not created'),
   })
@@ -134,6 +142,11 @@ export function NewReportPage({ canConnect }: { canConnect?: boolean } = {}) {
           <Field label="Name" hint="You can rename it later.">
             {({ id, describedBy }) => <TextInput id={id} describedBy={describedBy} value={name} onChange={(event) => setName(event.target.value)} placeholder={chosen ? `${chosen.label} report` : 'Pick a dataset first'} maxLength={200} />}
           </Field>
+          {components.ready && (
+            <Field label="Component" hint={`Where the report is listed. Automatic files it with its data${chosen ? ` (${components.nameOf(chosen.component.key) ?? chosen.component.name})` : ''}.`}>
+              {({ id, describedBy }) => <ComponentSelect id={id} describedBy={describedBy} value={filed} auto={chosen?.component.key ?? null} onChange={setComponent} />}
+            </Field>
+          )}
           <div className="flex gap-2">
             <button type="submit" className={buttonPrimary} disabled={!chosen || create.isPending}>Create Report</button>
             <button type="button" className={buttonSecondary} onClick={() => navigate(-1)}>Cancel</button>

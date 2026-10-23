@@ -60,13 +60,16 @@ function installSampleConnections() {
   }
 }
 
+/** the suite's components, as the catalogue gives them */
+const SUITE = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }, { key: 'crm', name: 'CRM' }, { key: 'sales', name: 'Sales' }, { key: 'pur', name: 'Purchasing' }, { key: 'inv', name: 'Inventory' }, { key: 'pim', name: 'PIM' }]
+
 export default function NewReportPlayground() {
   installSampleConnections()
   const [params] = useSearchParams()
   const sparse = params.get('state') === 'sparse'
   const client = useQueryClient()
   useState(() => {
-    client.setQueryData(keys.catalog, { datasets: sparse ? BUILT_IN : [...BUILT_IN, OWN, FILE], engine: { engine: 'clickhouse', name: 'ClickHouse' } })
+    client.setQueryData(keys.catalog, { datasets: sparse ? BUILT_IN : [...BUILT_IN, OWN, FILE], engine: { engine: 'clickhouse', name: 'ClickHouse' }, components: SUITE, can_choose_component: true })
     client.setQueryData(['workspace', 'report-databases', 'targets'], { databases: sparse ? [] : TARGETS })
     return null
   })

@@ -27,6 +27,7 @@ import { PrintDialog } from '../components/PrintDialog'
 import { EmbedDialog } from '../components/EmbedDialog'
 import { ExplainPanel } from '../components/ExplainPanel'
 import { SqlDialog } from '../components/SqlDialog'
+import { ComponentSelect } from '../components/ComponentSelect'
 import { FolderSelect } from '../components/FolderSelect'
 import { ScheduleBanner } from '../components/ScheduleBanner'
 import { ScheduleDialog } from '../components/ScheduleDialog'
@@ -121,6 +122,14 @@ export function ReportViewerPage() {
     retry: false,
   })
   const client = useQueryClient()
+  const move = useMutation({
+    mutationFn: (component: string | null) => insightsApi.update(id as string, { row_version: report.data?.row_version as number, component }),
+    onSuccess: (saved) => {
+      client.setQueryData(keys.report(id as string), { ...saved, can_edit: true })
+      client.invalidateQueries({ queryKey: ['insights', 'reports'] })
+    },
+    onError: (error) => toast.failure(error, 'The report was not moved'),
+  })
   const file = useMutation({
     mutationFn: (folderId: string | null) => insightsApi.update(id as string, { row_version: report.data?.row_version as number, folder_id: folderId }),
     onSuccess: (saved) => {
@@ -168,6 +177,7 @@ export function ReportViewerPage() {
         description={info ? `${runWords(info)} · version ${report.data.version}` : report.data.description ?? undefined}
         actions={(
           <div className="flex items-center gap-2">
+            {report.data.can_edit && <ComponentSelect inline value={report.data.component_key ?? null} auto={report.data.component_auto ?? null} onChange={(key) => move.mutate(key)} disabled={move.isPending} />}
             {report.data.can_edit && <FolderSelect value={report.data.folder_id} onChange={(folderId) => file.mutate(folderId)} disabled={file.isPending} />}
             {report.data.can_share && <button type="button" className={buttonSecondary} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{report.data.shared ? 'Shared' : 'Share'}</button>}
             <button type="button" className={buttonSecondary} onClick={() => setVersionsOpen(true)}><History size={16} strokeWidth={1.5} aria-hidden />Versions</button>

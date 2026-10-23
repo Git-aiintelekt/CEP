@@ -8,7 +8,8 @@
  * screenshot of a chart or a table) and three documents (the report's spec as PDF, Word, text or Markdown) may go with it. They go
  * to the model and are not kept. One box holds "Ask About" (the data the prompt is about; AskAbout.tsx), the attachments, the text
  * and a bar with the paperclip, the counter, the model and Generate (docs/mockups/ask-for-report-data-and-specs.html, option A);
- * files dragged anywhere over the panel show the drop target on it, and pasting into the text adds them too.
+ * files dragged anywhere over the panel show the drop target on it, and pasting into the text adds them too. "Add To" beside the
+ * model files the report under a component of the suite (docs/mockups/report-component.html, option A); Automatic is its data's.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, Paperclip, Upload, X } from 'lucide-react'
@@ -29,8 +30,10 @@ import { ATTACHMENTS_BYTES_MAX, DOCUMENT_ACCEPT, DOCUMENT_BYTES_MAX, documentKin
 import { IMAGE_BYTES_MAX, IMAGE_TYPES, IMAGES_MAX, isImage, shrink } from '../askImages'
 import { databaseOf, plural, remember, remembered, rememberedScope, rememberedUnmapped, useAskData, usableScope } from '../askScope'
 import { columnWords, ruleWords } from '../editor/definition'
+import { useComponents } from '../reportComponents'
 import type { AskResult, AskScope, AssistantModel, CatalogDataset, ReportSummary } from '../types'
 import { AskAbout } from './AskAbout'
+import { ComponentSelect } from './ComponentSelect'
 
 const MODEL_KEY = 'insights.ai.model'
 const PROMPT_MAX = 100_000
@@ -68,6 +71,7 @@ export function AskForReport() {
   const [fileError, setFileError] = useState<string | null>(null)
   const [scope, setScope] = useState<AskScope>(rememberedScope)
   const [unmapped, setUnmapped] = useState(rememberedUnmapped)
+  const [component, setComponent] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const shown = useRef<Attached[]>([])                                                     // the previews to let go of when the box goes
   useEffect(() => { shown.current = images }, [images])
@@ -102,7 +106,7 @@ export function AskForReport() {
   const database = databaseOf(asking, askData)
   const send = (text: string, answerTo?: string) => {
     if (!text.trim() || !model) return
-    ask.mutate({ body: { prompt: text.trim(), model: model.id, ...(answerTo ? { answer_to: answerTo } : {}), ...(asking !== 'all' ? { scope: asking } : {}), ...(database && unmapped ? { unmapped: true } : {}) },
+    ask.mutate({ body: { prompt: text.trim(), model: model.id, ...(answerTo ? { answer_to: answerTo } : {}), ...(asking !== 'all' ? { scope: asking } : {}), ...(database && unmapped ? { unmapped: true } : {}), ...(component ? { component } : {}) },
       files: images.map((image) => image.file), docs: documents.map((document) => document.file) })
   }
   const attach = async (files: File[]) => {
@@ -218,6 +222,7 @@ export function AskForReport() {
           <IconButton label="Add Images or Documents" title={full ? `${IMAGES_MAX} images and ${DOCUMENTS_MAX} documents is the most` : 'Add Images or Documents'} icon={Paperclip} size="md" onClick={() => picker.current?.click()} disabled={full} />
           <span className="text-xs text-ink-800">{attachedWords || `Drop, paste or attach up to ${IMAGES_MAX} images and ${DOCUMENTS_MAX} documents`}</span>
           <span className="ml-auto">{prompt.length >= COUNTER_FROM && <Counter used={prompt.length} max={PROMPT_MAX} />}</span>
+          <ComponentSelect inline label="Add To" value={component} auto={null} onChange={setComponent} />
           <div className="relative">
             <button type="button" {...menu.triggerProps('model')} className="flex h-8 items-center gap-2 rounded-control-md px-2 text-sm text-ink-900 hover:bg-surface-hover">
               {model && <Mark model={model} />}
@@ -300,6 +305,8 @@ function ResultCard({ result, dataset: known, busy, onRetry, onEdit, onOpen, onA
   const definition = result.definition
   const fresh = result.new_dataset
   const dataset = known ?? fresh?.dataset ?? null
+  const components = useComponents()
+  const filedUnder = result.component ? components.nameOf(result.component) : dataset ? `${components.nameOf(dataset.component.key) ?? dataset.component.name} (Automatic)` : null
   const read = result.read ? [...result.read.documents.map((d) => `${d.name} (${KIND_LABEL[d.kind]})`), ...(result.read.images ? [plural(result.read.images, 'image')] : [])] : []
   const across = result.view?.across
   const rows = definition && dataset ? definition.columns.filter((c) => !c.aggregate && c.field !== across).map((c) => columnWords(dataset, c)) : []
@@ -323,6 +330,7 @@ function ResultCard({ result, dataset: known, busy, onRetry, onEdit, onOpen, onA
             <dd className="flex flex-wrap items-center gap-2 text-ink-900">
               {fresh ? <>{fresh.database} · {[fresh.source, ...fresh.joins].join(' + ')} <Tag tone="warning">Not Mapped Yet</Tag></> : result.dataset_label}
             </dd>
+            {components.ready && filedUnder && <><dt className="font-semibold text-ink-900">Component</dt><dd className="text-ink-900">{filedUnder}</dd></>}
             {rows.length > 0 && <><dt className="font-semibold text-ink-900">Rows</dt><dd className="text-ink-900">{rows.join(', then ')}</dd></>}
             {columns.length > 0 && <><dt className="font-semibold text-ink-900">Columns</dt><dd className="text-ink-900">{columns.join(', ')}</dd></>}
             {values.length > 0 && <><dt className="font-semibold text-ink-900">Values</dt><dd className="text-ink-900">{values.join(', ')}</dd></>}

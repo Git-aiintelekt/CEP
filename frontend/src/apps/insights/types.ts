@@ -162,6 +162,10 @@ export interface EngineInfo {
 export interface Catalog {
   datasets: CatalogDataset[]
   engine: EngineInfo
+  /** every component of the suite, in its order: what a report may be listed under */
+  components?: { key: string; name: string }[]
+  /** a report can keep its own component (patch 0075) */
+  can_choose_component?: boolean
 }
 
 /** a measure's time comparisons (apps/insights/compare.py): each one more result column after the measure */
@@ -356,6 +360,9 @@ export interface Report extends Omit<ReportSummary, 'dataset_label' | 'component
   definition: ReportDefinition
   row_version: number
   folder_id: string | null
+  /** the component the report is listed under, chosen by a person; null = Automatic, its dataset's (component_auto) */
+  component_key?: string | null
+  component_auto?: string
   created_at: string
 }
 
@@ -810,6 +817,8 @@ export interface AskResult {
   suggestions?: AskPrompt[]
   /** a part of the request or its documents the draft could not follow */
   note?: string
+  /** the component the report will be listed under, when one was chosen with the prompt */
+  component?: string
   new_dataset?: AskNewDataset
   /** the documents and images the model read with the prompt */
   read?: { documents: { name: string; kind: 'pdf' | 'word' | 'text' | 'markdown'; pages?: number; words?: number }[]; images: number } | null
