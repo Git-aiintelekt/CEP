@@ -37,7 +37,11 @@ export const me = {
 }
 
 /** Insights (apps/insights): the catalogue, a saved report and a run's result the tests see */
+/** the suite's components (suite_component): what a report may be listed under */
+export const suiteComponents = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }, { key: 'crm', name: 'CRM' }, { key: 'sales', name: 'Sales' },
+  { key: 'pur', name: 'Purchasing' }, { key: 'inv', name: 'Inventory' }, { key: 'pim', name: 'PIM' }]
 export const insightsCatalog = {
+  components: suiteComponents, can_choose_component: true,
   engine: { engine: 'postgresql', status: 'ACTIVE', freshness_sla: 'LIVE', limits: { statement_timeout_ms: 15000, preview_rows: 200, run_rows: 5000, export_rows: 100000, concurrent: 4 } },
   datasets: [
     { key: 'messages', label: 'Messages', description: 'Every email and text a campaign sent', component: { key: 'cep', name: 'Engagement' }, primary_key: 'message_id', time_field: 'submitted_at', freshness: 'LIVE',
@@ -159,7 +163,7 @@ const STORE_COLUMNS = [
   { column: 'name', column_type: 'varchar(80)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
   { column: 'city', column_type: 'varchar(80)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
 ]
-export const insightsReport = { ...insightsSummary, row_version: 3, folder_id: null, created_at: '2026-10-14T08:00:00Z',
+export const insightsReport = { ...insightsSummary, row_version: 3, folder_id: null, component_key: null as string | null, component_auto: 'cep', created_at: '2026-10-14T08:00:00Z',
   definition: { columns: [{ field: 'campaign_name' }, { field: 'channel' }, { field: 'sent', aggregate: 'sum' as const }, { field: 'delivered', aggregate: 'sum' as const }], filters: { combinator: 'and' as const, rules: [] }, orderBy: [{ field: 'sent', direction: 'desc' as const }], limit: 500 } }
 export const insightsReportsNow: (typeof insightsSummary)[] = [insightsSummary]
 export const insightsResult = {
@@ -1683,8 +1687,9 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (path.endsWith('/insights/assistant/ask/')) {
         const form = init.body instanceof FormData ? init.body : null                          // with images or documents it comes as multipart
-        const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true' } : body ?? {}) as { prompt: string; model: string; unmapped?: boolean }
-        return json(assistantReply(asked.prompt, asked.model, { unmapped: asked.unmapped, documents: form ? form.getAll('documents') as File[] : [], images: form ? form.getAll('images').length : 0 }))
+        const asked = (form ? { prompt: String(form.get('prompt')), model: String(form.get('model')), unmapped: form.get('unmapped') === 'true', component: form.get('component') ?? undefined } : body ?? {}) as { prompt: string; model: string; unmapped?: boolean; component?: string }
+        const reply = assistantReply(asked.prompt, asked.model, { unmapped: asked.unmapped, documents: form ? form.getAll('documents') as File[] : [], images: form ? form.getAll('images').length : 0 })
+        return json(asked.component && reply.kind === 'draft' ? { ...reply, component: asked.component } : reply)
       }
       const opened = /\/insights\/assistant\/([\w-]+)\/open\/$/.exec(path)
       if (opened && method === 'POST') {
@@ -1865,9 +1870,10 @@ export function installMockApi(options: MockOptions = {}) {
         return json(insightsResult)
       }
       if (path.endsWith('/insights/reports/') && method === 'POST') {
-        const posted = body as { name: string; dataset: string; definition: typeof insightsReport.definition }
-        const created = { ...insightsReport, id: `rep-${insightsReportsNow.length + 1}`, name: posted.name, dataset: posted.dataset, definition: posted.definition }
-        insightsReportsNow.push({ ...insightsSummary, id: created.id, name: created.name, dataset: created.dataset })
+        const posted = body as { name: string; dataset: string; definition: typeof insightsReport.definition; component?: string }
+        const created = { ...insightsReport, id: `rep-${insightsReportsNow.length + 1}`, name: posted.name, dataset: posted.dataset, definition: posted.definition, component_key: posted.component ?? null }
+        insightsReportsNow.push({ ...insightsSummary, id: created.id, name: created.name, dataset: created.dataset,
+          component: suiteComponents.find((c) => c.key === posted.component) ?? insightsSummary.component })
         return json(created, 201)
       }
       if (path.endsWith('/insights/reports/')) {
@@ -1921,13 +1927,14 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'PUT') {
         const id = path.split('/').at(-2)
-        const put = body as { name?: string; definition?: typeof insightsReport.definition; row_version: number; folder_id?: string | null }
+        const put = body as { name?: string; definition?: typeof insightsReport.definition; row_version: number; folder_id?: string | null; component?: string | null }
         if (put.row_version < insightsReport.row_version) return json({ type: 'about:blank', title: 'The report changed since you opened it', status: 409 }, 409)   // a later version from an earlier PUT is fine
         const found = insightsReportsNow.find((r) => r.id === id)
         if (found && put.name) found.name = put.name
         if (found && 'folder_id' in put) found.folder_id = put.folder_id ?? null
+        if (found && 'component' in put) found.component = suiteComponents.find((c) => c.key === put.component) ?? insightsSummary.component
         return json({ ...insightsReport, id, name: put.name ?? insightsReport.name, definition: put.definition ?? insightsReport.definition, version: insightsReport.version + (put.definition ? 1 : 0),
-                      row_version: insightsReport.row_version + 1, folder_id: found?.folder_id ?? null })
+                      row_version: insightsReport.row_version + 1, folder_id: found?.folder_id ?? null, ...('component' in put ? { component_key: put.component ?? null } : {}) })
       }
       if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'DELETE') {
         const id = path.split('/').at(-2)

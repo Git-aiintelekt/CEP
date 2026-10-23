@@ -2735,6 +2735,13 @@ A document may be up to 10 MB, PDFs up to 100 pages together, and the documents 
 
 ## Step by step: measures, comparisons, charts, formatting, sharing and slicers
 
+**File a report under a component** (anyone who can build reports)
+
+1. When you make a report, choose its **Component**: in New Report under the name, in Ask for a Report with **Add To** beside the model, or beside the report name when you build a report from a query. **Automatic** lists it with its data's component; reports on your own databases and uploaded files go under Engagement unless you choose another.
+2. Every component of the suite is offered (Engagement, Insights, CRM, Sales, Purchasing, Inventory, PIM, and any added later), whether or not it has data of its own.
+3. To move a report later, open it and change **Component** beside Folder; it moves at once. In the editor, change it in the header and press **Save**.
+4. Insights → Reports groups the reports by component, and the chips at the top filter by one. A component shows a chip once it holds a report or a dataset; **New Report** from a component with no data of its own offers every dataset and files the report there.
+
 **Use a calculated measure in a report** (anyone who can build reports)
 
 1. Open Insights → Reports → **New Report** and pick a dataset, such as Messages.
@@ -3136,7 +3143,7 @@ Fields marked **PII** carry personal data (a customer's identifier, an email add
 
 ### The list
 
-Insights → Reports lists every report you can open, grouped by the component whose data it uses, with its view, dataset, owner and last run. Your **favourites** sit first: press the star on any row to add one. **Folders** group a workspace's reports; the chips at the top filter by folder or by No Folder, and the folder shows under the report's name. Search finds a report by name.
+Insights → Reports lists every report you can open, grouped by its component (the one chosen for it, or Automatic: its data's), with its view, dataset, owner and last run. Your **favourites** sit first: press the star on any row to add one. **Folders** group a workspace's reports; the chips at the top filter by folder or by No Folder, and the folder shows under the report's name. Search finds a report by name.
 
 ### Making a report
 
@@ -3188,6 +3195,7 @@ Opening a report runs it and shows the saved view. Above the rows: the view swit
 
 | Button | What it does |
 |---|---|
+| Component | Lists the report under another component of the suite, or Automatic (its data's); it moves at once (owner or administrator). |
 | Folder | Files the report in a folder, or in a new one (owner or administrator). |
 | Versions | Every saved version with who, when and the note. **Open** shows one as it was, read-only, with Back to Current. **Restore** makes it the current version again, as a new version; nothing is lost. |
 | Schedule | Emails the report on a schedule (below). |

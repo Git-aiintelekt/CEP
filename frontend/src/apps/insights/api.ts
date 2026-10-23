@@ -12,9 +12,9 @@ export const insightsApi = {
   reports: (query: { component?: string; dataset?: string; q?: string; folder?: string; detail_for?: string }, signal?: AbortSignal) =>
     api.get<{ reports: ReportSummary[] }>('/insights/reports/', Object.fromEntries(Object.entries(query).filter(([, v]) => v)), signal),
   report: (id: string, signal?: AbortSignal) => api.get<Report & { can_edit: boolean }>(`/insights/reports/${id}/`, undefined, signal),
-  create: (body: { name: string; dataset: string; definition: ReportDefinition; description?: string; visibility?: 'PRIVATE' | 'WORKSPACE' }) =>
+  create: (body: { name: string; dataset: string; definition: ReportDefinition; description?: string; visibility?: 'PRIVATE' | 'WORKSPACE'; component?: string | null }) =>
     api.post<Report>('/insights/reports/', body),
-  update: (id: string, body: { row_version: number; name?: string; description?: string | null; visibility?: 'PRIVATE' | 'WORKSPACE'; definition?: ReportDefinition; note?: string; folder_id?: string | null }) =>
+  update: (id: string, body: { row_version: number; name?: string; description?: string | null; visibility?: 'PRIVATE' | 'WORKSPACE'; definition?: ReportDefinition; note?: string; folder_id?: string | null; component?: string | null }) =>
     api.put<Report>(`/insights/reports/${id}/`, body),
   remove: (id: string) => api.delete(`/insights/reports/${id}/`),
   versions: (id: string, signal?: AbortSignal) => api.get<{ versions: ReportVersion[] }>(`/insights/reports/${id}/versions/`, undefined, signal),
@@ -158,7 +158,7 @@ export const schedulesApi = {
 export const assistantApi = {
   state: (signal?: AbortSignal) => api.get<AssistantState>('/insights/assistant/', undefined, signal),
   /** with images or documents, sent as multipart (the files under `images` and `documents`); they go to the model and are not kept */
-  ask: (body: { prompt: string; model: string; answer_to?: string; scope?: AskScope; unmapped?: boolean }, images: File[] = [], documents: File[] = []) => {
+  ask: (body: { prompt: string; model: string; answer_to?: string; scope?: AskScope; unmapped?: boolean; component?: string }, images: File[] = [], documents: File[] = []) => {
     if (!images.length && !documents.length) return api.post<AskResult>('/insights/assistant/ask/', body)
     const form = new FormData()
     for (const [key, value] of Object.entries(body)) if (value !== undefined) form.append(key, String(value))

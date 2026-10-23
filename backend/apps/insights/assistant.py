@@ -18,7 +18,7 @@ go with the prompt and are never stored. A prompt may run to 100,000 characters.
     Prompts:    ai_prompt, in the workspace (RLS), kept 90 days.
 
     GET  /insights/assistant/                  what this person may ask: the models, the default, the month's use, recent prompts
-    POST /insights/assistant/ask/              {prompt, model, answer_to?, scope?, unmapped?} (+ images, documents) -> the reply
+    POST /insights/assistant/ask/              {prompt, model, answer_to?, scope?, unmapped?, component?} (+ images, documents) -> the reply
     POST /insights/assistant/<id>/open/        the draft becomes a private report, opened in the editor
     GET, PUT /workspace/ai-assistant/          the workspace's switches and its own keys (user.admin)
     POST     /workspace/ai-assistant/check/    {provider} -> the workspace's own key checked
@@ -42,7 +42,7 @@ from rest_framework.views import APIView
 from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.engine import session
 from apps.insights import ask_documents, ask_tables, catalog, external, runner
-from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _serialize, _tenant
+from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _serialize, _tenant, component_of
 from apps.insights.definition import DefinitionError, validate
 from apps.platform_ops import billing, crypto, params
 from apps.reporting import reports
@@ -568,7 +568,7 @@ def _prompts(raw, most: int) -> list[dict]:
 
 # ---------------------------------------------------------------------------------------------------- asking
 def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = None, images: list[dict] | None = None, documents: list[dict] | None = None,
-        scope: str = "all", unmapped: bool = False) -> dict:
+        scope: str = "all", unmapped: bool = False, component: str | None = None) -> dict:
     """The whole exchange: the allowance, the catalogue (the scope's datasets, and a database's tables not mapped yet when asked),
     one call (another when the model asks for tables' columns, and one retry when the draft does not fit), the preview's row count,
     the row in ai_prompt. images and documents go to the model with the prompt and are not kept. Raises AssistantError for the
@@ -639,6 +639,8 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
         if result["kind"] == "draft":
             result["preview"] = _preview(tenant, request, [*datasets, *([entry] if entry else [])], result)
             result["scope"] = scope
+            if component:
+                result["component"] = component
         result["read"] = ask_documents.read_words(documents, len(images)) if documents or images else None
     prompt_id = _record(tenant.pk, request.user.pk, chosen, prompt, outcome, result, failure, usage, duration_ms, answer_to)
     return {"id": prompt_id, "kind": result["kind"] if result else "failed", "prompt": prompt, "model": {k: chosen[k] for k in ("id", "provider", "provider_name", "mark", "model", "label", "source")},
@@ -695,7 +697,7 @@ def _preview(tenant, request, datasets: list[dict], draft: dict) -> dict | None:
 
 def _record(tenant_id, user_id, chosen: dict, prompt: str, outcome: str, result: dict | None, failure: str | None, usage: dict, duration_ms: int, answer_to, kind: str = "report") -> str:
     prompt_id = str(uuid.uuid4())
-    draft = {k: result[k] for k in ("name", "dataset", "view", "definition", "sql", "note", "scope", "map", "new_dataset") if k in result} if result and result["kind"] in ("draft", "sql") else None
+    draft = {k: result[k] for k in ("name", "dataset", "view", "definition", "sql", "note", "scope", "map", "new_dataset", "component") if k in result} if result and result["kind"] in ("draft", "sql") else None
     reply = {k: v for k, v in (result or {}).items() if k in ("question", "answers", "message", "suggestions")} or None
     with session.tx():
         _q("DELETE FROM ai_prompt WHERE tenant_id = %s AND created_at < %s", [str(tenant_id), timezone.now() - timedelta(days=RETENTION_DAYS)])
@@ -793,6 +795,8 @@ def open_draft(tenant, request, prompt_id) -> dict:
         _q("INSERT INTO report_version (tenant_id, report_id, version, definition, view_type, note, changed_by) VALUES (%s, %s, 1, %s, %s, %s, %s)",
            [str(tenant.pk), report_id, json.dumps(definition), view_type, "Drafted by AI", user_id])
         _q("UPDATE ai_prompt SET report_id = %s WHERE id = %s", [report_id, str(prompt_id)])
+        if draft.get("component") and component_of(draft["component"]):
+            _q("UPDATE report SET component_key = %s WHERE id = %s", [draft["component"], report_id])
     return _serialize(_report_row(report_id, request))
 
 
@@ -833,6 +837,7 @@ class AskView(APIView):
         documents = ask_documents.read_documents(request.FILES.getlist("documents")) if request.FILES else []
         scope = valid_scope(str(body.get("scope") or "all"))
         unmapped = str(body.get("unmapped") or "").lower() in ("1", "true", "yes")
+        component = component_of(body.get("component"))
         answer_to = body.get("answer_to")
         if answer_to is not None:
             try:
@@ -840,7 +845,7 @@ class AskView(APIView):
             except ValueError:
                 raise ValidationError({"answer_to": "Not a prompt."}) from None
         try:
-            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images, documents=documents, scope=scope, unmapped=unmapped))
+            return Response(ask(_tenant(), request, prompt, str(body.get("model") or ""), answer_to=answer_to, images=images, documents=documents, scope=scope, unmapped=unmapped, component=component))
         except AssistantError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 

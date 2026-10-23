@@ -3033,6 +3033,13 @@ ALTER TABLE report_connection ADD CONSTRAINT ck_report_connection_limits CHECK (
     AND (query_timeout_s IS NULL OR query_timeout_s BETWEEN 5 AND 110)
     AND (max_concurrent IS NULL OR max_concurrent BETWEEN 1 AND 4));
 
+-- -------------------------------------------------------------------------------------
+-- 0075: the component a report is listed under (2026-10-23), chosen when it is made (New Report, Ask for a Report, a report from a
+-- query) and changed by whoever may edit it. Empty = Automatic: its dataset's component, as before. Any row of suite_component, so a
+-- component added to the suite later is offered with no change here.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE report ADD COLUMN IF NOT EXISTS component_key VARCHAR(20) REFERENCES suite_component(key);
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

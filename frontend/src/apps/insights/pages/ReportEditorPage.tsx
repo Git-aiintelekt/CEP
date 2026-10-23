@@ -20,6 +20,7 @@ import { ReportResult, ViewBar } from '../components/ReportViews'
 import { ChangeWithPrompt } from '../editor/ChangeWithPrompt'
 import { CustomFieldsDialog } from '../editor/CustomFieldsDialog'
 import { LinkedMeasuresDialog } from '../editor/LinkedMeasuresDialog'
+import { ComponentSelect } from '../components/ComponentSelect'
 import { SqlDialog } from '../components/SqlDialog'
 import { TooltipReportDialog } from '../editor/TooltipReportDialog'
 import { DetailReportDialog } from '../editor/DetailReportDialog'
@@ -71,12 +72,13 @@ export function ReportEditorPage() {
   const [layout, setLayoutState] = useState<Layout>(readLayout)
   const setLayout = (next: Layout) => { setLayoutState(next); try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* no memory of the choice */ } }
   const [name, setName] = useState<string | null>(null)
+  const [component, setComponent] = useState<string | null | undefined>(undefined)          // undefined: unchanged
   const [draft, setDraft] = useState<ReportDefinition | null>(null)
   const definition = draft ?? report.data?.definition ?? EMPTY
   const base = useMemo(() => catalog.data?.datasets.find((d) => d.key === report.data?.dataset) ?? null, [catalog.data, report.data])
   const dataset = useMemo(() => (base ? withCustom(base, definition) : null), [base, definition])
   const title = name ?? report.data?.name ?? ''
-  const dirty = draft !== null || (name !== null && name !== report.data?.name)
+  const dirty = draft !== null || (name !== null && name !== report.data?.name) || (component !== undefined && component !== (report.data?.component_key ?? null))
   const complete = dataset ? isComplete(dataset, definition) : false
   const settled = useDebounced(definition, 500)
 
@@ -95,13 +97,15 @@ export function ReportEditorPage() {
   })
 
   const save = useMutation({
-    mutationFn: () => insightsApi.update(id as string, { row_version: report.data?.row_version as number, name: title.trim() || report.data?.name, definition: draft ?? undefined }),
+    mutationFn: () => insightsApi.update(id as string, { row_version: report.data?.row_version as number, name: title.trim() || report.data?.name, definition: draft ?? undefined,
+      ...(component !== undefined ? { component } : {}) }),
     onSuccess: (saved) => {
       client.setQueryData(keys.report(id as string), { ...saved, can_edit: true })
       client.invalidateQueries({ queryKey: ['insights', 'reports'] })
       client.invalidateQueries({ queryKey: keys.run(id as string, {}) })
       setDraft(null)
       setName(null)
+      setComponent(undefined)
       toast.success('Saved', `${saved.name} is version ${saved.version}.`)
     },
     onError: (error) => toast.failure(error, 'The report was not saved'),
@@ -156,6 +160,7 @@ export function ReportEditorPage() {
         <Link to={`/insights/reports/${id}`} className="inline-flex items-center gap-1 text-sm text-brand-800 hover:underline"><ArrowLeft size={14} strokeWidth={1.5} aria-hidden />Report</Link>
         <input aria-label="Report name" value={title} onChange={(event) => setName(event.target.value)} maxLength={200}
           className="min-w-0 flex-1 rounded-control-md border border-transparent bg-transparent px-2 font-display text-page-title font-semibold text-ink-900 hover:border-line focus:border-focus focus:outline-none" />
+        <ComponentSelect inline value={component === undefined ? report.data.component_key ?? null : component} auto={report.data.component_auto ?? null} onChange={setComponent} />
         <span className="text-xs text-ink-800">{dirty ? 'Not saved yet' : `Saved ${formatDateTime(report.data.updated_at)} · version ${report.data.version}`}</span>
         <SegmentedControl label="Editor" options={LAYOUTS} value={layout} onChange={setLayout} />
         <button type="button" className={buttonSecondary} onClick={() => setCustoms(true)}>Custom Fields{definition.derived?.length ? ` · ${definition.derived.length}` : ''}</button>

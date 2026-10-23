@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Components</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .pill-ai { height:20px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+  .box { position:relative; border:1px solid var(--line-control); border-radius:12px; background:#fff }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .askabout { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .datapick { height:28px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-900); background:#fff }
+  .datapick b { font-weight:600 } .datapick small { color:var(--ink-700); font-size:11.5px } .datapick::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .datapick.ghost { border-color:transparent }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .thumb { width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#f9fafb; position:relative; flex:none }
+  .doc { height:64px; min-width:180px; max-width:240px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center; position:relative }
+  .doc .ico { width:34px; height:42px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:9px; font-weight:700; color:var(--ink-800); padding-bottom:5px; flex:none }
+  .doc .ico.pdf { background:#fae2e2; color:var(--danger-text) } .doc .ico.word { background:var(--brand-100); color:var(--brand-800) }
+  .doc b { display:block; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px } .doc small { font-size:11.5px; color:var(--ink-700) }
+  .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .muted { font-size:12px; color:var(--ink-800) } .grow { flex:1 }
+  .counter { font-size:12px; color:var(--warning-text); font-variant-numeric:tabular-nums; font-weight:500 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 8px; font-size:13px; border-radius:999px } .model::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-subtle) }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; padding:0 14px; font:600 13px/32px var(--font) }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .small { font-size:12px; color:var(--ink-800) }
+
+  .menu { position:absolute; z-index:2; top:42px; left:12px; width:380px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:6px }
+  .menu .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .menu .opt { display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:8px; font-size:13.5px }
+  .menu .opt.on { background:var(--callout-bg) } .menu .opt small { display:block; font-size:12px; color:var(--ink-800) }
+  .menu .opt .m { width:26px; height:26px; border-radius:8px; background:var(--brand-100); color:var(--brand-800); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .menu .opt .m.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .menu .check { display:flex; gap:8px; align-items:flex-start; margin:4px 8px 6px 44px; font-size:12.5px; color:var(--ink-900) }
+  .cb { width:15px; height:15px; border-radius:4px; background:var(--brand-600); flex:none; margin-top:2px; position:relative } .cb::after { content:"✓"; color:#fff; font-size:11px; position:absolute; left:2px; top:-2px }
+
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:12px; background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--brand-800); text-align:center }
+  .drop b { font-size:15px } .drop small { font-size:12px; color:var(--ink-800) }
+
+  .result { border:1px solid var(--line); border-radius:12px; background:var(--surface-subtle); padding:14px 16px; display:flex; flex-direction:column; gap:8px; font-size:13.5px }
+  .result dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0 } .result dt { font-weight:600 } .result dd { margin:0 }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--brand-100); color:var(--brand-800) }
+  .tag.new { background:var(--warning-bg); color:var(--warning-text) }
+  .btns { display:flex; gap:8px } .btn { height:32px; border-radius:999px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</style>
+</head>
+<style>
+  .panel, .box, .menu, .result { border-radius:8px }
+  .form { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:14px; max-width:720px }
+  .field { display:flex; flex-direction:column; gap:4px } .field label { font-size:13px; font-weight:600 } .field small { font-size:12px; color:var(--ink-800) }
+  .select { height:32px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:flex; align-items:center; gap:8px; font-size:14px; background:#fff; max-width:340px }
+  .select::after { content:"▾"; margin-left:auto; color:var(--ink-700); font-size:10px }
+  .select.small { height:28px; font-size:13px; max-width:none; display:inline-flex; padding:0 8px }
+  .input { height:32px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:flex; align-items:center; font-size:14px; max-width:340px }
+  .ds { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px } .ds div { border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px } .ds div.on { border-color:var(--brand-600); background:var(--callout-bg) }
+  .ds small { display:block; color:var(--ink-800); font-size:12px }
+  .chipc { display:inline-flex; align-items:center; gap:6px; height:20px; padding:0 6px; border-radius:4px; background:var(--fill-subtle); font-size:11.5px; color:var(--ink-800); font-weight:500 }
+  .auto { color:var(--ink-700); font-size:12px }
+  .viewerhead { display:flex; flex-wrap:wrap; align-items:center; gap:10px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 16px }
+  .viewerhead h3 { font-size:20px; line-height:28px; margin-right:auto }
+  .kv { font-size:12.5px; color:var(--ink-800); display:inline-flex; align-items:center; gap:6px }
+  .list { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; font-size:13.5px }
+  .list .g { padding:6px 12px; background:var(--surface-subtle); border-bottom:1px solid var(--line-subtle); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-800); display:flex }
+  .list .g span { margin-left:auto; font-weight:500; text-transform:none }
+  .list .r { padding:8px 12px; border-bottom:1px solid var(--line-subtle); display:flex; gap:12px } .list .r small { color:var(--ink-800); margin-left:auto; font-size:12px }
+  .dialog { background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgb(20 23 31 / 0.16); width:440px; max-width:100%; padding:18px; display:flex; flex-direction:column; gap:14px }
+  .dialog h3 { font-size:16px }
+  .link { color:var(--brand-800); font-weight:500 }
+</style>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Insights → Reports: choosing the component a report belongs to when it is made (New Report, Ask for a Report) and changing it later. Sample names.</div>
+  <p class="note">Today a report has no component of its own: it takes its dataset's, so every report on a Report Database or an uploaded file lands under <strong>Engagement</strong>. The change: a report keeps its own component, chosen when it is made, <strong>Automatic</strong> (the dataset's) by default, and changed by whoever may edit the report. The report list groups by it, and each component's Reports page (Engagement's Insights item, for example) lists the reports filed under it. The two options differ in where the choice sits.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Option A: a Component field wherever a report is made, and beside Folder on the report</h2>
+  <p>One select, the same everywhere: in New Report under the name, in Ask for a Report beside the model, on the report page beside Folder, and in the editor's header.</p>
+
+  <div class="label">A1 · New Report <span>Picking a dataset sets Automatic to its component ("Automatic: Engagement"); choose another to file the report there.</span></div>
+  <div class="frame"><div class="cap">Option A · New Report</div><div class="page">
+    <div class="form">
+      <div class="field"><label>Dataset</label>
+        <div class="ds"><div>Messages<small>Engagement</small></div><div class="on">Daily Sales<small>CG-Prod · MySQL 5.7</small></div><div>POS Transactions<small>Uploaded file</small></div></div></div>
+      <div class="field"><label>Name</label><div class="input">Daily Sales by Store</div><small>You can rename it later.</small></div>
+      <div class="field"><label>Component</label><div class="select">Sales</div><small>Where the report is listed. Automatic files it with its data (Engagement).</small></div>
+      <div class="btns"><span class="btn p">Create Report</span><span class="btn">Cancel</span></div>
+    </div>
+  </div></div>
+
+  <div class="label">A2 · Ask for a Report <span>"Add To" sits in the bar beside the model, defaulting to Automatic; the draft card repeats it, and Open in Editor files the report there.</span></div>
+  <div class="frame"><div class="cap">Option A · Ask for a Report, with the draft</div><div class="page" style="display:flex;flex-direction:column;gap:12px">
+    <section class="panel">
+      <div class="head"><span class="pill-ai">AI</span><h2>Ask for a Report</h2><span class="use">14 of 200 prompts this month</span></div>
+      <div class="box">
+        <div class="askabout">Ask About <span class="datapick"><span class="mark">MY</span><b>CG-Prod</b><small>3 datasets · and its tables</small></span></div>
+        <div class="text">Net sales by store and week for Q3, compared with the same week last year.</div>
+        <div class="bar"><span class="icon">📎</span><span class="muted">Drop, paste or attach up to 5 images and 3 documents</span><span class="grow"></span>
+          <span class="kv">Add To <span class="select small">Sales</span></span>
+          <span class="model"><span class="mark">A</span>Claude Sonnet 5.5</span><span class="primary">Generate Report</span></div>
+      </div>
+    </section>
+    <div class="result">
+      <div class="head"><span class="pill-ai">AI</span><h2>Draft Report</h2><span class="use">Claude Sonnet 5.5 · 5.8 s</span></div>
+      <dl><dt>Name</dt><dd>Net Sales by Store and Week, Q3 vs Last Year</dd><dt>Data</dt><dd>CG-Prod · Daily Sales</dd><dt>Component</dt><dd>Sales</dd><dt>Rows</dt><dd>Store, then Week</dd><dt>Values</dt><dd>Sum of Net Sales, with Change vs Last Year</dd></dl>
+      <div class="btns"><span class="btn">Try Again</span><span class="btn">Edit Prompt</span><span class="btn p">Open in Editor</span></div>
+    </div>
+  </div></div>
+
+  <div class="label">A3 · Changing it later: the report page and the editor <span>Beside Folder on the report page (for anyone who may edit it), and in the editor's header, saved with the report. A reader sees the component, not the select.</span></div>
+  <div class="frame"><div class="cap">Option A · the report page, then the editor header</div><div class="page" style="display:flex;flex-direction:column;gap:12px">
+    <div class="viewerhead"><h3>Net Sales by Store and Week</h3>
+      <span class="kv">Component <span class="select small">Sales</span></span><span class="kv">Folder <span class="select small">Regional</span></span>
+      <span class="btn">Share</span><span class="btn p">Edit</span></div>
+    <div class="viewerhead"><span class="link">← Report</span><h3 style="font-size:18px">Net Sales by Store and Week</h3>
+      <span class="kv">Component <span class="select small">Sales</span></span><span class="muted">Not saved yet</span><span class="btn">Custom Fields</span><span class="btn">Cancel</span><span class="btn p">Save</span></div>
+    <div class="list">
+      <div class="g">Engagement<span>12</span></div><div class="r">Sent and Delivered by Campaign<small>Messages</small></div>
+      <div class="g">Sales<span>3</span></div><div class="r">Net Sales by Store and Week<small>CG-Prod · Daily Sales</small></div><div class="r">POS Takings by Hour<small>POS Transactions</small></div>
+    </div>
+  </div></div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: a quiet line on the forms, a Details dialog to change it</h2>
+  <p>The create forms say where the report will go in one line with a Change link; the report page and the editor get a Details dialog (name, description, component, folder) instead of more controls in the header.</p>
+
+  <div class="label">B1 · New Report and Ask for a Report <span>The same choice, as a line under the form and on the draft card.</span></div>
+  <div class="frame"><div class="cap">Option B · the create forms</div><div class="page" style="display:flex;flex-direction:column;gap:12px">
+    <div class="form">
+      <div class="field"><label>Name</label><div class="input">Daily Sales by Store</div></div>
+      <p class="small">Listed under <b>Engagement</b> (from its data) · <span class="link">Change</span></p>
+      <div class="btns"><span class="btn p">Create Report</span><span class="btn">Cancel</span></div>
+    </div>
+    <div class="result">
+      <div class="head"><span class="pill-ai">AI</span><h2>Draft Report</h2></div>
+      <dl><dt>Name</dt><dd>Net Sales by Store and Week, Q3 vs Last Year</dd><dt>Data</dt><dd>CG-Prod · Daily Sales</dd></dl>
+      <p class="small">Opens under <b>Sales</b> · <span class="link">Change</span></p>
+      <div class="btns"><span class="btn">Try Again</span><span class="btn">Edit Prompt</span><span class="btn p">Open in Editor</span></div>
+    </div>
+  </div></div>
+
+  <div class="label">B2 · Details, from the report page or the editor <span>One dialog for what describes the report; the header keeps its buttons.</span></div>
+  <div class="frame"><div class="cap">Option B · Details</div><div class="page">
+    <div class="dialog">
+      <h3>Report Details</h3>
+      <div class="field"><label>Name</label><div class="input">Net Sales by Store and Week</div></div>
+      <div class="field"><label>Description</label><div class="input" style="color:var(--ink-300)">What the report shows</div></div>
+      <div class="field"><label>Component</label><div class="select">Sales</div><small>Automatic files it with its data (Engagement).</small></div>
+      <div class="field"><label>Folder</label><div class="select">Regional</div></div>
+      <div class="btns"><span class="btn p">Save</span><span class="btn">Cancel</span></div>
+    </div>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>The report's own component</strong>: patch 0075 adds <code>report.component_key</code> (empty = Automatic, the dataset's component). The list, its component chips, each component's Reports page and the dataset filter use it.</li>
+      <li><strong>Which components</strong>: Automatic, then the components on the workspace's plan (Engagement, Insights, and others as they are added). Ask for a Report and New Report remember nothing: each report starts on Automatic unless you choose.</li>
+      <li><strong>Where it is chosen</strong>: New Report, Build a Report from a Query, and Ask for a Report (the draft keeps it; Open in Editor files the report there).</li>
+      <li><strong>Who changes it</strong>: anyone who may edit the report; on the report page it is saved at once, in the editor with Save; the list moves the report to its new group.</li>
+      <li><strong>Help and tests</strong>: "File a report under a component" in the Insights help; tests for the default, each place it is chosen, the change, and the list's grouping.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A.</strong> You asked for the choice when creating and editing; a visible Component field in each form and beside Folder on the report makes it obvious and one click to change. Option B keeps the headers quieter but hides the choice behind a link.</div>
+</div>
+</body>
+</html>

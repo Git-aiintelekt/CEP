@@ -16,6 +16,7 @@
 report.view: see and run; report.edit: create and change what one may edit; report.admin: change and delete any,
 and build on PII fields (a reader without the right gets them masked). The workspace needs the Insights component (an entitlement check, like the shell's).
 """
+from django.core.cache import cache
 from django.http import StreamingHttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -87,14 +88,50 @@ def _visible_sql(request) -> tuple[str, list]:
     return access.visible_sql("report", "r", str(request.user.pk), _has(request, "report.admin"))
 
 
+def own_component_present() -> bool:
+    """patch 0075: a report can keep its own component"""
+    key = "cep:insights:report-component-present"
+    present = cache.get(key)
+    if present is None:
+        present = bool(_q("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'report' AND column_name = 'component_key') AS present")[0]["present"])
+        cache.set(key, present, 300)
+    return present
+
+
+def suite_components() -> list[dict]:
+    """every component of the suite, in its order: what a report may be listed under (a component added later is offered too)"""
+    return _q("SELECT key, name FROM suite_component ORDER BY sort_order, name")
+
+
+def component_of(value) -> str | None:
+    """a report's own component from a request body: None for Automatic (its dataset's); ValidationError for an unknown one or
+    before patch 0075"""
+    key = str(value or "").strip()
+    if not key:
+        return None
+    if not own_component_present():
+        raise ValidationError({"component": "Choosing a report's component needs database patch 0075."})
+    if key not in {c["key"] for c in suite_components()}:
+        raise ValidationError({"component": "Choose one of the suite's components."})
+    return key
+
+
+def _component_sql() -> str:
+    """the component a report is listed under: its own, else its dataset's (d: report_dataset, x: report_dataset_custom)"""
+    return f"COALESCE({'r.component_key, ' if own_component_present() else ''}d.component_key, x.component_key, 'cep')"
+
+
 def _report_row(report_id, request) -> dict:
     where, args = _visible_sql(request)
     edit, edit_args = access.shared_edit_sql("report", "r", str(request.user.pk))
     shared = access.shared_any_sql("report", "r")
+    own = "r.component_key" if own_component_present() else "NULL::text"
     rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, r.view_type, r.definition, r.visibility, r.version, r.row_version,
                          r.owner_user_id::text, u.display_name AS owner_name, r.folder_id::text, r.last_run_at, r.created_at, r.updated_at,
+                         {own} AS own_component, COALESCE(d.component_key, x.component_key, 'cep') AS auto_component,
                          {edit} AS shared_edit, {shared} AS shared
                     FROM report r LEFT JOIN app_user u ON u.id = r.owner_user_id
+                    LEFT JOIN report_dataset d ON d.key = r.dataset_key LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id
                    WHERE r.id = %s AND r.deleted_at IS NULL AND {where}""", [*edit_args, str(report_id), *args])
     if not rows:
         raise NotFound("No such report.")
@@ -107,6 +144,7 @@ def _serialize(row: dict) -> dict:
     return {"id": row["id"], "name": row["name"], "description": row["description"], "dataset": row["dataset_key"], "view_type": row["view_type"],
             "definition": json.loads(definition) if isinstance(definition, str) else definition, "visibility": row["visibility"], "version": row["version"],
             "row_version": row["row_version"], "owner_user_id": row["owner_user_id"], "owner_name": row["owner_name"], "folder_id": row["folder_id"],
+            "component_key": row.get("own_component"), "component_auto": row.get("auto_component") or "cep",
             "last_run_at": row["last_run_at"], "created_at": row["created_at"], "updated_at": row["updated_at"]}
 
 
@@ -136,6 +174,7 @@ class CatalogView(APIView):
             return Response({k: v for k, v in found.items() if k not in ("source", "workspace_field", "connection", "query")})
         datasets = catalog.for_tenant(tenant_id, _can_see_pii(request))
         return Response({"datasets": [{k: v for k, v in d.items() if k not in ("source", "workspace_field", "connection", "query")} for d in datasets],
+                         "components": suite_components(), "can_choose_component": own_component_present(),
                          "engine": {k: v for k, v in catalog.engine_of(tenant_id).items() if k != "limits"} | {"limits": catalog.engine_of(tenant_id)["limits"]}})
 
 
@@ -151,7 +190,7 @@ class ReportListView(APIView):
         if request.query_params.get("detail_for"):                  # the detail reports another report can drill through to, by the field clicked
             filters.append("jsonb_exists(COALESCE(r.definition->'drillthrough', '[]'::jsonb), %s)"); params.append(request.query_params["detail_for"])
         if request.query_params.get("component"):
-            filters.append("COALESCE(d.component_key, x.component_key, 'cep') = %s"); params.append(request.query_params["component"])
+            filters.append(f"{_component_sql()} = %s"); params.append(request.query_params["component"])
         if request.query_params.get("q", "").strip():
             filters.append("r.name ILIKE %s"); params.append(f"%{request.query_params['q'].strip()}%")
         folder = request.query_params.get("folder")
@@ -170,7 +209,7 @@ class ReportListView(APIView):
                              r.folder_id::text, f.name AS folder_name, {starred} AS favourite, x.id::text AS own_dataset_id, {edit} AS shared_edit, {shared} AS shared
                         FROM report r LEFT JOIN report_dataset d ON d.key = r.dataset_key
                         LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id {upload_join}
-                        JOIN suite_component c ON c.key = COALESCE(d.component_key, x.component_key, 'cep')
+                        JOIN suite_component c ON c.key = {_component_sql()}
                         LEFT JOIN app_user u ON u.id = r.owner_user_id LEFT JOIN report_folder f ON f.id = r.folder_id AND f.deleted_at IS NULL
                        WHERE r.deleted_at IS NULL AND {' AND '.join(filters)} ORDER BY c.sort_order, r.updated_at DESC LIMIT 500""", [*star_args, *params])
         return Response({"reports": [{"id": r["id"], "name": r["name"], "description": r["description"], "dataset": r["dataset_key"], "dataset_label": r["dataset_label"],
@@ -193,6 +232,7 @@ class ReportListView(APIView):
             errors["visibility"] = "PRIVATE or WORKSPACE."
         if errors:
             raise ValidationError(errors)
+        component = component_of(body.get("component"))
         dataset, definition = _validated(request, body, max_limit=catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"])
         view_type = (definition.get("view") or {}).get("type", "grid")
         import json
@@ -203,6 +243,8 @@ class ReportListView(APIView):
                       [tenant_id, dataset["key"], name, (body.get("description") or None), view_type, json.dumps(definition), str(request.user.pk), visibility,
                        str(request.user.pk), str(request.user.pk)])
             report_id = rows[0]["id"]
+            if component:
+                _q("UPDATE report SET component_key = %s WHERE id = %s", [component, report_id])
             _q("INSERT INTO report_version (tenant_id, report_id, version, definition, view_type, note, changed_by) VALUES (%s, %s, 1, %s, %s, %s, %s)",
                [tenant_id, report_id, json.dumps(definition), view_type, "Created", str(request.user.pk)])
         return Response(_serialize(_report_row(report_id, request)), status=status.HTTP_201_CREATED)
@@ -236,6 +278,7 @@ class ReportView(APIView):
             folder_id = body["folder_id"] or None
             if folder_id and not _q("SELECT 1 FROM report_folder WHERE id::text = %s AND deleted_at IS NULL", [str(folder_id)]):
                 raise ValidationError({"folder_id": "Choose one of the workspace's folders."})
+        component = component_of(body["component"]) if "component" in body else None
         definition_body = body.get("definition")
         import json
         if definition_body is not None:
@@ -251,6 +294,8 @@ class ReportView(APIView):
                                     row_version = row_version + 1 WHERE id = %s AND row_version = %s""",
                [name, body.get("description", row["description"]) or None, visibility, json.dumps(definition), new_version, view_type, (str(folder_id) if folder_id else None),
                 str(request.user.pk), str(report_id), row["row_version"]])
+            if "component" in body and own_component_present():
+                _q("UPDATE report SET component_key = %s WHERE id = %s", [component, str(report_id)])
             if definition_body is not None:
                 _q("INSERT INTO report_version (tenant_id, report_id, version, definition, view_type, note, changed_by) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                    [tenant_id, str(report_id), new_version, json.dumps(definition), view_type, (str(body.get("note") or "")[:300] or None), str(request.user.pk)])
