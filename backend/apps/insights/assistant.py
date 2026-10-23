@@ -461,9 +461,16 @@ def read_images(files) -> list[dict]:
     return out
 
 
+# Structured outputs allow 24 optional properties and 16 union-typed ones in a request (a 400 above that), so every property is
+# sent as required: one that does not apply comes back empty ("", [], 0, or "" for a choice) and is dropped before the reply is read.
+EMPTY_NOTE = 'Every field of the JSON reply is present: give a field that does not apply an empty value ("", [] or 0).'
+EMPTY_NUMBERS = ("target", "limit")                                 # 0 means "not given" for these
+
+
 def strict_schema(schema: dict) -> dict:
-    """the schema as structured outputs take it: every object closed (additionalProperties false) and a value of any type spelled
-    out as the types a filter value can have; the schema the code reads with is unchanged"""
+    """the schema as structured outputs take it: every object closed (additionalProperties false) with every property required, an
+    optional choice offering "" as well, and a value of any type spelled out as the types a filter value can have; the schema the
+    code reads with is unchanged"""
     def walk(node):
         if not isinstance(node, dict):
             return node
@@ -471,13 +478,35 @@ def strict_schema(schema: dict) -> dict:
             return copy.deepcopy(ANY_VALUE)
         out = {k: walk(v) if k in ("items",) else v for k, v in node.items()}
         if "properties" in node:
-            out["properties"] = {name: walk(sub) for name, sub in node["properties"].items()}
+            given = set(node.get("required") or [])
+            out["properties"] = {name: walk(sub) if name in given else optional(walk(sub)) for name, sub in node["properties"].items()}
+            out["required"] = list(node["properties"])
         if "anyOf" in node:
             out["anyOf"] = [walk(sub) for sub in node["anyOf"]]
         if node.get("type") == "object":
             out["additionalProperties"] = False
         return out
+
+    def optional(node):
+        if isinstance(node, dict) and isinstance(node.get("enum"), list) and "" not in node["enum"]:
+            return {**node, "enum": [*node["enum"], ""]}
+        return node
     return walk(copy.deepcopy(schema))
+
+
+def without_empty(value, key: str | None = None):
+    """a structured reply as the code reads it: the empty values strict_schema made the model give for what did not apply, left out"""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            v = without_empty(v, k)
+            if v in ("", None, [], {}) or (k in EMPTY_NUMBERS and v == 0):
+                continue
+            out[k] = v
+        return out
+    if isinstance(value, list):
+        return [item for item in (without_empty(v) for v in value) if item not in ("", {})]
+    return value
 
 
 def call_model(provider: str, row: dict, model: str, system: str, user: str, *, timeout_s: int = TIMEOUT_S, schema: dict | None = None, tool: str = "propose_report",
@@ -499,6 +528,7 @@ def call_model(provider: str, row: dict, model: str, system: str, user: str, *, 
                 body.update({"max_tokens": 4000, "tools": [{"name": tool, "description": "The reply, in the shape asked for.", "input_schema": schema}],
                              "tool_choice": {"type": "tool", "name": tool}})
             else:
+                body["system"] = f"{system}\n\n{EMPTY_NOTE}"
                 body["output_config"] = {"format": {"type": "json_schema", "schema": strict_schema(schema)}, **({"effort": "medium"} if CLAUDE_5.match(model) else {})}
             response = requests.post(f"{base}/v1/messages", json=body, timeout=timeout_s,
                                      headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
@@ -517,7 +547,7 @@ def call_model(provider: str, row: dict, model: str, system: str, user: str, *, 
                 reply = json.loads(text) if text.strip() else {}
             except ValueError:
                 reply = {}
-            return reply if isinstance(reply, dict) else {}, used
+            return without_empty(reply) if isinstance(reply, dict) else {}, used
         content = [{"type": "text", "text": user}, *ask_documents.openai_parts(documents),
                    *({"type": "image_url", "image_url": {"url": f"data:{i['media_type']};base64,{i['data']}"}} for i in images)] if images or documents else user
         body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
