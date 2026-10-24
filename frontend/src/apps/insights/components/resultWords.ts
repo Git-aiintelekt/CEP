@@ -42,9 +42,13 @@ export function maskedWords(info: RunResult): string {
   return `${list} ${names.length === 1 ? 'is' : 'are'} masked: personal data needs the report administration right.`
 }
 
-/** what the run says, in one line: rows, time, freshness, cache */
+const clock = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' })
+
+/** what the run says, in one line: rows, time, freshness, and when a kept result ran */
 export function runWords(info: RunResult): string {
   const rows = `${formatNumber(info.row_count)} row${info.row_count === 1 ? '' : 's'}${info.truncated ? ` of more, the first ${formatNumber(info.limit)} shown` : ''}`
   const fresh = info.upload ? `from ${info.upload}` : info.source ? `live from ${info.source}` : info.freshness === 'LIVE' ? 'live data' : `data as of the last ${info.freshness.toLowerCase().replace('_', ' ')}`
-  return `${rows} · ${info.duration_ms} ms · ${fresh}${info.cached ? ' · from the last minute' : ''}`
+  const took = info.duration_ms >= 1000 ? `${(info.duration_ms / 1000).toFixed(1)} s` : `${info.duration_ms} ms`
+  const kept = info.cached ? (info.ran_at ? ` · kept from ${clock.format(new Date(info.ran_at))}` : ' · from the last minute') : ''
+  return `${rows} · ${took} · ${fresh}${kept}`
 }

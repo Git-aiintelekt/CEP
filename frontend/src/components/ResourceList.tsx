@@ -5,7 +5,7 @@ import { useCursorList } from '@/lib/useCursorList'
 import { DataTable, type Column } from './DataTable'
 import { EmptyState, ErrorState, Spinner } from './States'
 
-export function PageHeader({ title, description, actions, help }: { title: string; description?: string; actions?: ReactNode; /** the page's help icon (PageHelp) */ help?: ReactNode }) {
+export function PageHeader({ title, description, actions, help }: { title: string; description?: ReactNode; actions?: ReactNode; /** the page's help icon (PageHelp) */ help?: ReactNode }) {
   return (
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div>

@@ -23,7 +23,13 @@ A measure formula that works over the report's grouped rows (CALCULATE with ALL,
 apps/insights/formula.py) compiles to three levels (_compile_analytic): the grouped query, each aggregate its own column (and
 again, shifted in time, joined beside it); a window level (share of the parent, year or quarter to date); a last level that
 ranks and keeps the asked-for range when the date's filter was widened for the earlier rows. Totals leave such measures empty.
+
+A query dataset's date field that is the day of one of its datetime fields (DATE(m.SENT_AT) AS sent_date beside m.SENT_AT AS
+sent_at) is filtered on the datetime instead (day_fields): the same days, but a condition an index on the column can use.
 """
+import re
+from datetime import date, timedelta
+
 AGGREGATES = {"sum": "sum({col})", "count": "count({col})", "count_distinct": "count(DISTINCT {col})", "avg": "avg({col})", "min": "min({col})", "max": "max({col})"}
 CALC = "calc"
 FORMULA_OPS = {"ratio": "/", "difference": "-", "sum": "+", "product": "*"}
@@ -202,16 +208,46 @@ def _day_span(col: str, local_col: bool, start: str, end: str, zone: str, params
     return f"{first} AND {expr2} < ({params.bind(end)}::timestamp + interval '1 day')"
 
 
+_DAY_OF = re.compile(r"\bDATE\(\s*([^()]+?)\s*\)\s+AS\s+[`\"]?(\w+)", re.IGNORECASE)
+DAY_OPERATORS = ("last_days", "between", "=", ">=", "<=", ">", "<")
+
+
+def day_fields(dataset: dict) -> dict[str, str]:
+    """a query dataset's date fields that are the day of one of its datetime fields: {sent_date: sent_at}"""
+    sql = dataset.get("query") or ""
+    if not sql:
+        return {}
+    types = {f["key"]: f["type"] for f in dataset["fields"]}
+    out = {}
+    for expr, alias in _DAY_OF.findall(sql):
+        bare = re.search(rf"(?<![\w.(]){re.escape(expr)}\s+AS\s+[`\"]?(\w+)", sql, re.IGNORECASE)
+        if bare and types.get(alias) == "date" and types.get(bare.group(1)) == "datetime":
+            out[alias] = bare.group(1)
+    return out
+
+
+def _on_datetime(rule: dict, time_field: str) -> dict:
+    """a rule on the day moved onto its datetime, for the same days: before or on a day is before the next one"""
+    op, value = rule["operator"], rule["value"]
+    if op in ("<=", ">"):
+        following = (date.fromisoformat(str(value)[:10]) + timedelta(days=1)).isoformat()
+        return {"field": time_field, "operator": "<" if op == "<=" else ">=", "value": following}
+    return {**rule, "field": time_field, "value": str(value)[:10] if op in (">=", "<") else value}
+
+
 def _filter_sql(dataset: dict, node: dict, zone: str, params: Params) -> str:
     parts = []
     ch = params.dialect == "clickhouse"
     my = params.dialect == "mysql"
+    days = day_fields(dataset)
     for rule in node["rules"]:
         if "rules" in rule:
             inner = _filter_sql(dataset, rule, zone, params)
             if inner:
                 parts.append(f"({inner})")
             continue
+        if rule["field"] in days and rule["operator"] in DAY_OPERATORS:
+            rule = _on_datetime(rule, days[rule["field"]])
         field = next(f for f in dataset["fields"] if f["key"] == rule["field"])
         col = _col(field, params.dialect)
         op, value = rule["operator"], rule["value"]

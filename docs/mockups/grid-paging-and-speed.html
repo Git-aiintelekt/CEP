@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Paging and Speed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .pill-ai { height:20px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+  .box { position:relative; border:1px solid var(--line-control); border-radius:12px; background:#fff }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .askabout { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .datapick { height:28px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-900); background:#fff }
+  .datapick b { font-weight:600 } .datapick small { color:var(--ink-700); font-size:11.5px } .datapick::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .datapick.ghost { border-color:transparent }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .thumb { width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#f9fafb; position:relative; flex:none }
+  .doc { height:64px; min-width:180px; max-width:240px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center; position:relative }
+  .doc .ico { width:34px; height:42px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:9px; font-weight:700; color:var(--ink-800); padding-bottom:5px; flex:none }
+  .doc .ico.pdf { background:#fae2e2; color:var(--danger-text) } .doc .ico.word { background:var(--brand-100); color:var(--brand-800) }
+  .doc b { display:block; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px } .doc small { font-size:11.5px; color:var(--ink-700) }
+  .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .muted { font-size:12px; color:var(--ink-800) } .grow { flex:1 }
+  .counter { font-size:12px; color:var(--warning-text); font-variant-numeric:tabular-nums; font-weight:500 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 8px; font-size:13px; border-radius:999px } .model::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-subtle) }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; padding:0 14px; font:600 13px/32px var(--font) }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .small { font-size:12px; color:var(--ink-800) }
+
+  .menu { position:absolute; z-index:2; top:42px; left:12px; width:380px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:6px }
+  .menu .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .menu .opt { display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:8px; font-size:13.5px }
+  .menu .opt.on { background:var(--callout-bg) } .menu .opt small { display:block; font-size:12px; color:var(--ink-800) }
+  .menu .opt .m { width:26px; height:26px; border-radius:8px; background:var(--brand-100); color:var(--brand-800); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .menu .opt .m.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .menu .check { display:flex; gap:8px; align-items:flex-start; margin:4px 8px 6px 44px; font-size:12.5px; color:var(--ink-900) }
+  .cb { width:15px; height:15px; border-radius:4px; background:var(--brand-600); flex:none; margin-top:2px; position:relative } .cb::after { content:"✓"; color:#fff; font-size:11px; position:absolute; left:2px; top:-2px }
+
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:12px; background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--brand-800); text-align:center }
+  .drop b { font-size:15px } .drop small { font-size:12px; color:var(--ink-800) }
+
+  .result { border:1px solid var(--line); border-radius:12px; background:var(--surface-subtle); padding:14px 16px; display:flex; flex-direction:column; gap:8px; font-size:13.5px }
+  .result dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0 } .result dt { font-weight:600 } .result dd { margin:0 }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--brand-100); color:var(--brand-800) }
+  .tag.new { background:var(--warning-bg); color:var(--warning-text) }
+  .btns { display:flex; gap:8px } .btn { height:32px; border-radius:999px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</style>
+</head>
+<style>
+  .runline { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12.5px; color:var(--ink-800); margin-bottom:8px }
+  .runline .lnk { color:var(--brand-800); font-weight:600 }
+  .grid { width:100%; border-collapse:collapse; font-size:13px; background:#fff }
+  .grid th { text-align:left; font-size:12px; font-weight:600; color:var(--ink-800); background:var(--surface-subtle,#f7f8fa); padding:8px 12px; border-bottom:1px solid var(--line-subtle) }
+  .grid td { padding:8px 12px; border-bottom:1px solid var(--line-subtle); color:var(--ink-900); white-space:nowrap }
+  .gridbox { border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff }
+  .gridbox .scroll { overflow-x:auto }
+  .pager { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px; border-top:1px solid var(--line-subtle); font-size:12.5px; color:var(--ink-800) }
+  .pager .grow { flex:1 }
+  .pg { min-width:28px; height:28px; border-radius:6px; border:1px solid var(--line); background:#fff; display:inline-flex; align-items:center; justify-content:center; padding:0 8px; color:var(--ink-900) }
+  .pg.on { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+  .pg.off { color:var(--ink-300) }
+  .sel { height:28px; border:1px solid var(--line-control); border-radius:6px; padding:0 8px; display:inline-flex; align-items:center; gap:6px; background:#fff; color:var(--ink-900) }
+  .tophead { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line-subtle); font-size:12.5px; color:var(--ink-800) }
+  .tophead .grow { flex:1 }
+  .ico { width:28px; height:28px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff }
+  .ico.off { color:var(--ink-300) }
+  table.facts { width:100%; border-collapse:collapse; font-size:13px; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  table.facts th, table.facts td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--line-subtle); vertical-align:top }
+  table.facts th { font-size:12px; color:var(--ink-800); background:var(--surface-subtle,#f7f8fa) }
+  .num { font-variant-numeric:tabular-nums; text-align:right !important; white-space:nowrap }
+</style>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Rows are a sample from 01 Message Detail (phone numbers shortened).</div>
+
+  <h2 class="part">Why the AI-built reports are slow</h2>
+  <p class="note">The AI is not the slow part: once a report is saved it runs like any report. Each run goes live to the Citi database (MySQL 8.0, <b>Citi-TT-Analysis DB 8.0</b>), and the SMS Receipt Messages dataset reads <b>sms_mailer_master: 6.9 million rows, 3.4 GB</b>. A 30-day report adds up about <b>1.1 million receipts</b> on every run. Measured on .51 today, uncached:</p>
+  <table class="facts">
+    <tr><th>Report</th><th>View</th><th class="num">Rows</th><th class="num">Time</th><th>Why</th></tr>
+    <tr><td>01 Message Detail</td><td>Grid</td><td class="num">482</td><td class="num">1.5 s</td><td>Filters on sent_at, sorted by it: the index finds the newest rows at once</td></tr>
+    <tr><td>01 Delivery KPIs</td><td>Grid</td><td class="num">1</td><td class="num">23.1 s</td><td rowspan="6">Totals over 1.1 M receipts. The filter is on <b>sent_date</b> = DATE(SENT_AT), which no index can use, so MySQL reads all 6.9 M rows (EXPLAIN: full scan). Even on SENT_AT, the campaign and direction checks need each row read: 19.7 s</td></tr>
+    <tr><td>01 Delivered, Failed, Pending</td><td>Chart</td><td class="num">3</td><td class="num">23.9 s</td></tr>
+    <tr><td>01 Failure Reasons</td><td>Grid</td><td class="num">22</td><td class="num">23.0 s</td></tr>
+    <tr><td>01 Delivery by Carrier</td><td>Grid</td><td class="num">52</td><td class="num">30.5 s</td></tr>
+    <tr><td>01 Store Delivery Leaderboard</td><td>Grid</td><td class="num">454</td><td class="num">32.9 s</td></tr>
+    <tr><td>01 Weekly Sent, Delivered, Clicked</td><td>Chart</td><td class="num">14</td><td class="num">32.9 s</td></tr>
+  </table>
+  <p class="note">The database allows <b>2 queries at a time</b> (Settings → Report Databases), so a dashboard with six of these tiles waits in line for about 90 seconds. A finished result is kept for only <b>60 seconds</b>, so opening the same report again a few minutes later runs it all again.</p>
+
+  <!-- ===================================================== OPTION A -->
+  <h2 class="part">Pages of 20 rows in every grid: Option A, a pager under the grid</h2>
+  <p>Shown whenever a grid has more than 20 rows: in the viewer, on dashboard tiles and in the editors' preview. The rows already fetched are paged in the browser, so turning a page is instant and never runs the query again.</p>
+  <div class="label">A1 · Busy: 482 rows <span>Page 3 of 25. Rows per page 20 (also 50, 100), remembered per browser.</span></div>
+  <div class="frame"><div class="cap">Option A · busy</div><div class="page">
+    <div class="runline">482 rows · 1.5 s · live from Citi-TT-Analysis DB 8.0 · kept from 10:42 · <span class="lnk">Refresh</span></div>
+    <div class="gridbox"><div class="scroll"><table class="grid">
+      <tr><th>Sent At</th><th>Store Name</th><th>Phone</th><th>Status</th><th>Carrier</th><th>Failure Reason</th></tr>
+      <tr><td>24 Oct 2026 09:58</td><td>CT Ashley Park</td><td>+1 404 •••• 2210</td><td>delivered</td><td>T-Mobile</td><td></td></tr>
+      <tr><td>24 Oct 2026 09:57</td><td>CT Southlake Mall</td><td>+1 770 •••• 8812</td><td>failed</td><td>Verizon</td><td>Unreachable handset</td></tr>
+      <tr><td>24 Oct 2026 09:57</td><td>CT Jonesboro</td><td>+1 678 •••• 0410</td><td>delivered</td><td>AT&amp;T</td><td></td></tr>
+      <tr><td colspan="6" class="muted" style="text-align:center">… 17 more rows on this page …</td></tr>
+    </table></div>
+    <div class="pager"><span>Rows 41–60 of 482</span><span class="grow"></span>Rows per page <span class="sel">20 ▾</span>
+      <span class="pg">‹ Previous</span><span class="pg">1</span><span class="pg">2</span><span class="pg on">3</span><span class="pg">4</span><span class="muted">…</span><span class="pg">25</span><span class="pg">Next ›</span></div>
+    </div>
+  </div></div>
+  <div class="label">A2 · Sparse: 14 rows <span>20 rows or fewer: no pager at all.</span></div>
+  <div class="frame"><div class="cap">Option A · sparse</div><div class="page">
+    <div class="gridbox"><table class="grid"><tr><th>Week</th><th>Sent</th><th>Delivered</th><th>Clicked</th></tr><tr><td>Week of 19 Oct</td><td>261,402</td><td>248,910</td><td>18,204</td></tr><tr><td colspan="4" class="muted" style="text-align:center">… 13 rows in all, no pager …</td></tr></table></div>
+  </div></div>
+
+  <!-- ===================================================== OPTION B -->
+  <h2 class="part">Option B: a compact pager above the grid</h2>
+  <p>The count and arrows sit in a slim bar at the top right; fewer controls, no page numbers, no rows-per-page choice.</p>
+  <div class="label">B1 · Busy <span>The same moment as A1.</span></div>
+  <div class="frame"><div class="cap">Option B · busy</div><div class="page">
+    <div class="gridbox"><div class="tophead"><span>482 rows · kept from 10:42 · <span style="color:var(--brand-800);font-weight:600">Refresh</span></span><span class="grow"></span><span>41–60 of 482</span><span class="ico">‹</span><span class="ico">›</span></div>
+      <div class="scroll"><table class="grid"><tr><th>Sent At</th><th>Store Name</th><th>Phone</th><th>Status</th><th>Carrier</th></tr><tr><td>24 Oct 2026 09:58</td><td>CT Ashley Park</td><td>+1 404 •••• 2210</td><td>delivered</td><td>T-Mobile</td></tr><tr><td colspan="5" class="muted" style="text-align:center">… 19 more rows …</td></tr></table></div></div>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>Making them faster: what I would do</h2>
+    <ul>
+      <li><strong>1. Keep results longer for Report Databases.</strong> A result from a workspace's own database is kept for <b>15 minutes</b> instead of 60 seconds (other data stays at 60 s). The run line says <b>kept from 10:42</b>, and <b>Refresh</b> runs it again now. Opening a report or a dashboard again then takes under a second. In CEP only, no change to the Citi database.</li>
+      <li><strong>2. Date filters that can use the index.</strong> The AI is told to filter dates on the dataset's time field (<b>sent_at</b>), never on a field computed from it, and the editor turns a "last N days" rule on a <b>DATE(…)</b> field of a query dataset into one on its time field when the dataset says which one. This brings 23 s down to about 19 s on today's data. A small gain alone, but it is what lets step 3 work.</li>
+      <li><strong>3. An index on the Citi side (their DBA, not CEP).</strong> <code>CREATE INDEX idx_receipt_day ON sms_mailer_master (CAMPAIGN_NAME, DIRECTION, SENT_AT, STATUS, STORE_NUMBER, CARRIER_NAME, LINK_CLICKED)</code> lets MySQL answer the totals from the index alone: expected <b>2 to 4 s</b> instead of 20 to 33 s. Our login is read-only, so I would write it up for whoever runs that database.</li>
+      <li><strong>Later, if live is still too slow: a kept copy.</strong> Insights could copy a dataset into its own reporting database on a schedule (hourly or nightly) and run the reports there in well under a second. That is a bigger piece of work, offered separately.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A for the pager, with steps 1 and 2 built now and step 3 sent to the Citi DBA.</strong> Option A shows where you are in a long list and lets you choose 50 or 100 rows; Option B is tidier but loses the page numbers. Steps 1 and 2 are in CEP's hands; step 3 gives the big gain, but only the database owner can add the index.</div>
+</div>
+</body>
+</html>

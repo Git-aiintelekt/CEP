@@ -350,8 +350,8 @@ Workspace administrators add calculated measures to their own datasets (Report D
 **Ask a question before a report runs (Parameters)**
 
 1. In the editor, press **Parameters**, then **Add Parameter**. Choose the **Field**, then how it is **Asked As**: Any of Several Values, One Value, At Least, At Most, A Range or The Last Few Days.
-2. Give it a **Label**, an optional **Default**, and tick **An Answer Is Required** if the report should not run without one. A report asks up to five questions. Press **Apply**, then **Save**.
-3. People opening the report see the questions above the rows. A text field offers its own values to pick from. They choose the answers and press **Run Report**. A required question with no answer and no default waits for one.
+2. Give it a **Label**, an optional **Default**, and tick **An Answer Is Required** if the report should not run without one. When the dataset has a time field, a value question can tick **Default to the Latest** (the value of the newest row: the latest SMS campaign sent) and a date question **Default to the Latest Day** (the day of the newest row, under the other answers: that campaign's send day). A report asks up to five questions. Press **Apply**, then **Save**.
+3. People opening the report see the questions above the rows. A text field offers its own values to pick from. A date range is asked as **One Day** or a **Date Range**. A question that defaults to the latest is left empty and says what the latest was ("Latest: Hottest Designer Deals Oct 17 Day 2"); pick another value to change it. They choose the answers and press **Run Report**. A required question with no answer and no default waits for one.
 4. The answers are kept in the page's address, so a link opens the report with them. Exports, the Print-Ready PDF and Explain use the answers too.
 5. A dashboard tile, a schedule or an alert runs the report with the defaults. A question with no default then leaves its filter out.
 
@@ -503,7 +503,11 @@ Subtotals and totals come from the engine, so averages and distinct counts are e
 
 ### The viewer
 
-Opening a report runs it and shows the saved view. Above the rows: the view switch; under the title: what the run says (rows, time, freshness, version) and, once scheduled, the schedule line. The buttons:
+Opening a report runs it and shows the saved view. Above the rows: the view switch; under the title: what the run says (rows, time, freshness, version), **Refresh** and, once scheduled, the schedule line. The buttons:
+
+- **Pages:** a grid with more than 20 rows shows them a page at a time. Under it: which rows are shown ("Rows 41–60 of 482"), **Rows per page** (20, 50 or 100, remembered in your browser), Previous, the page numbers and Next. Turning a page does not run the report again, and sorting a column sorts every row. Dashboard tiles and the editor's preview page the same way.
+- **Kept results and Refresh:** a report on one of your Report Databases is kept for 15 minutes (other reports for a minute), so opening it again, or a dashboard with it, is instant. The line under the title then says **kept from 10:42**. **Refresh** runs it again now.
+- **Why some reports take longer:** a report on your own database runs there, live. One that adds up a whole month of a large table (millions of rows) can take half a minute; one that lists the newest rows, or one campaign's day, is quick. A date filter on a day worked out from a date and time (such as DATE(SENT_AT)) is run on the date and time itself, so the database's index can help.
 
 | Button | What it does |
 |---|---|

@@ -73,13 +73,14 @@ export function ReportViewerPage() {
   const askedView = view ?? report.data?.definition.view
   const charted = (askedView?.type ?? 'grid') === 'chart'
   const tabled = askedView?.type === 'pivot' || askedView?.type === 'hierarchy'
-  const run = useRun(report.data && waiting.length === 0 ? id : undefined, {
+  const page = {
     ...(askedView && tabled ? { view: { type: askedView.type, across: askedView.across } } : {}),
     ...(askedView && charted && (askedView.chart === 'kpi' || askedView.chart === 'gauge') ? { view: { type: 'chart' as const, chart: askedView.chart } } : {}),
     ...((charted || tabled) && path.length ? { drill: { path, ...(tabled ? { keep_rest: true } : {}) } } : {}),
     ...(through.length ? { through } : {}),
     ...(sent ? { params: sent } : {}),
-  })
+  }
+  const run = useRun(report.data && waiting.length === 0 ? id : undefined, page)
   const remove = useDeleteReport()
   const [exporting, setExporting] = useState<'csv' | 'xlsx' | 'pdf' | 'pptx' | null>(null)
   const [versionsOpen, setVersionsOpen] = useState(false)
@@ -122,6 +123,11 @@ export function ReportViewerPage() {
     retry: false,
   })
   const client = useQueryClient()
+  // Refresh: the report run again now, not the kept result (a workspace's own database is kept 15 minutes)
+  const refresh = useMutation({
+    mutationFn: () => insightsApi.run(id as string, { ...page, fresh: true }),
+    onSuccess: (data) => client.setQueryData(keys.run(id ?? '', page), data),
+  })
   const move = useMutation({
     mutationFn: (component: string | null) => insightsApi.update(id as string, { row_version: report.data?.row_version as number, component }),
     onSuccess: (saved) => {
@@ -174,7 +180,8 @@ export function ReportViewerPage() {
       <PageHeader
         help={<PageHelp chapter="insights" />}
         title={report.data.name}
-        description={info ? `${runWords(info)} · version ${report.data.version}` : report.data.description ?? undefined}
+        description={info ? <>{runWords(info)} · version {report.data.version} · <button type="button" onClick={() => refresh.mutate()} disabled={refresh.isPending || run.isFetching}
+          className="font-medium text-link hover:underline disabled:text-ink-700 disabled:no-underline">{refresh.isPending ? 'Refreshing…' : 'Refresh'}</button></> : report.data.description ?? undefined}
         actions={(
           <div className="flex items-center gap-2">
             {report.data.can_edit && <ComponentSelect inline value={report.data.component_key ?? null} auto={report.data.component_auto ?? null} onChange={(key) => move.mutate(key)} disabled={move.isPending} />}
@@ -229,7 +236,7 @@ export function ReportViewerPage() {
         </p>
       )}
       {asked.length > 0 && !old && (
-        <ParameterBar key={params.get('ask') ?? ''} dataset={report.data.dataset} fields={askedFields} parameters={asked} values={answers} onRun={answer} running={run.isFetching}
+        <ParameterBar key={params.get('ask') ?? ''} dataset={report.data.dataset} fields={askedFields} parameters={asked} values={answers} onRun={answer} running={run.isFetching} used={info?.parameters}
           missing={refused && asked.length ? refused.problem?.detail : undefined} />
       )}
       {explaining && (
