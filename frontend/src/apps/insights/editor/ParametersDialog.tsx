@@ -1,7 +1,8 @@
 /**
  * Parameters: questions the report asks before it runs, up to five. Each names a field, how it is asked (one value, several,
- * a range, the last few days), whether an answer is required, and a default. A dashboard tile, a schedule or an alert runs
- * the report with the defaults; a question with no default then leaves its rule out.
+ * a range, the last few days), whether an answer is required, and a default: a value, or the latest (the newest campaign, the
+ * newest row's day) when the dataset has a time field. A dashboard tile, a schedule or an alert runs the report with the
+ * defaults; a question with no default then leaves its rule out.
  */
 import { Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
@@ -12,11 +13,11 @@ import { buttonPrimary, buttonSecondary, Select, TextInput } from '@/components/
 import { Modal } from '@/components/Modal'
 import type { CatalogDataset, ParameterOperator, ReportParameter } from '../types'
 import { coerceValue, fieldOf } from './definition'
-import { askable, ASKED_AS, MAX_PARAMETERS, parameterKey } from './parameters'
+import { askable, ASKED_AS, isLatest, latestAllowed, MAX_PARAMETERS, parameterKey } from './parameters'
 
 function defaultText(parameter: ReportParameter): string {
   const value = parameter.default
-  if (value === undefined || value === null) return ''
+  if (value === undefined || value === null || isLatest(value)) return ''
   if (Array.isArray(value)) return parameter.operator === 'between' ? value.map(String).join('..') : value.map(String).join(', ')
   return String(value)
 }
@@ -54,6 +55,8 @@ export function ParametersDialog({ dataset, parameters, onApply, onClose }: { da
         {rows.map((row, index) => {
           const field = fieldOf(dataset, row.field)
           const operators = field ? askable(field) : [row.operator]
+          const latestOffered = field ? latestAllowed(dataset, field, row.operator) : false
+          const latest = isLatest(row.default)
           return (
             <li key={index} aria-label={row.label || `Parameter ${index + 1}`} className="grid gap-2 rounded-md border border-line p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
               <label className="flex flex-col gap-1 text-xs text-ink-800">Label
@@ -71,12 +74,16 @@ export function ParametersDialog({ dataset, parameters, onApply, onClose }: { da
               </label>
               <span className="flex items-end"><IconButton label={`Remove ${row.label || `parameter ${index + 1}`}`} icon={Trash2} size="sm" onClick={() => setRows(rows.filter((_, i) => i !== index))} /></span>
               <label className="flex flex-col gap-1 text-xs text-ink-800 sm:col-span-2">Default
-                <TextInput aria-label={`Parameter ${index + 1} default`} controlSize="sm" value={defaultText(row)}
+                <TextInput aria-label={`Parameter ${index + 1} default`} controlSize="sm" value={defaultText(row)} disabled={latest}
                   type={row.operator === 'last_days' || (field?.type === 'number' && !['in', 'between'].includes(row.operator)) ? 'number' : field?.type === 'date' && !['in', 'between'].includes(row.operator) ? 'date' : 'text'}
-                  placeholder={row.operator === 'between' ? 'from..to' : row.operator === 'in' ? 'one, two, three' : field?.type === 'boolean' ? 'true or false' : 'None'}
+                  placeholder={latest ? 'The latest, when the report runs' : row.operator === 'between' ? 'from..to' : row.operator === 'in' ? 'one, two, three' : field?.type === 'boolean' ? 'true or false' : 'None'}
                   onChange={(event) => update(index, { default: event.target.value === '' || !field ? undefined : coerceValue(field, row.operator, event.target.value) })} />
               </label>
-              <span className="flex items-end pb-1.5 sm:col-span-2"><Checkbox label="An Answer Is Required" checked={row.required} onChange={(event) => update(index, { required: event.target.checked })} className="text-sm" /></span>
+              <span className="flex flex-wrap items-end gap-x-4 gap-y-1 pb-1.5 sm:col-span-2">
+                {latestOffered && <Checkbox label={field?.type === 'date' || field?.type === 'datetime' ? 'Default to the Latest Day' : 'Default to the Latest'} checked={latest}
+                  onChange={(event) => update(index, { default: event.target.checked ? { latest: true } : undefined })} className="text-sm" />}
+                <Checkbox label="An Answer Is Required" checked={row.required} onChange={(event) => update(index, { required: event.target.checked })} className="text-sm" />
+              </span>
             </li>
           )
         })}

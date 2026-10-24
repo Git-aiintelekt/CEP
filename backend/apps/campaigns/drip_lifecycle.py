@@ -137,7 +137,8 @@ def resume_plan(campaign, now: datetime | None = None) -> dict:
         else:
             when = due
             if when is not None and last_day is not None and when.astimezone(zone).date() <= last_day:
-                when = (when + timedelta(days=(last_day - when.astimezone(zone).date()).days + 1)).astimezone(zone)
+                local = when.astimezone(zone)                           # the day after, at the same local time across a clock change
+                when = datetime.combine(last_day + timedelta(days=1), local.time(), tzinfo=zone)
                 moved.append({"position": position, "name": step.name, "was_due": due.astimezone(zone), "will_send": when})
                 changes[str(run.pk)] = when
             else:

@@ -3,6 +3,10 @@ Saved in the definition as `parameters`, up to five:
 
     {"key": "store", "label": "Store", "field": "store_name", "operator": "in", "required": true, "default": null}
 
+A default may be {"latest": true} on a dataset with a time field: a text or number parameter then takes the value of the newest row
+(the latest campaign sent), a date parameter the day of the newest row with the other answers applied (that campaign's last send);
+apps/insights/runner.py looks them up. A date range asked with "between" may be answered with one day as [day, day].
+
 The viewer, the editor's preview and the exports send the answers as `params` ({"store": ["Downtown"]}, in the body, or as JSON in
 the address of a file). A report run by itself (a dashboard tile, a schedule, an alert, an embed) uses the defaults, and a
 parameter with no default and no answer leaves its rule out. Only the viewer insists on a required answer (`require`).
@@ -21,6 +25,20 @@ OPERATORS = ("=", "in", ">=", "<=", "between", "last_days")
 KEY = re.compile(r"^[a-z][a-z0-9_]{0,30}$")
 VALUES = 200
 CHOOSABLE = ("string", "number", "boolean")
+LATEST = {"latest": True}
+
+
+def is_latest(value) -> bool:
+    return isinstance(value, dict) and value.get("latest") is True
+
+
+def latest_allowed(dataset: dict, field: dict, operator: str) -> bool:
+    """the newest value can be a default: the dataset says which field orders its rows, and the parameter picks a value or a day"""
+    if not dataset.get("time_field"):
+        return False
+    if field["type"] in ("date", "datetime"):
+        return operator in ("=", "between")
+    return field["type"] in ("string", "number") and operator in ("=", "in")
 
 
 class ParameterError(ValueError):
@@ -62,7 +80,11 @@ def check(dataset: dict, raw) -> list[dict]:
         if not isinstance(required, bool):
             raise DefinitionError(f"{at}.required", "Required is on or off.")
         default = item.get("default")
-        if default not in (None, "", []):
+        if is_latest(default):
+            if not latest_allowed(dataset, field, operator):
+                raise DefinitionError(f"{at}.default", f"{field['label']} cannot default to the latest: that needs a dataset with a time field, and a value or a date to pick.")
+            default = dict(LATEST)
+        elif default not in (None, "", []):
             default = _check_value(field, operator, default, f"{at}.default")
         else:
             default = None
@@ -97,7 +119,7 @@ def bind(dataset: dict, definition: dict, values: dict | None) -> dict:
         if field is None:
             continue
         value = values.get(parameter["key"]) if _answered(values.get(parameter["key"])) else parameter.get("default")
-        if value is None:
+        if value is None or is_latest(value):                            # the latest not looked up (no rows yet): no rule
             continue
         if parameter["operator"] == "in" and not isinstance(value, list):
             value = [value]
@@ -138,9 +160,12 @@ def from_request(request) -> dict:
 
 
 def words(definition: dict) -> list[dict]:
-    """what the parameters were answered with, for the note above the rows and the first page of a file"""
+    """what the parameters were answered with, for the note above the rows and the first page of a file; latest: the default's
+    newest value was used"""
     used = definition.get("_params") or {}
-    return [{"key": p["key"], "label": p["label"], "value": used[p["key"]]} for p in definition.get("parameters", []) if p["key"] in used]
+    latest = set(definition.get("_latest") or [])
+    return [{"key": p["key"], "label": p["label"], "value": used[p["key"]], **({"latest": True} if p["key"] in latest else {})}
+            for p in definition.get("parameters", []) if p["key"] in used]
 
 
 class ParameterValuesView(APIView):

@@ -22,7 +22,8 @@ export const insightsApi = {
   /** params: the answers to the report's parameters */
   preview: (body: { dataset: string; definition: ReportDefinition; limit?: number; offset?: number; view?: ReportView; params?: ParameterValues }) => api.post<RunResult>('/insights/reports/preview/', body),
   /** drill: the values clicked at the levels above the one to run */
-  run: (id: string, body: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[]; params?: ParameterValues } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
+  /** fresh: run it again rather than the kept result (Refresh) */
+  run: (id: string, body: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[]; params?: ParameterValues; fresh?: boolean } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
   exportUrl: (id: string) => `/insights/reports/${id}/export.csv`,
   exportCsv: (id: string, params?: ParameterValues) => api.download(`/insights/reports/${id}/export.csv`, answersQuery(params)),
   exportXlsx: (id: string, params?: ParameterValues) => api.download(`/insights/reports/${id}/export.xlsx`, answersQuery(params)),

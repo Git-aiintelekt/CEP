@@ -446,7 +446,7 @@ class RunView(APIView):
             return Response({"type": "about:blank", "title": "The report needs an answer", "status": 422, "detail": str(exc), "outcome": "PARAMETERS", "parameter": exc.field}, status=422)
         try:
             result = runner.run(tenant, request.user, dataset, shown, "run", limit=limit, offset=offset, report_id=report_id, report_version=row["version"],
-                                mask_pii=not _can_see_pii(request), totals_view=_totals_view(request, shown), params=params)
+                                mask_pii=not _can_see_pii(request), totals_view=_totals_view(request, shown), params=params, fresh=body.get("fresh") is True)
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The report did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
         with session.tx():

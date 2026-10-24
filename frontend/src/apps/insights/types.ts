@@ -561,12 +561,16 @@ export interface RunResult {
   limit: number
   freshness: string
   cached: boolean
+  /** when the rows were read (a kept result keeps its time) */
+  ran_at?: string
+  /** how long the result is kept: 15 minutes on a workspace's own database, a minute otherwise */
+  kept_s?: number
   /** the workspace's own database the rows came from, when the dataset is one of its own */
   source?: string
   /** the uploaded file the rows came from */
   upload?: string
   /** what the report's parameters were answered with */
-  parameters?: { key: string; label: string; value: unknown }[]
+  parameters?: { key: string; label: string; value: unknown; /** the default's newest value was used */ latest?: boolean }[]
   /** a saved report with more than one level: where this run is, for drilling */
   drill?: DrillInfo
   /** this person's row access rules that narrowed the rows */

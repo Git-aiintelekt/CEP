@@ -2,7 +2,8 @@
  * /dev/data: uploaded files, parameters and fiscal calendars on sample data, with no backend. ?show=params (the questions above a
  * report, &state=sparse for one), review (an uploaded file's columns), fiscal (Settings → Fiscal Year from April), formula (a measure
  * formula in Custom Fields, &state=error for one that does not read), shared (Insights → Shared Formulas, &state=sparse for none),
- * shared-edit (a shared formula with CALCULATE and ALL, checked).
+ * shared-edit (a shared formula with CALCULATE and ALL, checked), campaigns (an SMS campaign that defaults to the latest, a send date asked
+ * as One Day, and 45 rows paged 20 at a time; &state=sparse for 14 rows and no pager).
  * For design review and screenshots; the real pages are UploadsPage, ReportViewerPage and FiscalYearPage.
  */
 import { useQueryClient } from '@tanstack/react-query'
@@ -13,6 +14,7 @@ import { FiscalYearPage } from '@/apps/cep/pages/settings/FiscalYearPage'
 import { fiscalKey, keys } from '../api'
 import { ParameterBar } from '../components/ParameterBar'
 import { ReportResult } from '../components/ReportViews'
+import { runWords } from '../components/resultWords'
 import { UploadReviewDialog } from '../components/UploadReviewDialog'
 import { CustomFieldsDialog } from '../editor/CustomFieldsDialog'
 import { SharedFormulaDialog } from '../editor/SharedFormulaDialog'
@@ -33,6 +35,24 @@ const RESULT: RunResult = {
   columns: [{ key: 'campaign_name', label: 'Campaign', type: 'string', format: null }, { key: 'sent', label: 'Sent Count', type: 'number', format: 'integer', aggregate: 'sum' }],
   rows: [['Fall Launch', 142300], ['Weekly Newsletter', 201500]], row_count: 2, duration_ms: 64, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: false,
 }
+const CAMPAIGN_FIELDS: CatalogField[] = [
+  { key: 'campaign_name', label: 'SMS Campaign', type: 'string', role: 'dimension', aggregates: [], operators: ['=', 'in'], buckets: [], format: null, sensitivity: 'NORMAL' },
+  { key: 'sent_at', label: 'Send Date', type: 'datetime', role: 'dimension', aggregates: [], operators: ['between', 'last_days', '>=', '<='], buckets: ['day'], format: 'datetime', sensitivity: 'NORMAL' },
+]
+const CAMPAIGN_ASKED: ReportParameter[] = [
+  { key: 'campaign', label: 'SMS Campaign', field: 'campaign_name', operator: 'in', required: true, default: { latest: true } },
+  { key: 'sent', label: 'Send Date', field: 'sent_at', operator: 'between', required: false, default: { latest: true } },
+]
+const STORES = ['CT Ashley Park', 'CT Southlake Mall', 'CT Jonesboro', 'CT Stonecrest', 'CT Cumberland', 'CT Perimeter', 'CT Gwinnett Place']
+const CARRIERS = ['T-Mobile', 'Verizon', 'AT&T']
+const campaignRows = (n: number) => Array.from({ length: n }, (_, i) => [`2026-10-17 13:${String(59 - (i % 60)).padStart(2, '0')}:00`, STORES[i % STORES.length], `+1 404 •••• ${String(2210 + i * 37).slice(-4)}`,
+  i % 9 === 4 ? 'failed' : 'delivered', CARRIERS[i % 3], i % 9 === 4 ? 'Unreachable handset' : null])
+const campaignResult = (n: number): RunResult => ({
+  columns: [{ key: 'sent_at', label: 'Sent At', type: 'datetime', format: 'datetime' }, { key: 'store_name', label: 'Store Name', type: 'string', format: null }, { key: 'phone', label: 'Phone', type: 'string', format: null },
+    { key: 'status', label: 'Status', type: 'string', format: null }, { key: 'carrier', label: 'Carrier', type: 'string', format: null }, { key: 'failure_reason', label: 'Failure Reason', type: 'string', format: null }],
+  rows: campaignRows(n), row_count: n, duration_ms: 1529, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: true, ran_at: '2026-10-24T10:42:00Z', kept_s: 900, source: 'Citi-TT-Analysis DB 8.0',
+  parameters: [{ key: 'campaign', label: 'SMS Campaign', value: ['Hottest Designer Deals Oct 17 Day 2'], latest: true }, { key: 'sent', label: 'Send Date', value: ['2026-10-17', '2026-10-17'], latest: true }],
+})
 const UPLOAD: UploadedFile = {
   id: 'upl-1', key: 'upl_store_sales', name: 'Store Sales October', description: null, file_name: 'store-sales-oct.xlsx', file_kind: 'xlsx', row_count: 18240, status: 'DRAFT',
   created_at: '2026-10-19T09:00:00Z', updated_at: '2026-10-19T09:00:00Z', replaced_at: null, row_version: 1,
@@ -78,6 +98,7 @@ export default function DataPlayground() {
   useState(() => {                                                   // the sample answers the pieces read, put in once before they mount
     client.setQueryData(['insights', 'parameter-values', 'messages', 'channel'], { field: 'channel', values: ['EMAIL', 'SMS', 'PUSH'], choosable: true })
     client.setQueryData(['insights', 'parameter-values', 'messages', 'store'], { field: 'store', values: ['Airport', 'Downtown', 'Harbour', 'Mall', 'Riverside'], choosable: true })
+    client.setQueryData(['insights', 'parameter-values', 'citi', 'campaign_name'], { field: 'campaign_name', values: ['Hottest Designer Deals Oct 17 Day 2', 'Hottest Designer Deals Oct 16 Day 1', 'Saks Insider Oct 2026', 'Haribo Oct 2026'], choosable: true })
     client.setQueryData(fiscalKey, { start: 4, named_by: 'end' })
     const asked = (expression: string) => ['insights', 'formula-check', 'messages', null, FORMULA_REPORT.derived, undefined, { expression, kind: 'measure', role: '', format: 'percent', label: 'Email Share' }]
     client.setQueryData(asked(SHARE), { ok: true, spec: { key: 'c_email_share', label: 'Email Share', kind: 'measure', expression: SHARE, type: 'number', format: 'percent' }, role: 'measure', personal: false, uses: ['Sent Count', 'Channel'] })
@@ -102,6 +123,14 @@ export default function DataPlayground() {
           {asked.some((p) => p.required && !answers[p.key])
             ? <p className="rounded-md border border-dashed border-line px-4 py-10 text-center text-sm text-ink-800">Choose Channel above, then run the report.</p>
             : <ReportResult result={RESULT} view={{ type: 'grid' }} label="Report rows" />}
+        </>
+      )}
+      {show === 'campaigns' && (
+        <>
+          <h1 className="font-display text-page-title font-semibold text-ink-900">SMS Campaign Messages</h1>
+          <p className="-mt-3 text-sm text-ink-800">{runWords(campaignResult(params.get('state') === 'sparse' ? 14 : 45))} · version 1 · <span className="font-medium text-link">Refresh</span></p>
+          <ParameterBar dataset="citi" fields={CAMPAIGN_FIELDS} parameters={CAMPAIGN_ASKED} values={{}} onRun={() => undefined} used={campaignResult(1).parameters} />
+          <ReportResult result={campaignResult(params.get('state') === 'sparse' ? 14 : 45)} view={{ type: 'grid' }} label="Report rows" />
         </>
       )}
       {show === 'review' && <UploadReviewDialog upload={UPLOAD} onClose={() => undefined} onSaved={() => undefined} />}

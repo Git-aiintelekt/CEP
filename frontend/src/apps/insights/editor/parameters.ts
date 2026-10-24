@@ -1,5 +1,5 @@
 /** Report parameters (apps/insights/parameters.py): what a field can be asked as, and the answers in the address and in words. */
-import type { CatalogField, ParameterOperator, ParameterValues, ReportParameter } from '../types'
+import type { CatalogDataset, CatalogField, ParameterOperator, ParameterValues, ReportParameter } from '../types'
 
 export const MAX_PARAMETERS = 5
 
@@ -26,6 +26,18 @@ export function parameterKey(label: string, taken: string[]): string {
   let key = /^[a-z]/.test(base) ? base : `p_${base}`
   for (let n = 2; taken.includes(key); n += 1) key = `${base}_${n}`
   return key
+}
+
+/** a default of {latest: true}: the newest value (the latest campaign), or the newest row's day, looked up when the report runs */
+export function isLatest(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && (value as { latest?: unknown }).latest === true
+}
+
+/** the latest can be a default: the dataset has a time field, and the question picks a value or a date */
+export function latestAllowed(dataset: Pick<CatalogDataset, 'time_field'>, field: CatalogField, operator: ParameterOperator): boolean {
+  if (!dataset.time_field) return false
+  if (field.type === 'date' || field.type === 'datetime') return operator === '=' || operator === 'between'
+  return (field.type === 'string' || field.type === 'number') && (operator === '=' || operator === 'in')
 }
 
 export function answered(value: unknown): boolean {

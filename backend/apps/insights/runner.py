@@ -1,7 +1,9 @@
 """Runs a compiled report under the engine's limits and records it. One short read-only transaction as the reporting
 role, with the workspace's row-level setting, a statement timeout, a row cap and a per-workspace concurrency cap; the
 rows of an interactive run are cached a minute by the definition's signature, so a page that re-renders does not query
-again. A report that fails never touches anything else: the API answers with a plain reason.
+again; a run on a workspace's own database (Report Databases, often millions of rows away) is kept 15 minutes, `ran_at` says
+when it ran, and `fresh` (Refresh) runs it again. A report that fails never touches anything else: the API answers with a plain
+reason. A parameter defaulting to the latest is looked up first (_latest), and kept 5 minutes.
 
     runner.run(tenant, user, dataset, definition, kind, *, limit, offset) -> {"columns": [...], "rows": [[...]], "row_count", "duration_ms", "truncated", "cached"}
     runner.stream_csv(tenant, user, dataset, definition) -> an iterator of CSV chunks (the export)
@@ -25,6 +27,8 @@ from .definition import signature
 from apps.spreadsheet import safe_row
 
 CACHE_SECONDS = 60
+EXTERNAL_CACHE_SECONDS = 900
+LATEST_SECONDS = 300
 ROLE = "cep_reporting"
 
 
@@ -181,9 +185,9 @@ def _totals(tenant_id, dataset: dict, definition: dict, sets, zone: str, timeout
 
 
 def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int | None = None, offset: int = 0, report_id=None, report_version=None,
-        mask_pii: bool = False, totals_view: dict | None = None, params: dict | None = None) -> dict:
+        mask_pii: bool = False, totals_view: dict | None = None, params: dict | None = None, fresh: bool = False) -> dict:
     """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view. params: the answers to the
-    report's parameters (apps/insights/parameters.py); without them, the defaults."""
+    report's parameters (apps/insights/parameters.py); without them, the defaults. fresh: run it again, not the kept result."""
     engine = engine_of(tenant.pk)
     limits = _for_dataset(engine["limits"], dataset)
     try:                                                              # the person's row access rules, before anything else
@@ -191,7 +195,10 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     except access.AccessError as exc:
         raise RunRefused("REFUSED", str(exc)) from None
     dataset = derived.augment(dataset, definition)
+    params, latest = _latest(tenant.pk, dataset, definition, params, limits["statement_timeout_ms"], _dialect_of(dataset, engine), reports.zone_of(tenant).key, fresh)
     definition = _bound(dataset, definition, params)
+    if latest:
+        definition = {**definition, "_latest": latest}
     calendar_ = fiscal.settings_of(tenant)
     definition = fiscal.prepared(tenant, definition)
     if engine["status"] == "MIGRATING" and not dataset.get("external") and not dataset.get("upload"):
@@ -203,9 +210,10 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
                      **({"_upload": dataset["upload"]["version"]} if dataset.get("upload") else {}),     # a replaced or reviewed file is new rows
                      **({"_formulas": dataset["formulas_version"]} if dataset.get("formulas_version") else {})})
     cache_key = f"cep:insights:result:{tenant.pk}:{sig}:{'masked' if mask_pii else 'full'}"
-    cached = cache.get(cache_key)
+    kept = EXTERNAL_CACHE_SECONDS if dataset.get("external") else CACHE_SECONDS
+    cached = None if fresh else cache.get(cache_key)
     if cached is not None:
-        return {**cached, "cached": True}
+        return {**cached, "cached": True, "kept_s": kept}
     zone = reports.zone_of(tenant).key
     dialect = _dialect_of(dataset, engine)
     compared = _whole(definition)                                    # comparisons and Top N need every row up to the cap, then the page is cut from them
@@ -242,14 +250,59 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
         rows = rows[:page]
     columns, rows = mask(dataset, _fiscal_named(out_columns, calendar_), rows, mask_pii)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version, duration_ms=duration, row_count=len(rows))
-    result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
+    result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page, "ran_at": timezone.now().isoformat(),
               "freshness": "LIVE" if dataset.get("external") else engine["freshness_sla"], "cached": False, **({"totals": totals} if totals is not None else {}),
               **({"source": dataset["database"]["name"]} if dataset.get("external") else {}), **({"access": limited} if limited else {}),
               **({"upload": dataset["upload"]["file_name"]} if dataset.get("upload") else {}),
               **({"linked": _linked_words(dataset, definition)} if definition.get("blend") else {}),
               **({"parameters": parameters.words(definition)} if definition.get("_params") else {})}
-    cache.set(cache_key, result, CACHE_SECONDS)
-    return result
+    cache.set(cache_key, result, kept)
+    return {**result, "kept_s": kept}
+
+
+def _with_latest(tenant, dataset: dict, definition: dict, params: dict | None) -> dict:
+    """the answers for a file: the latest defaults looked up as the viewer's run does"""
+    engine = engine_of(tenant.pk)
+    limits = _for_dataset(engine["limits"], dataset)
+    return _latest(tenant.pk, dataset, definition, params, limits["statement_timeout_ms"], _dialect_of(dataset, engine), reports.zone_of(tenant).key, False)[0]
+
+
+def _latest(tenant_id, dataset: dict, definition: dict, params: dict | None, timeout_ms: int, dialect: str, zone: str, fresh: bool) -> tuple[dict, list[str]]:
+    """The answers with each unanswered parameter that defaults to the latest looked up: a value from the newest row by the
+    dataset's time field (values first), then a date as that row's day under the other answers. Returns the answers and the
+    keys looked up; a parameter with no rows keeps no rule."""
+    asked = [p for p in definition.get("parameters") or [] if parameters.is_latest(p.get("default")) and not parameters._answered((params or {}).get(p["key"]))]
+    time_field = dataset.get("time_field")
+    if not asked or not time_field:
+        return params or {}, []
+    from .definition import DefinitionError, validate
+    types = {f["key"]: f["type"] for f in dataset["fields"]}
+    answers, found = dict(params or {}), []
+    for parameter in sorted(asked, key=lambda p: types.get(p["field"]) in ("date", "datetime")):
+        others = [p for p in definition["parameters"] if p["key"] != parameter["key"]]
+        bound = parameters.bind(dataset, {**definition, "parameters": others}, answers)
+        columns = [{"field": parameter["field"]}] + ([{"field": time_field}] if parameter["field"] != time_field else [])
+        try:
+            lookup = validate(dataset, {"columns": columns, "filters": bound.get("filters") or {"combinator": "and", "rules": []},
+                                        "orderBy": [{"field": time_field, "direction": "desc"}], "limit": 1}, max_limit=1)
+        except DefinitionError:
+            continue
+        key = f"cep:insights:latest:{tenant_id}:{signature(lookup)}"
+        value = None if fresh else cache.get(key)
+        if value is None:
+            compiled = compiler.compile(dataset, lookup, str(tenant_id), zone, limit=1, offset=0, dialect=dialect)
+            rows, _ = _execute(tenant_id, compiled, timeout_ms, dialect, dataset, zone)
+            value = _json_safe(rows[0][0]) if rows else ""
+            cache.set(key, value, LATEST_SECONDS)
+        if value in (None, ""):
+            continue
+        if types.get(parameter["field"]) in ("date", "datetime"):
+            day = str(value)[:10]
+            answers[parameter["key"]] = [day, day] if parameter["operator"] == "between" else day
+        else:
+            answers[parameter["key"]] = [value] if parameter["operator"] == "in" else value
+        found.append(parameter["key"])
+    return answers, found
 
 
 def _bound(dataset: dict, definition: dict, params: dict | None) -> dict:
@@ -360,6 +413,7 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
     except access.AccessError as exc:
         yield f"{exc}\n"                                              # the file says why it is empty
         return
+    params = _with_latest(tenant, derived.augment(dataset, definition), definition, params)
     definition = fiscal.prepared(tenant, _bound(derived.augment(dataset, definition), definition, params))
     engine = engine_of(tenant.pk)
     limits = _for_dataset(engine["limits"], dataset)
@@ -422,6 +476,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
         definition, _ = access.restrict(tenant.pk, user, dataset, definition)
     except access.AccessError as exc:
         raise RunRefused("REFUSED", str(exc)) from None
+    params = _with_latest(tenant, derived.augment(dataset, definition), definition, params)
     definition = fiscal.prepared(tenant, _bound(derived.augment(dataset, definition), definition, params))
     engine = engine_of(tenant.pk)
     limits = _for_dataset(engine["limits"], dataset)
