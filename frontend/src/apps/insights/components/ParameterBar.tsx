@@ -14,7 +14,7 @@ import { buttonPrimary, Select, TextInput } from '@/components/Form'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { Spinner } from '@/components/States'
 import { parametersApi } from '../api'
-import { answered, answerWords, isLatest } from '../editor/parameters'
+import { answered, answerWords, isLatest, PERIODS } from '../editor/parameters'
 import type { CatalogField, ParameterValues, ReportParameter, RunResult } from '../types'
 
 interface ParameterBarProps {
@@ -42,12 +42,13 @@ function latestWords(value: unknown, range = false): string {
 export function ParameterBar({ dataset, fields, parameters, values, onRun, missing, running = false, used }: ParameterBarProps) {
   const [draft, setDraft] = useState<ParameterValues>(() => initial(parameters, values))
   const lacking = parameters.filter((p) => p.required && !answered(draft[p.key]) && !isLatest(p.default))
+    .concat(parameters.filter((p) => p.operator === 'period' && Array.isArray(draft[p.key]) && !(draft[p.key] as unknown[]).every((v) => answered(v))))
   function submit(event: FormEvent) {
     event.preventDefault()
     if (lacking.length === 0) onRun(Object.fromEntries(Object.entries(draft).filter(([, value]) => answered(value))))
   }
   return (
-    <form onSubmit={submit} aria-label="Parameters" className="flex flex-wrap items-end gap-3 rounded-lg border border-line bg-surface p-3">
+    <form onSubmit={submit} aria-label="Parameters" className="flex flex-wrap items-start gap-3 rounded-lg border border-line bg-surface p-3">
       {parameters.map((parameter) => {
         const field = fields.find((f) => f.key === parameter.field)
         const dated = field?.type === 'date' || field?.type === 'datetime'
@@ -64,7 +65,7 @@ export function ParameterBar({ dataset, fields, parameters, values, onRun, missi
           </div>
         )
       })}
-      <button type="submit" className={buttonPrimary} disabled={running || lacking.length > 0}><Play size={16} strokeWidth={1.5} aria-hidden />Run Report</button>
+      <button type="submit" className={`${buttonPrimary} mt-5`} disabled={running || lacking.length > 0}><Play size={16} strokeWidth={1.5} aria-hidden />Run Report</button>
       {(lacking.length > 0 || missing) && (
         <p role="status" className="basis-full text-xs text-ink-800">{lacking.length > 0 ? `Choose ${lacking.map((p) => p.label).join(' and ')}, then run the report.` : missing}</p>
       )}
@@ -83,6 +84,7 @@ function Answer({ dataset, parameter, type, value, onChange, latest = null }: { 
       </Select></span>
     )
   }
+  if (parameter.operator === 'period') return <PeriodAnswer label={label} value={value} onChange={onChange} />
   if (listed) return <ListedAnswer dataset={dataset} parameter={parameter} type={type} value={value} onChange={onChange} latest={latest} />
   const input = type === 'number' ? 'number' : 'date'
   if (parameter.operator === 'between' && input === 'date') return <DayOrRange label={label} value={value} onChange={onChange} />
@@ -101,6 +103,38 @@ function Answer({ dataset, parameter, type, value, onChange, latest = null }: { 
     return <span className="flex items-center gap-1.5 text-xs text-ink-800">Last <span className="w-20"><TextInput aria-label={label} controlSize="sm" type="number" min={1} max={3660} value={String(value ?? '')} onChange={(event) => onChange(event.target.value === '' ? undefined : Number(event.target.value))} /></span> days</span>
   }
   return <span className="w-40"><TextInput aria-label={label} controlSize="sm" type={input} value={String(value ?? '')} onChange={(event) => onChange(event.target.value === '' ? undefined : input === 'number' ? Number(event.target.value) : event.target.value)} /></span>
+}
+
+const dayMonth = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' })
+const dayMonthYear = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+
+/** Period (docs/mockups/report-filters-period.html, option B): one drop-down of spans, Custom with two dates beside it, the days it covers under it */
+function PeriodAnswer({ label, value, onChange }: { label: string; value: unknown; onChange: (value: unknown) => void }) {
+  const custom = Array.isArray(value)
+  const [open, setOpen] = useState(custom)
+  const pair = custom ? (value as unknown[]).map((v) => String(v ?? '')) : ['', '']
+  const preset = PERIODS.find((p) => p.value === value)
+  const today = new Date()
+  const covers = preset ? `${dayMonth.format(new Date(today.getTime() - preset.days * 86_400_000))} to ${dayMonthYear.format(today)}` : null
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="flex flex-wrap items-center gap-1.5 text-xs text-ink-800">
+        <span className="w-44"><Select aria-label={label} controlSize="sm" value={open ? 'custom' : String(preset?.value ?? '7d')}
+          onChange={(event) => { if (event.target.value === 'custom') { setOpen(true); onChange(pair[0] && pair[1] ? pair : undefined) } else { setOpen(false); onChange(event.target.value) } }}>
+          {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+          <option value="custom">Custom Range</option>
+        </Select></span>
+        {open && (
+          <>
+            <span className="w-36"><TextInput aria-label={`${label} from`} controlSize="sm" type="date" value={pair[0]} onChange={(event) => onChange([event.target.value, pair[1]])} /></span>
+            <span>to</span>
+            <span className="w-36"><TextInput aria-label={`${label} to`} controlSize="sm" type="date" value={pair[1]} onChange={(event) => onChange([pair[0], event.target.value])} /></span>
+          </>
+        )}
+      </span>
+      {covers && !open && <span className="text-xs text-ink-700">{covers}</span>}
+    </span>
+  )
 }
 
 /** a date range asked as One Day (sent as [day, day]) or a Date Range (from and to) */

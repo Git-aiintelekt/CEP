@@ -49,7 +49,7 @@ test('the box sits above the list with the month’s use and the examples; Gener
   expect(within(card).getByText('Sum of Sent Count, Sum of Delivered Count')).toBeTruthy()   // Values
   expect(within(card).getByText('Sent between 2026-09-01 and 2026-09-30')).toBeTruthy()      // Filter
   expect(within(card).getByText('Preview: 12 rows')).toBeTruthy()
-  expect(within(card).getByText('Campaign (the latest), Send Date (the latest send day)')).toBeTruthy()   // Asks: a campaign report's questions
+  expect(within(card).getByText('Campaign (the latest), Channel, Period (Last 7 Days)')).toBeTruthy()   // Asks: the report filters every report has
   expect(within(box).getByText('39 of 200 prompts used in October')).toBeTruthy()            // the draft counted
   await user.click(within(card).getByRole('button', { name: 'Open in Editor' }))
   await screen.findByRole('textbox', { name: 'Report name' })

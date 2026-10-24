@@ -216,7 +216,7 @@ export interface ReportDefinition {
   parameters?: ReportParameter[]
 }
 
-export type ParameterOperator = '=' | 'in' | '>=' | '<=' | 'between' | 'last_days'
+export type ParameterOperator = '=' | 'in' | '>=' | '<=' | 'between' | 'last_days' | 'period'
 export interface ReportParameter {
   key: string
   label: string

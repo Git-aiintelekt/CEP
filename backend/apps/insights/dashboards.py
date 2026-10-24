@@ -488,6 +488,7 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
     if dataset is None:
         return {"kind": "missing", "detail": "The report's dataset is not available in this workspace."}, 200
     raw = _json(report["definition"])
+    raw = {**raw, "parameters": [p for p in raw.get("parameters") or [] if p.get("operator") != "period"]}     # the dashboard's own period stands in for Period
     bounds = bounds_for(tenant, period)
     time_field = dataset.get("time_field")
     own_dates = bool(time_field) and _has_time_rule(raw.get("filters"), time_field)

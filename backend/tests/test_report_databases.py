@@ -254,7 +254,8 @@ def test_api(check, world, monkeypatch):
     query = next(c for c in calls if c[0] == "query")
     check("running it reads the workspace's database with the MySQL query, the key decrypted, in the workspace's zone, and says where the rows came from",
           run["rows"] == [["Downtown", 61880.0], ["Riverside", 27320.0]] and run["freshness"] == "LIVE" and run["source"] == "Store Operations"
-          and query[1].startswith("SELECT `store_name` AS `c0`, sum(`net_sales`) AS `c1` FROM `nwa_ops`.`v_daily_sales` WHERE (`sale_day` >= NOW() - INTERVAL %s DAY)") and query[2][0] == 7
+          and query[1].startswith("SELECT `store_name` AS `c0`, sum(`net_sales`) AS `c1` FROM `nwa_ops`.`v_daily_sales` WHERE (`sale_day` >= NOW() - INTERVAL %s DAY AND `sale_day` >= NOW() - INTERVAL %s DAY)")
+          and query[2][:2] == [7, 7]                                                                      # its own rule, and Period's 7 days
           and query[3] == "s3cret" and query[4] == "America/New_York", json.dumps(run)[:300] + " " + str(query[1]))
     reports_ = world.api("get", "/api/v1/insights/reports/").json()["reports"]
     mine = next(r for r in reports_ if r["id"] == rid)

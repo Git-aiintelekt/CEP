@@ -4,7 +4,7 @@ campaign, its last send day), looked up from the newest row; a run is kept 15 mi
 runs it again. The SQL and the look-up first, then the API on the built-in Messages dataset."""
 import pytest
 
-from apps.insights import campaign_filters, compiler, definition, parameters, runner
+from apps.insights import compiler, definition, parameters, report_filters, runner
 from apps.insights.definition import DefinitionError
 
 from .test_insights import DATASET
@@ -92,21 +92,46 @@ def test_kept_and_refresh(check, world):
     check.done()
 
 
-def test_campaign_reports_ask_campaign_and_send_date(check, world):
-    asked = campaign_filters.campaign_filters(DATASET)
-    check("a dataset with a campaign and a send time asks Campaign (several, the latest) and Send Date (a range, the latest)",
-          [(p["key"], p["field"], p["operator"], p["default"]) for p in asked] == [("campaign", "campaign_name", "in", {"latest": True}), ("send_date", "submitted_at", "between", {"latest": True})])
-    check("a dataset without a campaign asks nothing", campaign_filters.campaign_filters(OWN) == [])
-    own = campaign_filters.with_campaign_filters(DATASET, {"columns": [{"field": "channel"}], "parameters": [{"key": "campaign", "field": "campaign_name", "operator": "=", "required": True}]})
-    check("a report already asking about the campaign keeps its own question; Send Date joins it under a free key",
-          [(p["key"], p["field"]) for p in own["parameters"]] == [("campaign", "campaign_name"), ("send_date", "submitted_at")])
+def test_every_report_asks_campaign_channel_and_period(check, world):
+    asked = report_filters.standard_filters(DATASET)
+    check("the Messages dataset asks Campaign (several, the latest), Channel (several, all) and Period (7 days, always asked), in that order",
+          [(p["key"], p["field"], p["operator"], p.get("default"), p["required"]) for p in asked]
+          == [("campaign", "campaign_name", "in", {"latest": True}, False), ("channel", "channel", "in", None, False), ("period", "submitted_at", "period", "7d", True)])
+    check("data without a campaign, a channel or a time field asks none of them", report_filters.standard_filters({**OWN, "time_field": None}) == [])
+    mine = {"columns": [{"field": "campaign_name"}], "parameters": [{"key": "store", "field": "party_id", "operator": "in", "required": False},
+                                                                   {"key": "chan", "label": "Which Channel", "field": "channel", "operator": "=", "required": True},
+                                                                   {"key": "since", "field": "submitted_at", "operator": ">=", "default": "2026-09-01"}]}
+    shaped = report_filters.with_standard_filters(DATASET, mine)
+    check("the author's channel question keeps the Channel slot, a question on the time field gives way to Period, the author's own follow",
+          [p["key"] for p in shaped["parameters"]] == ["campaign", "chan", "period", "store"], shaped["parameters"])
+    check("nothing to add: the same definition back", report_filters.with_standard_filters(DATASET, shaped) is shaped)
+    d = definition.validate(DATASET, shaped)
+    bound = parameters.bind(DATASET, d, {"chan": "SMS", "campaign": ["Fall Launch"]})
+    check("Period answers as the last 7 days by default", {"field": "submitted_at", "operator": "last_days", "value": 7} in bound["filters"]["rules"])
+    for value, rule in (("quarter", {"field": "submitted_at", "operator": "last_days", "value": 91}), (["2026-09-01", "2026-09-30"], {"field": "submitted_at", "operator": "between", "value": ["2026-09-01", "2026-09-30"]})):
+        answered = parameters.bind(DATASET, d, {"chan": "SMS", "period": value})
+        check(f"Period {value} answers as {rule['operator']}", rule in answered["filters"]["rules"] and answered["_params"]["period"] == value)
+    try:
+        parameters.bind(DATASET, d, {"chan": "SMS", "period": ["2026-09-30", "2026-09-01"]})
+        check("a custom period backwards is refused", False)
+    except parameters.ParameterError as exc:
+        check("a custom period backwards is refused", "first date" in str(exc))
+
     made = world.api("post", "/api/v1/insights/reports/", {"name": "Delivered by campaign", "dataset": "messages", "definition": {"columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}]}}).json()
-    check("a new campaign report is saved with the two questions", [p["key"] for p in made["definition"].get("parameters", [])] == ["campaign", "send_date"], made.get("definition"))
+    check("a new report is saved with Campaign, Channel and Period", [p["key"] for p in made["definition"].get("parameters", [])] == ["campaign", "channel", "period"], made.get("definition"))
+    stripped = {**made["definition"], "parameters": [p for p in made["definition"]["parameters"] if p["key"] != "period"]}
+    saved = world.api("put", f"/api/v1/insights/reports/{made['id']}/", {"row_version": made["row_version"], "definition": stripped}).json()
+    check("Period cannot be saved away", any(p["key"] == "period" for p in saved["definition"]["parameters"]), saved.get("definition"))
     world.sql("""INSERT INTO report (tenant_id, dataset_key, name, view_type, definition, owner_user_id, visibility)
-                 SELECT tenant_id, 'messages', 'Older campaign report', 'grid', %s, owner_user_id, 'PRIVATE' FROM report WHERE id = %s""",
-              ['{"dataset": "messages", "columns": [{"field": "campaign_name"}], "grouped": false, "filters": {"combinator": "and", "rules": []}, "orderBy": []}', made["id"]])
-    older = [r for r in campaign_filters.add_to_reports(world.tenant) if r["name"] == "Older campaign report"]
-    check("a report made before is listed, not changed, without --apply", [r["added"] for r in older] == [["Campaign", "Send Date"]], older)
-    campaign_filters.add_to_reports(world.tenant, apply=True)
-    check("applied, it asks the questions too, and nothing is left to add", campaign_filters.add_to_reports(world.tenant) == [])
+                 SELECT tenant_id, 'messages', 'Older report', 'grid', %s, owner_user_id, 'PRIVATE' FROM report WHERE id = %s RETURNING id""",
+              ['{"dataset": "messages", "columns": [{"field": "channel"}], "grouped": false, "filters": {"combinator": "and", "rules": []}, "orderBy": []}', made["id"]])
+    older = next(r for r in world.api("get", "/api/v1/insights/reports/").json()["reports"] if r["name"] == "Older report")
+    shown = world.api("get", f"/api/v1/insights/reports/{older['id']}/").json()
+    check("a report from before is shown with the filters, as it runs", [p["key"] for p in shown["definition"].get("parameters", [])] == ["campaign", "channel", "period"])
+    ran = world.api("post", f"/api/v1/insights/reports/{older['id']}/run/", {"limit": 5}).json()
+    check("and runs with Period: the last 7 days", any(p["key"] == "period" and p["value"] == "7d" for p in ran.get("parameters", [])), ran.get("parameters"))
+    listed = [r for r in report_filters.add_to_reports(world.tenant) if r["name"] == "Older report"]
+    check("the command lists it, without changing it", [r["added"] for r in listed] == [["Campaign", "Channel", "Period"]], listed)
+    report_filters.add_to_reports(world.tenant, apply=True)
+    check("applied, nothing is left to add", report_filters.add_to_reports(world.tenant) == [])
     check.done()

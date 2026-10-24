@@ -98,3 +98,41 @@ test('a parameter can default to the latest when its dataset has a time field', 
   await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
   expect(onApply.mock.calls[0][0][0].default).toEqual({ latest: true })
 })
+
+test('Period: a drop-down of spans, 7 days by default; Custom shows two dates; it is always asked and the editor keeps it at the top', async () => {
+  installMockApi({ me: withInsights as never })
+  const { ParameterBar } = await import('./components/ParameterBar')
+  const messages = insightsCatalog.datasets[0] as unknown as CatalogDataset
+  const period: ReportParameter = { key: 'period', label: 'Period', field: 'submitted_at', operator: 'period', required: true, default: '7d' }
+  const onRun = vi.fn()
+  await withQueries(<ParameterBar dataset="messages" fields={messages.fields} parameters={[period]} values={{}} onRun={onRun} />)
+  const box = screen.getByRole('group', { name: 'Period' })
+  const choose = within(box).getByRole('combobox', { name: 'Period' }) as HTMLSelectElement
+  expect(choose.value).toBe('7d')
+  expect([...choose.options].map((o) => o.text)).toEqual(['Last 7 Days', 'Last 15 Days', 'Last 30 Days', 'Last Quarter', 'Last Half Year', 'Last Year', 'Custom Range'])
+  expect(within(box).getByText(/ to .*\d{4}$/)).toBeTruthy()                                   // the days it covers
+  await userEvent.click(screen.getByRole('button', { name: 'Run Report' }))
+  expect(onRun).toHaveBeenLastCalledWith({ period: '7d' })
+  fireEvent.change(choose, { target: { value: 'quarter' } })
+  await userEvent.click(screen.getByRole('button', { name: 'Run Report' }))
+  expect(onRun).toHaveBeenLastCalledWith({ period: 'quarter' })
+  fireEvent.change(choose, { target: { value: 'custom' } })
+  expect((screen.getByRole('button', { name: 'Run Report' }) as HTMLButtonElement).disabled).toBe(true)      // two dates first
+  fireEvent.change(within(box).getByLabelText('Period from'), { target: { value: '2026-09-01' } })
+  fireEvent.change(within(box).getByLabelText('Period to'), { target: { value: '2026-09-30' } })
+  await userEvent.click(screen.getByRole('button', { name: 'Run Report' }))
+  expect(onRun).toHaveBeenLastCalledWith({ period: ['2026-09-01', '2026-09-30'] })
+  cleanup()
+
+  const { ParametersDialog } = await import('./editor/ParametersDialog')
+  const onApply = vi.fn()
+  render(<ParametersDialog dataset={messages} parameters={[period, { key: 'store', label: 'Store', field: 'campaign_name', operator: 'in', required: false }]} onApply={onApply} onClose={() => undefined} />)
+  expect(screen.getByRole('dialog', { name: 'Report Filters' })).toBeTruthy()
+  const locked = screen.getByRole('listitem', { name: 'Period' })
+  expect(within(locked).getByText('Always asked')).toBeTruthy()
+  expect(within(locked).queryByRole('button', { name: /Remove/ })).toBeNull()
+  fireEvent.change(within(locked).getByRole('combobox', { name: 'Parameter 1 default' }), { target: { value: '30d' } })
+  expect(screen.getByRole('button', { name: 'Add Filter' })).toBeTruthy()
+  await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  expect(onApply.mock.calls[0][0][0]).toMatchObject({ key: 'period', operator: 'period', default: '30d' })
+})

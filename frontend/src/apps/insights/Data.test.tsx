@@ -83,17 +83,17 @@ test('a report that asks: nothing runs until Channel is chosen; Run Report sends
   await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/rep-asked/export.csv?params=') && decodeURIComponent(c.url).includes('{"channel":["SMS"]}'))).toBe(true))
 })
 
-test('the editor: Parameters adds a required question on Channel, saved with the report', async () => {
+test('the editor: Report Filters adds a required question on Channel, saved with the report', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
-  await user.click(await screen.findByRole('button', { name: 'Parameters' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Parameters' })
-  await user.click(within(dialog).getByRole('button', { name: 'Add Parameter' }))
+  await user.click(await screen.findByRole('button', { name: 'Report Filters' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Report Filters' })
+  await user.click(within(dialog).getByRole('button', { name: 'Add Filter' }))
   await user.selectOptions(within(dialog).getByLabelText('Parameter 1 field'), 'Channel')
   expect((within(dialog).getByLabelText('Parameter 1 asked as') as HTMLSelectElement).value).toBe('in')
   await user.click(within(dialog).getByLabelText('An Answer Is Required'))
   await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
-  expect(await screen.findByRole('button', { name: 'Parameters · 1' })).toBeTruthy()
+  expect(await screen.findByRole('button', { name: 'Report Filters · 1' })).toBeTruthy()
   expect(await screen.findByRole('form', { name: 'Parameters' })).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => {
