@@ -31,7 +31,7 @@ from apps.delivery.engine import session
 from apps.platform_ops import components
 from apps.tenants import context
 from apps.tenants.models import Tenant
-from . import access, catalog, drill, parameters, runner
+from . import access, campaign_filters, catalog, drill, parameters, runner
 from .definition import DefinitionError, validate
 
 
@@ -234,7 +234,9 @@ class ReportListView(APIView):
         if errors:
             raise ValidationError(errors)
         component = component_of(body.get("component"))
-        dataset, definition = _validated(request, body, max_limit=catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"])
+        run_rows = catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"]
+        dataset, definition = _validated(request, body, max_limit=run_rows)
+        definition = validate(dataset, campaign_filters.with_campaign_filters(dataset, definition), max_limit=run_rows)     # a campaign report asks Campaign and Send Date
         view_type = (definition.get("view") or {}).get("type", "grid")
         import json
         tenant_id = context.require().tenant_id

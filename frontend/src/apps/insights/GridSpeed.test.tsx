@@ -73,14 +73,19 @@ test('the filters: a campaign that defaults to the latest says which it was, and
   expect(within(day).getByText('Latest: 2026-10-22')).toBeTruthy()
   await userEvent.click(screen.getByRole('button', { name: 'Run Report' }))
   expect(onRun).toHaveBeenLastCalledWith({})                                      // required, but the latest answers it
+  await userEvent.click(within(campaign).getByRole('button', { name: /Latest/ }))
+  await userEvent.click(await screen.findByRole('option', { name: 'EMAIL' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  expect(within(day).getByText('Any day of the campaigns chosen')).toBeTruthy()  // picked by hand: the latest send day no longer applies
+  expect(within(day).queryByText(/^Latest:/)).toBeNull()
 
   fireEvent.change(within(day).getByLabelText('Send Date'), { target: { value: '2026-10-20' } })
   await userEvent.click(screen.getByRole('button', { name: 'Run Report' }))
-  expect(onRun).toHaveBeenLastCalledWith({ sent: ['2026-10-20', '2026-10-20'] })
+  expect(onRun).toHaveBeenLastCalledWith({ channel: ['EMAIL'], sent: ['2026-10-20', '2026-10-20'] })
   await userEvent.click(within(day).getByRole('radio', { name: 'Date Range' }))
   fireEvent.change(within(day).getByLabelText('Send Date to'), { target: { value: '2026-10-23' } })
   await userEvent.click(screen.getByRole('button', { name: 'Run Report' }))
-  expect(onRun).toHaveBeenLastCalledWith({ sent: ['2026-10-20', '2026-10-23'] })
+  expect(onRun).toHaveBeenLastCalledWith({ channel: ['EMAIL'], sent: ['2026-10-20', '2026-10-23'] })
 })
 
 test('a parameter can default to the latest when its dataset has a time field', async () => {

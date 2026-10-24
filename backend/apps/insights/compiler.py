@@ -415,7 +415,10 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
         if index is None:                                           # a measure from a linked dataset: sorted once the two sides are matched
             continue
         alias = _ident(f"c{index}", dialect)
-        order.append(f"{alias} IS NULL, {alias} {item['direction'].upper()}" if dialect == "mysql" else f"{alias} {item['direction'].upper()} NULLS LAST")
+        if definition.get("_plain_order"):                          # a look-up for the newest row: an order an index on the column can give
+            order.append(f"{alias} {item['direction'].upper()}")
+        else:
+            order.append(f"{alias} IS NULL, {alias} {item['direction'].upper()}" if dialect == "mysql" else f"{alias} {item['direction'].upper()} NULLS LAST")
     if not order:
         order.append("`c0` IS NULL, `c0` ASC" if dialect == "mysql" else '"c0" ASC NULLS LAST')
     sql = f"SELECT {', '.join(selects)} FROM {_from(dataset, dialect)} WHERE {where}"

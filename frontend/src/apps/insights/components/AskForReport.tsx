@@ -30,6 +30,7 @@ import { ATTACHMENTS_BYTES_MAX, DOCUMENT_ACCEPT, DOCUMENT_BYTES_MAX, documentKin
 import { IMAGE_BYTES_MAX, IMAGE_TYPES, IMAGES_MAX, isImage, shrink } from '../askImages'
 import { databaseOf, plural, remember, remembered, rememberedScope, rememberedUnmapped, useAskData, usableScope } from '../askScope'
 import { columnWords, ruleWords } from '../editor/definition'
+import { isLatest } from '../editor/parameters'
 import { useComponents } from '../reportComponents'
 import type { AskResult, AskScope, AssistantModel, CatalogDataset, ReportSummary } from '../types'
 import { AskAbout } from './AskAbout'
@@ -358,6 +359,8 @@ function ResultCard({ result, dataset: known, busy, onRetry, onEdit, onOpen, onA
   const columns = definition && dataset && across ? definition.columns.filter((c) => c.field === across).map((c) => columnWords(dataset, c)) : []
   const values = definition && dataset ? definition.columns.filter((c) => c.aggregate).map((c) => columnWords(dataset, c)) : []
   const filters = definition && dataset ? (definition.filters?.rules ?? []).map((rule) => ('rules' in rule ? 'a group of rules' : ruleWords(dataset, rule))) : []
+  // the questions it asks before it runs: a campaign report asks Campaign (the latest by default) and Send Date
+  const asks = (definition?.parameters ?? []).map((p) => (isLatest(p.default) ? `${p.label} (${p.operator === 'between' ? 'the latest send day' : 'the latest'})` : p.label))
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line bg-surface-subtle p-4" role="region" aria-label={TITLE[result.kind]}>
       <div className="flex flex-wrap items-center gap-2">
@@ -385,6 +388,7 @@ function ResultCard({ result, dataset: known, busy, onRetry, onEdit, onOpen, onA
             {columns.length > 0 && <><dt className="font-semibold text-ink-900">Columns</dt><dd className="text-ink-900">{columns.join(', ')}</dd></>}
             {values.length > 0 && <><dt className="font-semibold text-ink-900">Values</dt><dd className="text-ink-900">{values.join(', ')}</dd></>}
             {filters.length > 0 && <><dt className="font-semibold text-ink-900">Filter</dt><dd className="text-ink-900">{filters.join(definition?.filters?.combinator === 'or' ? ' or ' : ' and ')}</dd></>}
+            {asks.length > 0 && <><dt className="font-semibold text-ink-900">Asks</dt><dd className="text-ink-900">{asks.join(', ')}</dd></>}
             {result.note && <><dt className="font-semibold text-ink-900">Note</dt><dd className="text-ink-900">{result.note}</dd></>}
           </dl>
           {fresh && (
