@@ -801,7 +801,7 @@ def test_api(check, world):
     offered = {"enabled": True, "reason": None, "models": [model], "default_model": model["id"], "usage": {"used": 0, "limit": None, "words": ""}}
     with mock.patch.object(assistant, "offer", return_value=offered), mock.patch.object(assistant, "effective_providers", return_value={"anthropic": {}}), \
             mock.patch.object(assistant, "call_model", return_value=({"summary": "Fall Launch sent the most.", "points": ["Email carried most of it."], "caution": ""}, {"in": 10, "out": 5})) as asked:
-        explained = world.api("post", f"/api/v1/insights/reports/{rid}/explain/", {"model": model["id"]})
+        explained = world.api("post", f"/api/v1/insights/reports/{rid}/explain/", {"model": model["id"], "params": {"period": ["2000-01-01", "2100-12-31"]}})           # every date, not the last 7 days
         sent_rows = asked.call_args.args[4] if asked.call_args else ""
         check("Explain This Report sends the report's rows and answers in a few sentences", explained.status_code == 200 and explained.json()["summary"] == "Fall Launch sent the most."
               and explained.json()["points"] == ["Email carried most of it."] and "Sends by campaign" in sent_rows and "Campaign" in sent_rows, explained.content[:300])
@@ -852,10 +852,10 @@ def test_api(check, world):
           and isinstance(body_k["higher"], list) and isinstance(body_k["lower"], list) and "Campaign" in body_k["explained_by"], keyed.content[:300])
     counted = world.api("post", "/api/v1/insights/reports/analyze/", {"dataset": "messages", "definition": {"columns": [{"field": "channel"}, {"field": "messages", "aggregate": "count"}]}, "kind": "influencers"})
     check("a count is refused in words", counted.status_code == 422 and "a count" in counted.json()["detail"], counted.content[:200])
-    tree = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": []})
+    tree = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": [], "params": {"period": ["2000-01-01", "2100-12-31"]}})
     body_t = tree.json() if tree.status_code == 200 else {}
     check("the Decomposition Tree starts with the total and the fields to split by", tree.status_code == 200 and body_t["total"] is not None and any(o["field"] == "channel" for o in body_t["explain_by"]), tree.content[:300])
-    by_channel = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": [], "by": "channel"})
+    by_channel = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": [], "by": "channel", "params": {"period": ["2000-01-01", "2100-12-31"]}})
     rows_c = by_channel.json().get("rows", []) if by_channel.status_code == 200 else []
     check("a split by channel gives the largest first", by_channel.status_code == 200 and rows_c and all((a["measure"] or 0) >= (b["measure"] or 0) for a, b in zip(rows_c, rows_c[1:])), by_channel.content[:300])
     if rows_c:

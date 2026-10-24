@@ -1,7 +1,11 @@
 """Report parameters: questions a report asks before it runs ("Which store?", "Which dates?"), each answered into one filter rule.
-Saved in the definition as `parameters`, up to five:
+The viewer calls them Report Filters. Saved in the definition as `parameters`, up to eight:
 
     {"key": "store", "label": "Store", "field": "store_name", "operator": "in", "required": true, "default": null}
+
+"period" asks a span of the time field: a preset (7d, 15d, 30d, quarter, half, year: the last 7, 15 or 30 days, 3, 6 or 12 months)
+answered as the last that many days, or a custom [from, to] answered as those days (apps/insights/report_filters.py asks it on every
+report with a time field, 7 days by default).
 
 A default may be {"latest": true} on a dataset with a time field: a text or number parameter then takes the value of the newest row
 (the latest campaign sent), a date parameter the day of the newest row with the other answers applied (that campaign's last send);
@@ -20,12 +24,42 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-MAX_PARAMETERS = 5
-OPERATORS = ("=", "in", ">=", "<=", "between", "last_days")
+MAX_PARAMETERS = 8
+OPERATORS = ("=", "in", ">=", "<=", "between", "last_days", "period")
+PERIODS = {"7d": 7, "15d": 15, "30d": 30, "quarter": 91, "half": 182, "year": 365}
 KEY = re.compile(r"^[a-z][a-z0-9_]{0,30}$")
 VALUES = 200
 CHOOSABLE = ("string", "number", "boolean")
 LATEST = {"latest": True}
+
+
+def period_allowed(field: dict) -> bool:
+    """a period is a span of a date or a date and time that can be asked as the last days and as a range"""
+    return field["type"] in ("date", "datetime") and "last_days" in field["operators"] and "between" in field["operators"]
+
+
+def period_value(value, where: str):
+    """a preset key, or [from, to] as two dates in order; DefinitionError otherwise"""
+    from datetime import date
+    from .definition import DefinitionError
+    if isinstance(value, str) and value in PERIODS:
+        return value
+    if isinstance(value, (list, tuple)) and len(value) == 2:
+        try:
+            start, end = date.fromisoformat(str(value[0])[:10]), date.fromisoformat(str(value[1])[:10])
+        except ValueError:
+            raise DefinitionError(where, "Give two dates like 2026-09-01.") from None
+        if start > end:
+            raise DefinitionError(where, "The first date comes before the second.")
+        return [start.isoformat(), end.isoformat()]
+    raise DefinitionError(where, f"Give one of {', '.join(PERIODS)}, or two dates.")
+
+
+def period_rule(field_key: str, value) -> dict:
+    """the filter rule a period answers to: the last so many days, or the days from one date to another"""
+    if isinstance(value, str):
+        return {"field": field_key, "operator": "last_days", "value": PERIODS[value]}
+    return {"field": field_key, "operator": "between", "value": list(value)}
 
 
 def is_latest(value) -> bool:
@@ -70,7 +104,9 @@ def check(dataset: dict, raw) -> list[dict]:
             raise DefinitionError(f"{at}.field", f"{field['label']} already has a parameter.")
         fields.add(field["key"])
         operator = item.get("operator", "=")
-        if operator not in OPERATORS or operator not in field["operators"]:
+        if operator == "period" and not period_allowed(field):
+            raise DefinitionError(f"{at}.operator", f"{field['label']} cannot be asked as a period: it needs a date that takes the last days and a range.")
+        if operator != "period" and (operator not in OPERATORS or operator not in field["operators"]):
             usable = [o for o in OPERATORS if o in field["operators"]]
             raise DefinitionError(f"{at}.operator", f"{field['label']} can be asked with {', '.join(usable)}." if usable else f"{field['label']} cannot be a parameter.")
         label = item.get("label") if item.get("label") not in (None, "") else field["label"]
@@ -80,7 +116,9 @@ def check(dataset: dict, raw) -> list[dict]:
         if not isinstance(required, bool):
             raise DefinitionError(f"{at}.required", "Required is on or off.")
         default = item.get("default")
-        if is_latest(default):
+        if operator == "period":
+            default = period_value(default, f"{at}.default") if default not in (None, "", []) else None
+        elif is_latest(default):
             if not latest_allowed(dataset, field, operator):
                 raise DefinitionError(f"{at}.default", f"{field['label']} cannot default to the latest: that needs a dataset with a time field, and a value or a date to pick.")
             default = dict(LATEST)
@@ -120,6 +158,14 @@ def bind(dataset: dict, definition: dict, values: dict | None) -> dict:
             continue
         value = values.get(parameter["key"]) if _answered(values.get(parameter["key"])) else parameter.get("default")
         if value is None or is_latest(value):                            # the latest not looked up (no rows yet): no rule
+            continue
+        if parameter["operator"] == "period":
+            try:
+                value = period_value(value, parameter["key"])
+            except DefinitionError as exc:
+                raise ParameterError(parameter["key"], f"{parameter['label']}: {exc}") from None
+            rules.append(period_rule(field["key"], value))
+            used[parameter["key"]] = value
             continue
         if parameter["operator"] == "in" and not isinstance(value, list):
             value = [value]

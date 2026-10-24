@@ -2,8 +2,8 @@
  * /dev/data: uploaded files, parameters and fiscal calendars on sample data, with no backend. ?show=params (the questions above a
  * report, &state=sparse for one), review (an uploaded file's columns), fiscal (Settings → Fiscal Year from April), formula (a measure
  * formula in Custom Fields, &state=error for one that does not read), shared (Insights → Shared Formulas, &state=sparse for none),
- * shared-edit (a shared formula with CALCULATE and ALL, checked), campaigns (an SMS campaign that defaults to the latest, a send date asked
- * as One Day, and 45 rows paged 20 at a time; &state=sparse for 14 rows and no pager).
+ * shared-edit (a shared formula with CALCULATE and ALL, checked), campaigns (the report filters every report asks: Campaign, the latest by
+ * default, Channel and Period, 7 days; and 45 rows paged 20 at a time; &state=sparse for 14 rows and no pager).
  * For design review and screenshots; the real pages are UploadsPage, ReportViewerPage and FiscalYearPage.
  */
 import { useQueryClient } from '@tanstack/react-query'
@@ -37,11 +37,13 @@ const RESULT: RunResult = {
 }
 const CAMPAIGN_FIELDS: CatalogField[] = [
   { key: 'campaign_name', label: 'SMS Campaign', type: 'string', role: 'dimension', aggregates: [], operators: ['=', 'in'], buckets: [], format: null, sensitivity: 'NORMAL' },
-  { key: 'sent_at', label: 'Send Date', type: 'datetime', role: 'dimension', aggregates: [], operators: ['between', 'last_days', '>=', '<='], buckets: ['day'], format: 'datetime', sensitivity: 'NORMAL' },
+  { key: 'channel', label: 'Channel', type: 'string', role: 'dimension', aggregates: [], operators: ['=', 'in'], buckets: [], format: null, sensitivity: 'NORMAL' },
+  { key: 'sent_at', label: 'Sent At', type: 'datetime', role: 'dimension', aggregates: [], operators: ['between', 'last_days', '>=', '<='], buckets: ['day'], format: 'datetime', sensitivity: 'NORMAL' },
 ]
 const CAMPAIGN_ASKED: ReportParameter[] = [
-  { key: 'campaign', label: 'SMS Campaign', field: 'campaign_name', operator: 'in', required: true, default: { latest: true } },
-  { key: 'sent', label: 'Send Date', field: 'sent_at', operator: 'between', required: false, default: { latest: true } },
+  { key: 'campaign', label: 'Campaign', field: 'campaign_name', operator: 'in', required: false, default: { latest: true } },
+  { key: 'channel', label: 'Channel', field: 'channel', operator: 'in', required: false },
+  { key: 'period', label: 'Period', field: 'sent_at', operator: 'period', required: true, default: '7d' },
 ]
 const STORES = ['CT Ashley Park', 'CT Southlake Mall', 'CT Jonesboro', 'CT Stonecrest', 'CT Cumberland', 'CT Perimeter', 'CT Gwinnett Place']
 const CARRIERS = ['T-Mobile', 'Verizon', 'AT&T']
@@ -51,7 +53,7 @@ const campaignResult = (n: number): RunResult => ({
   columns: [{ key: 'sent_at', label: 'Sent At', type: 'datetime', format: 'datetime' }, { key: 'store_name', label: 'Store Name', type: 'string', format: null }, { key: 'phone', label: 'Phone', type: 'string', format: null },
     { key: 'status', label: 'Status', type: 'string', format: null }, { key: 'carrier', label: 'Carrier', type: 'string', format: null }, { key: 'failure_reason', label: 'Failure Reason', type: 'string', format: null }],
   rows: campaignRows(n), row_count: n, duration_ms: 1529, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: true, ran_at: '2026-10-24T10:42:00Z', kept_s: 900, source: 'Citi-TT-Analysis DB 8.0',
-  parameters: [{ key: 'campaign', label: 'SMS Campaign', value: ['Hottest Designer Deals Oct 17 Day 2'], latest: true }, { key: 'sent', label: 'Send Date', value: ['2026-10-17', '2026-10-17'], latest: true }],
+  parameters: [{ key: 'campaign', label: 'Campaign', value: ['Hottest Designer Deals Oct 17 Day 2'], latest: true }, { key: 'period', label: 'Period', value: '7d' }],
 })
 const UPLOAD: UploadedFile = {
   id: 'upl-1', key: 'upl_store_sales', name: 'Store Sales October', description: null, file_name: 'store-sales-oct.xlsx', file_kind: 'xlsx', row_count: 18240, status: 'DRAFT',
@@ -99,6 +101,7 @@ export default function DataPlayground() {
     client.setQueryData(['insights', 'parameter-values', 'messages', 'channel'], { field: 'channel', values: ['EMAIL', 'SMS', 'PUSH'], choosable: true })
     client.setQueryData(['insights', 'parameter-values', 'messages', 'store'], { field: 'store', values: ['Airport', 'Downtown', 'Harbour', 'Mall', 'Riverside'], choosable: true })
     client.setQueryData(['insights', 'parameter-values', 'citi', 'campaign_name'], { field: 'campaign_name', values: ['Hottest Designer Deals Oct 17 Day 2', 'Hottest Designer Deals Oct 16 Day 1', 'Saks Insider Oct 2026', 'Haribo Oct 2026'], choosable: true })
+    client.setQueryData(['insights', 'parameter-values', 'citi', 'channel'], { field: 'channel', values: ['SMS', 'EMAIL'], choosable: true })
     client.setQueryData(fiscalKey, { start: 4, named_by: 'end' })
     const asked = (expression: string) => ['insights', 'formula-check', 'messages', null, FORMULA_REPORT.derived, undefined, { expression, kind: 'measure', role: '', format: 'percent', label: 'Email Share' }]
     client.setQueryData(asked(SHARE), { ok: true, spec: { key: 'c_email_share', label: 'Email Share', kind: 'measure', expression: SHARE, type: 'number', format: 'percent' }, role: 'measure', personal: false, uses: ['Sent Count', 'Channel'] })

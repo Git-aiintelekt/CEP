@@ -3049,22 +3049,22 @@ Workspace administrators add calculated measures to their own datasets (Report D
 4. Dates like 03/04/2026 are read with the day first when any day in the column is over 12, otherwise with the month first. A date and time with no zone is your workspace's time. Codes with leading zeros, such as 007, stay text.
 5. To refresh the rows, open the file's menu (the three dots) and choose **Replace File**. The new file must have the same column names, in any order, and the reports on it read the new rows at once. A file with reports built on it cannot be deleted.
 
-**Ask a question before a report runs (Parameters)**
+**Add filters people choose (Report Filters)**
 
-1. In the editor, press **Parameters**, then **Add Parameter**. Choose the **Field**, then how it is **Asked As**: Any of Several Values, One Value, At Least, At Most, A Range or The Last Few Days.
-2. Give it a **Label**, an optional **Default**, and tick **An Answer Is Required** if the report should not run without one. When the dataset has a time field, a value question can tick **Default to the Latest** (the value of the newest row: the latest SMS campaign sent) and a date question **Default to the Latest Day** (the day of the newest row, under the other answers: that campaign's send day). A report asks up to five questions. Press **Apply**, then **Save**.
+1. In the editor, press **Report Filters** (the count beside it says how many the report has), then **Add Filter**. Choose the **Field**, then how it is **Asked As**: Any of Several Values, One Value, At Least, At Most, A Range or The Last Few Days.
+2. Give it a **Label**, an optional **Default**, and tick **An Answer Is Required** if the report should not run without one. When the dataset has a time field, a value question can tick **Default to the Latest** (the value of the newest row: the latest SMS campaign sent) and a date question **Default to the Latest Day** (the day of the newest row, under the other answers: that campaign's send day). A report asks up to eight filters. Press **Apply**, then **Save**.
 3. People opening the report see the questions above the rows. A text field offers its own values to pick from. A date range is asked as **One Day** or a **Date Range**. A question that defaults to the latest is left empty and says what the latest was ("Latest: Hottest Designer Deals Oct 17 Day 2"); pick another value to change it. They choose the answers and press **Run Report**. A required question with no answer and no default waits for one.
 4. The answers are kept in the page's address, so a link opens the report with them. Exports, the Print-Ready PDF and Explain use the answers too.
 
-**Campaign reports ask Campaign and Send Date** (every report on campaign data)
+**Every report asks Campaign, Channel and Period first**
 
-Every report on a dataset with a campaign and a send time asks two questions above its rows, whether you made it yourself or with AI Reports:
+Every report asks these filters above its rows, first and in this order, whether you made it yourself or with AI Reports; your own filters follow them:
 
-- **Campaign**: pick one or several campaigns. Left empty, it shows the **latest campaign** sent, and says which ("Latest: Hottest Designer Deals Oct 17 Day 2").
-- **Send Date**: **One Day** or a **Date Range**. Left empty, it shows the latest campaign's send day. Once you pick campaigns yourself, it covers any day of theirs unless you give a day or a range.
+- **Campaign** (data with a campaign): pick one or several campaigns. Left empty, it shows the **latest campaign** sent in the period, and says which ("Latest: Hottest Designer Deals Oct 17 Day 2"). If none was sent in the period, it shows every campaign of the period.
+- **Channel** (data with a channel): one or several channels; left empty, every channel.
+- **Period** (data with a date): **Last 7 Days** (the default), Last 15 Days, Last 30 Days, Last Quarter (3 months), Last Half Year (6 months), Last Year (12 months) or **Custom Range** with two dates. The days it covers show under it. Period is always asked, so no report reads a whole table unless you ask for a longer span; it filters on the data's date and time, which the database's index can use.
 
-A new report on such a dataset is saved with both questions, and a draft from AI Reports lists them under **Asks** before you open it. They are ordinary parameters: change or remove them under Edit → **Parameters**. A dashboard tile, a schedule or an alert uses the defaults, so it shows the latest campaign. Reports made before this were given the two questions by the platform team (`manage.py insights_campaign_filters --tenant CODE --apply`), each as a new version noted "Campaign filters added".
-5. A dashboard tile, a schedule or an alert runs the report with the defaults. A question with no default then leaves its filter out.
+In the editor, **Report Filters** lists them with Period at the top: change its label or its default, but it cannot be removed. Campaign and Channel are ordinary filters: change or remove them. A draft from AI Reports lists them under **Asks** before you open it. On a dashboard, a tile uses the dashboard's own period instead of Period; a schedule or an alert uses the report's default (7 days unless you changed it). Reports made before were given the filters by the platform team (`manage.py insights_report_filters --tenant CODE --apply`), each as a new version noted "Report filters added"; until then a report shows and runs with them anyway.
 
 **Set your fiscal year (Settings → Fiscal Year)** (workspace administrators)
 

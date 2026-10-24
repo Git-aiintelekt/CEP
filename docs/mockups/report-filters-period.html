@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Filters and Period</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .pill-ai { height:20px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+  .box { position:relative; border:1px solid var(--line-control); border-radius:12px; background:#fff }
+  .box.focus { border-color:var(--brand-600); box-shadow:var(--shadow-focus) }
+  .askabout { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:12.5px; color:var(--ink-800) }
+  .datapick { height:28px; border-radius:999px; border:1px solid var(--line-control); padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-900); background:#fff }
+  .datapick b { font-weight:600 } .datapick small { color:var(--ink-700); font-size:11.5px } .datapick::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .datapick.ghost { border-color:transparent }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .thumb { width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#f9fafb; position:relative; flex:none }
+  .doc { height:64px; min-width:180px; max-width:240px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center; position:relative }
+  .doc .ico { width:34px; height:42px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:9px; font-weight:700; color:var(--ink-800); padding-bottom:5px; flex:none }
+  .doc .ico.pdf { background:#fae2e2; color:var(--danger-text) } .doc .ico.word { background:var(--brand-100); color:var(--brand-800) }
+  .doc b { display:block; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px } .doc small { font-size:11.5px; color:var(--ink-700) }
+  .x { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .text { padding:10px 12px 4px; min-height:96px; font-size:14px; line-height:20px; white-space:pre-line } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap }
+  .icon { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .muted { font-size:12px; color:var(--ink-800) } .grow { flex:1 }
+  .counter { font-size:12px; color:var(--warning-text); font-variant-numeric:tabular-nums; font-weight:500 }
+  .model { height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 8px; font-size:13px; border-radius:999px } .model::after { content:"▾"; color:var(--ink-700); font-size:10px }
+  .mark { width:18px; height:18px; border-radius:4px; border:1px solid var(--line); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-subtle) }
+  .primary { height:32px; border-radius:999px; background:var(--brand-600); color:#fff; padding:0 14px; font:600 13px/32px var(--font) }
+  .primary.off { background:var(--fill-subtle); color:var(--ink-300) }
+  .small { font-size:12px; color:var(--ink-800) }
+
+  .menu { position:absolute; z-index:2; top:42px; left:12px; width:380px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:6px }
+  .menu .sec { padding:8px 8px 4px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-700) }
+  .menu .opt { display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:8px; font-size:13.5px }
+  .menu .opt.on { background:var(--callout-bg) } .menu .opt small { display:block; font-size:12px; color:var(--ink-800) }
+  .menu .opt .m { width:26px; height:26px; border-radius:8px; background:var(--brand-100); color:var(--brand-800); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none }
+  .menu .opt .m.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .menu .check { display:flex; gap:8px; align-items:flex-start; margin:4px 8px 6px 44px; font-size:12.5px; color:var(--ink-900) }
+  .cb { width:15px; height:15px; border-radius:4px; background:var(--brand-600); flex:none; margin-top:2px; position:relative } .cb::after { content:"✓"; color:#fff; font-size:11px; position:absolute; left:2px; top:-2px }
+
+  .drop { position:absolute; inset:-1px; border:2px dashed var(--brand-600); border-radius:12px; background:#eef3fd; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--brand-800); text-align:center }
+  .drop b { font-size:15px } .drop small { font-size:12px; color:var(--ink-800) }
+
+  .result { border:1px solid var(--line); border-radius:12px; background:var(--surface-subtle); padding:14px 16px; display:flex; flex-direction:column; gap:8px; font-size:13.5px }
+  .result dl { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; margin:0 } .result dt { font-weight:600 } .result dd { margin:0 }
+  .tag { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:6px; font-size:11.5px; font-weight:500; background:var(--brand-100); color:var(--brand-800) }
+  .tag.new { background:var(--warning-bg); color:var(--warning-text) }
+  .btns { display:flex; gap:8px } .btn { height:32px; border-radius:999px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .card-wide code { font-family:var(--mono); font-size:12.5px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+</style>
+</head>
+<style>
+  .bar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px; border:1px solid var(--line); border-radius:8px; background:#fff; padding:12px }
+  .q { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ink-800); min-width:0 }
+  .q b { font-weight:500 } .q .hint { color:var(--ink-700) }
+  .chips { display:flex; flex-wrap:wrap; gap:4px }
+  .chip { height:28px; padding:0 10px; border-radius:6px; border:1px solid var(--line); background:#fff; display:inline-flex; align-items:center; font-size:12.5px; color:var(--ink-900) }
+  .chip.on { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800); font-weight:600 }
+  .sel { height:30px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:inline-flex; align-items:center; gap:8px; background:#fff; color:var(--ink-900); font-size:13px; min-width:150px; justify-content:space-between }
+  .date { height:30px; border:1px solid var(--line-control); border-radius:6px; padding:0 8px; display:inline-flex; align-items:center; font-size:13px; color:var(--ink-900); width:120px }
+  .run { height:32px; padding:0 14px; border-radius:6px; background:var(--brand-600); color:#fff; display:inline-flex; align-items:center; font-weight:600; font-size:13px }
+  .lock { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--ink-700) }
+  .dlg { border:1px solid var(--line); border-radius:8px; background:#fff; box-shadow:0 8px 24px rgb(20 23 31 / 0.16); max-width:820px }
+  .dlg header { padding:14px 16px; border-bottom:1px solid var(--line-subtle) } .dlg header h4 { font-size:15px } .dlg header p { font-size:12.5px; color:var(--ink-800) }
+  .dlg .body { padding:12px 16px; display:flex; flex-direction:column; gap:10px }
+  .row { display:grid; grid-template-columns:1.1fr 1fr 1.1fr 1.2fr auto; gap:10px; align-items:end; border:1px solid var(--line); border-radius:6px; padding:10px; font-size:12px; color:var(--ink-800) }
+  .row.locked { background:var(--surface-subtle,#f7f8fa) }
+  .row .f { display:flex; flex-direction:column; gap:4px } .row .v { height:28px; border:1px solid var(--line-control); border-radius:6px; padding:0 8px; display:flex; align-items:center; background:#fff; color:var(--ink-900); font-size:12.5px }
+  .row .v.dis { background:transparent; color:var(--ink-700) }
+  .add { height:30px; width:fit-content; padding:0 10px; border:1px dashed var(--line-control); border-radius:6px; display:inline-flex; align-items:center; font-size:12px; font-weight:600 }
+  .edbar { display:flex; gap:8px; align-items:center; font-size:13px; flex-wrap:wrap }
+  .btn2 { height:32px; padding:0 12px; border-radius:6px; border:1px solid var(--brand-600); color:var(--brand-800); background:#fff; display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:13px }
+  .count { height:18px; min-width:18px; border-radius:999px; background:var(--brand-600); color:#fff; font-size:11px; display:inline-flex; align-items:center; justify-content:center; padding:0 5px }
+</style>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Sample filters from the Citi SMS reports.</div>
+  <p class="note"><b>What changes.</b> Every report on data with a date asks for a <b>Period</b> above its rows: <b>7 Days, 15 Days, 30 Days, Quarter, Half Year, Year</b> or a <b>Custom</b> range. It defaults to <b>7 Days</b> and can't be removed, so no report reads a whole table unless someone asks for it. Authors add more filters people choose (Campaign, Store, Channel…) in the report editor. Periods are rolling: Quarter is the last 3 months, Half Year the last 6, Year the last 12.</p>
+
+  <h2 class="part">Option A: the period as a row of chips</h2>
+  <p>Each period is one click; Custom opens two dates beside it.</p>
+  <div class="label">A1 · Busy: a campaign report with four filters <span>Period, Campaign (the latest by default), Store and Channel.</span></div>
+  <div class="frame"><div class="cap">Option A · busy</div><div class="page">
+    <div class="bar">
+      <div class="q"><b>Period <span class="lock">· always asked</span></b><div class="chips"><span class="chip on">7 Days</span><span class="chip">15 Days</span><span class="chip">30 Days</span><span class="chip">Quarter</span><span class="chip">Half Year</span><span class="chip">Year</span><span class="chip">Custom</span></div><span class="hint">17 Oct to 24 Oct 2026</span></div>
+      <div class="q"><b>Campaign</b><span class="sel">Latest ▾</span><span class="hint">Latest in the period: Hottest Designer Deals Oct 17 Day 2</span></div>
+      <div class="q"><b>Store</b><span class="sel">Any ▾</span></div>
+      <div class="q"><b>Channel</b><span class="sel">SMS ▾</span></div>
+      <span class="run">Run Report</span>
+    </div>
+  </div></div>
+  <div class="label">A2 · Custom picked <span>Two dates appear; the chip row stays.</span></div>
+  <div class="frame"><div class="cap">Option A · custom</div><div class="page">
+    <div class="bar"><div class="q"><b>Period</b><div class="chips"><span class="chip">7 Days</span><span class="chip">15 Days</span><span class="chip">30 Days</span><span class="chip">Quarter</span><span class="chip">Half Year</span><span class="chip">Year</span><span class="chip on">Custom</span></div></div>
+      <div class="q"><b>From</b><span class="date">2026-09-01</span></div><div class="q"><b>To</b><span class="date">2026-09-30</span></div><span class="run">Run Report</span></div>
+  </div></div>
+
+  <h2 class="part">Option B: the period as one drop-down</h2>
+  <p>Narrower, the same as the other filters; Custom shows two dates beside it.</p>
+  <div class="label">B1 · Busy <span>The same report as A1.</span></div>
+  <div class="frame"><div class="cap">Option B · busy</div><div class="page">
+    <div class="bar">
+      <div class="q"><b>Period</b><span class="sel">Last 7 Days ▾</span><span class="hint">17 Oct to 24 Oct 2026</span></div>
+      <div class="q"><b>Campaign</b><span class="sel">Latest ▾</span><span class="hint">Latest: Hottest Designer Deals Oct 17 Day 2</span></div>
+      <div class="q"><b>Store</b><span class="sel">Any ▾</span></div>
+      <div class="q"><b>Channel</b><span class="sel">SMS ▾</span></div>
+      <span class="run">Run Report</span>
+    </div>
+  </div></div>
+  <div class="label">B2 · Sparse: a report with only the period <span>Data without a campaign, no other filters added.</span></div>
+  <div class="frame"><div class="cap">Option B · sparse</div><div class="page">
+    <div class="bar"><div class="q"><b>Period</b><span class="sel">Last 7 Days ▾</span><span class="hint">17 Oct to 24 Oct 2026</span></div><span class="run">Run Report</span></div>
+  </div></div>
+
+  <h2 class="part">Both options: adding filters in the report editor</h2>
+  <p>A <b>Report Filters</b> button sits in the editor's top bar with the count; it opens the list. The Period row is always there (its default can change, it can't be removed); <b>Add Filter</b> adds more, up to eight.</p>
+  <div class="frame"><div class="cap">Editor · Report Filters</div><div class="page" style="display:flex;flex-direction:column;gap:12px">
+    <div class="edbar"><b>01 Delivery KPIs</b><span class="muted">· Field Wells</span><span style="flex:1"></span><span class="btn2">Report Filters <span class="count">3</span></span><span class="btn2">Save</span></div>
+    <div class="dlg"><header><h4>Report Filters</h4><p>Filters people choose above the rows. A dashboard uses its own period instead of Period.</p></header>
+      <div class="body">
+        <div class="row locked"><div class="f">Label<span class="v">Period</span></div><div class="f">Field<span class="v dis">Sent At (the time field)</span></div><div class="f">Asked As<span class="v dis">A Period</span></div><div class="f">Default<span class="v">7 Days ▾</span></div><span class="lock">Always asked</span></div>
+        <div class="row"><div class="f">Label<span class="v">Campaign</span></div><div class="f">Field<span class="v">Campaign ▾</span></div><div class="f">Asked As<span class="v">Any of Several ▾</span></div><div class="f">Default<span class="v dis">The latest ☑</span></div><span>🗑</span></div>
+        <div class="row"><div class="f">Label<span class="v">Store</span></div><div class="f">Field<span class="v">Store Name ▾</span></div><div class="f">Asked As<span class="v">One Value ▾</span></div><div class="f">Default<span class="v">None</span></div><span>🗑</span></div>
+        <span class="add">+ Add Filter</span>
+      </div></div>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>Period on every report with a date</strong>, on the dataset's time field: 7 Days, 15 Days, 30 Days, Quarter (3 months), Half Year (6), Year (12), Custom. Default 7 Days, always asked; the author may change the default. New reports, AI drafts and saves get it; a command gives it to the reports made before. Reports on data without a date (a store list) don't ask it.</li>
+      <li><strong>Campaign reports</strong> ask Campaign and Period; Period replaces the Send Date question added earlier today, and the latest campaign is the latest <em>within</em> the period (none sent in 7 days: every campaign of the period).</li>
+      <li><strong>Dashboards</strong> keep their own period: on a tile the dashboard's period takes the place of the report's. Schedules and alerts use the report's default, 7 days.</li>
+      <li><strong>Report Filters</strong> in the editor: the Parameters dialog, renamed and moved to the top bar with a count, up to eight filters, Period locked at the top.</li>
+      <li><strong>Speed:</strong> 7 days of SMS receipts is about 250 thousand rows instead of 1.1 million for 30 days, and the period reads the date-and-time column, which the Citi index can use.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option A.</strong> The period is the filter people change most; one row of chips shows every choice and takes one click, and Custom stays beside it. Option B is tidier when a report has many filters, but hides the choices behind a click.</div>
+</div>
+</body>
+</html>

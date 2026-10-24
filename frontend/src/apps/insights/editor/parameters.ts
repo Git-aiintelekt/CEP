@@ -1,7 +1,19 @@
 /** Report parameters (apps/insights/parameters.py): what a field can be asked as, and the answers in the address and in words. */
 import type { CatalogDataset, CatalogField, ParameterOperator, ParameterValues, ReportParameter } from '../types'
 
-export const MAX_PARAMETERS = 5
+export const MAX_PARAMETERS = 8
+
+/** Period (apps/insights/report_filters.py): a span of the time field, asked on every report with one, 7 days by default */
+export const PERIODS = [
+  { value: '7d', label: 'Last 7 Days', days: 7 }, { value: '15d', label: 'Last 15 Days', days: 15 }, { value: '30d', label: 'Last 30 Days', days: 30 },
+  { value: 'quarter', label: 'Last Quarter', days: 91 }, { value: 'half', label: 'Last Half Year', days: 182 }, { value: 'year', label: 'Last Year', days: 365 },
+] as const
+
+/** "Last 7 Days", or "2026-09-01 to 2026-09-30" for a custom range */
+export function periodWords(value: unknown): string {
+  if (Array.isArray(value)) return `${String(value[0] ?? '…')} to ${String(value[1] ?? '…')}`
+  return PERIODS.find((p) => p.value === value)?.label ?? 'Last 7 Days'
+}
 
 const BY_TYPE: Record<CatalogField['type'], ParameterOperator[]> = {
   string: ['in', '='],
@@ -12,7 +24,7 @@ const BY_TYPE: Record<CatalogField['type'], ParameterOperator[]> = {
 }
 
 export const ASKED_AS: Record<ParameterOperator, string> = {
-  '=': 'One Value', in: 'Any of Several Values', '>=': 'At Least', '<=': 'At Most', between: 'A Range', last_days: 'The Last Few Days',
+  '=': 'One Value', in: 'Any of Several Values', '>=': 'At Least', '<=': 'At Most', between: 'A Range', last_days: 'The Last Few Days', period: 'A Period',
 }
 
 /** the ways a field can be asked about, the first the usual one */
@@ -69,6 +81,7 @@ export function sentAnswers(values: ParameterValues): ParameterValues {
 /** "EMAIL, SMS", "2026-09-01 to 2026-09-30", "the last 30 days", "Yes" */
 export function answerWords(operator: ParameterOperator, value: unknown): string {
   if (!answered(value)) return 'Any'
+  if (operator === 'period') return periodWords(value)
   if (operator === 'last_days') return `the last ${String(value)} days`
   if (operator === 'between' && Array.isArray(value)) return `${String(value[0] ?? '…')} to ${String(value[1] ?? '…')}`
   if (Array.isArray(value)) return value.map(String).join(', ')

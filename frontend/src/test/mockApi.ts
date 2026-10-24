@@ -144,8 +144,9 @@ function assistantReply(prompt: string, modelId: string, asked: { unmapped?: boo
   return { ...base, id: 'ask-1', kind: 'draft', counted: true, read, name: 'Sent and Delivered by Campaign', dataset: 'messages', dataset_label: 'Messages', view: { type: 'grid' },
     definition: { columns: [{ field: 'campaign_name' }, { field: 'sent', aggregate: 'sum' }, { field: 'delivered', aggregate: 'sum' }],
       filters: { combinator: 'and', rules: [{ field: 'submitted_at', operator: 'between', value: ['2026-09-01', '2026-09-30'] }] }, orderBy: [{ field: 'sent', direction: 'desc' }], limit: 500,
-      parameters: [{ key: 'campaign', label: 'Campaign', field: 'campaign_name', operator: 'in', required: false, default: { latest: true } },        // a campaign report asks these (apps/insights/campaign_filters)
-                   { key: 'send_date', label: 'Send Date', field: 'submitted_at', operator: 'between', required: false, default: { latest: true } }] },
+      parameters: [{ key: 'campaign', label: 'Campaign', field: 'campaign_name', operator: 'in', required: false, default: { latest: true } },        // every report asks these first (apps/insights/report_filters)
+                   { key: 'channel', label: 'Channel', field: 'channel', operator: 'in', required: false },
+                   { key: 'period', label: 'Period', field: 'submitted_at', operator: 'period', required: true, default: '7d' }] },
     preview: { rows: 12, more: false }, usage: insightsAssistantNow.usage }
 }
 /** Settings → Report Databases (apps/insights/databases): the workspace's own databases and the datasets mapped from them */

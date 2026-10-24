@@ -31,7 +31,7 @@ from apps.delivery.engine import session
 from apps.platform_ops import components
 from apps.tenants import context
 from apps.tenants.models import Tenant
-from . import access, campaign_filters, catalog, drill, parameters, runner
+from . import access, catalog, drill, parameters, report_filters, runner
 from .definition import DefinitionError, validate
 
 
@@ -155,6 +155,8 @@ def _validated(request, body: dict, *, max_limit: int, reading: bool = False):
     dataset = catalog.dataset(context.require().tenant_id, str(dataset_key or ""), reading or _can_see_pii(request))
     if dataset is None:
         raise ValidationError({"dataset": "Choose one of the datasets this workspace can report on."})
+    if reading:                                                       # a saved report from before the standard filters runs with them
+        body = {**body, "definition": report_filters.with_standard_filters(dataset, body.get("definition") or {})}
     try:
         return dataset, validate(dataset, body.get("definition") or {}, max_limit=max_limit)
     except DefinitionError as exc:
@@ -236,7 +238,7 @@ class ReportListView(APIView):
         component = component_of(body.get("component"))
         run_rows = catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"]
         dataset, definition = _validated(request, body, max_limit=run_rows)
-        definition = validate(dataset, campaign_filters.with_campaign_filters(dataset, definition), max_limit=run_rows)     # a campaign report asks Campaign and Send Date
+        definition = validate(dataset, report_filters.with_standard_filters(dataset, definition), max_limit=run_rows)      # Campaign, Channel and Period first
         view_type = (definition.get("view") or {}).get("type", "grid")
         import json
         tenant_id = context.require().tenant_id
@@ -259,7 +261,11 @@ class ReportView(APIView):
     @extend_schema(responses={200: None})
     def get(self, request, version=None, report_id=None):
         row = _report_row(report_id, request)
-        return Response({**_serialize(row), "can_edit": _may_edit(request, row), "can_share": _may_share(request, row), "shared": bool(row.get("shared"))})
+        shown = _serialize(row)
+        dataset = catalog.dataset(context.require().tenant_id, row["dataset_key"], True)
+        if dataset is not None:                                        # shown with the standard filters, as it runs (report_filters)
+            shown["definition"] = report_filters.with_standard_filters(dataset, shown["definition"])
+        return Response({**shown, "can_edit": _may_edit(request, row), "can_share": _may_share(request, row), "shared": bool(row.get("shared"))})
 
     @extend_schema(responses={200: None})
     def put(self, request, version=None, report_id=None):
@@ -285,8 +291,9 @@ class ReportView(APIView):
         definition_body = body.get("definition")
         import json
         if definition_body is not None:
-            dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_body},
-                                             max_limit=catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"])
+            run_rows = catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"]
+            dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_body}, max_limit=run_rows)
+            definition = validate(dataset, report_filters.with_standard_filters(dataset, definition), max_limit=run_rows)   # Period can't be saved away
         else:
             definition = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
         new_version = row["version"] + (1 if definition_body is not None else 0)

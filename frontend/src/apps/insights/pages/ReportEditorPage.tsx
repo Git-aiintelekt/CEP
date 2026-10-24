@@ -166,7 +166,7 @@ export function ReportEditorPage() {
         <button type="button" className={buttonSecondary} onClick={() => setCustoms(true)}>Custom Fields{definition.derived?.length ? ` · ${definition.derived.length}` : ''}</button>
         {(base?.links?.length ?? 0) > 0 && <button type="button" className={buttonSecondary} onClick={() => setLinking(true)}>Linked Measures{definition.blend?.columns.length ? ` · ${definition.blend.columns.length}` : ''}</button>}
         {viewOf(definition).type === 'chart' && axis && <button type="button" className={buttonSecondary} onClick={() => setTooltipping(true)}>Tooltip Report{viewOf(definition).tooltip ? ' · 1' : ''}</button>}
-        <button type="button" className={buttonSecondary} onClick={() => setAsking(true)}>Parameters{definition.parameters?.length ? ` · ${definition.parameters.length}` : ''}</button>
+        <button type="button" className={buttonSecondary} onClick={() => setAsking(true)}>Report Filters{definition.parameters?.length ? ` · ${definition.parameters.length}` : ''}</button>
         <button type="button" className={buttonSecondary} onClick={() => setDetail(true)}>Detail Report{definition.drillthrough?.length ? ` · ${definition.drillthrough.length}` : ''}</button>
         <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}`)}>Cancel</button>
         <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={!dirty || !complete || save.isPending || definition.columns.length === 0}>Save</button>
