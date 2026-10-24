@@ -4,7 +4,7 @@ campaign, its last send day), looked up from the newest row; a run is kept 15 mi
 runs it again. The SQL and the look-up first, then the API on the built-in Messages dataset."""
 import pytest
 
-from apps.insights import compiler, definition, parameters, runner
+from apps.insights import campaign_filters, compiler, definition, parameters, runner
 from apps.insights.definition import DefinitionError
 
 from .test_insights import DATASET
@@ -68,12 +68,14 @@ def test_latest_default(check, monkeypatch):
     answers, found = runner._latest(TENANT, RECEIPTS, d, {}, 60_000, "mysql", "America/New_York", False)
     check("the latest campaign is the newest row's, and its last send day the newest row's day for that campaign",
           answers == {"campaign": ["Spring Sale"], "day": ["2026-10-22", "2026-10-22"]} and found == ["campaign", "day"], answers)
-    check("the campaign is looked up first, newest first, one row", "ORDER BY `c1` IS NULL, `c1` DESC LIMIT %s" in asked_sql[0][0], asked_sql[0][0])
+    check("the campaign is looked up first, newest first in a plain order an index can give, one row", "ORDER BY `c1` DESC LIMIT %s" in asked_sql[0][0] and "IS NULL" not in asked_sql[0][0], asked_sql[0][0])
     check("the day is looked up under the campaign found", "Spring Sale" in asked_sql[1][1], asked_sql[1])
-    given, found = runner._latest(TENANT, RECEIPTS, d, {"campaign": ["Fall Launch"]}, 60_000, "mysql", "America/New_York", False)
-    check("an answer given is kept; only the day is looked up, under it", given["campaign"] == ["Fall Launch"] and found == ["day"] and "Fall Launch" in asked_sql[-1][1])
-    bound = parameters.bind(RECEIPTS, {**d, "_latest": found}, given)
-    check("the words say which answer was the latest", [w.get("latest") for w in parameters.words({**bound, "_latest": found})] == [None, True])
+    bound = parameters.bind(RECEIPTS, {**d, "_latest": found}, answers)
+    check("the words say which answers were the latest", [w.get("latest") for w in parameters.words({**bound, "_latest": found})] == [True, True])
+    looked = len(asked_sql)
+    given, found = runner._latest(TENANT, RECEIPTS, d, {"campaign": ["Fall Launch", "Haribo"]}, 60_000, "mysql", "America/New_York", False)
+    check("campaigns chosen by hand: kept, and the send day stays open (any day of theirs), nothing looked up",
+          given == {"campaign": ["Fall Launch", "Haribo"]} and found == [] and len(asked_sql) == looked, given)
     check.done()
 
 
@@ -87,4 +89,24 @@ def test_kept_and_refresh(check, world):
     fresh = world.api("post", f"/api/v1/insights/reports/{created['id']}/run/", {"limit": 17, "fresh": True}).json()
     check("Refresh runs it again", fresh["cached"] is False)
     check("a workspace's own database is kept 15 minutes", runner.EXTERNAL_CACHE_SECONDS == 900)
+    check.done()
+
+
+def test_campaign_reports_ask_campaign_and_send_date(check, world):
+    asked = campaign_filters.campaign_filters(DATASET)
+    check("a dataset with a campaign and a send time asks Campaign (several, the latest) and Send Date (a range, the latest)",
+          [(p["key"], p["field"], p["operator"], p["default"]) for p in asked] == [("campaign", "campaign_name", "in", {"latest": True}), ("send_date", "submitted_at", "between", {"latest": True})])
+    check("a dataset without a campaign asks nothing", campaign_filters.campaign_filters(OWN) == [])
+    own = campaign_filters.with_campaign_filters(DATASET, {"columns": [{"field": "channel"}], "parameters": [{"key": "campaign", "field": "campaign_name", "operator": "=", "required": True}]})
+    check("a report already asking about the campaign keeps its own question; Send Date joins it under a free key",
+          [(p["key"], p["field"]) for p in own["parameters"]] == [("campaign", "campaign_name"), ("send_date", "submitted_at")])
+    made = world.api("post", "/api/v1/insights/reports/", {"name": "Delivered by campaign", "dataset": "messages", "definition": {"columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}]}}).json()
+    check("a new campaign report is saved with the two questions", [p["key"] for p in made["definition"].get("parameters", [])] == ["campaign", "send_date"], made.get("definition"))
+    world.sql("""INSERT INTO report (tenant_id, dataset_key, name, view_type, definition, owner_user_id, visibility)
+                 SELECT tenant_id, 'messages', 'Older campaign report', 'grid', %s, owner_user_id, 'PRIVATE' FROM report WHERE id = %s""",
+              ['{"dataset": "messages", "columns": [{"field": "campaign_name"}], "grouped": false, "filters": {"combinator": "and", "rules": []}, "orderBy": []}', made["id"]])
+    older = [r for r in campaign_filters.add_to_reports(world.tenant) if r["name"] == "Older campaign report"]
+    check("a report made before is listed, not changed, without --apply", [r["added"] for r in older] == [["Campaign", "Send Date"]], older)
+    campaign_filters.add_to_reports(world.tenant, apply=True)
+    check("applied, it asks the questions too, and nothing is left to add", campaign_filters.add_to_reports(world.tenant) == [])
     check.done()

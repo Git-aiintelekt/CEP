@@ -269,22 +269,32 @@ def _with_latest(tenant, dataset: dict, definition: dict, params: dict | None) -
 
 def _latest(tenant_id, dataset: dict, definition: dict, params: dict | None, timeout_ms: int, dialect: str, zone: str, fresh: bool) -> tuple[dict, list[str]]:
     """The answers with each unanswered parameter that defaults to the latest looked up: a value from the newest row by the
-    dataset's time field (values first), then a date as that row's day under the other answers. Returns the answers and the
-    keys looked up; a parameter with no rows keeps no rule."""
-    asked = [p for p in definition.get("parameters") or [] if parameters.is_latest(p.get("default")) and not parameters._answered((params or {}).get(p["key"]))]
+    dataset's time field (values first), then a date as that row's day under the other answers. A date stays open once the person
+    chose another latest-default question themselves (campaigns picked by hand: any day of theirs). The look-up reads newest first
+    with a plain order, so a database walks its index on the time field. Returns the answers and the keys looked up; a parameter
+    with no rows keeps no rule."""
+    latest_ones = [p for p in definition.get("parameters") or [] if parameters.is_latest(p.get("default"))]
+    asked = [p for p in latest_ones if not parameters._answered((params or {}).get(p["key"]))]
+    chosen = any(parameters._answered((params or {}).get(p["key"])) for p in latest_ones)
     time_field = dataset.get("time_field")
     if not asked or not time_field:
         return params or {}, []
     from .definition import DefinitionError, validate
     types = {f["key"]: f["type"] for f in dataset["fields"]}
     answers, found = dict(params or {}), []
+    fields = {f["key"]: f for f in dataset["fields"]}
     for parameter in sorted(asked, key=lambda p: types.get(p["field"]) in ("date", "datetime")):
+        if types.get(parameter["field"]) in ("date", "datetime") and chosen:
+            continue
         others = [p for p in definition["parameters"] if p["key"] != parameter["key"]]
         bound = parameters.bind(dataset, {**definition, "parameters": others}, answers)
         columns = [{"field": parameter["field"]}] + ([{"field": time_field}] if parameter["field"] != time_field else [])
+        filters = bound.get("filters") or {"combinator": "and", "rules": []}
+        if "is_not_null" in fields[time_field]["operators"]:                     # the newest row with a time: NULLs never come first
+            filters = {"combinator": "and", "rules": [filters, {"field": time_field, "operator": "is_not_null", "value": None}]}
         try:
-            lookup = validate(dataset, {"columns": columns, "filters": bound.get("filters") or {"combinator": "and", "rules": []},
-                                        "orderBy": [{"field": time_field, "direction": "desc"}], "limit": 1}, max_limit=1)
+            lookup = {**validate(dataset, {"columns": columns, "filters": filters, "orderBy": [{"field": time_field, "direction": "desc"}], "limit": 1}, max_limit=1),
+                      "_plain_order": True}
         except DefinitionError:
             continue
         key = f"cep:insights:latest:{tenant_id}:{signature(lookup)}"

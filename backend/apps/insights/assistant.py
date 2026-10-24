@@ -50,7 +50,7 @@ from rest_framework.views import APIView
 
 from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.engine import session
-from apps.insights import ask_documents, ask_progress, ask_tables, catalog, external, runner
+from apps.insights import ask_documents, ask_progress, ask_tables, campaign_filters, catalog, external, runner
 from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _serialize, _tenant, component_of
 from apps.insights.definition import DefinitionError, validate
 from apps.platform_ops import billing, crypto, params
@@ -637,7 +637,7 @@ def interpret(reply: dict, datasets: list[dict], *, max_limit: int) -> dict:
     view = {k: v for k, v in view.items() if k in ("type", "chart", "across") and v}
     if view.get("type") not in VIEWS:
         view["type"] = "grid"
-    raw = {**raw, "view": view}
+    raw = campaign_filters.with_campaign_filters(dataset, {**raw, "view": view})      # a campaign report asks Campaign and Send Date
     definition = validate(dataset, raw, max_limit=max_limit)
     name = " ".join(str(reply.get("name") or "").split())[:60] or f"{dataset['label']} report"
     note = " ".join(str(reply.get("note") or "").split())[:400]

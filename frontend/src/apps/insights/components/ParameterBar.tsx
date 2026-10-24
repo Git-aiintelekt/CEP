@@ -2,7 +2,8 @@
  * The questions a report asks, above its rows: one control per parameter (a list of the field's values to pick from, a
  * value, a range, the last few days), the defaults filled in, then Run Report. Nothing runs until Run is pressed. A date range
  * is asked as One Day or a Date Range. A question that defaults to the latest is left empty and says what the latest was
- * (the newest campaign, its last send day), as the run reported it.
+ * (the newest campaign, its last send day), as the run reported it. Once campaigns are picked by hand, a date that defaults to the
+ * latest stays open (any day of theirs) unless a day or range is given.
  */
 import { useQuery } from '@tanstack/react-query'
 import { Play } from 'lucide-react'
@@ -33,8 +34,8 @@ function initial(parameters: ReportParameter[], values: ParameterValues): Parame
   return Object.fromEntries(parameters.map((p) => [p.key, answered(values[p.key]) ? values[p.key] : isLatest(p.default) ? undefined : p.default]))
 }
 
-function latestWords(value: unknown): string {
-  if (Array.isArray(value)) return value.length === 2 && value[0] === value[1] ? String(value[0]) : value.map(String).join(', ')
+function latestWords(value: unknown, range = false): string {
+  if (Array.isArray(value)) return value.length === 2 && value[0] === value[1] ? String(value[0]) : value.map(String).join(range ? ' to ' : ', ')
   return String(value)
 }
 
@@ -49,14 +50,17 @@ export function ParameterBar({ dataset, fields, parameters, values, onRun, missi
     <form onSubmit={submit} aria-label="Parameters" className="flex flex-wrap items-end gap-3 rounded-lg border border-line bg-surface p-3">
       {parameters.map((parameter) => {
         const field = fields.find((f) => f.key === parameter.field)
-        const latest = isLatest(parameter.default) && !answered(draft[parameter.key])
+        const dated = field?.type === 'date' || field?.type === 'datetime'
+        const open = dated && parameters.some((q) => q.key !== parameter.key && isLatest(q.default) && answered(draft[q.key]))      // campaigns picked by hand: any day of theirs
+        const latest = isLatest(parameter.default) && !answered(draft[parameter.key]) && !open
         const found = used?.find((u) => u.key === parameter.key && u.latest)
         return (
           <div key={parameter.key} role="group" aria-label={parameter.label} className="flex min-w-0 flex-col gap-1">
             <span className="text-xs font-medium text-ink-800">{parameter.label}{parameter.required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}</span>
             <Answer dataset={dataset} parameter={parameter} type={field?.type ?? 'string'} value={draft[parameter.key]} onChange={(value) => setDraft({ ...draft, [parameter.key]: value })}
-              latest={latest ? (found ? latestWords(found.value) : '') : null} />
-            {latest && <span className="text-xs text-ink-700">{found ? `Latest: ${latestWords(found.value)}` : 'The latest, when it runs'}</span>}
+              latest={latest ? (found ? latestWords(found.value, parameter.operator === 'between') : '') : null} />
+            {latest && <span className="text-xs text-ink-700">{found ? `Latest: ${latestWords(found.value, parameter.operator === 'between')}` : 'The latest, when it runs'}</span>}
+            {open && isLatest(parameter.default) && !answered(draft[parameter.key]) && <span className="text-xs text-ink-700">Any day of the campaigns chosen</span>}
           </div>
         )
       })}

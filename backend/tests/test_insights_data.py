@@ -200,7 +200,9 @@ def test_api(check, world, admin_email):
     check("run without the answer, the report asks for it", unanswered.status_code == 422 and unanswered.json()["outcome"] == "PARAMETERS" and unanswered.json()["detail"] == "Choose Channel first."
           and unanswered.json()["parameter"] == "channel", unanswered.content[:300])
     answered = world.api("post", f"/api/v1/insights/reports/{rid}/run/", {"limit": 10, "params": {"channel": ["EMAIL"]}})
-    check("answered, it runs and says what it was asked", answered.status_code == 200 and answered.json()["parameters"] == [{"key": "channel", "label": "Channel", "value": ["EMAIL"]}], answered.content[:300])
+    said = answered.json().get("parameters", []) if answered.status_code == 200 else []
+    check("answered, it runs and says what it was asked; a campaign report also asks Campaign, the latest by default",
+          said[:1] == [{"key": "channel", "label": "Channel", "value": ["EMAIL"]}] and [(p["key"], p.get("latest")) for p in said[1:2]] == [("campaign", True)], answered.content[:300])
     wrong = world.api("post", f"/api/v1/insights/reports/{rid}/run/", {"params": ["EMAIL"]})
     check("answers that are not an object are refused", wrong.status_code == 400 and "params" in wrong.json()["errors"], wrong.content[:200])
     exported = world.api("get", f"/api/v1/insights/reports/{rid}/export.csv?params=" + json.dumps({"channel": ["SMS"]}))
