@@ -735,12 +735,13 @@ def run_sql(row: dict, sql: str, *, limit: int = QUERY_ROWS, timeout_ms: int = 1
     clean = check_sql(sql, row.get("engine"))
     if is_ch(row):
         return _ch_run_sql(row, clean, limit=limit, timeout_ms=timeout_ms, zone=zone)
-    wrapped = f"SELECT * FROM ({clean}) AS {quote('q', row)} LIMIT %s"
+    # the limit written in and no parameters sent: with parameters the driver reads every % of the person's SQL (LIKE 'SMS%') as a mark
+    wrapped = f"SELECT * FROM ({clean}) AS {quote('q', row)} LIMIT {int(limit) + 1}"
     started = time.monotonic()
     conn = connect(row, timeout_ms=timeout_ms, zone=zone)
     try:
         with conn.cursor() as cursor:
-            cursor.execute(wrapped, [int(limit) + 1])
+            cursor.execute(wrapped)
             names = [d[0] for d in cursor.description or []]
             rows = [list(r) for r in cursor.fetchall()]
     except psycopg.errors.QueryCanceled:
