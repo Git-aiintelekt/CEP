@@ -47,7 +47,7 @@ BUTTON_ACTIONS = ("view", "page", "report")
 THEMES = ("default", "navy", "earth", "berry", "greyscale")
 GRID_COLUMNS, MAX_CELL_ROW, MAX_CELL_HEIGHT = 12, 200, 12
 MAX_TEXT, MAX_LABEL = 4000, 60
-PRESETS = ("7d", "30d", "month", "quarter", "fquarter", "fyear", "custom")
+PRESETS = ("7d", "30d", "90d", "month", "quarter", "fquarter", "fyear", "custom")
 MAX_ROWS, MAX_TILES = 20, 40
 MAX_SLICERS, SLICER_VALUES = 6, 200
 SLICER_TYPES = ("string", "boolean", "number")
@@ -70,6 +70,8 @@ def period_bounds(period: dict, today: date, fiscal_start: int = 1) -> dict:
         start, end = today - timedelta(days=6), today
     elif preset == "30d":
         start, end = today - timedelta(days=29), today
+    elif preset == "90d":
+        start, end = today - timedelta(days=89), today
     elif preset == "month":
         start, end = today.replace(day=1), today
     elif preset == "quarter":
@@ -89,7 +91,7 @@ def _period(raw) -> dict:
     if raw is None:
         return {"preset": "30d"}
     if not isinstance(raw, dict) or raw.get("preset") not in PRESETS:
-        raise ValidationError({"period": "Use 7d, 30d, month, quarter, fquarter, fyear or custom."})
+        raise ValidationError({"period": "Use 7d, 30d, 90d, month, quarter, fquarter, fyear or custom."})
     out = {"preset": raw["preset"]}
     if raw["preset"] == "custom":
         try:

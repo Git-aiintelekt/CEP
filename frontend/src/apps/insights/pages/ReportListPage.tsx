@@ -2,10 +2,11 @@
  * Insights → Reports: every report this person may see, as one flat table (docs/mockups/reports-list-b.html). Tabs split
  * them by owner, the filter line narrows them by folder, component, dataset, owner and favourites, and every choice is kept
  * in the address (?component=cep is how each component's Insights menu item opens it). The list is fetched once and
- * filtered, sorted and paged here. New Report starts from a dataset; Ask AI opens AI Reports. Each row's ⋯ (ReportRowMenu)
+ * filtered, sorted and paged here. New Report starts from a dataset, Add Base Reports from the platform's ready-made packs;
+ * Ask AI opens AI Reports. Each row's ⋯ (ReportRowMenu)
  * opens, edits, duplicates (a private copy), files, shares, schedules or deletes the report.
  */
-import { ArrowDown, ArrowUp, Building2, CalendarClock, ChartColumn, FileBarChart, Lightbulb, ListTree, Lock, Network, Plus, Sheet, Sparkles, Star, Table2, Users, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, Building2, CalendarClock, ChartColumn, FileBarChart, LayoutTemplate, Lightbulb, ListTree, Lock, Network, Plus, Sheet, Sparkles, Star, Table2, Users, type LucideIcon } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -25,6 +26,7 @@ import { useToast } from '@/components/Toast'
 import { formatDateTime } from '@/lib/format'
 import { insightsApi, useCatalog, useDeleteReport, useFolders, useReports, useSchedules } from '../api'
 import { AiPill } from '../components/AskForReport'
+import { BaseReportsDialog } from '../components/BaseReportsDialog'
 import { FavouriteStar } from '../components/FavouriteStar'
 import { FolderSelect } from '../components/FolderSelect'
 import { PAGE_SIZES, rememberedSize } from '../components/paging'
@@ -58,6 +60,7 @@ export function ReportListPage() {
   const [params, setParams] = useSearchParams()
   const [q, setQ] = useState('')
   const [page, setPage] = useState(0)
+  const [base, setBase] = useState(false)
   const [size, setSize] = useState(() => rememberedSize(SIZE_KEY))
   const reports = useReports({})
   const catalog = useCatalog()
@@ -174,8 +177,15 @@ export function ReportListPage() {
         title="Reports"
         help={<>{reports.data && <span className="cep-num inline-flex h-6 items-center rounded-sm bg-fill-subtle px-2 text-xs font-semibold text-ink-800">{all.length.toLocaleString()}</span>}<PageHelp chapter="insights" /></>}
         description="Every report you can open, yours and the ones shared with you."
-        actions={canCreate ? <div className="flex flex-wrap gap-2">{askAi}{newReport}</div> : undefined}
+        actions={canCreate ? (
+          <div className="flex flex-wrap gap-2">
+            {askAi}
+            <button type="button" className={buttonSecondary} onClick={() => setBase(true)}><LayoutTemplate size={16} strokeWidth={1.5} aria-hidden />Add Base Reports</button>
+            {newReport}
+          </div>
+        ) : undefined}
       />
+      {base && <BaseReportsDialog onClose={() => setBase(false)} />}
 
       <div className="flex overflow-x-auto border-b border-line">
         <Tabs label="Whose reports" idPrefix={PANEL} value={tab} onChange={(next) => update({ tab: next === 'all' ? '' : next })}

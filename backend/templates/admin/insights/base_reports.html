@@ -1,0 +1,41 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}Base Reports | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <h1>Base Reports</h1>
+            <p>Ready-made datasets, reports and dashboards a workspace adds as its own copies. Packs ship with the release; a workspace adds one under Insights → All Reports → Add Base Reports (use Switch Workspace to add one for a workspace). A later version never changes what a workspace added.</p>
+        </div>
+    </div>
+
+    {% for item in packs %}
+    <section class="cep-card" style="padding:1.125rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap">
+            <div style="font-size:15px;font-weight:600;color:var(--cep-text-strong)">{{ item.pack.name }}</div>
+            <span class="cep-pill" data-kind="info">Version {{ item.pack.version }}</span>
+            <span class="cep-pill" data-kind="info">Needs {{ item.pack.needs.label }}</span>
+            {% if item.pack.source %}<span class="cep-muted" style="font-size:12px">From {{ item.pack.source }}</span>{% endif %}
+        </div>
+        <p class="cep-muted" style="font-size:13px;margin-bottom:0.75rem">{{ item.pack.summary }}</p>
+        <dl style="display:grid;grid-template-columns:max-content 1fr;gap:0.25rem 1rem;font-size:13px;margin-bottom:0.875rem">
+            <dt style="font-weight:600">Datasets</dt><dd>{{ item.datasets|join:", " }}</dd>
+            <dt style="font-weight:600">Reports ({{ item.reports|length }})</dt><dd>{{ item.reports|join:", " }}</dd>
+            <dt style="font-weight:600">Dashboards</dt><dd>{{ item.dashboards|join:", " }}</dd>
+        </dl>
+        <table class="cep-table" style="width:100%;font-size:13px">
+            <thead><tr><th style="text-align:left">Workspace</th><th style="text-align:left">Version</th><th style="text-align:left">Added</th><th style="text-align:left">By</th></tr></thead>
+            <tbody>
+            {% for w in item.workspaces %}
+                <tr><td>{{ w.name }} ({{ w.code }})</td><td>{{ w.version }}{% if w.version < item.pack.version %} · version {{ item.pack.version }} available{% endif %}</td><td>{{ w.at|date:"M j, Y H:i" }}</td><td>{{ w.by|default:"" }}</td></tr>
+            {% empty %}
+                <tr><td colspan="4" class="cep-muted">No workspace has added this pack yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}

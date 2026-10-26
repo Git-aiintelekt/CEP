@@ -467,7 +467,7 @@ export interface ResultColumn {
 
 // ---------------------------------------------------------------------------------------------------- dashboards
 
-export type PeriodPreset = '7d' | '30d' | 'month' | 'quarter' | 'fquarter' | 'fyear' | 'custom'
+export type PeriodPreset = '7d' | '30d' | '90d' | 'month' | 'quarter' | 'fquarter' | 'fyear' | 'custom'
 export interface Period { preset: PeriodPreset; from?: string; to?: string }
 export interface PeriodBounds { from: string; to: string; previous_from: string; previous_to: string }
 export type RowWidth = '1' | '2' | '3' | '4' | '2-1'
@@ -1027,4 +1027,52 @@ export interface InsightsComment {
   edited_at: string | null
   resolved_at: string | null
   resolved_by_name: string | null
+}
+
+/** Base Reports (docs/mockups/base-reports.html): a pack of the platform's ready-made reports, added as the workspace's own copies */
+export interface BasePack {
+  key: string
+  version: number
+  name: string
+  summary: string
+  source?: string | null
+  needs: { label: string; engine: string; tables: string[] }
+  contents: { datasets: string[]; reports: string[]; dashboards: string[] }
+  added: { version: number; at: string; folder_id: string | null; folder_name: string | null; by: string | null }[]
+}
+
+export interface BaseReportsCatalog {
+  packs: BasePack[]
+  can_add: boolean
+  recorded: boolean
+  connections: { id: string; name: string; engine: string; database: string; usable: boolean }[]
+}
+
+export interface BasePackOptions {
+  databases: string[]
+  names: { table: string; id: string; name: string } | null
+  leave_out: string[]
+  unsubscribe?: string
+}
+
+export interface BasePackSources {
+  databases: { name: string; messages: number; marketing: number | null }[]
+  names: { table: string; id: string; name: string }[]
+}
+
+export interface BasePackCheck {
+  ok: boolean
+  datasets: { label: string; ok: boolean; seconds: number; error?: string }[]
+  campaigns: number | null
+  days: number
+  problems: string[]
+}
+
+export interface BasePackAdded {
+  version: number
+  folder: { id: string; name: string }
+  datasets: { key: string; label: string }[]
+  reports: { id: string; name: string }[]
+  dashboards: { id: string; name: string }[]
+  recorded: boolean
 }

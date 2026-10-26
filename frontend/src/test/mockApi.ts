@@ -1823,6 +1823,25 @@ export function installMockApi(options: MockOptions = {}) {
         if (method === 'PUT') insightsFavourites.add(`${star[1]}:${star[2]}`); else insightsFavourites.delete(`${star[1]}:${star[2]}`)
         return new Response(null, { status: 204 })
       }
+      if (path.endsWith('/insights/base-reports/')) {
+        return json({ can_add: true, recorded: true, connections: [{ id: 'db-postal', name: 'Citi-Postal mySQL8', engine: 'mysql80', database: 'citi_analysis_db', usable: true }],
+          packs: [{ key: 'email-campaigns', version: 1, name: 'Email Campaign Reports', source: 'CmpReport', summary: 'Campaign KPIs, delivery, opens by device and comparisons.',
+            needs: { label: 'a Postal database', engine: 'mysql', tables: ['messages', 'deliveries', 'loads', 'clicks', 'links'] },
+            contents: { datasets: ['Email Messages', 'Email Campaigns', 'Email Link Clicks', 'Email Opens'], reports: ['Campaign KPIs', 'Link Clicks'], dashboards: ['Management Dashboard', 'Campaign Performance'] },
+            added: [] }] })
+      }
+      if (path.endsWith('/insights/base-reports/email-campaigns/sources/')) {
+        return json({ databases: [{ name: 'mailpostal-server-14', messages: 26458, marketing: 919 }, { name: 'txpostalprod-server-10', messages: 17853, marketing: 41 }, { name: 'txpostalprod-server-7', messages: 900, marketing: 0 }],
+          names: [{ table: 'citi_analysis_db.marketing_campaign', id: 'MARKETING_CAMPAIGN_ID', name: 'CAMPAIGN_NAME' }] })
+      }
+      if (path.endsWith('/insights/base-reports/email-campaigns/check/')) {
+        return json({ ok: true, campaigns: 4, days: 90, problems: [], datasets: ['Email Messages', 'Email Campaigns', 'Email Link Clicks', 'Email Opens'].map((label) => ({ label, ok: true, seconds: 0.3 })) })
+      }
+      if (path.endsWith('/insights/base-reports/email-campaigns/add/')) {
+        return json({ version: 1, recorded: true, folder: { id: 'fold-base', name: 'Email Campaign Reports' }, datasets: [{ key: 'x_email_messages', label: 'Email Messages' }],
+          reports: [{ id: 'rep-base-1', name: 'Campaign KPIs' }, { id: 'rep-base-2', name: 'Link Clicks' }],
+          dashboards: [{ id: 'dash-base-1', name: 'Management Dashboard' }, { id: 'dash-base-2', name: 'Campaign Performance' }] }, 201)
+      }
       if (path.endsWith('/insights/folders/') && method === 'POST') {
         const posted = body as { name: string }
         if (insightsFolders.some((f) => f.name.toLowerCase() === posted.name.toLowerCase())) return json({ type: 'about:blank', title: 'Validation failed', status: 400, errors: { name: 'There is a folder of that name already.' } }, 400)
