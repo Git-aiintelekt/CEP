@@ -41,7 +41,7 @@ test('a fiscal year from April: its quarters and years named, a dashboard period
   expect(periodBounds({ preset: 'fquarter' }, today, 4).from).toBe('2026-10-01')
   expect(fiscalExample(april, today)).toBe('FY2027 runs from April 2026 to March 2027; today is in FY2027 Q3.')
   expect(presetsFor(4).map((p) => p.label)).toContain('Fiscal Quarter')
-  expect(presetsFor(1).map((p) => p.label)).toEqual(['7 Days', '30 Days', 'This Month', 'Quarter', 'This Year', 'Custom'])
+  expect(presetsFor(1).map((p) => p.label)).toEqual(['7 Days', '30 Days', '90 Days', 'This Month', 'Quarter', 'This Year', 'Custom'])
 })
 
 test('parameters: what a field can be asked as, a key from a label, the questions still unanswered, an answer in words', () => {

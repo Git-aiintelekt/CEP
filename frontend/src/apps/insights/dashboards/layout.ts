@@ -11,7 +11,7 @@ export const WIDTHS: { value: RowWidth; label: string; capacity: number }[] = [
   { value: '4', label: 'Four across', capacity: 4 }, { value: '2-1', label: 'Wide and narrow', capacity: 2 },
 ]
 export const PRESETS: { value: PeriodPreset; label: string }[] = [
-  { value: '7d', label: '7 Days' }, { value: '30d', label: '30 Days' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'Quarter' },
+  { value: '7d', label: '7 Days' }, { value: '30d', label: '30 Days' }, { value: '90d', label: '90 Days' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'Quarter' },
   { value: 'fquarter', label: 'Fiscal Quarter' }, { value: 'fyear', label: 'Fiscal Year' }, { value: 'custom', label: 'Custom' },
 ]
 
@@ -195,6 +195,7 @@ export function periodBounds(period: Period, today = new Date(), fiscalStart = 1
   switch (period.preset) {
     case '7d': start = shift(end, -6); break
     case '30d': start = shift(end, -29); break
+    case '90d': start = shift(end, -89); break
     case 'month': start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1)); break
     case 'quarter': start = new Date(Date.UTC(end.getUTCFullYear(), Math.floor(end.getUTCMonth() / 3) * 3, 1)); break
     case 'fquarter': start = fiscalQuarterStart(end, fiscalStart); break

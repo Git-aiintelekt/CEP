@@ -56,6 +56,10 @@ class ReportDatasetAdmin(BaseAdmin):
     fields = ("key", "component", "label", "description", "primary_key", "time_field", "workspace_field", "freshness_policy", "status", "sort_order")
     inlines = [ReportFieldInline, ReportDatasetSourceInline]
 
+    def get_urls(self):
+        from .admin_base_reports import base_reports_urls
+        return [*base_reports_urls(self.admin_site), *super().get_urls()]
+
     def get_readonly_fields(self, request, obj=None):
         return ("key",) if obj else ()
 

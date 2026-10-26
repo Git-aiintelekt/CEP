@@ -472,6 +472,19 @@ Insights → Reports lists every report you can open, grouped by its component (
 4. The preview runs as you build, up to the preview cap. The line above it says how many rows, how long, and how fresh the data is.
 5. **Save** writes a new version. Cancel drops the changes.
 
+### Base Reports: ready-made reports from the platform
+
+**Add Base Reports** on Insights → Reports offers the platform's ready-made **packs**: datasets, shared formulas, reports and dashboards that work together. A pack is added as this workspace's own copies, filed in a folder named after it; you may change them like any report, and a later version of the pack never changes them. Adding a pack needs report administration.
+
+The first pack is **Email Campaign Reports**, the reports of CmpReport on the mail server's own tables: Campaign KPIs, Campaign Send Status, Delivery Outcomes, Failure and Bounce Reasons, Provider Performance, Retry Analysis, Contact-List Quality, Link Clicks, Opens by Device and Client, Opens over Time, Customer Detail, Unsubscribes, Campaign Comparison and the best and worst campaigns, with a **Management Dashboard** (every campaign in the period) and a **Campaign Performance** dashboard (one campaign, the latest unless you pick another).
+
+1. Press **Add Base Reports**, then **See What's in It** to read a pack's contents, and **Add to** your workspace. A pack that needs a database you have not connected says so, with a link to Report Databases.
+2. **Your data**: pick the **Connection** that holds the mail server's tables. The databases on it holding every table the pack reads are listed with their messages and campaign emails; those with campaign mail are ticked. **Campaign Names** offers the tables that hold a campaign's name beside its id; without one, a campaign is named from its subject and first send. **Leave Out** drops campaigns whose name contains any of the words (test sends, client lists). **Unsubscribe Link Contains** tells a click on the unsubscribe link from a click on the content.
+3. **Check** runs each dataset once and says how many campaigns were sent in the last 90 days. **Add Reports** then makes everything in one go: if any part does not fit, nothing is added and the message names the part.
+4. The last step lists what was made; **Open Campaign Performance** opens the dashboard.
+
+A campaign email is one whose mail-server tag carries a campaign id; e-receipts, which carry one too, are left out. The mail server keeps about two months of mail, so older campaigns drop out of the reports as their mail is removed.
+
 ### Ask for a Report, with AI
 
 When an AI provider with a key is switched on (the platform's, or your workspace's own) and your workspace allows AI (Settings → AI Assistant), people who can build reports see **AI Reports** in the Insights menu, above Reports. Its page holds the prompt box, **Run Details** below it and **Prompt History** below that.
