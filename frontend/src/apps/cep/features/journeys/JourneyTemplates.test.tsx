@@ -53,7 +53,6 @@ test('the Journey Templates panel offers Start from Scratch and the first four s
   await renderAppAt('/journeys')
 
   const panel = await screen.findByRole('region', { name: 'Journey Templates' })
-  expect(within(panel).getByText('Start a journey from a blank canvas, a C360 starter or a template saved from one of your journeys. A template is copied into a new draft; the original never changes.')).toBeTruthy()
   const row = within(panel).getByRole('list', { name: 'Start a Journey' })
   await vi.waitFor(() => expect(within(row).getAllByRole('listitem')).toHaveLength(5))
   expect(within(row).getByRole('button', { name: /Start from Scratch/ })).toBeTruthy()

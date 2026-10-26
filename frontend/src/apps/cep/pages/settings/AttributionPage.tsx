@@ -8,7 +8,9 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { DataTable, type Column } from '@/components/DataTable'
+import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
 import { buttonPrimary, buttonSecondary, Field, Select, TextInput } from '@/components/Form'
+import { SearchField } from '@/components/SearchField'
 import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag, type TagTone } from '@/components/StatusBadge'
@@ -292,14 +294,12 @@ function OrdersCard({ enabled }: { enabled: boolean }) {
         <h3 className="font-display text-card-heading font-semibold text-ink-900">Latest Orders</h3>
         <p className="mt-1 text-sm text-ink-800">The newest 50, with the campaign each was credited to, or why none. An order waits a minute before it is judged, so a click still on its way is counted.</p>
       </div>
-      <form className="flex flex-wrap items-end gap-3 border-b border-line-subtle px-4 py-3" onSubmit={(event: FormEvent) => event.preventDefault()}>
-        <Field label="State">
-          {(ids) => <Select {...ids} controlSize="sm" value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">All</option><option value="ATTRIBUTED">Credited</option><option value="UNATTRIBUTED">Not Credited</option><option value="PENDING">Waiting</option>
-          </Select>}
-        </Field>
-        <Field label="Search">{(ids) => <TextInput {...ids} controlSize="sm" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Order, email or campaign" />}</Field>
-      </form>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-3">
+        <SearchField label="Search orders" placeholder="Order, email or campaign" value={search} onChange={setSearch} />
+        <SelectFilter label="State" value={status} onChange={setStatus}
+          options={[{ value: '', label: 'All States' }, { value: 'ATTRIBUTED', label: 'Credited' }, { value: 'UNATTRIBUTED', label: 'Not Credited' }, { value: 'PENDING', label: 'Waiting' }]} />
+        {(status || search) && <ClearFiltersLink onClick={() => { setStatus(''); setSearch('') }} />}
+      </div>
       {orders.isError ? <div className="p-4"><ErrorState error={orders.error} onRetry={() => void orders.refetch()} /></div>
       : orders.isPending ? <p className="flex items-center gap-2 p-4 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
       : rows.length === 0 ? <div className="p-4"><EmptyState title="No Orders Yet" variant="plain"

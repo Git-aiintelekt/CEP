@@ -44,13 +44,13 @@ test('Events: the latest events filter by type and search; tracking-only types a
   expect(within(table).getByText('Not in the customer records yet')).toBeTruthy()
 
   const latest = screen.getByRole('heading', { name: 'Latest Events' }).closest('section')!
-  const type = within(latest).getByRole('combobox', { name: 'Type' }) as HTMLSelectElement
-  expect([...type.options].map((option) => option.textContent)).toEqual(['All', 'Purchase', 'Abandoned Cart'])
-  await user.selectOptions(type, 'PURCHASE')
+  await user.click(within(latest).getByRole('button', { name: 'Type' }))
+  expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['All Types', 'Purchase', 'Abandoned Cart'])
+  await user.click(screen.getByRole('option', { name: 'Purchase' }))
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('/workspace/events/recent/') && call.url.includes('type=PURCHASE'))).toBe(true))
   await vi.waitFor(() => expect(screen.queryByText('Jane Doe')).toBeNull())
 
-  await user.selectOptions(type, '')
-  await user.type(within(latest).getByRole('searchbox', { name: 'Search' }), 'nobody')
+  await user.click(within(latest).getByRole('button', { name: 'Clear Filters' }))
+  await user.type(within(latest).getByRole('searchbox', { name: 'Search events' }), 'nobody')
   await screen.findByText('Nothing matches these filters.')
 })

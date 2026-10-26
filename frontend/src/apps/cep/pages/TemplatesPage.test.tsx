@@ -101,7 +101,9 @@ test('search filters the templates and the presets', async () => {
 test('the status filter stays, and presets step aside because they have no status', async () => {
   await openLanding()
   const user = userEvent.setup()
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'ARCHIVED')
+  await user.click(screen.getByRole('button', { name: 'Status' }))
+  await user.click(await screen.findByRole('option', { name: 'Archived' }))
+  expect(screen.getByRole('button', { name: 'Status: Archived' })).toBeTruthy()
   await waitFor(() => expect(cardNames()).toEqual(['Retired Email']))
 })
 

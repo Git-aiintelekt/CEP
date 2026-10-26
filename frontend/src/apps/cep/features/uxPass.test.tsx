@@ -67,7 +67,7 @@ test('a template says which campaign last used it', () => {
 
 // ---- the campaigns list ---------------------------------------------------
 
-test('saved views ask the API for what they mean and are kept in the address; the Next Send column shows the time in the campaign’s zone', async () => {
+test('no row of saved views; a link’s view (?saved=approval) still asks the API and shows as one chip that lifts it; Next Send is in the campaign’s zone', async () => {
   const calls = installMockApi({ campaigns: [
     makeCampaign({ id: 'c1', name: 'Fall Launch', status: 'PRODUCTION_PUBLISHED', owner_user: 'u1', runs: [{ id: 'r1', status: 'SCHEDULED', scheduled_at: '2099-11-02T15:00:00Z', test_mode: false, started_at: null }] as never, send_timezone: 'America/Chicago' }),
     makeCampaign({ id: 'c2', name: 'Devon Draft', status: 'DRAFT', owner_user: 'u2', owner_name: 'Devon Okafor', approval: { status: 'REQUESTED', requested_by: 'u2', requested_by_name: 'Devon Okafor', requested_at: '2026-09-26T09:14:00Z', note: null, decided_by_name: null, decided_at: null, decision_note: null } }),
@@ -75,22 +75,18 @@ test('saved views ask the API for what they mean and are kept in the address; th
   const user = userEvent.setup()
   await renderAppAt('/campaigns')
   const table = await screen.findByRole('table', { name: 'Campaigns' })
-  const views = screen.getByRole('group', { name: 'Saved views' })
-  expect(within(views).getAllByRole('button').map((button) => button.textContent)).toEqual(['All', 'Mine', 'Sending Today', 'Needs Attention', 'Awaiting Approval', 'Drafts'])
-  expect(within(views).getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.queryByRole('group', { name: 'Saved views' })).toBeNull()
   const fall = within(table).getByRole('button', { name: 'Fall Launch' }).closest('tr') as HTMLElement
   expect(within(fall).getByText(/(09:00|9:00 AM) CST/)).toBeTruthy()                                  // 15:00 UTC on 2 Nov 2099 is 09:00 in Chicago
   expect(within(within(table).getByRole('button', { name: 'Devon Draft' }).closest('tr') as HTMLElement).getByText('Awaiting Approval')).toBeTruthy()
 
-  await user.click(within(views).getByRole('button', { name: 'Mine' }))
-  await vi.waitFor(() => expect(calls.some((call) => call.url.includes('/campaigns/') && call.url.includes('view=mine'))).toBe(true))
-  expect(window.location.search).toBe('?saved=mine')
-  await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Campaigns' })).queryByRole('button', { name: 'Devon Draft' })).toBeNull())
-
-  await user.click(within(views).getByRole('button', { name: 'Awaiting Approval' }))
+  cleanup()
+  await renderAppAt('/campaigns?saved=approval')                                                        // Home's and Approvals' links
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('approval=requested'))).toBe(true))
   await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Campaigns' })).queryByRole('button', { name: 'Fall Launch' })).toBeNull())
-  expect(within(screen.getByRole('table', { name: 'Campaigns' })).getByRole('button', { name: 'Devon Draft' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Remove the Awaiting Approval view' }))
+  expect(window.location.search).toBe('')
+  expect(await within(screen.getByRole('table', { name: 'Campaigns' })).findByRole('button', { name: 'Fall Launch' })).toBeTruthy()
 })
 
 test('Pause sits on the row beside ⋮ and asks first; the bulk bar pauses and resumes what is selected', async () => {

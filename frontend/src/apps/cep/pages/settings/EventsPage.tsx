@@ -4,11 +4,12 @@
  * events, and the coupon requests journeys leave for C360 to fulfil.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { DataTable, type Column } from '@/components/DataTable'
-import { Field, Select, TextInput } from '@/components/Form'
+import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
+import { SearchField } from '@/components/SearchField'
 import { Notice } from '@/components/Notice'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
@@ -203,15 +204,12 @@ function RecentCard({ data }: { data: EventsSettings }) {
         <h3 className="font-display text-card-heading font-semibold text-ink-900">Latest Events</h3>
         <p className="mt-1 text-sm text-ink-800">The newest 50, sent or raised by C360. Opens, clicks and text replies are read from tracking and do not appear here.</p>
       </div>
-      <form className="flex flex-wrap items-end gap-3 border-b border-line-subtle px-4 py-3" onSubmit={(event: FormEvent) => event.preventDefault()}>
-        <Field label="Type">
-          {(ids) => <Select {...ids} controlSize="sm" value={type} onChange={(event) => setType(event.target.value)}>
-            <option value="">All</option>
-            {data.types.filter((t) => !t.from_tracking).map((t) => <option key={t.event_type} value={t.event_type}>{t.label}</option>)}
-          </Select>}
-        </Field>
-        <Field label="Search">{(ids) => <TextInput {...ids} controlSize="sm" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Customer, event id or source" />}</Field>
-      </form>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-3">
+        <SearchField label="Search events" placeholder="Customer, event ID or source" value={search} onChange={setSearch} />
+        <SelectFilter label="Type" value={type} onChange={setType}
+          options={[{ value: '', label: 'All Types' }, ...data.types.filter((t) => !t.from_tracking).map((t) => ({ value: t.event_type, label: t.label }))]} />
+        {(type || search) && <ClearFiltersLink onClick={() => { setType(''); setSearch('') }} />}
+      </div>
       {recent.isError ? <div className="p-4"><ErrorState error={recent.error} onRetry={() => void recent.refetch()} /></div>
       : recent.isPending ? <p className="flex items-center gap-2 p-4 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
       : rows.length === 0 ? <div className="p-4"><EmptyState title="No Events Yet" variant="plain" hint={type || q ? 'Nothing matches these filters.' : 'The first event sent here appears within a minute.'} /></div>

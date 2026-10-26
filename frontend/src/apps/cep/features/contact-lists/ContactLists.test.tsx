@@ -55,13 +55,19 @@ test('browse: totals, every list with its type, source and use; search and the T
   expect(within(georgia).getByText('Test')).toBeTruthy()
   expect(within(georgia).getByText('BI / Extraction')).toBeTruthy()
 
-  await user.selectOptions(screen.getByLabelText('Source'), 'BI')
+  const pick = async (chip: string, option: string) => {
+    await user.click(screen.getByRole('button', { name: chip }))
+    await user.click(await screen.findByRole('option', { name: option }))
+  }
+  await pick('Source', 'BI / Extraction')
   await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Contact Lists' })).queryByText('Fall Master Audience')).toBeNull())
   expect(calls.some((call) => call.url.includes('source=BI'))).toBe(true)
-  await user.selectOptions(screen.getByLabelText('Source'), '')
-  await user.selectOptions(screen.getByLabelText('Type'), 'TEST')
+  await pick('Source: BI / Extraction', 'All Sources')
+  await pick('Type', 'Test')
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('list_environment=TEST'))).toBe(true))
-  await user.selectOptions(screen.getByLabelText('Type'), '')
+  expect(screen.getByRole('button', { name: 'Clear Filters' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Clear Filters' }))
+  expect(screen.getByRole('button', { name: 'Type' })).toBeTruthy()
   await user.type(screen.getByLabelText('Search lists'), 'georgia')
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('search=georgia'))).toBe(true))
 })

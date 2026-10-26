@@ -11,6 +11,8 @@ import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Field, TextArea, TextInput, buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
+import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
+import { SearchField } from '@/components/SearchField'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag, type TagTone } from '@/components/StatusBadge'
@@ -27,7 +29,7 @@ type ChannelFilter = 'ALL' | 'EMAIL' | 'PHONE'
 type ReasonFilter = 'ALL' | SuppressionGroup
 
 const CHANNELS: { value: ChannelFilter; label: string }[] = [
-  { value: 'ALL', label: 'All' },
+  { value: 'ALL', label: 'All Channels' },
   { value: 'EMAIL', label: 'Email' },
   { value: 'PHONE', label: 'Phone' },
 ]
@@ -145,15 +147,11 @@ export function SuppressionsPage() {
       )}
 
       <section className="rounded-lg border border-line bg-surface">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line-subtle px-4 py-3">
-          <div className="flex flex-wrap gap-3">
-            <SegmentedControl label="Channel" options={CHANNELS} value={channel} onChange={(next) => { setChannel(next); setPage(1) }} />
-            <SegmentedControl label="Reason" options={REASONS} value={reason} onChange={(next) => { setReason(next); setPage(1) }} />
-          </div>
-          <div className="w-full sm:w-72">
-            <TextInput type="search" aria-label="Search suppressions" placeholder="Search an address, number or party ID" value={search}
-              onChange={(event) => { setSearch(event.target.value); setPage(1) }} />
-          </div>
+        <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-3">
+          <SearchField label="Search suppressions" placeholder="Address, number or party ID" value={search} onChange={(next) => { setSearch(next); setPage(1) }} />
+          <SelectFilter label="Channel" options={CHANNELS} value={channel} defaultValue="ALL" onChange={(next) => { setChannel(next); setPage(1) }} />
+          <SelectFilter label="Reason" options={REASONS} value={reason} defaultValue="ALL" onChange={(next) => { setReason(next); setPage(1) }} />
+          {filtered && <ClearFiltersLink onClick={() => { setSearch(''); setChannel('ALL'); setReason('ALL'); setPage(1) }} />}
         </div>
         {rows.isError ? (
           <div className="p-4"><ErrorState title="The suppressions could not be loaded" error={rows.error} onRetry={() => void rows.refetch()} /></div>

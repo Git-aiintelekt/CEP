@@ -1,10 +1,12 @@
-/** The Campaigns filter row: search, a dropdown button per filter, and Clear filters. One menu is open at a time. */
-import { Check, ChevronDown, Search } from 'lucide-react'
+/** The Campaigns filter row: search, a dropdown button per filter, and Clear Filters while one is set. One menu is open at a time. */
+import { Check, ChevronDown, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
-import { InputGroup } from '@/components/InputGroup'
+import { ClearFiltersLink } from '@/components/FilterChip'
+import { filterChipClass } from '@/components/filterChipStyles'
 import { MenuRow } from '@/components/MenuRow'
 import { Popover } from '@/components/Popover'
+import { SearchField } from '@/components/SearchField'
 import { Spinner } from '@/components/States'
 import { buttonClass } from '@/components/buttonStyles'
 import { controlClass } from '@/components/controlStyles'
@@ -30,10 +32,10 @@ function FilterButton({ menus, id, label, value, width = 220, children }: { menu
         {...menus.triggerProps(id)}
         type="button"
         title={value || undefined}
-        className={`inline-flex h-10 items-center gap-1.5 rounded-control-lg border bg-surface pr-2.5 pl-3 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard ${open ? 'border-link' : 'border-line hover:border-ink-300'} ${value ? 'text-brand-800' : 'text-ink-900'}`}
+        className={filterChipClass(Boolean(value))}
       >
         <span className="max-w-[200px] truncate">{value || label}</span>
-        <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
+        <ChevronDown size={16} strokeWidth={1.5} aria-hidden className={`shrink-0 transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <Popover label={label} width={width} placement="bottom-start" style={{ minWidth: 220 }} {...menus.panelProps(id)}>
@@ -80,6 +82,8 @@ interface CampaignFiltersProps {
   search: string
   onSearch: (value: string) => void
   onClear: () => void
+  /** a view a link opened (Home's Needs Attention, Approvals' Open Them): shown as a set chip; pressing it lifts the view */
+  linkedView?: { label: string; onRemove: () => void }
   options?: CampaignFormOptions
   zone: string
   /** Date created filters the list; the calendar's month is its own date range */
@@ -87,13 +91,13 @@ interface CampaignFiltersProps {
   fetching: boolean
 }
 
-export function CampaignFilters({ menus, filters, onChange, search, onSearch, onClear, options, zone, showCreated, fetching }: CampaignFiltersProps) {
+export function CampaignFilters({ menus, filters, onChange, search, onSearch, onClear, linkedView, options, zone, showCreated, fetching }: CampaignFiltersProps) {
   const [customOpen, setCustomOpen] = useState(false)
   const statuses = filters.status ? filters.status.split(',') : []
   const tags = options?.tags ?? []
   const owners = (options?.owners.length ?? 0) > 1 ? options!.owners : []
   const ownerName = options?.owners.find((owner) => owner.id === filters.owner)?.name
-  const active = search.trim() !== '' || Object.values(filters).some(Boolean)
+  const active = search.trim() !== '' || Object.values(filters).some(Boolean) || Boolean(linkedView)
 
   const pick = (patch: Partial<Filters>) => {
     onChange(patch)
@@ -110,18 +114,12 @@ export function CampaignFilters({ menus, filters, onChange, search, onSearch, on
 
   return (
     <div role="search" aria-label="Filter campaigns" className="mb-4 flex flex-wrap items-center gap-2">
-      <InputGroup
-        type="search"
-        controlSize="md"
-        tone="sunken"
-        start={<Search size={16} strokeWidth={1.5} aria-hidden />}
-        value={search}
-        onChange={(event) => onSearch(event.target.value)}
-        placeholder="Search by name or code"
-        aria-label="Search campaigns"
-        // 300px, giving up to 60px before Clear filters has to drop to a line of its own
-        className="md:w-auto md:max-w-[300px] md:grow md:basis-[240px]"
-      />
+      <SearchField label="Search campaigns" placeholder="Search by name or code" value={search} onChange={onSearch} />
+      {linkedView && (
+        <button type="button" className={filterChipClass(true)} aria-label={`Remove the ${linkedView.label} view`} onClick={linkedView.onRemove}>
+          {linkedView.label}<X size={16} strokeWidth={1.5} aria-hidden />
+        </button>
+      )}
 
       <FilterButton menus={menus} id="filter-trigger" label="Triggered By" value={triggerText} width={240}>
         {TRIGGERS.map((choice) => (
@@ -174,15 +172,8 @@ export function CampaignFilters({ menus, filters, onChange, search, onSearch, on
         </FilterButton>
       )}
 
+      {active && <ClearFiltersLink onClick={onClear} />}
       {fetching && <Spinner className="h-4 w-4" />}
-      <button
-        type="button"
-        disabled={!active}
-        onClick={onClear}
-        className="ml-auto h-10 rounded-control-lg px-3 text-sm font-semibold text-link transition-colors duration-fast ease-standard hover:bg-callout-bg disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-300"
-      >
-        Clear Filters
-      </button>
     </div>
   )
 }

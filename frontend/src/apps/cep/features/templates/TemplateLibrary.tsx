@@ -3,15 +3,17 @@
  * message templates sit together by name, say which message they are, and carry Locked while the drip is live.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { EllipsisVertical, Eye, LayoutGrid, List, Lock, Search, type LucideIcon } from 'lucide-react'
+import { EllipsisVertical, Eye, LayoutGrid, List, Lock, type LucideIcon } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button, IconButton } from '@/components/Button'
+import { ClearFiltersLink, FilterChip, SingleSelectMenu } from '@/components/FilterChip'
 import { Field, TextInput } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
 import { Modal } from '@/components/Modal'
 import { Popover } from '@/components/Popover'
+import { SearchField } from '@/components/SearchField'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
@@ -126,22 +128,9 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
 
   return (
     <section aria-labelledby={`${resultsId}-title`}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={`${resultsId}-title`} className="font-display text-section-title font-semibold text-ink-900">Your Templates</h2>
-        <label className="relative block w-full sm:w-64">
-          <span className="sr-only">Search templates</span>
-          <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search templates"
-            className="h-9 w-full rounded-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-focus"
-          />
-        </label>
-      </div>
+      <h2 id={`${resultsId}-title`} className="font-display text-section-title font-semibold text-ink-900">Your Templates</h2>
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-line">
+      <div className="mt-4 flex border-b border-line">
         <div role="tablist" aria-label="Channel" className="-mb-px flex gap-6 overflow-x-auto">
           {tabs.map((item) => {
             const selected = tab === item.key
@@ -160,21 +149,18 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             )
           })}
         </div>
-        <div className="flex items-center gap-2 pb-2">
-          {list.isFetching && !list.isPending && <Spinner size="sm" />}
-          <select
-            aria-label="Status"
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="h-8 rounded-lg border border-line-control bg-surface px-2.5 text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-surface-hover focus-visible:border-focus"
-          >
-            <option value="">All Statuses</option>
-            {STATUSES.map((value) => <option key={value} value={value}>{titleize(value)}</option>)}
-          </select>
-          <div className="flex overflow-hidden rounded-lg border border-line">
-            <ViewButton icon={LayoutGrid} label="Grid View" pressed={view === 'grid'} onClick={() => setView('grid')} />
-            <ViewButton icon={List} label="List View" pressed={view === 'list'} onClick={() => setView('list')} />
-          </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <SearchField label="Search templates" value={search} onChange={setSearch} />
+        <FilterChip label={status ? `Status: ${titleize(status)}` : 'Status'} active={Boolean(status)} menuLabel="Filter by status">
+          {({ close }) => <SingleSelectMenu label="Status" value={status} options={[{ value: '', label: 'All Statuses' }, ...STATUSES.map((value) => ({ value, label: titleize(value) }))]} onChange={(value) => { setStatus(value); close() }} />}
+        </FilterChip>
+        {(search || status) && <ClearFiltersLink onClick={() => { setSearch(''); setStatus('') }} />}
+        {list.isFetching && !list.isPending && <Spinner size="sm" />}
+        <div className="ml-auto flex overflow-hidden rounded-lg border border-line">
+          <ViewButton icon={LayoutGrid} label="Grid View" pressed={view === 'grid'} onClick={() => setView('grid')} />
+          <ViewButton icon={List} label="List View" pressed={view === 'list'} onClick={() => setView('list')} />
         </div>
       </div>
 

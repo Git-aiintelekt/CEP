@@ -8,11 +8,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 
-import { FilterChip, SingleSelectMenu } from '@/components/FilterChip'
+import { ClearFiltersLink, FilterChip, SingleSelectMenu } from '@/components/FilterChip'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { DataTable, type Column } from '@/components/DataTable'
+import { SearchField } from '@/components/SearchField'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
@@ -196,9 +197,8 @@ export function JourneysPage() {
           {total !== undefined && <span className="cep-num inline-flex h-[22px] items-center rounded-sm bg-fill-subtle px-2 font-body text-xs font-semibold text-ink-800">{total}</span>}
         </h2>
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search journeys" aria-label="Search journeys"
-            className="h-10 w-full rounded-control-lg border border-line-control bg-surface px-3 text-sm sm:w-64" />
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <SearchField label="Search journeys" value={search} onChange={setSearch} />
 
           <FilterChip label={statusLabel} active={status !== '' || needsAttention} menuLabel="Filter by status">
             {({ close }) => (
@@ -235,6 +235,9 @@ export function JourneysPage() {
             )}
           </FilterChip>
 
+          {(search || status || needsAttention || triggerFamily || channel) && (
+            <ClearFiltersLink onClick={() => { setSearch(''); setStatus(''); setNeedsAttention(false); setTriggerFamily(''); setChannel('') }} />
+          )}
           {list.isFetching && <Spinner className="h-4 w-4" />}
 
           <div className="ml-auto">
