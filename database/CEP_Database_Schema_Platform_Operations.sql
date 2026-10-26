@@ -3104,6 +3104,7 @@ BEGIN
     END LOOP;
 END $$;
 GRANT SELECT, INSERT ON report_base_install TO cep_app;
+REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON report_base_install FROM cep_app;   -- an owner's default privileges grant them on a new table
 GRANT ALL ON report_base_install TO cep_admin;
 
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
