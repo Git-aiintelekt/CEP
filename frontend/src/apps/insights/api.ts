@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, CustomField, FiscalYear, FormulaCheck, ParameterChoices, SharedFormula, SharedFormulaBody, ParameterValues, UploadColumn, UploadedFile } from './types'
+import type { BasePackAdded, BasePackCheck, BasePackOptions, BasePackSources, BaseReportsCatalog } from './types'
 import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
 import type { AskResult, AskScope, AskStep, AssistantHistory, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
@@ -84,6 +85,13 @@ export const uploadsApi = {
     api.put<UploadedFile>(`/insights/uploads/${id}/`, body),
   replace: (id: string, file: File) => { const body = new FormData(); body.append('file', file); return api.post<UploadedFile>(`/insights/uploads/${id}/replace/`, body) },
   remove: (id: string) => api.delete(`/insights/uploads/${id}/`),
+}
+
+export const baseReportsApi = {
+  list: (signal?: AbortSignal) => api.get<BaseReportsCatalog>('/insights/base-reports/', undefined, signal),
+  sources: (pack: string, connectionId: string) => api.post<BasePackSources>(`/insights/base-reports/${pack}/sources/`, { connection_id: connectionId }),
+  check: (pack: string, connectionId: string, options: BasePackOptions) => api.post<BasePackCheck>(`/insights/base-reports/${pack}/check/`, { connection_id: connectionId, options }),
+  add: (pack: string, connectionId: string, options: BasePackOptions) => api.post<BasePackAdded>(`/insights/base-reports/${pack}/add/`, { connection_id: connectionId, options }),
 }
 
 export const dashboardsApi = {

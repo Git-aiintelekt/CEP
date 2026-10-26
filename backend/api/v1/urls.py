@@ -9,6 +9,7 @@ from apps.insights import databases as insights_databases
 from apps.insights import access as insights_access
 from apps.insights import ai_report as insights_ai
 from apps.insights import alerts as insights_alerts
+from apps.insights import base_reports as insights_base_reports
 from apps.insights import fiscal as insights_fiscal
 from apps.insights import parameters as insights_parameters
 from apps.insights import formula as insights_formula
@@ -205,6 +206,10 @@ urlpatterns = [
     path("insights/dashboards/<uuid:dashboard_id>/export.pdf", insights_dashboards.DashboardExportPdfView.as_view(), name="insights-dashboard-export-pdf"),
     path("insights/dashboards/<uuid:dashboard_id>/export.pptx", insights_dashboards.DashboardExportPptxView.as_view(), name="insights-dashboard-export-pptx"),
     path("insights/favourites/<slug:kind>/<uuid:item_id>/", insights_library.FavouriteView.as_view(), name="insights-favourite"),
+    path("insights/base-reports/", insights_base_reports.BaseReportsView.as_view(), name="insights-base-reports"),
+    path("insights/base-reports/<slug:pack>/sources/", insights_base_reports.SourcesView.as_view(), name="insights-base-report-sources"),
+    path("insights/base-reports/<slug:pack>/check/", insights_base_reports.CheckView.as_view(), name="insights-base-report-check"),
+    path("insights/base-reports/<slug:pack>/add/", insights_base_reports.AddView.as_view(), name="insights-base-report-add"),
     path("insights/folders/", insights_library.FolderListView.as_view(), name="insights-folders"),
     path("insights/folders/<uuid:folder_id>/", insights_library.FolderView.as_view(), name="insights-folder"),
     path("insights/runs/", insights_audit.RunLogView.as_view(), name="insights-runs"),

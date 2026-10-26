@@ -22,6 +22,7 @@ def _versioned(path: str):
 
 INSPECT = reverse_lazy("admin:platform_ops_inspect")       # the platform's Mailgun Inspect account, under the mail server admin's address
 AI = reverse_lazy("admin:platform_ops_ai_assistant")       # the AI providers, likewise
+BASE_REPORTS = reverse_lazy("admin:insights_base_reports")   # the base report packs, under the report datasets admin's address
 USAGE = reverse_lazy("admin:platform_ops_usage")          # lives under the invoice admin's address
 GUIDE = reverse_lazy("admin:platform_ops_guide")          # the Platform Guide, under the global parameters admin's address
 PERFORMANCE = reverse_lazy("admin:tenants_tenant_performance")   # under the tenant admin's address
@@ -108,6 +109,7 @@ UNFOLD = {
                 _link("Global Parameters", "tune", "platform_ops_platformsetting"),
                 _link("Component Registry", "widgets", "platform_ops_suitecomponent"),
                 _link("Report Datasets", "dataset", "insights_reportdataset"),
+                {"title": "Base Reports", "icon": "library_books", "link": BASE_REPORTS, "active": _under(BASE_REPORTS)},
                 _link("Dataset Links", "link", "insights_reportdatasetlink"),
                 _link("Report Engines", "memory", "insights_reportenginesetting"),
                 _link("Report Engine Connections", "cable", "insights_reportengineconnection"),

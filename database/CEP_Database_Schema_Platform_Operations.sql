@@ -3077,6 +3077,35 @@ GRANT ALL ON platform_visit TO cep_admin;
 GRANT SELECT ON platform_visit TO cep_app;
 REVOKE INSERT, UPDATE, DELETE ON platform_visit FROM cep_app;                -- the workspace reads its visits; only the platform writes them
 
+-- ---- base reports (patch 0079): the base packs a workspace added from the platform's catalogue (apps/insights/base_reports.py), as
+-- its own copies, and what each addition made: the dialog shows which version a workspace has, the back-office which workspaces
+CREATE TABLE IF NOT EXISTS report_base_install (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    pack_key            VARCHAR(60) NOT NULL,                              -- apps/insights/base_packs: email-campaigns
+    version             INTEGER NOT NULL,
+    connection_id       UUID,                                              -- the workspace database it reads (report_connection)
+    options             JSONB NOT NULL DEFAULT '{}'::jsonb,                -- what the person picked: databases, campaign names, words left out
+    folder_id           UUID,
+    made                JSONB NOT NULL DEFAULT '{}'::jsonb,                -- {datasets: [key], reports: [id], dashboards: [id]}
+    created_by          UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_report_base_install_version CHECK (version >= 1)
+);
+CREATE INDEX IF NOT EXISTS ix_report_base_install_tenant ON report_base_install(tenant_id, pack_key, created_at DESC);
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_base_install'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT ON report_base_install TO cep_app;
+GRANT ALL ON report_base_install TO cep_admin;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

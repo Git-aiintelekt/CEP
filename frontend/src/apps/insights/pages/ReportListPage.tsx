@@ -1,14 +1,14 @@
 /**
  * Insights → Reports: every report this person may see, grouped by the component whose data it uses (the shared list of
  * docs/mockups/report-builder.html). ?component=cep opens it on one component's reports, as each component's Insights
- * menu item does. New Report starts from a dataset; reports drafted by AI (AI Reports, its own page) carry the AI mark.
+ * menu item does. New Report starts from a dataset, Add Base Reports from the platform's ready-made packs; reports drafted by AI (AI Reports, its own page) carry the AI mark.
  */
-import { Plus, Search } from 'lucide-react'
+import { LayoutTemplate, Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { buttonPrimary } from '@/components/Form'
+import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -16,6 +16,7 @@ import { Tag } from '@/components/StatusBadge'
 import { formatDateTime } from '@/lib/format'
 import { useCatalog, useFolders, useReports } from '../api'
 import { AiPill } from '../components/AskForReport'
+import { BaseReportsDialog } from '../components/BaseReportsDialog'
 import { FavouriteStar } from '../components/FavouriteStar'
 import type { ReportSummary } from '../types'
 
@@ -28,6 +29,7 @@ export function ReportListPage() {
   const component = params.get('component') ?? ''
   const folder = params.get('folder') ?? ''
   const [q, setQ] = useState('')
+  const [base, setBase] = useState(false)
   const reports = useReports({ component: component || undefined, q: q.trim() || undefined, folder: folder || undefined })
   const catalog = useCatalog()
   const folders = useFolders()
@@ -49,8 +51,14 @@ export function ReportListPage() {
         help={<PageHelp chapter="insights" />}
         title="All Reports"
         description={reports.data ? `${rows.length} report${rows.length === 1 ? '' : 's'}${component ? '' : ' · grouped by component'}` : undefined}
-        actions={canCreate ? <button type="button" className={buttonPrimary} onClick={() => navigate(`/insights/reports/new${component ? `?component=${component}` : ''}`)}><Plus size={16} strokeWidth={1.5} aria-hidden />New Report</button> : undefined}
+        actions={canCreate ? (
+          <div className="flex gap-2">
+            <button type="button" className={buttonSecondary} onClick={() => setBase(true)}><LayoutTemplate size={16} strokeWidth={1.5} aria-hidden />Add Base Reports</button>
+            <button type="button" className={buttonPrimary} onClick={() => navigate(`/insights/reports/new${component ? `?component=${component}` : ''}`)}><Plus size={16} strokeWidth={1.5} aria-hidden />New Report</button>
+          </div>
+        ) : undefined}
       />
+      {base && <BaseReportsDialog onClose={() => setBase(false)} />}
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative">
           <span className="sr-only">Search all reports</span>

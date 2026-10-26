@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base Reports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --canvas:#f9fafb;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --callout-bg:#eef2fe;
+    --plum-100:#f3e6f5; --plum-700:#7a3a86;
+    --success-bg:#e3f4e5; --success-text:#0e6027; --warning-bg:#fcf4cb; --warning-text:#87451d; --danger-bg:#fae2e2; --danger-text:#a92e26;
+    --shadow-focus:0 0 0 3px rgb(56 99 219 / 0.24);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 } h2,h3 { font-weight:600 }
+  .wrap { max-width:1200px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .note { margin-top:16px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px }
+  .label { margin:20px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:#fff }
+  .page { padding:20px; display:flex; flex-direction:column; gap:14px }
+  .row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+  @media (max-width:1000px) { .row2 { grid-template-columns:minmax(0,1fr) } }
+
+  .ph { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap } .ph h1 { font-size:22px; line-height:28px; font-weight:600 } .ph p { font-size:13px; color:var(--ink-800) }
+  .ph .acts { margin-left:auto; display:flex; gap:8px }
+  .btn { height:32px; border-radius:6px; border:1px solid var(--line-control); padding:0 12px; font:500 13px/30px var(--font); background:#fff; display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+  .btn.p { background:var(--brand-600); border-color:var(--brand-600); color:#fff; font-weight:600 }
+  .btn.off { background:var(--fill-subtle); border-color:var(--fill-subtle); color:var(--ink-300) }
+  .btn.ring { box-shadow:var(--shadow-focus); border-color:var(--brand-600) }
+  .lnk { color:var(--brand-800); font-weight:600; font-size:13px }
+  .pill-ai { height:20px; border-radius:4px; background:var(--plum-100); color:var(--plum-700); padding:0 6px; font-size:11px; font-weight:700; display:inline-flex; align-items:center }
+
+  .askmini { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 16px; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-700) }
+  .askmini b { color:var(--ink-900); font-weight:600 }
+
+  .scrim { background:rgb(23 24 28 / 0.32); border-radius:8px; padding:28px 16px; display:flex; justify-content:center }
+  .dialog { width:100%; max-width:640px; background:#fff; border-radius:8px; border:1px solid var(--line); box-shadow:0 8px 28px rgb(20 23 31 / 0.18); display:flex; flex-direction:column }
+  .dialog header { padding:16px 20px 12px; border-bottom:1px solid var(--line-subtle) } .dialog header h2 { font-size:17px; line-height:24px } .dialog header p { font-size:13px; color:var(--ink-800); margin-top:2px }
+  .dialog .body { padding:16px 20px; display:flex; flex-direction:column; gap:12px }
+  .dialog footer { padding:12px 20px; border-top:1px solid var(--line-subtle); display:flex; gap:8px; align-items:center } .dialog footer .grow { flex:1 }
+
+  .drop { border:1px dashed var(--line-control); border-radius:8px; background:var(--surface-subtle); padding:22px 16px; display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center }
+  .drop b { font-size:14px } .drop small { font-size:12px; color:var(--ink-800); max-width:460px }
+  .or { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--ink-700) } .or::before, .or::after { content:""; flex:1; height:1px; background:var(--line-subtle) }
+  .paste { border:1px solid var(--line-control); border-radius:6px; min-height:72px; padding:8px 10px; font-size:13px; color:var(--ink-300) }
+  .paste.mono { font:400 12px/17px var(--mono); color:var(--ink-900); white-space:pre; overflow:hidden; max-height:120px }
+  .tip { border-radius:8px; background:var(--callout-bg); padding:10px 12px; font-size:12.5px; line-height:18px; display:flex; gap:10px; align-items:flex-start } .tip .lnk { white-space:nowrap }
+
+  .file { display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:8px; padding:8px 10px }
+  .ico { width:30px; height:36px; border-radius:4px; background:var(--fill-subtle); display:flex; align-items:flex-end; justify-content:center; font-size:8.5px; font-weight:700; color:var(--ink-800); padding-bottom:4px; flex:none }
+  .ico.json { background:var(--brand-100); color:var(--brand-800) } .ico.html { background:var(--warning-bg); color:var(--warning-text) } .ico.png { background:var(--success-bg); color:var(--success-text) }
+  .file b { display:block; font-size:13px; font-weight:600 } .file small { font-size:12px; color:var(--ink-800) } .file .x { margin-left:auto; color:var(--ink-700); font-size:13px }
+
+  .tag { display:inline-flex; height:22px; align-items:center; padding:0 8px; border-radius:6px; font-size:12px; font-weight:500 }
+  .tag.exact { background:var(--success-bg); color:var(--success-text) } .tag.ai { background:var(--plum-100); color:var(--plum-700) } .tag.warn { background:var(--warning-bg); color:var(--warning-text) }
+
+  .sum { border:1px solid var(--line); border-radius:8px; background:var(--surface-subtle); padding:12px 14px; display:flex; flex-direction:column; gap:8px; font-size:13px }
+  .sum dl { display:grid; grid-template-columns:max-content 1fr; gap:4px 14px; margin:0 } .sum dt { font-weight:600; color:var(--ink-800) } .sum dd { margin:0 }
+  .in { height:30px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:flex; align-items:center; font-size:13.5px; background:#fff }
+  .sel { height:30px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:inline-flex; align-items:center; gap:6px; font-size:13px; background:#fff } .sel::after { content:"▾"; color:var(--ink-700); font-size:10px; margin-left:auto }
+  .checks { display:flex; flex-direction:column; gap:4px; font-size:12.5px }
+  .ok::before { content:"✓ "; color:var(--success-text); font-weight:700 } .bad::before { content:"! "; color:var(--danger-text); font-weight:700 }
+  .problems { border:1px solid #efc9c5; border-radius:8px; background:#fdf3f2; padding:10px 12px; font-size:12.5px; line-height:18px; display:flex; flex-direction:column; gap:4px } .problems b { color:var(--danger-text) }
+  code { font-family:var(--mono); font-size:12px; background:var(--fill-subtle); padding:1px 4px; border-radius:4px }
+
+  .steps { border:1px solid var(--line-subtle); border-radius:8px; background:var(--surface-subtle); padding:10px 12px; display:flex; flex-direction:column; gap:7px; font-size:13px }
+  .step { display:flex; align-items:flex-start; gap:9px } .step small { color:var(--ink-800); font-size:12px; display:block }
+  .dot { width:16px; height:16px; border-radius:999px; flex:none; margin-top:1px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700 }
+  .dot.done { background:var(--success-bg); color:var(--success-text) } .dot.done::after { content:"✓" }
+  .dot.now { border:2px solid var(--brand-600); border-top-color:transparent } .dot.wait { border:1px solid var(--line-control) }
+  .step.wait { color:var(--ink-700) } .elapsed { margin-left:auto; color:var(--ink-800); font-size:12px; font-variant-numeric:tabular-nums }
+
+  .panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px }
+  .head { display:flex; align-items:center; gap:8px } .head h2 { font-size:14px } .head .use { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .box { border:1px solid var(--line-control); border-radius:8px; background:#fff }
+  .atts { display:flex; flex-wrap:wrap; gap:8px; padding:12px 12px 2px }
+  .chip { height:56px; min-width:220px; border-radius:8px; border:1px solid var(--line); background:#fff; padding:8px 10px; display:flex; gap:10px; align-items:center }
+  .chip.exact { border-color:#9fd3a8; background:#f3fbf4 }
+  .chip b { display:block; font-size:12.5px; font-weight:600 } .chip small { font-size:11.5px; color:var(--ink-700) }
+  .text { padding:10px 12px 4px; min-height:64px; font-size:14px; line-height:20px } .text.ph { color:var(--ink-300) }
+  .bar { display:flex; align-items:center; gap:8px; padding:6px 8px 8px; flex-wrap:wrap } .bar .grow { flex:1 } .muted { font-size:12px; color:var(--ink-800) }
+  .round { border-radius:999px }
+
+  .instr { font:400 11.5px/16px var(--mono); background:var(--surface-subtle); border:1px solid var(--line-subtle); border-radius:6px; padding:10px 12px; white-space:pre-wrap; max-height:210px; overflow:hidden; color:var(--ink-900) }
+  .cbrow { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:13px } .cb { display:inline-flex; align-items:center; gap:6px } .cb i { width:15px; height:15px; border-radius:4px; border:1px solid var(--line-control); display:inline-block } .cb i.on { background:var(--brand-600); border-color:var(--brand-600) }
+  .menu { width:260px; border:1px solid var(--line); border-radius:8px; background:#fff; box-shadow:0 4px 16px rgb(20 23 31 / 0.12); padding:4px; font-size:13.5px }
+  .menu div { padding:7px 10px; border-radius:6px } .menu .on { background:var(--callout-bg); font-weight:500 } .menu .sep { height:1px; padding:0; margin:4px 0; background:var(--line-subtle) }
+
+  .card-wide { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1080px }
+  .card-wide h2 { font-size:18px; line-height:26px; margin-bottom:8px }
+  .card-wide ul { margin:0; padding-left:20px; font-size:14px; line-height:21px } .card-wide li { margin:4px 0 }
+  .rec { margin-top:16px; border-left:3px solid var(--brand-600); background:#f2f6fe; padding:12px 16px; border-radius:0 8px 8px 0; max-width:1080px; font-size:14px; line-height:21px }
+</style>
+<style>
+  .pack { border:1px solid var(--line); border-radius:8px; background:#fff; padding:14px 16px; display:flex; flex-direction:column; gap:8px }
+  .pack h3 { font-size:15px; line-height:22px } .pack p { font-size:13px; color:var(--ink-800) }
+  .meta { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12.5px; color:var(--ink-800) } .meta b { color:var(--ink-900); font-weight:600 }
+  .list { border:1px solid var(--line-subtle); border-radius:8px; overflow:hidden; font-size:13px }
+  .list div { display:flex; gap:10px; padding:7px 12px; border-bottom:1px solid var(--line-subtle); align-items:center } .list div:last-child { border-bottom:0 }
+  .list .k { width:86px; flex:none; font-size:11.5px; color:var(--ink-700); text-transform:uppercase; letter-spacing:.04em }
+  .list .s { margin-left:auto; font-size:12px; color:var(--ink-700) }
+  .tag.blue { background:var(--brand-100); color:var(--brand-800) } .tag.gray { background:var(--fill-subtle); color:var(--ink-800) }
+  .grid3 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px } @media (max-width:1000px) { .grid3 { grid-template-columns:minmax(0,1fr) } }
+  .tbl { width:100%; border-collapse:collapse; font-size:13px; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .tbl th { text-align:left; font-size:12px; font-weight:600; color:var(--ink-800); background:var(--surface-subtle); padding:8px 12px; border-bottom:1px solid var(--line) }
+  .tbl td { padding:8px 12px; border-bottom:1px solid var(--line-subtle) }
+  .side { display:grid; grid-template-columns:200px minmax(0,1fr); gap:16px } @media (max-width:900px) { .side { grid-template-columns:minmax(0,1fr) } }
+  .nav { background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px; font-size:13.5px; display:flex; flex-direction:column; gap:2px } .nav div { padding:6px 10px; border-radius:6px } .nav .on { background:var(--callout-bg); color:var(--brand-800); font-weight:600 }
+  .dbs { display:flex; flex-direction:column; gap:6px; font-size:13px } .dbs label { display:flex; align-items:center; gap:8px } .dbs small { color:var(--ink-700) }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="strip"><strong>Mockup, not the product.</strong> Static HTML on the app's colour and shape values. Base Reports: a platform catalogue of ready-made reports that a workspace adds as its own copies. Sample names.</div>
+  <p class="note"><strong>Copy on add, as chosen.</strong> A <strong>base pack</strong> is a set of datasets, reports and dashboards kept by the platform. A workspace adds a pack, picks its own Postal connection and databases, and gets its own copies: it may edit them, and later catalogue changes reach it only when it adds the pack again. The first pack is <strong>Email Campaign Reports</strong>, rebuilt from CmpReport: 2 datasets (one row per email, one row per campaign) + 3 new ones (link clicks, opens by device and client, bounce replies), 13 reports, 2 dashboards.</p>
+
+  <!-- ===================================================== OPTION 1 -->
+  <h2 class="part">Option 1: an Add Base Reports dialog on All Reports</h2>
+  <p>One button beside Import and New Report. The dialog lists the packs; adding one asks only what the pack needs from this workspace.</p>
+
+  <div class="label">1A · Pick a pack <span>Busy case: two packs, one already added in an earlier version.</span></div>
+  <div class="frame"><div class="cap">Option 1 · All Reports → Add Base Reports</div><div class="page">
+    <div class="ph"><div><h1>All Reports</h1><p>CITY HT · 6 reports</p></div><div class="acts"><span class="btn ring">▤ Add Base Reports</span><span class="btn p">+ New Report</span></div></div>
+    <div class="scrim"><div class="dialog" style="max-width:720px">
+      <header><h2>Add Base Reports</h2><p>Ready-made reports from the platform. They are added as this workspace's own copies.</p></header>
+      <div class="body">
+        <div class="pack">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap"><h3>Email Campaign Reports</h3><span class="tag blue">Version 1</span><span class="tag gray">Needs a Postal database</span></div>
+          <p>Campaign KPIs, delivery and retries, failures and bounces, engagement, link clicks, opens by device and client, unsubscribes, list quality and comparison; a Management Dashboard and a Campaign Performance dashboard.</p>
+          <div class="meta"><span><b>5</b> datasets</span><span><b>13</b> reports</span><span><b>2</b> dashboards</span><span>From CmpReport</span></div>
+          <div style="display:flex; gap:8px"><span class="btn">See What's in It</span><span class="btn p">Add to CITY HT</span></div>
+        </div>
+        <div class="pack">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap"><h3>SMS Receipt Reports</h3><span class="tag blue">Version 2</span><span class="tag exact">Added 24 Oct · version 1</span></div>
+          <p>Delivery KPIs, carriers, failure reasons, store leaderboard, weekly trend.</p>
+          <div class="meta"><span><b>1</b> dataset</span><span><b>7</b> reports</span><span>Version 2 adds Click Rate by Store</span></div>
+          <div style="display:flex; gap:8px"><span class="btn">See What Changed</span><span class="btn">Add Again</span></div>
+        </div>
+      </div>
+      <footer><span class="grow"></span><span class="btn">Close</span></footer>
+    </div></div>
+  </div></div>
+
+  <div class="row2">
+    <div>
+      <div class="label">1B · Connect it to this workspace's data <span>The pack needs Postal's tables; C360 finds the databases on the connection that hold them.</span></div>
+      <div class="frame"><div class="cap">Option 1 · adding Email Campaign Reports</div><div class="page">
+        <div class="dialog">
+          <header><h2>Add Email Campaign Reports</h2><p>Step 2 of 3 · Your data</p></header>
+          <div class="body">
+            <div class="sum"><dl>
+              <dt>Connection</dt><dd><span class="sel" style="min-width:240px">Citi-Postal MySQL 8</span></dd>
+              <dt>Postal databases</dt><dd><div class="dbs">
+                <label><span class="cb"><i class="on"></i></span>mailpostal-server-14 <small>· 1.2M messages · marketing</small></label>
+                <label><span class="cb"><i class="on"></i></span>txpostalprod-server-10 <small>· 3.4M messages · transactional</small></label>
+                <label><span class="cb"><i></i></span>txpostalprod-server-7 <small>· no marketing mail found</small></label>
+              </div></dd>
+              <dt>Campaign names</dt><dd><span class="sel" style="min-width:240px">citi_analysis_db.marketing_campaign</span><div class="muted" style="margin-top:4px">Optional. Without it, a campaign is named from its tag and subject, as CmpReport does.</div></dd>
+              <dt>Leave out</dt><dd><span class="in">test, client list</span><div class="muted" style="margin-top:4px">Campaigns whose name contains any of these.</div></dd>
+            </dl></div>
+            <div class="checks"><span class="ok">Every table the pack reads is on these databases</span><span class="ok">Test run: 4 campaigns in the last 60 days, 3.1 s</span></div>
+          </div>
+          <footer><span class="btn">Back</span><span class="grow"></span><span class="btn p">Next</span></footer>
+        </div>
+      </div></div>
+    </div>
+    <div>
+      <div class="label">1C · Done <span>Filed in a folder named after the pack; nothing already in the workspace is changed.</span></div>
+      <div class="frame"><div class="cap">Option 1 · added</div><div class="page">
+        <div class="dialog">
+          <header><h2>Email Campaign Reports Added</h2><p>Step 3 of 3</p></header>
+          <div class="body">
+            <div class="list">
+              <div><span class="k">Datasets</span>Email Messages, Email Campaigns, Email Link Clicks, Email Opens, Email Bounces<span class="s">5</span></div>
+              <div><span class="k">Reports</span>Campaign KPIs, Delivery Outcomes, Retry Analysis, Failure and Bounce, Engagement Funnel …<span class="s">13</span></div>
+              <div><span class="k">Dashboards</span>Management Dashboard, Campaign Performance<span class="s">2</span></div>
+              <div><span class="k">Folder</span>Email Campaign Reports<span class="s"></span></div>
+            </div>
+          </div>
+          <footer><span class="muted">Yours to edit; the platform's later versions do not change them</span><span class="grow"></span><span class="btn p">Open Campaign Performance</span></footer>
+        </div>
+      </div></div>
+      <div class="label">1D · Sparse: no Postal connection yet <span>Nothing to pick; the way to add one.</span></div>
+      <div class="frame"><div class="cap">Option 1 · not ready</div><div class="page">
+        <div class="pack"><div style="display:flex; gap:8px; align-items:center"><h3>Email Campaign Reports</h3><span class="tag warn">Needs a Postal database</span></div><p>Connect a MySQL database that holds Postal's tables in Report Databases, then add the pack.</p><div><span class="btn">Open Report Databases</span></div></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ===================================================== OPTION 2 -->
+  <h2 class="part">Option 2: a Base Reports page in Insights</h2>
+  <p>Its own page in the Insights menu: a gallery of every base report with a preview, added a pack at a time or one report at a time (with the datasets it needs).</p>
+  <div class="label">2A · The gallery <span>Each card previews on sample data; Add asks the same questions as 1B.</span></div>
+  <div class="frame"><div class="cap">Option 2 · Insights → Base Reports</div><div class="page">
+    <div class="side">
+      <div class="nav"><div>All Reports</div><div>Dashboards</div><div class="on">Base Reports</div><div>Uploads</div><div>Report Databases</div></div>
+      <div style="display:flex; flex-direction:column; gap:12px">
+        <div class="ph"><div><h1>Base Reports</h1><p>Email Campaign Reports · 13 reports · 2 dashboards</p></div><div class="acts"><span class="btn p">Add the Whole Pack</span></div></div>
+        <div class="grid3">
+          <div class="pack"><h3>Campaign KPIs</h3><p>Sent, delivered, opened, clicked and their rates for a campaign.</p><div class="meta"><span>Cards</span><span>Email Messages</span></div><div><span class="btn">Add</span></div></div>
+          <div class="pack"><h3>Opens by Device and Client</h3><p>Desktop, mobile and machine opens; Apple Mail, Gmail, Outlook.</p><div class="meta"><span>Bars</span><span>Email Opens</span></div><div><span class="btn">Add</span></div></div>
+          <div class="pack"><h3>Link Clicks</h3><p>Clicks and unique clickers per link in a campaign.</p><div class="meta"><span>Table</span><span>Email Link Clicks</span></div><div><span class="tag exact">Added</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ===================================================== BACK-OFFICE -->
+  <h2 class="part">In both options: the back-office</h2>
+  <p>Platform staff see the packs, which workspaces have them and in which version, and can add a pack to a workspace for it.</p>
+  <div class="frame"><div class="cap">Back-office · Insights → Base Reports</div><div class="page">
+    <table class="tbl">
+      <thead><tr><th>Pack</th><th>Version</th><th>Needs</th><th>Workspaces</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><b>Email Campaign Reports</b></td><td>1</td><td>Postal database</td><td>CITY HT (version 1)</td><td><span class="lnk">Add to a Workspace</span></td></tr>
+        <tr><td><b>SMS Receipt Reports</b></td><td>2</td><td>Citi analysis database</td><td>NWA (version 1)</td><td><span class="lnk">Add to a Workspace</span></td></tr>
+      </tbody>
+    </table>
+  </div></div>
+
+  <div class="card-wide">
+    <h2>What gets built, in words</h2>
+    <ul>
+      <li><strong>Packs ship with the release</strong> as files in the code (datasets as SQL with the Postal databases and the campaign-name table as blanks, reports and dashboards as the editor saves them), so each version is reviewed and tested; the back-office lists them, it does not edit them.</li>
+      <li><strong>Adding a pack</strong> checks the connection has every table it reads, fills the blanks, test-runs each dataset, then creates the datasets, reports and dashboards through the same checks as by hand, in one go: all or nothing. The workspace records the pack and its version.</li>
+      <li><strong>Email Campaign Reports</strong>, from CmpReport: the two datasets the Email 01–05 reports use today, plus Link Clicks (Postal's links and clicks), Opens (Postal's loads, sorted by device and client, machine opens flagged) and Bounces (the last reply text); 13 reports and the two dashboards from the assessment.</li>
+      <li><strong>Not copied</strong>: CmpReport's sign-in, users, mail settings, health pages and its one renamed campaign.</li>
+      <li><strong>Then CITY HT</strong>: its demo reports removed, the pack added on its Postal connection, each report run and checked.</li>
+    </ul>
+  </div>
+  <div class="rec"><strong>Recommendation: Option 1.</strong> The packs are few and whole: a dialog beside New Report adds one in three steps and shows exactly what it will need and make. A gallery page earns its place once there are many packs and people want single reports; it can come later on the same catalogue.</div>
+</div>
+</body>
+</html>
