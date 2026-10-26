@@ -232,3 +232,19 @@ def test_ninety_days_on_a_dashboard(check):
         "from": "2026-07-29", "to": "2026-10-26", "previous_from": "2026-04-30", "previous_to": "2026-07-28"}, bounds)
     check("the pack's dashboards open on it: Postal keeps about two months of mail", all(d["period"] == {"preset": "90d"} for d in PACK["dashboards"]))
     check.done()
+
+
+def test_the_application_reads_and_adds_records_only(check):
+    from pathlib import Path
+    layer = (Path(settings.BASE_DIR).parent / "database" / "CEP_Database_Schema_Platform_Operations.sql").read_text(encoding="utf-8")
+    check("the layer takes back what an owner's default privileges would give the application on the new table",
+          "REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON report_base_install FROM cep_app;" in layer)
+    if not _table("report_base_install"):
+        pytest.skip("patch 0079 has not been applied to this database")
+    with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
+        cursor.execute("""SELECT has_table_privilege('cep_app', c.oid, 'SELECT'), has_table_privilege('cep_app', c.oid, 'INSERT'),
+                                 has_table_privilege('cep_app', c.oid, 'UPDATE'), has_table_privilege('cep_app', c.oid, 'DELETE'), c.relforcerowsecurity
+                            FROM pg_class c WHERE c.relname = 'report_base_install'""")
+        found = cursor.fetchone()
+    check("here the application reads and adds records, never changes or removes one, under row-level security", found == (True, True, False, False, True), found)
+    check.done()
