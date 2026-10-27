@@ -58,13 +58,16 @@ test('a chart along a text field says signals need dates', () => {
   expect(screen.getByText(/Forecasts and anomaly flags need dates along the bottom/)).toBeTruthy()
 })
 
-test('the viewer: opening is counted; Explain reads the rows; More shows the SQL and makes an embed link', async () => {
+test('the viewer: opening is counted; Explain says what it means, then the AI reads the rows; More shows the SQL and makes an embed link', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/reports/rep-1')
   await screen.findByRole('heading', { name: 'Sends by campaign' })
   await vi.waitFor(() => expect(insightsOpenedNow).toContainEqual({ kind: 'report', id: 'rep-1' }))
   await user.click(await screen.findByRole('button', { name: 'Explain' }, { timeout: 5000 }))
   const explained = await screen.findByRole('region', { name: 'Explanation' })
+  expect(await within(explained).findByText('Sent Count: 2,000.')).toBeTruthy()                 // What This Means first: rules, no prompt
+  expect(calls.some((call) => call.url.endsWith('/insights/reports/rep-1/explain/'))).toBe(false)
+  await user.click(within(explained).getByRole('tab', { name: 'What the Rows Show' }))
   expect(await within(explained).findByText(/Fall Launch sent the most/)).toBeTruthy()
   expect(within(explained).getByText('Email carried nine in ten sends.')).toBeTruthy()
   expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/insights/reports/rep-1/explain/'))).toBe(true)

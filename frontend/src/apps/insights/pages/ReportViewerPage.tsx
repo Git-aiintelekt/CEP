@@ -193,7 +193,7 @@ export function ReportViewerPage() {
             )}
             <button type="button" className={buttonSecondary} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
             <button type="button" className={buttonSecondary} onClick={() => setAlerting(true)}><Bell size={16} strokeWidth={1.5} aria-hidden />Alerts</button>
-            {explainer?.enabled && <button type="button" className={buttonSecondary} onClick={() => { setExplaining(true); explain.mutate() }} disabled={explain.isPending || !info}><Sparkles size={16} strokeWidth={1.5} aria-hidden />Explain</button>}
+            <button type="button" className={buttonSecondary} onClick={() => setExplaining(true)} disabled={!info}><Sparkles size={16} strokeWidth={1.5} aria-hidden />Explain</button>
             {report.data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
             <button type="button" className={buttonSecondary} onClick={() => exportAs('csv')} disabled={exporting !== null || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
             <button type="button" className={buttonSecondary} onClick={() => exportAs('xlsx')} disabled={exporting !== null || !info}><FileSpreadsheet size={16} strokeWidth={1.5} aria-hidden />Export Excel</button>
@@ -240,8 +240,8 @@ export function ReportViewerPage() {
           missing={refused && asked.length ? refused.problem?.detail : undefined} />
       )}
       {explaining && (
-        <ExplainPanel pending={explain.isPending} explanation={explain.data ?? null} onClose={() => setExplaining(false)} onRetry={() => explain.mutate()}
-          error={explain.error ? (explain.error instanceof ApiError ? explain.error.problem?.detail ?? explain.error.message : explain.error.message) : null} />
+        <ExplainPanel reportId={id as string} reportName={report.data.name} params={sent} onClose={() => { setExplaining(false); explain.reset() }}
+          ai={explainer?.enabled ? { explain: () => explain.mutate(), pending: explain.isPending, error: explain.error, explanation: explain.data ?? null, asked: !explain.isIdle } : null} />
       )}
       {old && (
         <div role="status" className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">

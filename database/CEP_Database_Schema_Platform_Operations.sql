@@ -3107,6 +3107,39 @@ GRANT SELECT, INSERT ON report_base_install TO cep_app;
 REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON report_base_install FROM cep_app;   -- an owner's default privileges grant them on a new table
 GRANT ALL ON report_base_install TO cep_admin;
 
+-- ---- benchmarks (patch 0080): what "good" means for a measure of a dataset, set by the workspace (Settings -> Benchmarks), read by
+-- What This Means (apps/insights/meaning.py) to judge a report's figures: Good, Watch or Act, only when the figure's range clears the band
+CREATE TABLE IF NOT EXISTS report_benchmark (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    dataset_key         VARCHAR(60) NOT NULL,                              -- a platform dataset, a workspace database's (x_..) or an uploaded file's (upl_..)
+    measure_key         VARCHAR(60) NOT NULL,                              -- a measure, a calculated measure or a shared formula (f_..) of it
+    higher_is_better    BOOLEAN NOT NULL DEFAULT TRUE,
+    good                NUMERIC(14, 4) NOT NULL,                           -- Good at or beyond this (at least, or at most when lower is better)
+    act                 NUMERIC(14, 4) NOT NULL,                           -- Act beyond this the other way; Watch between the two
+    count_field         VARCHAR(60),                                       -- for a rate: the count and the base it is made of, for its range
+    base_field          VARCHAR(60),
+    created_by          UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    updated_by          UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_benchmark_bands CHECK ((higher_is_better AND act <= good) OR (NOT higher_is_better AND act >= good))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_report_benchmark_measure ON report_benchmark(tenant_id, dataset_key, measure_key);
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_benchmark'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON report_benchmark TO cep_app;
+GRANT ALL ON report_benchmark TO cep_admin;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

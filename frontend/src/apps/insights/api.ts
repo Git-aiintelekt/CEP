@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, CustomField, FiscalYear, FormulaCheck, ParameterChoices, SharedFormula, SharedFormulaBody, ParameterValues, UploadColumn, UploadedFile } from './types'
 import type { BasePackAdded, BasePackCheck, BasePackOptions, BasePackSources, BaseReportsCatalog } from './types'
-import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
+import type { AnalysisSource, Benchmark, BenchmarkBody, BenchmarksState, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, Meaning, SqlStatements, UsageReport } from './types'
 import type { AskResult, AskScope, AskStep, AssistantHistory, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
 export const insightsApi = {
@@ -36,6 +36,9 @@ export const insightsApi = {
   /** the statements the engine runs for a definition, the values written in (nothing runs) */
   sql: (body: { dataset: string; definition: ReportDefinition }) => api.post<SqlStatements>('/insights/reports/sql/', body),
   explain: (id: string, body: { model?: string; drill?: { path: DrillStep[]; keep_rest?: boolean }; params?: ParameterValues }) => api.post<Explanation>(`/insights/reports/${id}/explain/`, body),
+  /** What This Means: rules, no AI; failedCsv: the hard-failed addresses of an Email Campaign report's campaign */
+  meaning: (id: string, params?: ParameterValues) => api.post<Meaning>(`/insights/reports/${id}/meaning/`, params ? { params } : {}),
+  failedCsv: (id: string, params?: ParameterValues) => api.download(`/insights/reports/${id}/meaning/failed.csv`, answersQuery(params)),
   /** Key Influencers and the Decomposition Tree, on a saved report or a draft */
   influencers: (source: AnalysisSource, measure?: string) =>
     api.post<InfluencersResult>('reportId' in source ? `/insights/reports/${source.reportId}/analyze/` : '/insights/reports/analyze/', { ...analysisBody(source), kind: 'influencers', ...(measure ? { measure } : {}) }),
@@ -85,6 +88,15 @@ export const uploadsApi = {
     api.put<UploadedFile>(`/insights/uploads/${id}/`, body),
   replace: (id: string, file: File) => { const body = new FormData(); body.append('file', file); return api.post<UploadedFile>(`/insights/uploads/${id}/replace/`, body) },
   remove: (id: string) => api.delete(`/insights/uploads/${id}/`),
+}
+
+export const benchmarksApi = {
+  list: (signal?: AbortSignal) => api.get<BenchmarksState>('/insights/benchmarks/', undefined, signal),
+  create: (body: BenchmarkBody) => api.post<Benchmark>('/insights/benchmarks/', body),
+  update: (id: string, body: BenchmarkBody) => api.put<Benchmark>(`/insights/benchmarks/${id}/`, body),
+  remove: (id: string) => api.delete(`/insights/benchmarks/${id}/`),
+  /** a pack's default benchmarks on this workspace's copy of its datasets */
+  defaults: (pack: string) => api.post<{ added: number }>('/insights/benchmarks/defaults/', { pack }),
 }
 
 export const baseReportsApi = {
@@ -212,6 +224,8 @@ export const keys = {
   run: (id: string, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[]; params?: ParameterValues }) => ['insights', 'run', id, page] as const,
   uploads: ['insights', 'uploads'] as const,
   sharedFormulas: (dataset: string) => ['insights', 'shared-formulas', dataset] as const,
+  benchmarks: ['insights', 'benchmarks'] as const,
+  meaning: (id: string, params?: ParameterValues) => ['insights', 'meaning', id, params ?? null] as const,
 }
 
 export const fiscalKey = ['workspace', 'fiscal-year'] as const

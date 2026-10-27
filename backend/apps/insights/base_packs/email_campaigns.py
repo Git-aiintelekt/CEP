@@ -79,6 +79,14 @@ FORMULAS = [
     _formula("opens", "Machine Open Share", "DIVIDE(SUM([Machine Open]), SUM([Opens])) * 100", "Opens by a proxy or scanner rather than a person"),
 ]
 
+# What "good" means for the messages dataset's rates (Settings -> Benchmarks offers them); count and base make each rate's range
+BENCHMARKS = [
+    {"dataset": "messages", "measure": "f_delivery_rate", "higher": True, "good": 95, "act": 90, "count": "delivered", "base": "sent"},
+    {"dataset": "messages", "measure": "f_bounce_rate", "higher": False, "good": 2, "act": 5, "count": "hard_fail", "base": "sent"},
+    {"dataset": "messages", "measure": "f_click_through_rate", "higher": True, "good": 1.5, "act": 0.5, "count": "clicked", "base": "delivered"},
+    {"dataset": "messages", "measure": "f_unsubscribe_rate", "higher": False, "good": 0.3, "act": 0.5, "count": "unsubscribed", "base": "sent"},
+]
+
 LATEST_CAMPAIGN = {"key": "campaign", "field": "campaign_name", "label": "Campaign", "operator": "in", "required": False, "default": {"latest": True}}
 ANY_CAMPAIGN = {"key": "campaign", "field": "campaign_name", "label": "Campaigns", "operator": "in", "required": False}
 
@@ -207,5 +215,6 @@ PACK = {
     "formulas": FORMULAS,
     "reports": REPORTS,
     "dashboards": DASHBOARDS,
+    "benchmarks": BENCHMARKS,
     "checked": email_sql.checked,
 }
