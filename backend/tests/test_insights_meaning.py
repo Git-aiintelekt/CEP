@@ -185,7 +185,9 @@ def test_the_endpoints(check, world):
     upside = world.api("put", f"/api/v1/insights/benchmarks/{made.json()['id']}/", {"good": 50, "act": 100})
     check("Act beyond Good the wrong way is refused", upside.status_code == 400 and "act" in upside.json()["errors"], upside.content[:200])
     judged = world.api("post", f"/api/v1/insights/reports/{rid}/meaning/", {"params": {}}).json()
-    check("the report's figure is judged against it", judged["figures"][0]["state"] == "judged" and judged["read"]["benchmarks"] == 1, judged["figures"])
+    figure = judged["figures"][0]
+    check("the report's figure is judged against it (empty when the database has no sends)",
+          figure["state"] == ("judged" if figure["value"] is not None else "empty") and figure["target"] == "target 100" and judged["read"]["benchmarks"] == 1, judged["figures"])
     gone = world.api("delete", f"/api/v1/insights/benchmarks/{made.json()['id']}/")
     check("and removed", gone.status_code == 204 and world.api("get", "/api/v1/insights/benchmarks/").json()["benchmarks"] == [])
     check.done()
