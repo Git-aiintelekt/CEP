@@ -6,11 +6,13 @@
  */
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { DataTable, type Column } from '@/components/DataTable'
-import { buttonSecondary, Field, Select, TextInput } from '@/components/Form'
+import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
+import { buttonSecondary } from '@/components/Form'
+import { SearchField } from '@/components/SearchField'
 import { Modal } from '@/components/Modal'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -73,7 +75,8 @@ function Recipients({ campaign, zone, live }: { campaign: Campaign; zone: string
     }
     return `#${item.run_number}${item.sequence_label ? ` · ${item.sequence_label}` : ''}${item.test_mode ? ' · test' : ''} · ${titleize(item.status)}`
   }
-  const [runId, setRunId] = useState<string>(() => (runs.find((run) => !run.test_mode) ?? runs[0])?.id ?? '')
+  const firstRun = (runs.find((run) => !run.test_mode) ?? runs[0])?.id ?? ''
+  const [runId, setRunId] = useState<string>(firstRun)
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -123,23 +126,15 @@ function Recipients({ campaign, zone, live }: { campaign: Campaign; zone: string
 
   return (
     <section className="rounded-lg border border-line bg-surface">
-      <form className="flex flex-wrap items-end gap-3 border-b border-line-subtle px-4 py-3" onSubmit={(event: FormEvent) => event.preventDefault()}>
-        <Field label="Run">
-          {(ids) => <Select {...ids} controlSize="sm" value={runId} onChange={(event) => { setRunId(event.target.value); setPage(1) }}>
-            {runs.map((item: CampaignRun) => <option key={item.id} value={item.id}>{runLabel(item)}</option>)}
-          </Select>}
-        </Field>
-        <Field label="Status">
-          {(ids) => <Select {...ids} controlSize="sm" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1) }}>
-            <option value="">All Statuses</option>
-            {(data?.statuses ?? []).map((code) => <option key={code} value={code}>{statusLabel(code)}{data?.by_status[code] ? ` (${formatNumber(data.by_status[code])})` : ''}</option>)}
-          </Select>}
-        </Field>
-        <Field label="Search">
-          {(ids) => <TextInput {...ids} controlSize="sm" type="search" value={search} placeholder={texts ? 'Number, name or customer ID' : 'Address, name or customer ID'} onChange={(event) => { setSearch(event.target.value); setPage(1) }} />}
-        </Field>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-3">
+        <SearchField label="Search recipients" placeholder={texts ? 'Number, name or customer ID' : 'Address, name or customer ID'} value={search} onChange={(next) => { setSearch(next); setPage(1) }} />
+        {runs.length > 0 && <SelectFilter label="Run" value={runId} defaultValue={firstRun} showValue menuWidth={300} onChange={(next) => { setRunId(next); setPage(1) }}
+          options={runs.map((item: CampaignRun) => ({ value: item.id, label: runLabel(item) }))} />}
+        <SelectFilter label="Status" value={status} onChange={(next) => { setStatus(next); setPage(1) }}
+          options={[{ value: '', label: 'All Statuses' }, ...(data?.statuses ?? []).map((code) => ({ value: code, label: `${statusLabel(code)}${data?.by_status[code] ? ` (${formatNumber(data.by_status[code])})` : ''}` }))]} />
+        {(search || status || runId !== firstRun) && <ClearFiltersLink onClick={() => { setSearch(''); setStatus(''); setRunId(firstRun); setPage(1) }} />}
         <button type="button" className={`${buttonSecondary} ml-auto`} onClick={() => void exportCsv()} disabled={!data || data.count === 0}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
-      </form>
+      </div>
       {problem && <p role="alert" className="px-4 pt-3 text-sm text-danger-text">{problem}</p>}
       {recipients.isError ? <div className="p-4"><ErrorState error={recipients.error} onRetry={() => void recipients.refetch()} /></div>
       : !data ? <p className="flex items-center gap-2 p-4 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
@@ -313,17 +308,13 @@ function Blocked({ campaign, zone }: { campaign: Campaign; zone: string }) {
           </ul>
         )}
       </div>
-      <form className="flex flex-wrap items-end gap-3 border-b border-line-subtle px-4 py-3" onSubmit={(event: FormEvent) => event.preventDefault()}>
-        <Field label="Channel">
-          {(ids) => <Select {...ids} controlSize="sm" value={channel} onChange={(event) => { setChannel(event.target.value); setPage(1) }}>
-            <option value="">All Channels</option><option value="EMAIL">Email</option><option value="PHONE">Texts</option>
-          </Select>}
-        </Field>
-        <Field label="Search">
-          {(ids) => <TextInput {...ids} controlSize="sm" type="search" value={search} placeholder="Address, number, name or customer ID" onChange={(event) => { setSearch(event.target.value); setPage(1) }} />}
-        </Field>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-3">
+        <SearchField label="Search blocked people" placeholder="Address, number, name or ID" value={search} onChange={(next) => { setSearch(next); setPage(1) }} />
+        <SelectFilter label="Channel" value={channel} onChange={(next) => { setChannel(next); setPage(1) }}
+          options={[{ value: '', label: 'All Channels' }, { value: 'EMAIL', label: 'Email' }, { value: 'PHONE', label: 'Texts' }]} />
+        {(search || channel || reason) && <ClearFiltersLink onClick={() => { setSearch(''); setChannel(''); setReason(''); setPage(1) }} />}
         <button type="button" className={`${buttonSecondary} ml-auto`} onClick={() => void exportCsv()} disabled={!data || data.count === 0}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
-      </form>
+      </div>
       {problem && <p role="alert" className="px-4 pt-3 text-sm text-danger-text">{problem}</p>}
       {rows.isError ? <div className="p-4"><ErrorState error={rows.error} onRetry={() => void rows.refetch()} /></div>
       : !data ? <p className="flex items-center gap-2 p-4 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>

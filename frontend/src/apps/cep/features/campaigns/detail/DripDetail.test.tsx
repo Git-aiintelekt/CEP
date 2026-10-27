@@ -357,8 +357,9 @@ test('Recipients: the run picker names messages, and rows a stop left unsent rea
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1?tab=recipients')
 
-  const picker = await screen.findByLabelText('Run')
-  await vi.waitFor(() => expect([...picker.querySelectorAll('option')].map((option) => option.textContent)).toContain('Message 1 · Welcome · Mon 12 Oct · Completed'))
+  await user.click(await screen.findByRole('button', { name: /^Run: / }))
+  await vi.waitFor(() => expect(screen.getAllByRole('option').map((option) => option.textContent)).toContain('Message 1 · Welcome · Mon 12 Oct · Completed'))
+  await user.keyboard('{Escape}')
   const table = await screen.findByRole('table', { name: /Recipients of run/ })
   const kai = within(table).getByText('kai@example.com').closest('tr')!
   expect(within(kai).getByText('Not Sent · Stopped early').className).not.toContain('danger')
@@ -366,9 +367,9 @@ test('Recipients: the run picker names messages, and rows a stop left unsent rea
   expect(within(maria).getByText('Failed')).toBeTruthy()
   expect(within(within(table).getByText('lee@example.com').closest('tr')!).getByText('Failed')).toBeTruthy()
 
-  const status = screen.getByLabelText('Status')
-  expect([...status.querySelectorAll('option')].map((option) => option.textContent)).toContain('Not Sent (1)')
-  await user.selectOptions(status, 'NOT_SENT')
+  await user.click(screen.getByRole('button', { name: 'Status' }))
+  expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toContain('Not Sent (1)')
+  await user.click(screen.getByRole('option', { name: 'Not Sent (1)' }))
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('/recipients/') && call.url.includes('status=NOT_SENT'))).toBe(true))
   await vi.waitFor(() => expect(within(screen.getByRole('table', { name: /Recipients of run/ })).queryByText('maria.chen@example.com')).toBeNull())
   expect(screen.getByText('kai@example.com')).toBeTruthy()

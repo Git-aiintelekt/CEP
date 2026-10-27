@@ -80,8 +80,12 @@ test('Ask for a Report: Add To files the draft, which says so', async () => {
   expect(within(card).getByText('Component').nextElementSibling?.textContent).toBe('Sales')
 })
 
-test('the list groups by the report’s own component and offers a chip for a component that holds only reports', async () => {
+test('Component offers a component that holds only reports, and narrows the list to its reports', async () => {
+  const user = userEvent.setup()
   await renderAppAt('/insights/reports', () => { insightsReportsNow.push({ ...insightsSummary, id: 'rep-sales', name: 'Takings by Store', component: { key: 'sales', name: 'Sales' } }) })
-  expect(await screen.findByRole('button', { name: 'Sales' })).toBeTruthy()
-  expect(screen.getByText('Takings by Store')).toBeTruthy()
+  const table = await screen.findByRole('table', { name: 'Reports' })
+  await user.click(screen.getByRole('button', { name: 'Component' }))
+  await user.click(await screen.findByRole('option', { name: 'Sales' }))
+  await vi.waitFor(() => expect(within(table).queryByRole('link', { name: 'Sends by campaign' })).toBeNull())
+  expect(within(table).getByRole('link', { name: 'Takings by Store' })).toBeTruthy()
 })

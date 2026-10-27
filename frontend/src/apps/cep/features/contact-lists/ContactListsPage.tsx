@@ -7,8 +7,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Field, TextInput, buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { ClearFiltersLink, FilterChip, SingleSelectMenu } from '@/components/FilterChip'
 import { Modal } from '@/components/Modal'
 import { PageHeader } from '@/components/ResourceList'
+import { SearchField } from '@/components/SearchField'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 
@@ -129,6 +131,9 @@ function ReachCell({ list }: { list: ContactList }) {
   )
 }
 
+const LIST_TYPES = [{ value: 'PRODUCTION', label: 'Production' }, { value: 'TEST', label: 'Test' }]
+const LIST_SOURCES = [{ value: 'UPLOAD', label: 'Upload' }, { value: 'BI', label: 'BI / Extraction' }, { value: 'CLONE', label: 'Cloned' }]
+
 export function ContactListsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -212,7 +217,6 @@ export function ContactListsPage() {
       <PageHeader
         title="Contact Lists"
         help={<PageHelp chapter="contact-lists" />}
-        description="Reusable audiences. A campaign freezes its own copy at send time, so changing a list never changes a send that was already built."
         actions={
           <span className="flex flex-wrap gap-2">
             <Link to="/customers" className={buttonSecondary}>Find a Customer</Link>
@@ -232,26 +236,15 @@ export function ContactListsPage() {
         <StatCard label="Attached to Live Campaigns" value={stats.data?.attached_to_live_campaigns} />
       </dl>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search lists" aria-label="Search lists"
-          className="h-10 w-full rounded-control-lg border border-line-control bg-surface px-3 text-sm sm:w-64" />
-        <label className="flex items-center gap-2 text-sm text-ink-800">
-          Type
-          <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
-            <option value="">All</option>
-            <option value="PRODUCTION">Production</option>
-            <option value="TEST">Test</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-ink-800">
-          Source
-          <select value={source} onChange={(event) => setSource(event.target.value)} className="h-10 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
-            <option value="">All</option>
-            <option value="UPLOAD">Upload</option>
-            <option value="BI">BI / Extraction</option>
-            <option value="CLONE">Cloned</option>
-          </select>
-        </label>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <SearchField label="Search lists" value={search} onChange={setSearch} />
+        <FilterChip label={type ? `Type: ${LIST_TYPES.find((option) => option.value === type)?.label}` : 'Type'} active={Boolean(type)} menuLabel="Filter by type">
+          {({ close }) => <SingleSelectMenu label="Type" value={type} options={[{ value: '', label: 'All Types' }, ...LIST_TYPES]} onChange={(value) => { setType(value); close() }} />}
+        </FilterChip>
+        <FilterChip label={source ? `Source: ${LIST_SOURCES.find((option) => option.value === source)?.label}` : 'Source'} active={Boolean(source)} menuLabel="Filter by source">
+          {({ close }) => <SingleSelectMenu label="Source" value={source} options={[{ value: '', label: 'All Sources' }, ...LIST_SOURCES]} onChange={(value) => { setSource(value); close() }} />}
+        </FilterChip>
+        {(search || type || source) && <ClearFiltersLink onClick={() => { setSearch(''); setType(''); setSource('') }} />}
         {list.isFetching && <Spinner className="h-4 w-4" />}
       </div>
 

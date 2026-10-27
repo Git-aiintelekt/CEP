@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports List B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --hover:#eeeff5; --sunken:#eeeff5; --canvas:#f9fafb; --fill-muted:#e7e8ef;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --sidebar:#20265d; --sidebar-text:#e7e8ef; --sidebar-icon:#a9afd0; --sidebar-selected:#313c8e; --sidebar-divider:#3a4178;
+    --danger-plain:#c93a32; --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --shadow-menu:0 4px 16px rgb(20 23 31 / 0.12);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  button { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .part { margin:36px 0 4px; font-size:22px; line-height:30px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px; margin-bottom:12px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+
+  /* icons: Lucide 0.454.0 as masks */
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i20 { width:20px; height:20px }
+  .i14 { width:14px; height:14px }
+  .i-search{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/search.svg)}
+  .i-plus{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/plus.svg)}
+  .i-sparkles{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+  .i-star{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/star.svg)}
+  .i-dots{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/ellipsis.svg)}
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-sort{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-down.svg)}
+  .i-lock{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/lock.svg)}
+  .i-users{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/users.svg)}
+  .i-globe{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/building-2.svg)}
+  .i-clock{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/calendar-clock.svg)}
+  .i-grid{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .i-chart{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column.svg)}
+  .i-pivot{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sheet.svg)}
+  .i-tree{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-tree.svg)}
+  .i-folder{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/folder.svg)}
+  .i-files{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/files.svg)}
+  .i-user{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/user-round.svg)}
+  .i-history{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/history.svg)}
+  .i-report{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-chart-column.svg)}
+  .i-dash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-grid.svg)}
+  .i-home{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-dashboard.svg)}
+  .i-up{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-up.svg)}
+  .i-sigma{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sigma.svg)}
+  .i-log{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/scroll-text.svg)}
+  .i-activity{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/activity.svg)}
+  .i-mail{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/megaphone.svg)}
+  .i-pie{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-pie.svg)}
+  .i-settings{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/settings.svg)}
+  .i-open{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/external-link.svg)}
+  .i-pencil{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/pencil.svg)}
+  .i-copy{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/copy.svg)}
+  .i-move{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/folder-input.svg)}
+  .i-share{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/share-2.svg)}
+  .i-trash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/trash-2.svg)}
+  .i-left{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-left.svg)}
+  .i-right{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-right.svg)}
+  .i-help{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/circle-help.svg)}
+  .i-bell{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/bell.svg)}
+  .i-menu{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/panel-left.svg)}
+
+  /* shell */
+  .top { height:56px; background:var(--sidebar); color:var(--sidebar-text); display:flex; align-items:center; gap:12px; padding:0 16px }
+  .top .c { width:32px; height:32px; border-radius:8px; background:var(--brand-600); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center }
+  .top .name { font-weight:600 } .top .sep { width:1px; height:20px; background:var(--sidebar-divider) }
+  .top .search { margin:0 auto; width:420px; height:36px; border-radius:999px; background:#2c336f; display:flex; align-items:center; gap:8px; padding:0 14px; color:var(--sidebar-icon); font-size:14px }
+  .top .acc { width:32px; height:32px; border-radius:999px; background:#363e82; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center }
+  .shell { display:flex; min-height:900px }
+  .rail { width:88px; background:var(--sidebar); padding:8px; display:flex; flex-direction:column; gap:4px }
+  .tile { height:64px; border-radius:8px; color:var(--sidebar-text); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:12px }
+  .tile .i { color:var(--sidebar-icon) } .tile.on { background:var(--sidebar-selected) } .tile.on .i { color:#fff }
+  .menu { width:240px; background:var(--surface); border-right:1px solid var(--line); padding:16px 12px; display:flex; flex-direction:column; gap:2px }
+  .menu h3 { font-size:16px; padding:0 8px } .menu p { font-size:12px; line-height:16px; color:var(--ink-800); padding:2px 8px 12px }
+  .mi { height:40px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:15px }
+  .mi .i { color:var(--ink-800) } .mi.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 } .mi.on .i { color:var(--brand-800) }
+  .content { flex:1; padding:24px; display:flex; flex-direction:column; gap:20px; min-width:0 }
+
+  /* page */
+  .ph { display:flex; align-items:flex-start; gap:16px }
+  .ph h1 { font-size:24px; line-height:32px; font-weight:600; letter-spacing:-0.01em; display:flex; align-items:center; gap:10px }
+  .ph h1 .count { height:22px; padding:0 8px; border-radius:6px; background:var(--hover); font-size:12px; font-weight:600; color:var(--ink-800); display:inline-flex; align-items:center; letter-spacing:0 }
+  .ph p { font-size:15px; color:var(--ink-800); margin-top:2px }
+  .ph .act { margin-left:auto; display:flex; gap:8px }
+  .btn { height:40px; border-radius:999px; padding:0 16px; display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:15px }
+  .btn.primary { background:var(--brand-600); color:#fff }
+  .btn.secondary { border:1px solid var(--brand-600); color:var(--brand-600); background:#fff }
+
+  .recent { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .recent .lbl { font-size:13px; font-weight:500; color:var(--ink-800); margin-right:4px; display:flex; align-items:center; gap:6px }
+  .rchip { height:32px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px }
+  .rchip .i { color:var(--ink-800) }
+
+  .body { display:flex; gap:16px; align-items:flex-start }
+  .side { width:204px; flex:none; background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px 8px }
+  .side .h { font-size:12px; font-weight:600; color:var(--ink-800); padding:12px 10px 6px; letter-spacing:0.01em }
+  .side .h:first-child { padding-top:4px }
+  .sv { white-space:nowrap; height:36px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:15px }
+  .sv .i { color:var(--ink-800) } .sv .n { margin-left:auto; font-size:12px; color:var(--ink-800); font-variant-numeric:tabular-nums }
+  .sv.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 } .sv.on .i, .sv.on .n { color:var(--brand-800) }
+  .sv.hover { background:var(--hover) }
+  .sv.add { color:var(--brand-600); font-weight:500 } .sv.add .i { color:var(--brand-600) }
+
+  .main { flex:1; min-width:0; display:flex; flex-direction:column; gap:12px }
+  .tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .srch { height:36px; width:240px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 14px; color:var(--ink-300); font-size:15px }
+  .srch .i { color:var(--ink-800) }
+  .dd { height:36px; border-radius:999px; border:1px solid var(--line-control); background:#fff; padding:0 12px 0 14px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500 }
+  .dd .i { color:var(--ink-800) } .dd b { font-weight:600; color:var(--brand-800) }
+  .dd.set { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) } .dd.set .i { color:var(--brand-800) }
+  .tools .clear { font-size:14px; font-weight:500; color:var(--brand-600); padding:0 6px }
+  .tools .right { margin-left:auto; font-size:13px; color:var(--ink-800) }
+
+  .tabs { display:flex; gap:24px; border-bottom:1px solid var(--line) }
+  .tab { height:40px; display:inline-flex; align-items:center; gap:8px; font-size:15px; font-weight:500; color:var(--ink-800); border-bottom:2px solid transparent; margin-bottom:-1px }
+  .tab .n { height:20px; padding:0 7px; border-radius:6px; background:var(--hover); font-size:12px; font-weight:600; color:var(--ink-800); display:inline-flex; align-items:center }
+  .tab.on { color:var(--link, #3863db); border-bottom-color:#3863db } .tab.on .n { background:var(--brand-100); color:var(--brand-800) }
+  .ddwrap { position:relative; display:inline-flex }
+  .dd.open { border-color:var(--brand-600); box-shadow:0 0 0 3px rgb(56 99 219 / 0.24) }
+  .fpop { left:0; right:auto; top:44px; width:248px }
+  .pop .it .n { margin-left:auto; font-size:12px; color:var(--ink-800); font-variant-numeric:tabular-nums }
+  .pop .it.add, .pop .it.add .i { color:var(--brand-600); font-weight:500 }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:visible }
+  table { width:100%; border-collapse:collapse; table-layout:fixed }
+  tbody td { overflow:hidden; text-overflow:ellipsis }
+  thead th { height:40px; background:var(--surface-subtle); text-align:left; font-size:13px; line-height:18px; font-weight:500; color:var(--ink-900); padding:0 10px; border-bottom:1px solid var(--line); white-space:nowrap }
+  thead th:first-child { border-top-left-radius:16px } thead th:last-child { border-top-right-radius:16px }
+  thead th .i { width:12px; height:12px; vertical-align:-1px; margin-left:4px; color:var(--ink-800) }
+  tbody td { height:56px; padding:0 10px; border-bottom:1px solid var(--line-subtle); font-size:15px; color:var(--ink-800); white-space:nowrap }
+  tbody tr:last-child td { border-bottom:0 }
+  tbody tr.hover td { background:var(--hover) }
+  td.star { width:40px; padding:0 0 0 14px } td.star .i { color:var(--ink-300) } td.star .i.on { color:var(--brand-600); -webkit-mask-image:url(https://unpkg.com/lucide-static@0.454.0/icons/star.svg); }
+  .fav { color:var(--brand-600) !important }
+  .nm { display:flex; align-items:center; gap:12px; white-space:normal }
+  .ty { width:32px; height:32px; border-radius:8px; background:var(--hover); display:flex; align-items:center; justify-content:center; color:var(--ink-800); flex:none }
+  .nm { min-width:0 } .nm a { color:var(--ink-900); font-weight:500; text-decoration:none } .nm a:hover { text-decoration:underline }
+  .nm > div { min-width:0 } .nm a { white-space:nowrap } .nm small { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; font-size:12px; line-height:16px; color:var(--ink-800); margin-top:1px }
+  .ai { height:18px; border-radius:4px; background:var(--brand-100); color:var(--brand-800); padding:0 5px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; margin-left:6px; vertical-align:1px }
+  .tag { height:22px; border-radius:6px; background:var(--hover); color:var(--ink-800); padding:0 8px; font-size:12px; font-weight:600; display:inline-flex; align-items:center }
+  .acc { display:inline-flex; align-items:center; gap:6px } .acc .i { color:var(--ink-800) }
+  .sch { display:inline-flex; align-items:center; gap:6px; color:var(--ink-900) } .sch .i { color:var(--brand-600) }
+  .off { color:var(--ink-300) }
+  .num { font-variant-numeric:tabular-nums }
+  td.more { width:48px; text-align:center; position:relative; overflow:visible }
+  .kebab { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .kebab.on { background:var(--fill-muted) }
+  .pop { position:absolute; z-index:3; right:12px; top:48px; width:224px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); padding:6px; text-align:left }
+  .pop .it { height:36px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:15px; color:var(--ink-900) }
+  .pop .it .i { color:var(--ink-800) } .pop .it.hl { background:var(--hover) }
+  .pop .div { height:1px; background:var(--line-subtle); margin:6px 4px }
+  .pop .it.danger, .pop .it.danger .i { color:var(--danger-plain) }
+
+  .foot { display:flex; align-items:center; gap:16px; padding:10px 16px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-800) }
+  .foot .pp { display:inline-flex; align-items:center; gap:6px } .foot .pp .dd { height:28px; font-size:13px; padding:0 8px 0 10px }
+  .pager { margin-left:auto; display:flex; gap:4px }
+  .pg { min-width:28px; height:28px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; color:var(--ink-900) }
+  .pg.on { background:var(--brand-100); color:var(--brand-800); font-weight:600 } .pg .i { color:var(--ink-800) }
+
+  /* empty */
+  .empty { background:#fff; border:1px solid var(--line); border-radius:16px; padding:56px 24px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px }
+  .empty .ic { width:48px; height:48px; border-radius:12px; background:var(--brand-100); color:var(--brand-800); display:flex; align-items:center; justify-content:center; margin-bottom:8px }
+  .empty h3 { font-size:16px; font-weight:600 } .empty p { font-size:15px; color:var(--ink-800); max-width:420px }
+  .empty .act { display:flex; gap:8px; margin-top:12px }
+
+  .notes { margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px }
+  .note { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; font-size:13px; line-height:19px; color:var(--ink-800) }
+  .note b { color:var(--ink-900); display:block; margin-bottom:2px; font-size:14px }
+  .pin { display:inline-flex; width:20px; height:20px; border-radius:999px; background:var(--ink-900); color:#fff; font-size:11px; font-weight:700; align-items:center; justify-content:center; margin-right:6px; vertical-align:1px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="strip">Mockup only, direction B (tabs and a Folder dropdown, no in-page panel, so the table gets the full width). It uses the live theme: navy shell, 16px cards, pill controls. The figures are sample data. The numbered notes under each frame map to the Mobbin patterns.</p>
+
+  <h2 class="part">1 · Reports, All Reports (Direction B)</h2>
+  <p>The default view. There's one flat table, sortable by its headers. All / My Reports / Shared With Me are tabs, and folders move into a Folder dropdown (shown open). Favourites is a toggle on the filter line. The ⋯ menu is shown open on the third row, as in A.</p>
+
+  <div class="frame">
+    <div class="top">
+      <span class="i i20 i-menu" style="color:var(--sidebar-icon)"></span>
+      <span class="c">C</span><span class="name">C360</span><span class="sep"></span><span>Insights</span>
+      <span class="search"><span class="i i-search"></span>Search C360</span>
+      <span class="i i20 i-help" style="color:var(--sidebar-icon)"></span>
+      <span class="i i20 i-bell" style="color:var(--sidebar-icon)"></span>
+      <span class="acc">SM</span>
+    </div>
+    <div class="shell">
+      <nav class="rail">
+        <span class="tile"><span class="i i20 i-mail"></span>Engagement</span>
+        <span class="tile on"><span class="i i20 i-pie"></span>Insights</span>
+        <span style="flex:1"></span>
+        <span class="tile"><span class="i i20 i-settings"></span>Settings</span>
+      </nav>
+      <nav class="menu">
+        <h3>Insights</h3><p>Reports and dashboards on your data</p>
+        <span class="mi"><span class="i i20 i-home"></span>Overview</span>
+        <span class="mi"><span class="i i20 i-sparkles"></span>AI Reports</span>
+        <span class="mi on"><span class="i i20 i-report"></span>Reports</span>
+        <span class="mi"><span class="i i20 i-dash"></span>Dashboards</span>
+        <span class="mi"><span class="i i20 i-clock"></span>Scheduled</span>
+        <span class="mi"><span class="i i20 i-up"></span>Uploaded Files</span>
+        <span class="mi"><span class="i i20 i-sigma"></span>Shared Formulas</span>
+        <span class="mi"><span class="i i20 i-log"></span>Run Log</span>
+        <span class="mi"><span class="i i20 i-activity"></span>Usage</span>
+      </nav>
+
+      <main class="content">
+        <div class="ph">
+          <div>
+            <h1>Reports <span class="count">48</span></h1>
+            <p>Every report you can open, yours and the ones shared with you.</p>
+          </div>
+          <div class="act">
+            <button class="btn secondary"><span class="i i-sparkles"></span>Ask AI</button>
+            <button class="btn primary"><span class="i i-plus"></span>New Report</button>
+          </div>
+        </div>
+
+        <div class="recent">
+          <span class="lbl"><span class="pin">1</span><span class="i i-history"></span>Recently Viewed</span>
+          <span class="rchip"><span class="i i-chart"></span>Weekly Sends by Channel</span>
+          <span class="rchip"><span class="i i-pivot"></span>Revenue by Store and Month</span>
+          <span class="rchip"><span class="i i-grid"></span>Bounced Emails, Last 30 Days</span>
+          <span class="rchip"><span class="i i-chart"></span>Journey Conversions</span>
+        </div>
+
+        <div class="body">
+
+          <section class="main">
+            <div class="tabs" role="tablist">
+              <span class="tab on" role="tab"><span class="pin">2</span>All Reports<span class="n">48</span></span>
+              <span class="tab" role="tab">My Reports<span class="n">14</span></span>
+              <span class="tab" role="tab">Shared With Me<span class="n">21</span></span>
+            </div>
+            <div class="tools">
+              <span class="srch"><span class="i i-search"></span>Search reports</span>
+              <span class="ddwrap"><span class="dd open"><span class="pin" style="margin-right:2px">3</span><span class="i i-folder"></span>Folder<span class="i i-down"></span></span>
+                <div class="pop fpop" role="menu">
+                  <span class="it hl"><span class="i i-files"></span>All Folders<span class="n">48</span></span>
+                  <div class="div"></div>
+                  <span class="it"><span class="i i-folder"></span>Campaign Reviews<span class="n">12</span></span>
+                  <span class="it"><span class="i i-folder"></span>Weekly Ops<span class="n">8</span></span>
+                  <span class="it"><span class="i i-folder"></span>Finance<span class="n">4</span></span>
+                  <span class="it"><span class="i i-folder" style="opacity:.6"></span>No Folder<span class="n">24</span></span>
+                  <div class="div"></div>
+                  <span class="it add"><span class="i i-plus"></span>New Folder…</span>
+                </div>
+              </span>
+              <span class="dd">Component<span class="i i-down"></span></span>
+              <span class="dd set">Dataset: Messages<span class="i i-down"></span></span>
+              <span class="dd">Owner<span class="i i-down"></span></span>
+              <span class="dd tog"><span class="i i-star"></span>Favourites</span>
+              <button class="clear">Clear Filters</button>
+              <span class="right">18 of 48 reports</span>
+            </div>
+
+            <div class="card">
+              <table aria-label="Reports">
+                <thead><tr>
+                  <th style="width:40px"><span class="sr" style="display:none">Favourite</span></th>
+                  <th>Name<span class="pin" style="margin-left:8px">4</span></th>
+                                    <th style="width:140px">Owner</th>
+                  <th style="width:128px">Access<span class="pin" style="margin-left:8px">5</span></th>
+                  <th style="width:136px">Schedule</th>
+                  <th style="width:144px">Last Run<span class="i i-sort"></span></th>
+                  <th style="width:48px"></th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="star"><span class="i i-star fav"></span></td>
+                    <td><div class="nm"><span class="ty"><span class="i i-chart"></span></span><div><a href="#">Weekly Sends by Channel</a><small>Engagement · Messages · Weekly Ops</small></div></div></td>
+                    <td>Sarah Michael</td>
+                    <td><span class="acc"><span class="i i-globe"></span>Everyone</span></td>
+                    <td><span class="sch"><span class="i i-clock"></span>Mondays · 4</span></td>
+                    <td class="num">Today 09:12</td>
+                    <td class="more"><span class="kebab"><span class="i i-dots"></span></span></td>
+                  </tr>
+                  <tr class="hover">
+                    <td class="star"><span class="i i-star"></span></td>
+                    <td><div class="nm"><span class="ty"><span class="i i-pivot"></span></span><div><a href="#">Delivered Rate by Campaign and Month</a><span class="ai">AI</span><small>Engagement · Messages · Campaign Reviews</small></div></div></td>
+                    <td>Priya Nair</td>
+                    <td><span class="acc"><span class="i i-users"></span>Shared · 3</span></td>
+                    <td><span class="off">—</span></td>
+                    <td class="num">Today 08:40</td>
+                    <td class="more"><span class="kebab"><span class="i i-dots"></span></span></td>
+                  </tr>
+                  <tr>
+                    <td class="star"><span class="i i-star"></span></td>
+                    <td><div class="nm"><span class="ty"><span class="i i-grid"></span></span><div><a href="#">Bounced Emails, Last 30 Days</a><small>Engagement · Messages · No folder</small></div></div></td>
+                    <td>Sarah Michael</td>
+                    <td><span class="acc"><span class="i i-lock"></span>Private</span></td>
+                    <td><span class="off">—</span></td>
+                    <td class="num">Yesterday 17:05</td>
+                    <td class="more"><span class="kebab on"><span class="i i-dots"></span></span>
+                      <div class="pop" role="menu">
+                        <span class="it hl"><span class="i i-open"></span>Open</span>
+                        <span class="it"><span class="i i-pencil"></span>Edit</span>
+                        <span class="it"><span class="i i-copy"></span>Duplicate</span>
+                        <span class="it"><span class="i i-move"></span>Move to Folder…</span>
+                        <div class="div"></div>
+                        <span class="it"><span class="i i-share"></span>Share…</span>
+                        <span class="it"><span class="i i-clock"></span>Schedule…</span>
+                        <div class="div"></div>
+                        <span class="it danger"><span class="i i-trash"></span>Delete…</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="star"><span class="i i-star fav"></span></td>
+                    <td><div class="nm"><span class="ty"><span class="i i-tree"></span></span><div><a href="#">Opens by Region, Store and Week</a><small>Engagement · Messages · Weekly Ops</small></div></div></td>
+                    <td>Daniel Ortiz</td>
+                    <td><span class="acc"><span class="i i-globe"></span>Everyone</span></td>
+                    <td><span class="sch"><span class="i i-clock"></span>Daily · 2</span></td>
+                    <td class="num">Oct 24 18:30</td>
+                    <td class="more"><span class="kebab"><span class="i i-dots"></span></span></td>
+                  </tr>
+                  <tr>
+                    <td class="star"><span class="i i-star"></span></td>
+                    <td><div class="nm"><span class="ty"><span class="i i-chart"></span></span><div><a href="#">SMS Click Rate vs Last Year</a><span class="ai">AI</span><small>Engagement · Messages · Campaign Reviews</small></div></div></td>
+                    <td>Sarah Michael</td>
+                    <td><span class="acc"><span class="i i-users"></span>Shared · 1</span></td>
+                    <td><span class="off">—</span></td>
+                    <td class="num">Oct 23 11:02</td>
+                    <td class="more"><span class="kebab"><span class="i i-dots"></span></span></td>
+                  </tr>
+                  <tr>
+                    <td class="star"><span class="i i-star"></span></td>
+                    <td><div class="nm"><span class="ty"><span class="i i-grid"></span></span><div><a href="#">Unsubscribes by Campaign</a><small>Engagement · Messages · No folder</small></div></div></td>
+                    <td>Priya Nair</td>
+                    <td><span class="acc"><span class="i i-globe"></span>Everyone</span></td>
+                    <td><span class="sch"><span class="i i-clock"></span>Monthly · 6</span></td>
+                    <td class="num">Oct 21 07:00</td>
+                    <td class="more"><span class="kebab"><span class="i i-dots"></span></span></td>
+                  </tr>
+                  <tr>
+                    <td class="star"><span class="i i-star"></span></td>
+                    <td><div class="nm"><span class="ty"><span class="i i-chart"></span></span><div><a href="#">Sends per Hour, Black Friday</a><small>Insights · Messages · Campaign Reviews</small></div></div></td>
+                    <td>Daniel Ortiz</td>
+                    <td><span class="acc"><span class="i i-lock"></span>Private</span></td>
+                    <td><span class="off">—</span></td>
+                    <td class="num"><span class="off">Never run</span></td>
+                    <td class="more"><span class="kebab"><span class="i i-dots"></span></span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="foot">
+                <span>Rows 1–18 of 18</span>
+                <span class="pp">Rows per page <span class="dd">20<span class="i i-down"></span></span></span>
+                <span class="pager"><span class="pg"><span class="i i-left"></span></span><span class="pg on">1</span><span class="pg"><span class="i i-right"></span></span></span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note"><b><span class="pin">1</span>Recently Viewed (same as A)</b>The last four reports you opened, one click away (Wix, Xero). It's hidden until you've opened something. This would be new: the backend would need to record who opens what (Usage already counts openings).</div>
+    <div class="note"><b><span class="pin">2</span>Ownership tabs</b>All Reports, My Reports and Shared With Me (Steep, Intercom, Semrush), each with its count. Favourites becomes a toggle on the filter line, and it combines with any tab. Scheduled reports are already listed under Insights → Scheduled, so they don't get a tab here.</div>
+    <div class="note"><b><span class="pin">3</span>One filter line, with Folder first</b>Search, then Folder, Component, Dataset and Owner dropdowns (Shopify, Amplitude). Folder lists each folder with its count, No Folder and New Folder… at the foot. A dropdown that's set turns blue and says its value. Clear Filters resets them. Component stays in the address as it does today (?component=).</div>
+    <div class="note"><b><span class="pin">4</span>Name cell</b>A view icon (grid, chart, pivot, hierarchy) replaces the View column. The AI mark stays. The line underneath shows component · dataset · folder, which takes the place of the View, Component and Dataset columns (Amplitude, Intercom). With the full width, names stay on one line at 1440px.</div>
+    <div class="note"><b><span class="pin">5</span>Access and Schedule</b>Private / Shared · n / Everyone, and the schedule's rhythm with its recipient count (Steep, Toggl, Hootsuite). These answer "who sees it?" and "does it go out?" without opening the report.</div>
+    <div class="note"><b>⋯ row menu</b>Open, Edit, Duplicate, Move to Folder, Share, Schedule, Delete (Steep, Sentry). Items you don't have the right for are hidden. Duplicate is new: it needs a copy endpoint, or the editor's Save As.</div>
+  </div>
+
+  <h2 class="part">2 · An empty view</h2>
+  <p>The same page when a view or filter has nothing in it. Here it's My Reports for someone who hasn't made a report yet. Both ways to start a report are offered.</p>
+  <div class="frame" style="padding:24px 32px">
+    <div class="empty">
+      <span class="ic"><span class="i i20 i-report"></span></span>
+      <h3>No Reports of Yours Yet</h3>
+      <p>Pick a dataset and choose what to show, or describe the report and let AI draft it.</p>
+      <div class="act">
+        <button class="btn secondary"><span class="i i-sparkles"></span>Ask AI</button>
+        <button class="btn primary"><span class="i i-plus"></span>New Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

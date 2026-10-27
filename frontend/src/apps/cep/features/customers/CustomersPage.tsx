@@ -7,6 +7,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonSecondary } from '@/components/Form'
+import { SearchField } from '@/components/SearchField'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
@@ -44,13 +45,8 @@ export function CustomersPage() {
     <section>
       <PageHeader title="Customers" help={<PageHelp chapter="contact-lists" />} description="Everyone in the customer records, as C360 syncs them or an upload added them. Open one to see their consent, lists, events, orders, messages and journeys in one place."
         actions={<Link to="/contact-lists" className={buttonSecondary}>Contact Lists</Link>} />
-      <label className="relative mb-5 block w-full sm:w-96">
-        <span className="sr-only">Search customers</span>
-        <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
-        <input type="search" value={search} autoFocus placeholder="Name, email address, mobile number or customer id"
-          onChange={(event) => { setSearch(event.target.value); setPage(1); setParams(event.target.value.trim() ? { q: event.target.value.trim() } : {}, { replace: true }) }}
-          className="h-10 w-full rounded-control-lg border border-line-control bg-surface pr-3 pl-9 text-sm text-ink-900" />
-      </label>
+      <SearchField label="Search customers" placeholder="Name, email, mobile or ID" value={search} autoFocus className="mb-5"
+        onChange={(next) => { setSearch(next); setPage(1); setParams(next.trim() ? { q: next.trim() } : {}, { replace: true }) }} />
       {settled === '' ? (
         <EmptyState title="Find a customer" hint="Type part of a name, an email address, a mobile number or a customer id." icon={Search} />
       ) : query.isPending ? (

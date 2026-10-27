@@ -50,11 +50,14 @@ test('suppressions: a reason tile, the channel and the search filter the list th
   await user.click(screen.getByRole('button', { name: /Bounced/ }))
   await vi.waitFor(() => expect(within(table).queryByText('j.lee@fabrikam.example')).toBeNull())
   expect(calls.filter((call) => call.url.includes('/suppressions/?')).at(-1)?.url).toContain('reason=BOUNCED')
-  await user.click(screen.getByRole('button', { name: /Bounced/ }))                                        // again: every reason
+  expect(screen.getByRole('button', { name: 'Reason: Bounced' })).toBeTruthy()                            // the tile sets the Reason filter too
+  await user.click(screen.getByRole('button', { name: /Bounced/, pressed: true }))                         // again: every reason
 
-  await user.click(screen.getByRole('radio', { name: 'Phone' }))
+  await user.click(screen.getByRole('button', { name: 'Channel' }))
+  await user.click(await screen.findByRole('option', { name: 'Phone' }))
   await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Suppressed addresses and numbers' })).queryByText('d.alvarez@northwind.example')).toBeNull())
-  await user.click(screen.getByRole('radio', { name: 'All' }))
+  await user.click(screen.getByRole('button', { name: 'Channel: Phone' }))
+  await user.click(await screen.findByRole('option', { name: 'All Channels' }))
   await user.type(screen.getByRole('searchbox', { name: 'Search suppressions' }), 'competitor')
   await vi.waitFor(() => expect(calls.filter((call) => call.url.includes('/suppressions/?')).at(-1)?.url).toContain('search=competitor'))
   expect(await screen.findByText('promo@competitor.example')).toBeTruthy()

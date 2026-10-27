@@ -11,21 +11,12 @@ import { useMemo, useRef, useState } from 'react'
 
 import type { ColumnFormat, ResultColumn, RunResult } from '../types'
 import { fillOf, formatOf, rangeOf, toneClass } from './formats'
+import { PAGE_SIZES, rememberedSize } from './paging'
 import { formatCell, maskedWords } from './resultWords'
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
-const PAGE_SIZES = [20, 50, 100] as const
 const SIZE_KEY = 'insights.grid.rows'
-
-function rememberedSize(): number {
-  try {
-    const stored = Number(window.localStorage.getItem(SIZE_KEY))
-    return (PAGE_SIZES as readonly number[]).includes(stored) ? stored : PAGE_SIZES[0]
-  } catch {
-    return PAGE_SIZES[0]
-  }
-}
 
 const theme = themeQuartz.withParams({
   accentColor: 'var(--color-brand-600)',
@@ -68,7 +59,7 @@ export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onP
   const rowData = useMemo(() => result.rows.map((row) => Object.fromEntries(row.map((value, index) => [`c${index}`, value]))), [result.rows])
   const masked = maskedWords(result)
   const grid = useRef<GridApi | null>(null)
-  const [size, setSize] = useState(rememberedSize)
+  const [size, setSize] = useState(() => rememberedSize(SIZE_KEY))
   const [page, setPage] = useState(0)
   const paged = result.rows.length > PAGE_SIZES[0]
   const pages = Math.max(1, Math.ceil(result.rows.length / size))
@@ -108,7 +99,7 @@ function pageNumbers(page: number, pages: number): (number | null)[] {
 }
 
 /** the rows shown, rows per page, Previous, the page numbers and Next */
-function Pager({ page, pages, size, rows, onPage, onSize }: { page: number; pages: number; size: number; rows: number; onPage: (page: number) => void; onSize: (size: number) => void }) {
+export function Pager({ page, pages, size, rows, onPage, onSize }: { page: number; pages: number; size: number; rows: number; onPage: (page: number) => void; onSize: (size: number) => void }) {
   const first = page * size + 1
   const last = Math.min(rows, (page + 1) * size)
   const shape = 'inline-flex h-7 min-w-7 items-center justify-center rounded-control-md border px-2 text-xs'

@@ -5,7 +5,9 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
+import { SearchField } from '@/components/SearchField'
 import { Modal } from '@/components/Modal'
 import { ErrorState, FullPageSpinner, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
@@ -404,13 +406,10 @@ export function ContactListDetailPage() {
       {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
       {problem && <div className="mb-4"><ErrorState title={problem.title} error={problem.error} /></div>}
 
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search contacts" aria-label="Search contacts"
-          className="h-10 w-full rounded-control-lg border border-line-control bg-surface px-3 text-sm sm:w-64" />
-        <select aria-label="Consent State" value={consent} onChange={(event) => { setConsent(event.target.value); setPage(1); setSelected([]) }}
-          className="h-10 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
-          {CONSENT_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-        </select>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SearchField label="Search contacts" value={search} onChange={(next) => { setSearch(next); setPage(1) }} />
+        <SelectFilter label="Consent" options={CONSENT_FILTERS} value={consent} menuWidth={260} onChange={(next) => { setConsent(next); setPage(1); setSelected([]) }} />
+        {(search || consent) && <ClearFiltersLink onClick={() => { setSearch(''); setConsent(''); setPage(1); setSelected([]) }} />}
         <span className="text-sm text-ink-800" aria-live="polite">{selected.length === 0 ? 'No contacts selected' : `${formatNumber(selected.length)} selected`}</span>
         {members.isFetching && <Spinner className="h-4 w-4" />}
       </div>

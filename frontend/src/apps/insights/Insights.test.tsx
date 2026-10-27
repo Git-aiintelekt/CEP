@@ -1,4 +1,4 @@
-/** Insights: the Reports list grouped by component, New Report from a dataset, the viewer's grid, and how the shell offers Insights. */
+/** Insights: the Reports list, New Report from a dataset, the viewer's grid, and how the shell offers Insights. */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -31,14 +31,12 @@ test('the starter definition: a dataset’s first dimensions, then every measure
   expect(definition.orderBy).toEqual([{ field: 'sent', direction: 'desc' }])
 })
 
-test('with Insights on the workspace, Engagement’s menu offers it and the launcher lists it; the list shows the reports grouped by component', async () => {
+test('with Insights on the workspace, Engagement’s menu offers it and the launcher lists it; the list shows the reports', async () => {
   await renderAppAt('/insights/reports')
   await screen.findByRole('navigation', { name: 'Main' })
   const table = await screen.findByRole('table', { name: 'Reports' })
-  expect(within(table).getByText('Engagement')).toBeTruthy()                            // the group row
   expect(within(table).getByRole('link', { name: 'Sends by campaign' })).toBeTruthy()
-  expect(within(table).getByText('Messages')).toBeTruthy()
-  expect(screen.getByRole('heading', { name: 'All Reports' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Reports' })).toBeTruthy()
   // the shell: the navigation is Insights' own menu here, and the launcher offers both components
   expect(within(nav()).getByRole('list', { name: 'Insights' })).toBeTruthy()
   const user = userEvent.setup()
@@ -134,7 +132,7 @@ test('the viewer: the owner can delete, and the list no longer shows the report'
   await renderAppAt('/insights/reports/rep-1')
   await screen.findByRole('heading', { name: 'Sends by campaign' })
   await user.click(screen.getByRole('button', { name: 'Delete' }))
-  await screen.findByRole('heading', { name: 'All Reports' })
+  await screen.findByRole('heading', { name: 'Reports' })
   await vi.waitFor(() => expect(screen.queryByRole('link', { name: 'Sends by campaign' })).toBeNull())
 })
 

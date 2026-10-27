@@ -80,7 +80,7 @@ test('list: what is coming up, locked status wording, the action that fits each 
   expect(within(row('Welcome Series Email 1')).getByText('Production Published')).toBeTruthy()
   expect(within(table).queryByText('Old Spring Sale')).toBeNull()
   expect((await screen.findByText('Showing 1–4 of 4 campaigns')).getAttribute('aria-live')).toBe('polite')
-  expect((within(filterBar()).getByRole('button', { name: 'Clear Filters' }) as HTMLButtonElement).disabled).toBe(true)   // nothing to clear yet
+  expect(within(filterBar()).queryByRole('button', { name: 'Clear Filters' })).toBeNull()   // nothing to clear yet
 
   await user.click(within(filterBar()).getByRole('button', { name: 'Status' }))
   await user.click(within(screen.getByRole('region', { name: 'Status' })).getByRole('button', { name: 'Archived' }))
@@ -91,7 +91,6 @@ test('list: what is coming up, locked status wording, the action that fits each 
   await user.click(within(screen.getByRole('region', { name: 'Channel' })).getByRole('button', { name: 'SMS' }))
   await vi.waitFor(() => expect(screen.getByText('Showing 1–1 of 1 campaign')).toBeTruthy())
   expect(within(filterBar()).getByRole('button', { name: 'SMS' }).className).toContain('text-brand-800')             // the button shows the value it holds
-  expect((within(filterBar()).getByRole('button', { name: 'Clear Filters' }) as HTMLButtonElement).disabled).toBe(false)
   await user.click(within(filterBar()).getByRole('button', { name: 'Clear Filters' }))
   await user.click(await screen.findByRole('button', { name: 'Campaign Name' }))
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('ordering=name') && !call.url.includes('ordering=-name'))).toBe(true))
@@ -99,7 +98,7 @@ test('list: what is coming up, locked status wording, the action that fits each 
   expect(calls.some((call) => call.url.includes('channel=SMS') && call.url.includes('page_size=25'))).toBe(true)   // 25 rows a page to start with
 })
 
-test('calendar view: a tab of the same page, the month as a grid with a bar per campaign, the same filters, and the upcoming block above both views', async () => {
+test('calendar view: a tab of the same page, the month as a grid with a bar per campaign, the same filters, and the upcoming block above both views (none when nothing is scheduled)', async () => {
   const now = new Date().toISOString()
   const calls = installMockApi({ campaigns: [...workspace(),
     makeCampaign({ id: 'c6', name: 'Sent today', code: 'CMP-2026-0006', status: 'COMPLETED', runs: [run({ id: 'r6', campaign: 'c6', started_at: now, completed_at: now })] as never }),
@@ -143,10 +142,11 @@ test('calendar view: a tab of the same page, the month as a grid with a bar per 
   expect(await within(calendar).findByRole('heading', { name: title })).toBeTruthy()
 
   cleanup()
-  installMockApi({ campaigns: [makeCampaign({})] })
+  const quiet = installMockApi({ campaigns: [makeCampaign({})] })
   await renderAppAt('/campaigns?view=calendar')                                                           // the view is part of the address
   expect(await screen.findByRole('region', { name: 'Campaign calendar' })).toBeTruthy()
-  expect(await within(screen.getByRole('region', { name: 'Upcoming Campaigns' })).findByText(/Nothing is scheduled/)).toBeTruthy()
+  await vi.waitFor(() => expect(quiet.some((call) => call.url.includes('status=SCHEDULED'))).toBe(true))
+  expect(screen.queryByRole('region', { name: 'Upcoming Campaigns' })).toBeNull()                       // nothing scheduled: no block, no empty note
 })
 
 test('list: pausing asks first and then shows Paused with Resume; bulk clone and bulk archive report what happened', async () => {
@@ -364,7 +364,7 @@ test('list filters: Status is a multi-select sent as one comma list; Date create
   await user.click(within(filterBar()).getByRole('button', { name: 'Clear Filters' }))
   expect(within(filterBar()).getByRole('button', { name: 'Status' })).toBeTruthy()
   expect(within(filterBar()).getByRole('button', { name: 'Date Created' })).toBeTruthy()
-  expect((within(filterBar()).getByRole('button', { name: 'Clear Filters' }) as HTMLButtonElement).disabled).toBe(true)
+  expect(within(filterBar()).queryByRole('button', { name: 'Clear Filters' })).toBeNull()
 })
 
 test('list pages: 25 rows to start, 50 or 100 on request (back to page 1), previous and next, and "Showing x–y of n"', async () => {

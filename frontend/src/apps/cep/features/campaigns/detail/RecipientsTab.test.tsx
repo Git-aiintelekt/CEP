@@ -39,12 +39,14 @@ test('Recipients: every recipient of the run with status, reason and times; filt
   expect(within(failed).getByText('Failed')).toBeTruthy()
   expect(screen.getByText(/4 recipients/)).toBeTruthy()
 
-  await user.selectOptions(screen.getByLabelText('Status'), 'BOUNCED')
+  await user.click(screen.getByRole('button', { name: 'Status' }))
+  await user.click(await screen.findByRole('option', { name: /^Bounced/ }))
   expect(await screen.findByText(/1 recipient ·/)).toBeTruthy()
   expect(screen.queryByText('brianna.garcia@example.com')).toBeNull()
   const listCall = calls.filter((call) => call.url.includes('/recipients/') && call.url.includes('status=BOUNCED')).at(-1)
   expect(listCall).toBeTruthy()
-  await user.selectOptions(screen.getByLabelText('Status'), '')
+  await user.click(screen.getByRole('button', { name: /^Status: Bounced/ }))
+  await user.click(await screen.findByRole('option', { name: 'All Statuses' }))
 
   await user.type(screen.getByPlaceholderText('Address, name or customer ID'), 'sam')
   await waitFor(() => expect(screen.queryByText('brianna.garcia@example.com')).toBeNull())      // the search settles after a pause

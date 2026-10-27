@@ -8,6 +8,8 @@ export interface TabItem<T extends string> {
   id: T
   label: string
   icon?: LucideIcon
+  /** a count after the label, in a small badge */
+  count?: number
   /** the tab can't be chosen; this sentence says why, in a tooltip */
   disabledReason?: string
 }
@@ -58,7 +60,7 @@ export function Tabs<T extends string>({ label, tabs, value, onChange, idPrefix,
 
   return (
     <div role="tablist" aria-label={label} className={`flex items-stretch self-stretch ${style.list}`}>
-      {tabs.map(({ id, label: text, icon: Icon, disabledReason }) => {
+      {tabs.map(({ id, label: text, icon: Icon, count, disabledReason }) => {
         const active = id === value
         if (disabledReason) {
           return (
@@ -98,6 +100,7 @@ export function Tabs<T extends string>({ label, tabs, value, onChange, idPrefix,
           >
             {Icon && <Icon size={style.icon} strokeWidth={1.5} aria-hidden />}
             {text}
+            {count !== undefined && <span className={`cep-num inline-flex h-5 items-center rounded-sm px-1.5 text-xs font-semibold ${active ? 'bg-brand-100 text-brand-800' : 'bg-fill-subtle text-ink-800'}`}>{count.toLocaleString()}</span>}
           </button>
         )
       })}

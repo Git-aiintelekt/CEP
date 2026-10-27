@@ -5,15 +5,10 @@ import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
 import { buttonClass } from './buttonStyles'
 import { Checkbox } from './Checkbox'
+import { filterChipClass } from './filterChipStyles'
 import { InputGroup } from './InputGroup'
 import { Popover } from './Popover'
 import { Tooltip } from './Tooltip'
-
-const CHIP = 'inline-flex h-10 max-w-full items-center gap-2 rounded-control-lg border px-3 text-label font-medium whitespace-nowrap transition-colors duration-fast ease-standard'
-const CHIP_STATE = {
-  rest: 'border-line bg-surface text-ink-900 hover:bg-surface-hover',
-  active: 'border-link bg-brand-100 text-brand-800',
-}
 
 interface FilterChipProps {
   label: string
@@ -37,7 +32,7 @@ export function FilterChip({ label, active = false, menuLabel, menuWidth = 280, 
   return (
     <span className="relative inline-flex max-w-full">
       <Tooltip content={label} disabled={() => open || !cut()}>
-        <button type="button" {...menus.triggerProps('menu')} aria-haspopup="listbox" data-filter-chip className={`${CHIP} ${active ? CHIP_STATE.active : CHIP_STATE.rest}`}>
+        <button type="button" {...menus.triggerProps('menu')} aria-haspopup="listbox" data-filter-chip className={filterChipClass(active)}>
           <span ref={text} className="min-w-0 truncate" style={{ maxWidth: maxLabelWidth }}>{label}</span>
           <ChevronDown size={16} strokeWidth={1.5} aria-hidden className={`shrink-0 transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
         </button>
@@ -141,4 +136,28 @@ export function MultiSelectMenu({ label, options, value, onApply, searchLabel = 
 /** Resets every filter; the caller shows it only while a filter is set. */
 export function ClearFiltersLink({ onClick }: { onClick: () => void }) {
   return <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={onClick}>Clear Filters</button>
+}
+
+interface SelectFilterProps<V extends string> {
+  /** the chip's name, e.g. "Status"; once a choice other than the default is made it reads "Status: Paused" */
+  label: string
+  options: MenuOption<V>[]
+  value: V
+  onChange: (value: V) => void
+  /** the choice that means "not filtering" ('' unless said) */
+  defaultValue?: V
+  /** name the choice even at the default ("Period: 7 Days"), where the default is itself a choice and not "everything" */
+  showValue?: boolean
+  menuWidth?: number
+}
+
+/** A FilterChip with one choice: the list pages' dropdown filter (search first, these after it, Clear Filters last). */
+export function SelectFilter<V extends string>({ label, options, value, onChange, defaultValue = '' as V, showValue = false, menuWidth }: SelectFilterProps<V>) {
+  const set = value !== defaultValue
+  const chosen = options.find((option) => option.value === value)
+  return (
+    <FilterChip label={(set || showValue) && chosen ? `${label}: ${chosen.label}` : label} active={set} menuLabel={`Filter by ${label.toLowerCase()}`} menuWidth={menuWidth}>
+      {({ close }) => <SingleSelectMenu label={label} value={value} options={options} onChange={(next) => { onChange(next); close() }} />}
+    </FilterChip>
+  )
 }

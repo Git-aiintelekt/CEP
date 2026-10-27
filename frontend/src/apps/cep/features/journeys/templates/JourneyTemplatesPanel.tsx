@@ -22,10 +22,9 @@ export function JourneyTemplatesPanel({ onScratch, onPreview, onViewMore }: {
   const yours = saved.data ?? []
   return (
     <section aria-labelledby="journey-templates-title" className="rounded-lg bg-band px-[clamp(20px,2vw,32px)] pt-6 pb-7">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 id="journey-templates-title" className="font-display text-section-title font-semibold text-on-brand">Journey Templates</h2>
-          <p className="mt-1 text-sm leading-normal text-on-brand-soft">Start a journey from a blank canvas, a C360 starter or a template saved from one of your journeys. A template is copied into a new draft; the original never changes.</p>
         </div>
         <button type="button" onClick={onViewMore}
           className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control-md bg-surface-overlay px-3 text-sm font-semibold text-link transition-colors duration-fast ease-standard hover:bg-brand-100 hover:text-link-hover active:bg-brand-100">

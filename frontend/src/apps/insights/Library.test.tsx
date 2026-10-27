@@ -1,4 +1,4 @@
-/** Insights favourites and folders: the star puts a report first under Favourites; the folder chips filter; the viewer files a report, into a new folder too. */
+/** Insights favourites and folders: the star marks a report and Favourites shows the starred ones; Folder filters; the viewer files a report, into a new folder too, and Folder then lists it. */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -22,17 +22,17 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('the star puts a report under Favourites, first; off again, it goes back to its component', async () => {
+test('the star marks a report; Favourites shows only the starred ones, and an unstarred report leaves it', async () => {
   const user = userEvent.setup()
   await renderAppAt('/insights/reports')
   const table = await screen.findByRole('table', { name: 'Reports' })
-  expect(within(table).queryByText('Favourites')).toBeNull()
   await user.click(within(table).getByRole('button', { name: 'Add Sends by campaign to favourites' }))
-  await within(table).findByText('Favourites')
-  const groups = within(table).getAllByRole('rowgroup').at(-1) as HTMLElement
-  expect(within(groups).getAllByRole('row')[0].textContent).toContain('Favourites')
-  await user.click(within(table).getByRole('button', { name: 'Remove Sends by campaign from favourites' }))
-  await vi.waitFor(() => expect(within(table).queryByText('Favourites')).toBeNull())
+  await within(table).findByRole('button', { name: 'Remove Sends by campaign from favourites' })
+  await user.click(screen.getByRole('button', { name: 'Favourites' }))
+  expect(screen.getByRole('button', { name: 'Favourites' }).getAttribute('aria-pressed')).toBe('true')
+  expect(new URLSearchParams(window.location.search).get('fav')).toBe('1')
+  await user.click(within(screen.getByRole('table', { name: 'Reports' })).getByRole('button', { name: 'Remove Sends by campaign from favourites' }))
+  expect(await screen.findByText('No Reports Match These Filters')).toBeTruthy()
 })
 
 test('the viewer files the report in a folder, or in a new one; the list shows the folder and filters by it', async () => {
@@ -49,9 +49,12 @@ test('the viewer files the report in a folder, or in a new one; the list shows t
   await vi.waitFor(() => expect((screen.getByRole('combobox', { name: 'Folder' }) as HTMLSelectElement).selectedOptions[0].textContent).toBe('Weekly Review'))
   await user.click(screen.getByRole('link', { name: 'All Reports' }))
   const table = await screen.findByRole('table', { name: 'Reports' })
-  await within(table).findByText('Weekly Review')
-  await user.click(screen.getByRole('button', { name: 'Finance' }))
+  await within(table).findByRole('link', { name: 'Sends by campaign' })
+  await user.click(screen.getByRole('button', { name: 'Folder' }))
+  await user.click(await screen.findByRole('option', { name: 'Finance (0)' }))
   await vi.waitFor(() => expect(screen.queryByRole('link', { name: 'Sends by campaign' })).toBeNull())
-  await user.click(screen.getByRole('button', { name: 'Weekly Review' }))
+  await user.click(screen.getByRole('button', { name: 'Folder: Finance' }))
+  await user.click(await screen.findByRole('option', { name: 'Weekly Review (1)' }))
   expect(await screen.findByRole('link', { name: 'Sends by campaign' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Folder: Weekly Review' })).toBeTruthy()
 })

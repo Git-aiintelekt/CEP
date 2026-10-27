@@ -9,7 +9,9 @@ import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { DataTable, type Column } from '@/components/DataTable'
+import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
+import { SearchField } from '@/components/SearchField'
 import { Modal } from '@/components/Modal'
 import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -30,6 +32,12 @@ const POS_FAILED = 'The setting was not saved'
 const CODE_TONE: Record<string, TagTone> = { S100: 'success', S101: 'warning', S102: 'neutral', S103: 'success', S104: 'neutral', S105: 'warning' }
 const EMPTY_STORE: StoreInput = { store_number: '', name: '', brand: '', address1: '', address2: '', city: '', state: '', postal_code: '', country: '', district: '', phone: '', email: '', manager: '',
                                   return_policy: '', url1: '', url2: '', url3: '', url4: '', image_url: '', is_active: true }
+
+const POS_ANSWERS = [
+  { value: '', label: 'All Answers' }, { value: 'S100', label: 'S100 Receipt sent' }, { value: 'S101', label: 'S101 No email address' }, { value: 'S102', label: 'S102 Already received' },
+  { value: 'S103', label: 'S103 Text receipt sent' }, { value: 'S104', label: 'S104 Printed, no e-receipt' }, { value: 'S105', label: 'S105 Text not sent' },
+  { value: 'E103', label: 'E103 Document refused' }, { value: 'E120', label: 'E120 No campaign' }, { value: 'E900', label: 'E900 Engine refused' },
+]
 
 export function PosReceiptsPage() {
   const queryClient = useQueryClient()
@@ -256,16 +264,11 @@ function ReceivedCard() {
         <h3 className="font-display text-card-heading font-semibold text-ink-900">Received from the Point of Sale</h3>
         <p className="mt-1 text-sm text-ink-500">The last {received.data?.days ?? 30} days, from the call log. Each row is one transaction posted and the answer it got; the receipt itself is on the campaign's Recipients tab, and the full XML under <Link to="/settings/integrations" className="font-semibold text-brand-800 hover:underline">Integrations</Link>.</p>
       </div>
-      <form className="flex flex-wrap items-end gap-3 border-b border-line-subtle px-4 py-3" onSubmit={(event: FormEvent) => event.preventDefault()}>
-        <Field label="Answer">
-          {(ids) => <Select {...ids} controlSize="sm" value={code} onChange={(event) => setCode(event.target.value)}>
-            <option value="">All</option><option value="S100">S100 Receipt sent</option><option value="S101">S101 No email address</option><option value="S102">S102 Already received</option>
-            <option value="S103">S103 Text receipt sent</option><option value="S104">S104 Printed, no e-receipt</option><option value="S105">S105 Text not sent</option>
-            <option value="E103">E103 Document refused</option><option value="E120">E120 No campaign</option><option value="E900">E900 Engine refused</option>
-          </Select>}
-        </Field>
-        <Field label="Transaction ID">{(ids) => <TextInput {...ids} controlSize="sm" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="243309" />}</Field>
-      </form>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-3">
+        <SearchField label="Search by transaction ID" placeholder="Transaction ID" value={search} onChange={setSearch} />
+        <SelectFilter label="Answer" value={code} onChange={setCode} menuWidth={280} options={POS_ANSWERS} />
+        {(code || search) && <ClearFiltersLink onClick={() => { setCode(''); setSearch('') }} />}
+      </div>
       {received.isError ? <div className="p-4"><ErrorState error={received.error} onRetry={() => void received.refetch()} /></div>
       : received.isPending ? <p className="flex items-center gap-2 p-4 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
       : rows.length === 0 ? <div className="p-4"><EmptyState title="Nothing Received Yet" hint={code || q ? 'Nothing matches these filters.' : 'The first transaction the point of sale posts appears here with the answer it got.'} variant="plain" /></div>

@@ -1,6 +1,6 @@
 /**
- * Campaigns landing (BRD 6.3): what is coming up, then two views of the same filtered campaigns. List view: saved views
- * (Mine, Sending Today, Needs Attention…), search, filters, sorting, pages of 25 / 50 / 100, a preview pop-up per
+ * Campaigns landing (BRD 6.3): what is coming up (only once something is), then two views of the same filtered campaigns.
+ * List view: search, filters (a view a link opens, ?saved=attention, shows as one chip among them), sorting, pages of 25 / 50 / 100, a preview pop-up per
  * campaign (?preview=<id>), Pause / Resume / Approve on the row, a row menu by status and bulk clone / archive / pause /
  * resume. Calendar view: the month, a bar per campaign. Archived campaigns stay out unless the Status filter asks for them.
  */
@@ -106,42 +106,36 @@ const ownsClick = (event: MouseEvent) => (event.target as HTMLElement).closest('
 
 const VIEWS = [{ id: 'list' as const, label: 'List View' }, { id: 'calendar' as const, label: 'Calendar View' }]
 
-function Upcoming({ workspaceZone, canEdit }: { workspaceZone: string; canEdit: boolean }) {
+/** the next four scheduled sends; nothing at all until there is one (no loading line, no empty note) */
+function Upcoming({ workspaceZone }: { workspaceZone: string }) {
   const upcoming = useQuery({
     queryKey: ['campaigns', 'upcoming'],
     queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', { status: 'SCHEDULED', ordering: 'next_run', page_size: 4 }, signal),
   })
   const rows = (upcoming.data?.results ?? []).filter((campaign) => campaign.next_run_at)
+  if (rows.length === 0) return null
   return (
     <section aria-labelledby="upcoming-title" className="mb-6">
       <h2 id="upcoming-title" className="mb-3 font-display text-section-title font-semibold text-ink-900">Upcoming Campaigns</h2>
-      {upcoming.isError ? (
-        <ErrorState title="The upcoming campaigns could not be loaded" error={upcoming.error} onRetry={() => void upcoming.refetch()} />
-      ) : rows.length === 0 ? (
-        <p className="rounded-lg border border-line bg-surface px-4 py-4 text-sm text-ink-800">
-          {upcoming.isPending ? 'Loading' : `Nothing is scheduled. A campaign appears here once it is published with a send time ahead${canEdit ? ': choose “Schedule for later” or “Recurring” on the Scheduling step.' : '.'}`}
-        </p>
-      ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {rows.map((campaign) => {
-            return (
-              <li key={campaign.id} className="min-w-0">
-                <Link to={`/campaigns/${campaign.id}`} className="flex h-full flex-col gap-2 rounded-lg border border-line bg-surface p-4 transition-colors duration-fast ease-standard hover:bg-surface-hover">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <ChannelIcon channel={campaign.channel} aria-label={channelLabel(campaign.channel)} className="shrink-0 text-ink-800" />
-                    <span className="truncate text-sm font-semibold text-ink-900">{campaign.name}</span>
-                  </span>
-                  <span className="cep-num font-display text-page-title font-semibold text-ink-900">{formatDate(campaign.next_run_at)}</span>
-                  <span className="text-helper text-ink-800">
-                    {timeInZone(campaign.next_run_at, campaign.send_timezone || workspaceZone)}
-                    {campaign.audience_size ? ` · ${formatNumber(campaign.audience_size)} in the lists` : ''}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {rows.map((campaign) => {
+          return (
+            <li key={campaign.id} className="min-w-0">
+              <Link to={`/campaigns/${campaign.id}`} className="flex h-full flex-col gap-2 rounded-lg border border-line bg-surface p-4 transition-colors duration-fast ease-standard hover:bg-surface-hover">
+                <span className="flex min-w-0 items-center gap-2">
+                  <ChannelIcon channel={campaign.channel} aria-label={channelLabel(campaign.channel)} className="shrink-0 text-ink-800" />
+                  <span className="truncate text-sm font-semibold text-ink-900">{campaign.name}</span>
+                </span>
+                <span className="cep-num font-display text-page-title font-semibold text-ink-900">{formatDate(campaign.next_run_at)}</span>
+                <span className="text-helper text-ink-800">
+                  {timeInZone(campaign.next_run_at, campaign.send_timezone || workspaceZone)}
+                  {campaign.audience_size ? ` · ${formatNumber(campaign.audience_size)} in the lists` : ''}
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }
@@ -466,18 +460,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
         <Tabs label="Campaign views" idPrefix="campaign-views" tabs={VIEWS} value={view} onChange={(next) => setParams(next === 'calendar' ? { view: 'calendar' } : {}, { replace: true })} />
       </div>
 
-      <Upcoming workspaceZone={workspaceZone} canEdit={canEdit} />
-
-      {view === 'list' && (
-        <div role="group" aria-label="Saved views" className="mb-3 flex flex-wrap gap-2">
-          {SAVED_VIEWS.filter((item) => item.key !== 'approval' || canApprove || canPublish).map((item) => (
-            <button key={item.key || 'all'} type="button" aria-pressed={saved === item.key} onClick={() => pickSaved(item.key)}
-              className={`h-8 rounded-pill border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${saved === item.key ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`}>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <Upcoming workspaceZone={workspaceZone} />
 
       <CampaignFilters
         menus={menus}
@@ -486,6 +469,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
         search={search}
         onSearch={(value) => { setSearch(value); setPage(1); setSelected([]) }}
         onClear={clearAll}
+        linkedView={saved ? { label: SAVED_VIEWS.find((item) => item.key === saved)?.label ?? saved, onRemove: () => pickSaved('') } : undefined}
         options={options.data}
         zone={workspaceZone}
         showCreated={view === 'list'}
