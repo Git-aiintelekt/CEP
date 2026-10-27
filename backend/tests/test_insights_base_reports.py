@@ -248,3 +248,11 @@ def test_the_application_reads_and_adds_records_only(check):
         found = cursor.fetchone()
     check("here the application reads and adds records, never changes or removes one, under row-level security", found == (True, True, False, False, True), found)
     check.done()
+
+
+def test_a_percent_is_worked_out_in_percent(check):
+    percent = [f for f in PACK["formulas"] if f["format"] == "percent"]
+    check("every percent formula multiplies by 100: the app shows a percent's value with a % sign, so 0.964 would read 1.0%",
+          percent and all(f["expression"].replace(" ", "").endswith("*100") for f in percent), [f["label"] for f in percent if not f["expression"].replace(" ", "").endswith("*100")])
+    check("a ratio that is not a percent is left alone", all(not f["expression"].replace(" ", "").endswith("*100") for f in PACK["formulas"] if f["format"] != "percent"))
+    check.done()
