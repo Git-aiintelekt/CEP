@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create Report Step 2 Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --hover:#eeeff5; --sunken:#eeeff5; --canvas:#f9fafb; --fill-muted:#e7e8ef;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --tag-bg:#dee9fc; --tag-text:#233c9e;
+    --scrim:rgb(19 21 27 / 0.45); --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  .wrap { max-width:1120px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .part { margin:36px 0 4px; font-size:22px; line-height:30px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:960px; margin-bottom:12px }
+
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i20 { width:20px; height:20px }
+  .i-x{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/x.svg)}
+  .i-table{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .i-spark{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+  .i-tpl{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-template.svg)}
+  .i-code{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/database.svg)}
+  .i-search{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/search.svg)}
+  .i-left{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-left.svg)}
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-right{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-right.svg)}
+  .i-msg{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/mail.svg)}
+  .i-cart{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/shopping-cart.svg)}
+  .i-users{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/users.svg)}
+  .i-route{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/route.svg)}
+  .i-db{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/database-zap.svg)}
+  .i-file{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-spreadsheet.svg)}
+  .i-up{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-up.svg)}
+  .i-plus{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/plus.svg)}
+  .i-check{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/check.svg)}
+
+  /* the scrim over the Reports list */
+  .stage { position:relative; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--canvas); padding:40px 24px; min-height:760px; display:flex; align-items:center; justify-content:center }
+  .stage::before { content:""; position:absolute; inset:0; background:
+      linear-gradient(var(--canvas),var(--canvas)) 24px 24px/40% 28px no-repeat,
+      linear-gradient(#fff,#fff) 24px 80px/calc(100% - 48px) 520px no-repeat; }
+  .stage::after { content:""; position:absolute; inset:0; background:var(--scrim) }
+
+  .dialog { position:relative; z-index:1; width:768px; max-width:100%; background:#fff; border-radius:16px; display:flex; flex-direction:column; box-shadow:0 12px 32px rgb(20 23 31 / 0.18) }
+  .dh { padding:20px 24px 16px; border-bottom:1px solid var(--line-subtle); display:flex; flex-direction:column; gap:10px }
+  .dh .row { display:flex; align-items:center; justify-content:space-between }
+  .dh h2 { font-size:16px; line-height:24px; font-weight:600 }
+  .close { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .stepline { font-size:13px; line-height:18px; color:var(--ink-800) }
+  .bar { display:flex; gap:4px } .bar span { height:4px; flex:1; border-radius:2px; background:var(--hover) } .bar span.on { background:var(--brand-600) }
+  .db { padding:24px; display:flex; flex-direction:column; gap:24px }
+  .df { padding:16px 24px; border-top:1px solid var(--line-subtle); display:flex; align-items:center; gap:8px }
+  .df .grow { flex:1 }
+  .btn { height:40px; border-radius:999px; padding:0 16px; display:inline-flex; align-items:center; gap:8px; font:500 15px/1 var(--font); border:0; cursor:pointer }
+  .btn.primary { background:var(--brand-600); color:#fff }
+  .btn.secondary { background:#fff; color:var(--brand-600); border:1px solid var(--brand-600) }
+
+  .lead { font-size:15px; color:var(--ink-800) }
+  .tiles { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px }
+  .tile { border:1px solid var(--line); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:6px; text-align:left; background:#fff }
+  .tile.on { border-color:var(--brand-600); background:var(--brand-100) }
+  .tile .top { display:flex; align-items:center; justify-content:space-between }
+  .tile .top .i { color:var(--ink-800) } .tile.on .top .i { color:var(--brand-600) }
+  .tile b { font-size:15px; font-weight:600 } .tile span.t { font-size:13px; line-height:18px; color:var(--ink-800) }
+  .tag { height:20px; border-radius:6px; padding:0 6px; background:var(--tag-bg); color:var(--tag-text); font-size:12px; font-weight:500; display:inline-flex; align-items:center }
+  .goes { font-size:12px; line-height:16px; color:var(--ink-700); display:flex; align-items:center; gap:4px; margin-top:2px }
+
+  /* step 2 */
+  .picker { display:grid; grid-template-columns:200px minmax(0,1fr); border:1px solid var(--line); border-radius:12px; overflow:hidden; min-height:360px }
+  .groups { border-right:1px solid var(--line-subtle); background:var(--surface-subtle); padding:8px }
+  .grp { height:36px; border-radius:8px; display:flex; align-items:center; gap:8px; padding:0 10px; font-size:15px; color:var(--ink-900) }
+  .grp .n { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .grp.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 } .grp.on .n { color:var(--brand-800) }
+  .list { display:flex; flex-direction:column }
+  .srch { margin:12px; height:40px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 14px; color:var(--ink-300) }
+  .srch .i { color:var(--ink-800) }
+  .ds { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-top:1px solid var(--line-subtle) }
+  .ds.on { background:var(--brand-100) }
+  .radio { width:18px; height:18px; border-radius:999px; border:1.5px solid var(--line-control); margin-top:2px; flex:none; background:#fff }
+  .ds.on .radio { border:5px solid var(--brand-600) }
+  .ds .ic { width:32px; height:32px; border-radius:8px; background:var(--hover); display:flex; align-items:center; justify-content:center; color:var(--ink-800); flex:none }
+  .ds.on .ic { background:#fff; color:var(--brand-600) }
+  .ds b { display:block; font-size:15px; font-weight:600 } .ds.on b { color:var(--brand-800) }
+  .ds .d { display:block; font-size:13px; line-height:18px; color:var(--ink-800) }
+  .ds .f { display:block; font-size:12px; line-height:16px; color:var(--ink-700); margin-top:2px }
+  .add { display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--line-subtle); color:var(--brand-600); font-weight:500; font-size:15px }
+  .add .ic { width:32px; height:32px; border-radius:8px; border:1px dashed var(--line-control); display:flex; align-items:center; justify-content:center; flex:none }
+  .add small { display:block; color:var(--ink-800); font-weight:400; font-size:13px; line-height:18px }
+
+  .fields { display:grid; grid-template-columns:minmax(0,1fr) 240px; gap:16px }
+  .fld label { display:block; font-size:13px; line-height:18px; font-weight:500; color:var(--ink-800); margin-bottom:6px }
+  .input { height:40px; border:1px solid var(--line-control); border-radius:999px; padding:0 14px; display:flex; align-items:center; font-size:15px; color:var(--ink-900); background:#fff; justify-content:space-between }
+  .hint { font-size:12px; line-height:16px; color:var(--ink-800); margin-top:6px }
+
+  .notes { margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px }
+  .note { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; font-size:13px; line-height:19px; color:var(--ink-800) }
+  .note b { color:var(--ink-900); display:block; margin-bottom:2px; font-size:14px }
+
+  .i-trend{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/trending-up.svg)}
+  .i-coin{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/circle-dollar-sign.svg)}
+  .i-bar{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column.svg)}
+  .i-line{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-line.svg)}
+  .i-pie{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-pie.svg)}
+  .i-grid{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .opt { display:inline-flex; align-items:center; gap:8px; margin:40px 0 4px; font-size:22px; line-height:30px; font-weight:600 }
+  .opt .badge { height:24px; padding:0 8px; border-radius:6px; background:var(--brand-100); color:var(--brand-800); font-size:13px; font-weight:600; display:inline-flex; align-items:center }
+  .why { font-size:14px; line-height:20px; color:var(--ink-800); max-width:960px; margin-bottom:12px }
+  .why b { color:var(--ink-900) }
+  .pc { display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:960px; margin:0 0 12px; font-size:13px; line-height:18px; color:var(--ink-800) }
+  .pc div { background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px } .pc b { display:block; color:var(--ink-900); margin-bottom:2px }
+
+  /* A: goal cards */
+  .goals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px }
+  .goal { border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; gap:14px; align-items:flex-start; background:#fff }
+  .goal.on { border-color:var(--brand-600); background:var(--brand-100) }
+  .goal .gi { width:40px; height:40px; border-radius:12px; background:var(--hover); color:var(--ink-800); display:flex; align-items:center; justify-content:center; flex:none }
+  .goal.on .gi { background:#fff; color:var(--brand-600) }
+  .goal b { display:block; font-size:15px; font-weight:600 } .goal.on b { color:var(--brand-800) }
+  .goal span.t { display:block; font-size:13px; line-height:18px; color:var(--ink-800); margin-top:2px }
+  .goal span.src { display:block; font-size:12px; line-height:16px; color:var(--ink-700); margin-top:6px }
+  .more { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; color:var(--ink-800) }
+  .chip { height:32px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px; color:var(--ink-900) }
+  .chip .i { color:var(--ink-800) }
+  .chip.add { color:var(--brand-600); border-style:dashed; border-color:var(--line-control) } .chip.add .i { color:var(--brand-600) }
+  .namerow { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-800) }
+  .namerow .input { height:32px; flex:1; max-width:320px; font-size:14px }
+  .link { color:var(--brand-600); font-weight:500 }
+
+  /* B: one-step */
+  .sec { font-size:13px; font-weight:600; color:var(--ink-800); margin-bottom:8px }
+  .dtiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px }
+  .dt { border:1px solid var(--line); border-radius:16px; padding:14px 12px; display:flex; flex-direction:column; gap:8px; background:#fff; min-height:132px }
+  .dt.on { border-color:var(--brand-600); background:var(--brand-100) }
+  .dt .gi { width:36px; height:36px; border-radius:10px; background:var(--hover); color:var(--ink-800); display:flex; align-items:center; justify-content:center }
+  .dt.on .gi { background:#fff; color:var(--brand-600) }
+  .dt b { font-size:15px; font-weight:600 } .dt.on b { color:var(--brand-800) }
+  .dt span.t { font-size:12px; line-height:16px; color:var(--ink-800) }
+  .rows { border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .r { display:flex; align-items:center; gap:12px; padding:10px 14px; border-top:1px solid var(--line-subtle); font-size:14px }
+  .r:first-child { border-top:0 }
+  .r .gi { width:28px; height:28px; border-radius:8px; background:var(--hover); color:var(--ink-800); display:flex; align-items:center; justify-content:center; flex:none }
+  .r small { color:var(--ink-700); font-size:12px; margin-left:auto }
+  .r.add { color:var(--brand-600); font-weight:500 } .r.add .gi { background:#fff; border:1px dashed var(--line-control); color:var(--brand-600) }
+  .alts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; color:var(--ink-800); padding-top:4px; border-top:1px solid var(--line-subtle) }
+
+  /* C: starters */
+  .split { display:grid; grid-template-columns:220px minmax(0,1fr); gap:16px }
+  .dlist { display:flex; flex-direction:column; gap:6px }
+  .dl { height:44px; border-radius:12px; border:1px solid var(--line); display:flex; align-items:center; gap:10px; padding:0 12px; font-size:15px; font-weight:500; background:#fff }
+  .dl .i { color:var(--ink-800) }
+  .dl.on { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) } .dl.on .i { color:var(--brand-600) }
+  .dl.ghost { border-style:dashed; color:var(--ink-800); font-weight:400; font-size:14px }
+  .starts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px }
+  .st { border:1px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:8px; background:#fff }
+  .st.on { border-color:var(--brand-600); background:var(--brand-100) }
+  .thumb { height:64px; border-radius:10px; background:var(--surface-subtle); border:1px solid var(--line-subtle); display:flex; align-items:flex-end; gap:5px; padding:10px 12px }
+  .thumb i { display:block; width:14px; border-radius:2px 2px 0 0; background:#c3d5f9 } .st.on .thumb { background:#fff } .st.on .thumb i { background:var(--brand-600) }
+  .thumb.tbl { flex-direction:column; align-items:stretch; justify-content:center; gap:5px } .thumb.tbl i { width:auto; height:6px; border-radius:2px }
+  .st b { font-size:14px; font-weight:600 } .st.on b { color:var(--brand-800) }
+  .st span.t { font-size:12px; line-height:16px; color:var(--ink-800) }
+
+  /* D: search first */
+  .bigsearch { height:48px; border-radius:999px; border:1.5px solid var(--brand-600); box-shadow:0 0 0 3px rgb(56 99 219 / 0.24); display:flex; align-items:center; gap:10px; padding:0 18px; font-size:16px; color:var(--ink-900); background:#fff }
+  .bigsearch .i { color:var(--ink-800) } .caret { width:1px; height:20px; background:var(--ink-900) }
+  .sugg { border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .sg { display:flex; align-items:center; gap:12px; padding:10px 14px; border-top:1px solid var(--line-subtle) } .sg:first-child { border-top:0 }
+  .sg.on { background:var(--hover) }
+  .sg .gi { width:28px; height:28px; border-radius:8px; background:var(--hover); color:var(--ink-800); display:flex; align-items:center; justify-content:center; flex:none } .sg.on .gi { background:#fff }
+  .sg b { font-size:14px; font-weight:600 } .sg mark { background:none; color:var(--brand-800); font-weight:700 }
+  .sg span.t { display:block; font-size:12px; color:var(--ink-800) }
+  .sg .kind { margin-left:auto; font-size:12px; color:var(--ink-700); white-space:nowrap }
+  .kbd { font-size:12px; color:var(--ink-700) }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="strip">Mockup only: four other ways to do step 2 (picking the data), each in the same Create Report frame. Sample data. What makes today's step 2 slow: you pick a group before you can see anything, read a description for every row, then fill in Name and Component before you can go on.</p>
+
+  <h2 class="opt">A · Start from What You Want to See <span class="badge">Recommended</span></h2>
+  <p class="why">You pick a <b>question</b> in your own words, not a dataset. One click picks it, and the name fills itself in from that choice. Component is left on Automatic, since it can already be changed on the report page. Your own databases and files are chips underneath, for the few people who need them.</p>
+  <div class="pc"><div><b>Quicker because</b>It's one click on a plain-language card, with nothing to type and no fields to fill in.</div><div><b>Watch for</b>The four cards are written for C360's four datasets. Any new dataset needs a card written for it.</div></div>
+  <div class="stage" style="min-height:660px">
+    <div class="dialog">
+      <div class="dh">
+        <div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · What You Want to See</span>
+        <div class="bar"><span class="on"></span><span class="on"></span></div>
+      </div>
+      <div class="db">
+        <div class="goals" role="radiogroup" aria-label="What do you want to see?">
+          <div class="goal on" role="radio" aria-checked="true"><span class="gi"><span class="i i20 i-trend"></span></span><span><b>How My Campaigns Performed</b><span class="t">Sends, deliveries, opens and clicks by campaign, channel or day.</span><span class="src">From Messages</span></span></div>
+          <div class="goal" role="radio" aria-checked="false"><span class="gi"><span class="i i20 i-coin"></span></span><span><b>Revenue from My Campaigns</b><span class="t">Orders and revenue each campaign was credited with, by store or month.</span><span class="src">From Attributed Orders</span></span></div>
+          <div class="goal" role="radio" aria-checked="false"><span class="gi"><span class="i i20 i-users"></span></span><span><b>Who Is in My Audience</b><span class="t">Contacts by city, region, source or consent.</span><span class="src">From Contacts</span></span></div>
+          <div class="goal" role="radio" aria-checked="false"><span class="gi"><span class="i i20 i-route"></span></span><span><b>How My Journeys Are Doing</b><span class="t">Enrolments, completions and conversions for each journey.</span><span class="src">From Journey Enrolments</span></span></div>
+        </div>
+        <div class="more">Or use your own data:
+          <span class="chip"><span class="i i-db"></span>Sales Lines</span>
+          <span class="chip"><span class="i i-db"></span>Daily Sends</span>
+          <span class="chip"><span class="i i-file"></span>Store Targets.xlsx</span>
+          <span class="chip add"><span class="i i-plus"></span>Connect a Database</span>
+          <span class="chip add"><span class="i i-up"></span>Upload a File</span>
+        </div>
+        <div class="namerow">Name<span class="input">Campaign Performance</span><span class="link">Change where it's listed</span></div>
+      </div>
+      <div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Create Report</button></div>
+    </div>
+  </div>
+
+  <h2 class="opt">B · One Step: Pick the Data, Done</h2>
+  <p class="why">This drops step 1 altogether. The pop-up opens straight on the data, and Ask AI, Base Reports and Write a Query become a line of links at the bottom. <b>Two clicks</b> from New Report to the editor: a tile, then Create Report.</p>
+  <div class="pc"><div><b>Quicker because</b>There's no "How to Start" step, and the common path is the whole pop-up.</div><div><b>Watch for</b>Ask AI and Base Reports become small links, so fewer people may find them.</div></div>
+  <div class="stage" style="min-height:640px">
+    <div class="dialog">
+      <div class="dh">
+        <div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        
+      </div>
+      <div class="db">
+        <div>
+          <p class="sec">C360 Data</p>
+          <div class="dtiles" role="radiogroup">
+            <div class="dt on"><span class="gi"><span class="i i20 i-msg"></span></span><b>Messages</b><span class="t">Sends, deliveries, opens and clicks</span></div>
+            <div class="dt"><span class="gi"><span class="i i20 i-cart"></span></span><b>Attributed Orders</b><span class="t">Orders and revenue by campaign</span></div>
+            <div class="dt"><span class="gi"><span class="i i20 i-users"></span></span><b>Contacts</b><span class="t">Who is in the workspace</span></div>
+            <div class="dt"><span class="gi"><span class="i i20 i-route"></span></span><b>Journey Enrolments</b><span class="t">Who entered each journey, how far</span></div>
+          </div>
+        </div>
+        <div>
+          <p class="sec">Your Data</p>
+          <div class="rows">
+            <div class="r"><span class="gi"><span class="i i-db"></span></span>Sales Lines<small>NWA Postal · PostgreSQL</small></div>
+            <div class="r"><span class="gi"><span class="i i-file"></span></span>Store Targets.xlsx<small>Uploaded · 1,240 rows</small></div>
+            <div class="r add"><span class="gi"><span class="i i-plus"></span></span>Connect a Database or Upload a File</div>
+          </div>
+        </div>
+        <div class="alts">Other ways to start: <span class="link">Ask AI</span> · <span class="link">Use Base Reports</span> · <span class="link">Write a Query</span></div>
+      </div>
+      <div class="df"><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Create Report</button></div>
+    </div>
+  </div>
+
+  <h2 class="opt">C · Pick the Data, Then a Starting View</h2>
+  <p class="why">Pick the data on the left. Then pick a <b>ready-made starting point</b> for it, each with a small preview of its shape. The editor opens on something useful ("Sends by Campaign", "Delivered Rate by Channel") instead of the dataset's first columns.</p>
+  <div class="pc"><div><b>Friendlier because</b>People see what they'll get before they get it, and don't land on an empty-looking editor.</div><div><b>Watch for</b>The starting views need defining per dataset. That's frontend work: a few definitions, like the starter used today.</div></div>
+  <div class="stage" style="min-height:640px">
+    <div class="dialog">
+      <div class="dh">
+        <div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · Pick the Data</span>
+        <div class="bar"><span class="on"></span><span class="on"></span></div>
+      </div>
+      <div class="db">
+        <div class="split">
+          <div class="dlist" role="radiogroup" aria-label="Data">
+            <span class="dl on"><span class="i i-msg"></span>Messages</span>
+            <span class="dl"><span class="i i-cart"></span>Attributed Orders</span>
+            <span class="dl"><span class="i i-users"></span>Contacts</span>
+            <span class="dl"><span class="i i-route"></span>Journey Enrolments</span>
+            <span class="dl"><span class="i i-db"></span>Sales Lines</span>
+            <span class="dl ghost"><span class="i i-plus"></span>More Data…</span>
+          </div>
+          <div class="starts" role="radiogroup" aria-label="Start with">
+            <div class="st on"><span class="thumb"><i style="height:36px"></i><i style="height:22px"></i><i style="height:42px"></i><i style="height:14px"></i><i style="height:28px"></i></span><b>Sends by Campaign</b><span class="t">Sent, delivered and opened for each campaign, as bars.</span></div>
+            <div class="st"><span class="thumb"><i style="height:12px"></i><i style="height:18px"></i><i style="height:26px"></i><i style="height:30px"></i><i style="height:40px"></i></span><b>Sends Over Time</b><span class="t">Sends each day for the period, as a line.</span></div>
+            <div class="st"><span class="thumb"><i style="height:40px"></i><i style="height:30px"></i><i style="height:10px"></i></span><b>Delivered Rate by Channel</b><span class="t">Email, SMS and MMS side by side.</span></div>
+            <div class="st"><span class="thumb tbl"><i></i><i></i><i></i></span><b>Blank Table</b><span class="t">The columns you choose, nothing else.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Create Report</button></div>
+    </div>
+  </div>
+
+  <h2 class="opt">D · Search First</h2>
+  <p class="why">A single search box that's already focused: "What do you want to report on?". Typing finds datasets, your databases, your files and the fields inside them, so "revenue" finds Attributed Orders. The arrow keys and Enter create the report <b>without touching the mouse</b>. Before typing, it lists the data you used most recently.</p>
+  <div class="pc"><div><b>Quicker because</b>Regular users who know what they want can type and press Enter.</div><div><b>Watch for</b>New users may not know what to type. It works best paired with A or B as the view before anything is typed.</div></div>
+  <div class="stage" style="min-height:560px">
+    <div class="dialog">
+      <div class="dh">
+        <div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · Pick the Data</span>
+        <div class="bar"><span class="on"></span><span class="on"></span></div>
+      </div>
+      <div class="db">
+        <div class="bigsearch"><span class="i i20 i-search"></span>revenue<span class="caret"></span></div>
+        <div class="sugg" role="listbox">
+          <div class="sg on" role="option" aria-selected="true"><span class="gi"><span class="i i-cart"></span></span><span><b>Attributed Orders</b><span class="t">has <mark>Revenue</mark>, Amount, Orders</span></span><span class="kind">C360 Data</span></div>
+          <div class="sg" role="option"><span class="gi"><span class="i i-db"></span></span><span><b>Sales Lines</b><span class="t">has Net <mark>revenue</mark>, Units</span></span><span class="kind">NWA Postal</span></div>
+          <div class="sg" role="option"><span class="gi"><span class="i i-file"></span></span><span><b>Store Targets.xlsx</b><span class="t">has <mark>Revenue</mark> target</span></span><span class="kind">Your Files</span></div>
+        </div>
+        <p class="kbd">↑ ↓ to move · Enter to create the report · Esc to close</p>
+      </div>
+      <div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Create Report</button></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note"><b>In all four, Name and Component leave this step</b>The name fills itself in, and the editor's header already lets you rename the report. Component stays on Automatic, and the report page's Component control already changes it.</div>
+    <div class="note"><b>They mix</b>A goes well with C: a question card, then its starting views. D's search can sit above A or B for people who prefer to type.</div>
+    <div class="note"><b>No backend work</b>All four use the catalog, database targets and create calls the page has today. Only C needs new frontend starter definitions.</div>
+  </div>
+
+</div>
+</body>
+</html>
