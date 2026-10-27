@@ -28,22 +28,25 @@ afterEach(() => {
 test('New Report: Component starts on Automatic (the dataset’s), offers every component of the suite, and the report is created under the one chosen', async () => {
   const calls = await renderAppAt('/insights/reports/new')
   const user = userEvent.setup()
-  await screen.findByRole('heading', { name: 'New Report' })
-  await user.click(await screen.findByRole('radio', { name: /Attributed Orders/ }))
-  const select = screen.getByLabelText('Component') as HTMLSelectElement
+  const dialog = await screen.findByRole('dialog', { name: 'Create Report' })
+  const select = await within(dialog).findByLabelText('Component') as HTMLSelectElement             // step 1, before the data is picked
   expect(select.value).toBe('')
-  expect(Array.from(select.options).map((o) => o.text)).toEqual(['Automatic (Engagement)', 'Engagement', 'Insights', 'CRM', 'Sales', 'Purchasing', 'Inventory', 'PIM'])
+  expect(Array.from(select.options).map((o) => o.text)).toEqual(['Automatic', 'Engagement', 'Insights', 'CRM', 'Sales', 'Purchasing', 'Inventory', 'PIM'])
   await user.selectOptions(select, 'sales')
-  await user.click(screen.getByRole('button', { name: 'Create Report' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await user.click(await within(dialog).findByRole('radio', { name: 'Attributed Orders' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Create Report' }))
   await screen.findByRole('textbox', { name: 'Report name' })
   expect((calls.find((call) => call.url.endsWith('/insights/reports/') && call.method === 'POST')?.body as Record<string, unknown> | undefined)?.component).toBe('sales')
 })
 
 test('New Report opened from a component with no data of its own shows every dataset and files the report there', async () => {
+  const user = userEvent.setup()
   await renderAppAt('/insights/reports/new?component=sales')
-  await screen.findByRole('heading', { name: 'New Report' })
-  expect(await screen.findByRole('radio', { name: /Attributed Orders/ })).toBeTruthy()
-  expect((screen.getByLabelText('Component') as HTMLSelectElement).value).toBe('sales')
+  const dialog = await screen.findByRole('dialog', { name: 'Create Report' })
+  expect((await within(dialog).findByLabelText('Component') as HTMLSelectElement).value).toBe('sales')
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  expect(await within(dialog).findByRole('radio', { name: 'Attributed Orders' })).toBeTruthy()
 })
 
 test('the report page: Component beside Folder moves the report at once; the editor saves a change with Save', async () => {

@@ -78,7 +78,7 @@ export function AskForReport({ seed }: { seed?: { prompt: string; at: number } }
   const box = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   const [prompt, setPrompt] = useState('')
-  const [reportName, setReportName] = useState('')
+  const [reportName, setReportName] = useState(() => new URLSearchParams(window.location.search).get('name') ?? '')   // ?name=: the name Create Report was given
   const [runs, setRuns] = useState<Run[]>(readRuns)
   const [images, setImages] = useState<Attached[]>([])
   const [documents, setDocuments] = useState<AttachedDocument[]>([])

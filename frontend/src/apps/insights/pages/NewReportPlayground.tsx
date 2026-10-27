@@ -73,5 +73,5 @@ export default function NewReportPlayground() {
     client.setQueryData(['workspace', 'report-databases', 'targets'], { databases: sparse ? [] : TARGETS })
     return null
   })
-  return <NewReportPage canConnect />
+  return <NewReportPage canConnect bare />
 }

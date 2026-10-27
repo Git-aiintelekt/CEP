@@ -166,8 +166,11 @@ test('Query a Database from New Report: the visual builder writes the SQL, Run p
   const { default: App } = await import('@/App').then(cepReady)
   render(<App />)
   const user = userEvent.setup()
-  await screen.findByRole('heading', { name: 'New Report' }, { timeout: 5000 })
-  await user.click(await screen.findByRole('button', { name: /Query Store Operations/ }, { timeout: 5000 }))
+  const dialog = await screen.findByRole('dialog', { name: 'Create Report' }, { timeout: 5000 })
+  await user.click(within(dialog).getByRole('radio', { name: 'Write a Query' }))                     // step 1: how to start
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await user.click(await within(dialog).findByRole('radio', { name: 'Query Store Operations' }, { timeout: 5000 }))
+  await user.click(within(dialog).getByRole('button', { name: 'Write the Query' }))
   await screen.findByRole('heading', { name: 'Query · Store Operations' }, { timeout: 5000 })
   const aside = screen.getByRole('complementary', { name: 'Tables and columns' })
   await user.click(await within(aside).findByRole('button', { name: 'Use sales_lines' }))                        // From
@@ -217,16 +220,22 @@ async function renderNewReport(permissions: string[]) {
   vi.resetModules()
   const { default: App } = await import('@/App').then(cepReady)
   render(<App />)
-  await screen.findByRole('heading', { name: 'New Report' }, { timeout: 5000 })
+  const user = userEvent.setup()
+  const dialog = await screen.findByRole('dialog', { name: 'Create Report' }, { timeout: 5000 })
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))                             // step 1, from data
+  await within(dialog).findByRole('region', { name: 'C360 Data' }, { timeout: 5000 })
   return calls
 }
+
+/** Create Report's Your Databases, on step 2 */
+const yourDatabases = () => within(screen.getByRole('dialog', { name: 'Create Report' })).findByRole('region', { name: 'Your Databases' }, { timeout: 5000 })
 
 test('Connect a Database from New Report: a report author connects ClickHouse (HTTPS on 8443, or HTTP on 8123), saves only once it tests read-only, picks a table and the report opens in the editor', async () => {
   const calls = await renderNewReport(['report.view', 'report.edit'])
   const user = userEvent.setup()
-  const databases = await screen.findByRole('list', { name: 'Your Databases' }, { timeout: 5000 })
-  await user.click(within(databases).getByRole('button', { name: /Connect a Database/ }))
-  const panel = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  await user.click(within(await yourDatabases()).getByRole('button', { name: /Connect a Database/ }))
+  const panel = screen.getByRole('dialog', { name: 'Create Report' })
+  expect(within(panel).getByRole('navigation', { name: 'Where you are' }).textContent).toContain('Connect a Database')
   const save = within(panel).getByRole('button', { name: 'Save and Continue' }) as HTMLButtonElement
   expect(save.disabled).toBe(true)
   await user.type(within(panel).getByLabelText(/^Name/), 'Events Warehouse')
@@ -245,7 +254,8 @@ test('Connect a Database from New Report: a report author connects ClickHouse (H
   expect(save.disabled).toBe(false)
   await user.click(save)
 
-  const step = await screen.findByRole('dialog', { name: 'Events Warehouse' })
+  const step = screen.getByRole('dialog', { name: 'Create Report' })
+  await within(step).findByRole('list', { name: 'Tables and views' })
   const posted = calls.find((c) => c.url.endsWith('/workspace/report-databases/') && c.method === 'POST')?.body
   expect(posted).toMatchObject({ engine: 'clickhouse', ssl: 'OFF', port: 8123, host: 'ch.cityht.example', database: 'events', username: 'c360_reader', password: 'ch-secret' })
   const list = await within(step).findByRole('list', { name: 'Tables and views' })
@@ -261,8 +271,8 @@ test('Connect a Database from New Report: a report author connects ClickHouse (H
 test('Connect a Database from New Report: an account that can write is shown and not saved; fixed and tested again, it is saved and Write a Query opens the query window', async () => {
   const calls = await renderNewReport(['report.view', 'report.edit'])
   const user = userEvent.setup()
-  await user.click(within(await screen.findByRole('list', { name: 'Your Databases' }, { timeout: 5000 })).getByRole('button', { name: /Connect a Database/ }))
-  const panel = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  await user.click(within(await yourDatabases()).getByRole('button', { name: /Connect a Database/ }))
+  const panel = screen.getByRole('dialog', { name: 'Create Report' })
   await user.type(within(panel).getByLabelText(/^Name/), 'Loyalty')
   await user.type(within(panel).getByLabelText(/^Host/), 'loyalty.example.com')
   await user.type(within(panel).getByLabelText(/^Database/), 'loyalty')
@@ -279,15 +289,15 @@ test('Connect a Database from New Report: an account that can write is shown and
   await user.click(within(panel).getByRole('button', { name: 'Test Connection' }))
   await within(panel).findByText(/Read-only: the account holds SELECT/)
   await user.click(within(panel).getByRole('button', { name: 'Save and Continue' }))
-  const step = await screen.findByRole('dialog', { name: 'Loyalty' })
-  await user.click(within(step).getByRole('button', { name: 'write a query' }))
+  await within(panel).findByRole('list', { name: 'Tables and views' })
+  await user.click(within(panel).getByRole('button', { name: 'write a query' }))
   expect(await screen.findByRole('heading', { name: 'Query · Loyalty' }, { timeout: 5000 })).toBeTruthy()
 })
 
 test('someone who cannot edit reports is not offered Connect a Database', async () => {
   await renderNewReport(['report.view'])
-  await screen.findByRole('group', { name: 'Dataset' }, { timeout: 5000 })
   expect(screen.queryByRole('button', { name: /Connect a Database/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Upload a File/ })).toBeNull()
 })
 
 test('Settings → Report Databases offers ClickHouse, with its own grant', async () => {
@@ -392,8 +402,8 @@ test('read-only not required (the global parameter off): an account that can wri
   const calls = await renderNewReport(['report.view', 'report.edit'])
   reportDbPolicy.readOnlyRequired = false
   const user = userEvent.setup()
-  await user.click(within(await screen.findByRole('list', { name: 'Your Databases' }, { timeout: 5000 })).getByRole('button', { name: /Connect a Database/ }))
-  const panel = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  await user.click(within(await yourDatabases()).getByRole('button', { name: /Connect a Database/ }))
+  const panel = screen.getByRole('dialog', { name: 'Create Report' })
   await user.type(within(panel).getByLabelText(/^Name/), 'Loyalty')
   await user.type(within(panel).getByLabelText(/^Host/), 'loyalty.example.com')
   await user.type(within(panel).getByLabelText(/^Database/), 'loyalty')
@@ -403,6 +413,6 @@ test('read-only not required (the global parameter off): an account that can wri
   expect(await within(panel).findByText(/Can write: the account holds INSERT, UPDATE .* Allowed here, because read-only is not required/)).toBeTruthy()
   expect(within(panel).queryByText(/Ask whoever runs the database/)).toBeNull()
   await user.click(within(panel).getByRole('button', { name: 'Save and Continue' }))
-  expect(await screen.findByRole('dialog', { name: 'Loyalty' })).toBeTruthy()
+  expect(await within(panel).findByRole('list', { name: 'Tables and views' })).toBeTruthy()
   expect(calls.some((c) => c.url.endsWith('/workspace/report-databases/') && c.method === 'POST')).toBe(true)
 })
