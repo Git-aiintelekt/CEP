@@ -2,6 +2,109 @@
 
 **Where:** Insights, in the app launcher (the grid icon at the top left), and the Insights item in Engagement's menu, which opens the same reports.
 
+## Terms and What They Mean
+
+The words Insights uses, in plain terms, with an example of each. The steps for each feature follow in this chapter.
+
+**Building a report**
+
+| Term | What it means | Example |
+|---|---|---|
+| Dataset | The table of data a report is built on, one row per thing recorded. | Messages: one row per email or text a campaign sent. |
+| Dimension | A field you group by: a word, a code or a date. | Channel, Campaign, Sent by Month. |
+| Measure | A number that adds up, with how it is totalled: Sum, Count, Distinct Count, Average, Min or Max. | Sent Count, Amount. |
+| Calculated Measure | A measure made from others, worked out on the totals of each row, never as an average of averages. | Open Rate is Opened ÷ Delivered. |
+| Field Wells | The editor where you drag fields into Rows, Columns, Values and Filters. | Channel into Rows, Sent Count into Values. |
+| Steps | The other editor: the same report written as numbered steps (Data, Filter, Summarize, Group By, Sort and Limit). | For people who prefer reading the question top to bottom. |
+| Report Filters | Questions a report asks above its rows before it runs. Every report asks Campaign, Channel and Period first. | Campaign: the latest campaign unless you pick another. |
+| Period | The span of dates a report or dashboard reads, such as Last 7 Days, Last Quarter or 90 Days. | Postal keeps about two months of mail, so email dashboards use 90 Days. |
+| Latest | A filter default that takes the value of the newest row, such as the campaign sent most recently. | Campaign KPIs opens on the latest campaign. |
+| Folder | A shelf for a workspace's reports. | Email Campaign Reports holds the 16 base reports. |
+| Version | Every saved state of a report or dashboard, with who and when; any one can be restored. | Versions → Restore puts last week's report back. |
+
+**Analysing**
+
+| Term | What it means | Example |
+|---|---|---|
+| Comparison | A column beside a measure that compares it over time or with a whole: Previous Period, Change, Last Year, Running Total, % of Total, Year to Date, Moving Average, Rank, % of Target. | Sent Count with Change vs Previous Month. |
+| Forecast | A dashed line carrying a chart's trend three periods on. A straight-line trend, not a promise. | Monthly sends, three months ahead. |
+| Flag Anomalies | Rings the points on a chart that sit far off its trend. | A week when sends dropped sharply. |
+| Custom Field | A field you add to one report: groups of values, number bands, if-then labels or a formula. | Regions made of states; Basket Size: Large or Small. |
+| Formula (Each Row) | A custom field worked out for every row of the data. | [Revenue] - [Cost]. |
+| Measure Formula | A custom field that adds up the rows of each group, like a calculated measure you write yourself. | Click to Open: DIVIDE(SUM([Clicked]), SUM([Opened])) * 100. |
+| Shared Formula | A formula saved on a dataset so every report on it uses the same definition. | Delivery Rate on Email Messages. |
+| Certified | A shared formula a report administrator has vouched for; only they can change it. | The tick beside Delivery Rate. |
+| Top N | Keeps the largest values and folds the rest into Others. | Top 5 campaigns by opens, the rest as Others. |
+| Drill Down | Clicking a value in a chart, pivot or hierarchy to see the level under it. | Click 2026 to see its quarters, then a quarter to see its months. |
+| Drill-Through | Right-clicking a value to open a detail report filtered to it. | Right-click a campaign → Campaign Detail for that campaign. |
+| Detail Report | A report others can open from a value of a field it takes. | Customer Detail, opened from a campaign. |
+| Tooltip Report | A report that appears as a small card when you rest the pointer on a value of a chart. | Hover a campaign's bar to see its detail. |
+| Linked Measures | Measures from a second dataset shown in the same report, matched on what both share (such as Campaign, Channel and the date), without writing a join. | Each campaign's sends from Messages beside its revenue from Attributed Orders. |
+| Key Influencers | Finds which groups push a rate or an average up (Raises It) or pull it down (Lowers It), with how far and over how many rows. It points to where to look; it does not prove a cause. | "When Channel is SMS" lowers Open Rate. |
+| Decomposition Tree | Breaks one total down step by step, a field at a time, so you see where it comes from. High Value and Low Value let AI choose the next field. | Revenue → by Channel → Online by Store → one store by campaign. |
+
+**Showing the numbers**
+
+| Term | What it means | Example |
+|---|---|---|
+| View | How a report shows: Grid, Chart, Hierarchy or Pivot. Switching keeps the fields. | The same report as a table or as bars. |
+| Hierarchy | Groups that fold over the next level, each with its subtotal. | Region, then State, then Store. |
+| Pivot | One dimension spread across as columns, a total on both edges. **All Values** shows every measure side by side (a matrix); **Trend Column** adds a small line per row. | Campaigns down, months across. |
+| Combo | A chart of bars and lines together; a line in another format reads on a scale on the right. | Sent Count as bars, Open Rate as a line. |
+| Small Multiples | The same chart repeated once per value of a field, on one scale. Called **Repeat By** in the chart. | One chart per channel. |
+| Map | A chart that shades US states or countries by a value. | Contacts by state. |
+| KPI Card and Gauge | One figure against a target: a card with the share of target, or an arc. | Journey conversion against a target of 30%. |
+| Conditional Formatting | Colours on the numbers: a colour scale, data bars, or rules shown as Good, Warning or Bad. Under **Format Values**. | Click to Open under 10% in red. |
+
+**Dashboards**
+
+| Term | What it means | Example |
+|---|---|---|
+| Dashboard | A page of tiles, every tile a saved report, all on one period. | Management Dashboard. |
+| Tile | One report on a dashboard, in one of its views, or as one figure. | Emails Sent as a large number. |
+| Compare With Previous Period | Adds the change against the period before to every figure. | Emails Sent, with its change on the 90 days before. |
+| Slicer | A filter chip on a dashboard that narrows every tile whose data has that field. | Pick a campaign; every tile shows that campaign. |
+| Cross-Filter | Clicking a bar, slice or cell narrows the other tiles to that value. | Click Gmail in Providers. |
+| Saved View | A dashboard's period, slicers, page and drills kept under a name, without changing the dashboard. | "Black Friday week". |
+| Free Canvas | A dashboard layout where tiles are dragged and resized freely. | A board view with a large chart and small figures. |
+| Written Summary | A tile in which AI writes a few sentences on a report's numbers for the period. | A few lines on the period's sends and deliveries. |
+
+**Where the data comes from**
+
+| Term | What it means | Example |
+|---|---|---|
+| Base Reports | Ready-made packs of datasets, formulas, reports and dashboards from the platform, added as the workspace's own copies. | Email Campaign Reports: 16 reports and 2 dashboards. |
+| Report Databases | The workspace's own MySQL, PostgreSQL or ClickHouse databases, connected read-only. | A MySQL database holding the mail server's tables. |
+| Map a Dataset | Turns a table of a connected database into a dataset, with labels and personal fields marked. | A stores table, mapped with Store Name and Region. |
+| Query Window | Where you write one SELECT against a connected database, run it, and keep it as a dataset. | Emails by status per day. |
+| Uploaded Files | CSV or Excel files brought in as datasets. **Replace File** refreshes them. | A store's POS sales export. |
+| Kept Results | A report on a connected database is kept for 15 minutes, so opening it again is instant; **Refresh** runs it now. | "Kept from 10:42". |
+| Freshness | How current the data is: **Live data**, or **Data as of the last quarter hour** on the analytics engine. | The line under a report's title says which. |
+| Fiscal Year | The month a workspace's financial year starts, for fiscal quarters, fiscal years and year to date. | Starts in April: FY2027 Q1. |
+
+**AI**
+
+| Term | What it means | Example |
+|---|---|---|
+| Ask for a Report | Describe a report in your own words, with a spec or a sketch if you like; AI drafts it on your data and you open it in the editor. | "Delivery rate by email provider for the latest campaign, as a bar chart." |
+| Run Details | The steps Ask for a Report takes, ticked as they finish. | Reading your documents, drafting, checking the draft. |
+| Explain | A few sentences on what a report's numbers say. Personal data is never sent. | Explain on Campaign KPIs. |
+| Change With a Prompt | Changes a report in the editor from a sentence; Undo puts it back. | "By provider only, as a bar chart." |
+
+**Sharing and control**
+
+| Term | What it means | Example |
+|---|---|---|
+| Share | Who may open a report or dashboard: everyone in the workspace, or chosen people and roles with Can View or Can Edit. | Share with the Marketing role, Can View. |
+| Embed Link | A secret link that shows a report or dashboard read-only on another site, without signing in. **Revoke** stops it. | A dashboard on the company intranet. |
+| Schedule | Emails a report or dashboard as a file on a timetable. Needs the workspace's mail server. | Every Monday at 8:00, as Excel. |
+| Alert | Emails you when a value crosses a threshold. | When Delivery Rate falls below 90%. |
+| Report Access | Rules that limit which rows a person or role sees, in every report, export and delivery. | A store manager sees only their store. |
+| Personal Data (PII) | Fields that identify a person, such as an email address; masked for anyone without the right. | Recipient in Customer Detail. |
+| Show the SQL | The statement the engine runs for a report, with the row rules in it. Nothing runs from it. | More Actions → Show the SQL. |
+| Run Log | Every run, export and delivery of the last 7 or 30 days, with who, the outcome and the time. For report administrators. | Why a schedule failed on Monday. |
+| Usage | Which reports and dashboards people open, and which nobody opens. | Reports Nobody Opened, to tidy away. |
+
 ## Step by step: the AI features
 
 **Ask for a Report** (anyone who can build reports)
