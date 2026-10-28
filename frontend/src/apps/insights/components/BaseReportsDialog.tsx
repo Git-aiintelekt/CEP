@@ -259,6 +259,7 @@ function PackDetail({ pack }: { pack: BasePack }) {
         <h3 className="text-base font-semibold text-brand-800">{pack.name}</h3>
         <Tag tone="neutral">{`Version ${pack.version}`}</Tag>
         {pack.source && <Tag tone="neutral">{`From ${pack.source}`}</Tag>}
+        {pack.chosen && !latest && <Tag tone="neutral">Chosen at Onboarding</Tag>}
         {latest ? <Tag tone="success">{`Added ${formatDate(latest.at)} · Version ${latest.version}`}</Tag> : <Tag tone="neutral">{`Needs ${pack.needs.label}`}</Tag>}
       </div>
       <p className="text-sm text-ink-800">{pack.summary}</p>

@@ -901,6 +901,57 @@ export interface Explanation {
   left_out?: string[]
 }
 
+/** What This Means: a report judged by rules against the workspace's benchmarks, at no AI cost (apps/insights/meaning.py) */
+export type MeaningBand = 'good' | 'watch' | 'act'
+export interface MeaningFigure {
+  key: string
+  label: string
+  value: number | null
+  format: string | null
+  band: MeaningBand | null
+  /** the figure's whole 95% range is in its band; else it reads "Likely …" */
+  sure: boolean
+  state: 'judged' | 'too_few' | 'no_benchmark' | 'estimate' | 'empty' | 'none'
+  range: [number, number] | null
+  words: string
+  target: string
+  /** the same rate over the campaigns before, pooled */
+  earlier: number | null
+  estimated: boolean
+}
+export interface MeaningReportLink { id: string; name: string }
+export interface Meaning {
+  verdict: { tone: MeaningBand | 'none'; chip: string; title: string; summary: string }
+  figures: MeaningFigure[]
+  reasons: { text: string; report: MeaningReportLink | null }[]
+  actions: { text: string; kind: 'open' | 'export_failed'; label: string; report: MeaningReportLink | null }[]
+  read: { reports: number; earlier: { campaigns: number; from: string; to: string } | null; benchmarks: number; campaign: string | null }
+  notes: string[]
+  pack: string | null
+  ready: boolean
+  can_set: boolean
+}
+
+/** Benchmarks: what Good, Watch and Act mean for a measure of a dataset */
+export interface Benchmark {
+  id: string
+  dataset: string
+  dataset_label: string
+  measure: string
+  measure_label: string
+  format: string | null
+  higher_is_better: boolean
+  good: number
+  act: number
+  count_field: string | null
+  base_field: string | null
+  count_label?: string | null
+  base_label?: string | null
+  row_version: number
+}
+export interface BenchmarkBody { dataset?: string; measure?: string; higher_is_better: boolean; good: number; act: number; count_field?: string | null; base_field?: string | null; row_version?: number }
+export interface BenchmarksState { ready: boolean; can_edit: boolean; benchmarks: Benchmark[]; offers: { pack: string; name: string; missing: number }[] }
+
 /** Change with a Prompt: the changed definition, or the model's one question, or what no field holds */
 export interface ChangeResult {
   kind: 'draft' | 'question' | 'no_field'
@@ -1036,6 +1087,10 @@ export interface BasePack {
   name: string
   summary: string
   source?: string | null
+  /** the suite components a workspace needs for the pack: Insights offers only the packs its components fit */
+  components?: { key: string; name: string }[]
+  /** picked for this workspace in the back-office's Onboard a Tenant */
+  chosen?: boolean
   needs: { label: string; engine: string; tables: string[] }
   contents: { datasets: string[]; reports: string[]; dashboards: string[] }
   added: { version: number; at: string; folder_id: string | null; folder_name: string | null; by: string | null }[]

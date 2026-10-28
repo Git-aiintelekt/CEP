@@ -73,6 +73,25 @@ def _load(engine: str) -> list[dict]:
     return data
 
 
+def components_of(tenant_id) -> list[str]:
+    """the components the workspace has (its plan, trials and add-ons): Insights shows only what belongs to them"""
+    from apps.platform_ops import components
+    return [c["key"] for c in components.for_tenant(tenant_id)]
+
+
+def home_component(tenant_id) -> str:
+    """where the workspace's own data (its databases, its uploads) is listed: Engagement when it has it, else Insights"""
+    return "cep" if "cep" in components_of(tenant_id) else "insights"
+
+
+def component_name(key: str) -> str:
+    names = cache.get("cep:insights:component-names")
+    if names is None:
+        names = dict(_rows("SELECT key, name FROM suite_component"))
+        cache.set("cep:insights:component-names", names, TTL)
+    return names.get(key, key)
+
+
 def formula_error(fields: list[dict], formula, *, depth: int = 0) -> str | None:
     """Why a calculated measure's formula cannot be used with these fields, or None when it can: an op, a left and a right
     side, each a measure field with one of its aggregates (a calculated one nests two deep at most) or a number, and an
@@ -125,11 +144,13 @@ def _visible(dataset: dict, can_see_pii: bool) -> dict:
 
 
 def for_tenant(tenant_id, can_see_pii: bool = False) -> list[dict]:
-    """the platform's datasets on the workspace's engine, then the datasets the workspace mapped from its own databases"""
+    """the platform's datasets on the workspace's engine for the components it has, then the datasets the workspace mapped from
+    its own databases and uploads"""
     from apps.insights import databases, links
     engine = engine_of(tenant_id)
     from apps.insights import uploads
-    platform = links.attach([_visible(d, can_see_pii) for d in _load(engine["dialect"])], links.load())     # the platform's datasets carry their links
+    has = set(components_of(tenant_id))
+    platform = links.attach([_visible(d, can_see_pii) for d in _load(engine["dialect"]) if d["component"]["key"] in has], links.load())     # the platform's datasets carry their links
     out = [*platform, *[_visible(d, can_see_pii) for d in databases.custom_datasets(tenant_id)], *[_visible(d, can_see_pii) for d in uploads.custom_datasets(tenant_id)]]
     from apps.insights import dataset_formulas
     out = dataset_formulas.attach(out, tenant_id, can_see_pii)          # each dataset's shared formulas among its fields

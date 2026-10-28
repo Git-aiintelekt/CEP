@@ -346,14 +346,14 @@ def _field(column: dict) -> dict:
             "buckets": catalog.BUCKETS if type_ in ("date", "datetime") else [], "format": None, "sensitivity": "NORMAL"}
 
 
-def dataset_of(row: dict) -> dict:
+def dataset_of(row: dict, component: str = "cep") -> dict:
     selects = ", ".join(f"(r.data->>'{c['column']}'){CASTS[c['type']]} AS {c['column']}" for c in row["columns"])
     query = f"SELECT r.tenant_id, r.row_no, {selects} FROM public.report_upload_row r WHERE r.upload_id = '{row['id']}'"
     fields = [_field(c) for c in row["columns"]]
     fields.append({"key": COUNT_KEY, "label": "Rows", "column": "row_no", "table": "t0", "type": "number", "role": "measure", "aggregates": ["count"],
                    "operators": catalog.OPERATORS["number"], "buckets": [], "format": "integer", "sensitivity": "NORMAL"})
     time_field = next((c["key"] for c in row["columns"] if c["type"] in ("date", "datetime")), None)
-    return {"key": row["key"], "label": row["name"], "description": row["description"] or f"Uploaded from {row['file_name']}", "component": {"key": "cep", "name": "Engagement"},
+    return {"key": row["key"], "label": row["name"], "description": row["description"] or f"Uploaded from {row['file_name']}", "component": {"key": component, "name": catalog.component_name(component)},
             "primary_key": None, "time_field": time_field, "freshness": "LIVE", "source": "upload", "joins": [], "query": query, "kind": "upload",
             "workspace_field": "tenant_id", "engine": "postgresql", "fields": fields,
             "upload": {"id": row["id"], "file_name": row["file_name"], "row_count": row["row_count"], "updated_at": (row["replaced_at"] or row["created_at"]).isoformat(),
@@ -368,7 +368,8 @@ def custom_datasets(tenant_id) -> list[dict]:
         return data
     if context.current() is None or context.is_platform() or not present():
         return []
-    data = [dataset_of(row) for row in uploads(tenant_id) if row["status"] == "READY"]
+    home = catalog.home_component(tenant_id)
+    data = [dataset_of(row, home) for row in uploads(tenant_id) if row["status"] == "READY"]
     cache.set(key, data, catalog.TTL)
     return data
 

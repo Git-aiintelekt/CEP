@@ -235,6 +235,10 @@ export const insightsEmbedsNow: { id: string; label: string | null; created_at: 
 export const insightsViewsNow: { id: string; name: string; state: Record<string, unknown>; shared: boolean; owner_name: string; mine: boolean; updated_at: string }[] = []
 /** merged into every saved report's run, for a test that needs more of it (the access note) */
 export const insightsRunExtras: Record<string, unknown> = {}
+/** What This Means and Benchmarks: the workspace's benchmarks as the mock keeps them */
+export const insightsBenchmarksNow: { id: string; dataset: string; dataset_label: string; measure: string; measure_label: string; format: string | null; higher_is_better: boolean; good: number; act: number;
+  count_field: string | null; base_field: string | null; row_version: number }[] = []
+export const insightsBenchmarkOffers: { pack: string; name: string; missing: number }[] = []
 /** fiscal calendars, parameters and uploaded files as the mock keeps them */
 export const fiscalYearNow = { start: 1, named_by: 'end' as 'end' | 'start' }
 /** a saved report that asks for a Channel before it runs (GET /insights/reports/rep-asked/) */
@@ -999,6 +1003,8 @@ export function installMockApi(options: MockOptions = {}) {
   Object.assign(fiscalYearNow, { start: 1, named_by: 'end' })
   insightsCommentsNow.splice(0, insightsCommentsNow.length)
   insightsEmbedsNow.splice(0, insightsEmbedsNow.length)
+  insightsBenchmarksNow.splice(0, insightsBenchmarksNow.length)
+  insightsBenchmarkOffers.splice(0, insightsBenchmarkOffers.length)
   insightsRowRulesNow.splice(0, insightsRowRulesNow.length, { id: 'rule-1', dataset: 'messages', dataset_label: 'Messages', field: 'channel', field_label: 'Channel', broken: false,
     principal: { kind: 'role', id: 'r1', name: 'Store Managers', detail: '4 people' }, values: ['SMS'], note: null, updated_at: '2026-10-18T09:00:00Z', row_version: 1 })
   insightsFolders.splice(0, insightsFolders.length, { id: 'fold-1', name: 'Finance', owner_user_id: 'u1', reports: 0, row_version: 1, updated_at: '2026-10-14T08:00:00Z' })
@@ -1642,6 +1648,7 @@ export function installMockApi(options: MockOptions = {}) {
         }
         return json(found)
       }
+      if (path.endsWith('/insights/benchmarks/') && method === 'GET') return json({ ready: true, can_edit: true, benchmarks: insightsBenchmarksNow, offers: insightsBenchmarkOffers })
       if (path.endsWith('/insights/assistant/')) return json({ ...insightsAssistantNow, explain: { enabled: workspaceAssistantNow.explain, model: { id: assistantModels[0].id, label: assistantModels[0].label, provider_name: assistantModels[0].provider_name } } })
       if (path.endsWith('/insights/alerts/') && method === 'POST') {
         const posted = body as { report_id: string; measure: string; op: string; threshold: number; every: string; at_time?: string; recipients: string[]; name?: string }
@@ -1725,6 +1732,33 @@ export function installMockApi(options: MockOptions = {}) {
       if (path.endsWith('/insights/reports/sql/')) {
         return json({ note: 'The values are written in for reading; the engine sends them separately, and runs the statement read-only with a time limit.',
           statements: [{ label: 'Messages', dialect: 'postgresql', sql: 'SELECT "campaign_name" AS "c0", sum("sent_n") AS "c1" FROM "reporting"."rpt_messages" WHERE "tenant_id" = \'t-1\' GROUP BY 1 ORDER BY "c1" DESC NULLS LAST LIMIT 5000 OFFSET 0' }] })
+      }
+      if (/\/insights\/reports\/[\w-]+\/meaning\/$/.test(path)) {
+        const judged = insightsBenchmarksNow.some((b) => b.measure === 'sent')
+        return json({ verdict: judged ? { tone: 'good', chip: 'On Track', title: '1 of 1 figure on target.', summary: 'Sent Count 2,000: on target.' } : { tone: 'none', chip: 'No Benchmark', title: 'Sent Count: 2,000.', summary: '' },
+          figures: [{ key: 'sent', label: 'Sent Count', value: 2000, format: 'integer', band: judged ? 'good' : null, sure: judged, state: judged ? 'judged' : 'no_benchmark', range: null,
+            words: judged ? 'On Target' : 'No Target', target: judged ? 'target 1,500' : '', earlier: null, estimated: false }],
+          reasons: [{ text: 'Largest Campaign: Fall Launch, 1,200 (60.0% of Sent Count).', report: null }, { text: 'Smallest: Weekly Newsletter, 800 (40.0%).', report: null }],
+          actions: [], read: { reports: 1, earlier: null, benchmarks: judged ? 1 : 0, campaign: null }, notes: judged ? [] : ['No target is set for Sent Count, so the verdict cannot say good or bad.'],
+          pack: null, ready: true, can_set: true })
+      }
+      if (path.endsWith('/insights/benchmarks/defaults/') && method === 'POST') {
+        insightsBenchmarkOffers.splice(0, insightsBenchmarkOffers.length)
+        insightsBenchmarksNow.push({ id: 'bm-default', dataset: 'messages', dataset_label: 'Messages', measure: 'sent', measure_label: 'Sent Count', format: 'integer', higher_is_better: true, good: 1500, act: 1000,
+          count_field: null, base_field: null, row_version: 1 })
+        return json({ added: 1 }, 201)
+      }
+      if (path.endsWith('/insights/benchmarks/') && method === 'POST') {
+        const asked = body as { dataset: string; measure: string; higher_is_better: boolean; good: number; act: number; count_field: string | null; base_field: string | null }
+        const made = { id: `bm-${insightsBenchmarksNow.length + 1}`, dataset: asked.dataset, dataset_label: 'Messages', measure: asked.measure, measure_label: asked.measure === 'sent' ? 'Sent Count' : asked.measure,
+          format: 'integer', higher_is_better: asked.higher_is_better, good: asked.good, act: asked.act, count_field: asked.count_field, base_field: asked.base_field, row_version: 1 }
+        insightsBenchmarksNow.push(made)
+        return json(made, 201)
+      }
+      if (/\/insights\/benchmarks\/[\w-]+\/$/.test(path) && method === 'DELETE') {
+        const at = insightsBenchmarksNow.findIndex((b) => path.endsWith(`/${b.id}/`))
+        if (at >= 0) insightsBenchmarksNow.splice(at, 1)
+        return json(null, 204)
       }
       if (/\/insights\/reports\/[\w-]+\/explain\/$/.test(path)) {
         return json({ summary: 'Fall Launch sent the most, 1,200 of the 2,000 messages; Weekly Newsletter sent the rest.', points: ['Email carried nine in ten sends.', 'Text sends were small all month.'],
@@ -1828,7 +1862,7 @@ export function installMockApi(options: MockOptions = {}) {
           packs: [{ key: 'email-campaigns', version: 1, name: 'Email Campaign Reports', source: 'CmpReport', summary: 'Campaign KPIs, delivery, opens by device and comparisons.',
             needs: { label: 'a Postal database', engine: 'mysql', tables: ['messages', 'deliveries', 'loads', 'clicks', 'links'] },
             contents: { datasets: ['Email Messages', 'Email Campaigns', 'Email Link Clicks', 'Email Opens'], reports: ['Campaign KPIs', 'Link Clicks'], dashboards: ['Management Dashboard', 'Campaign Performance'] },
-            added: [] }] })
+            components: [{ key: 'insights', name: 'Insights' }], chosen: true, added: [] }] })
       }
       if (path.endsWith('/insights/base-reports/email-campaigns/sources/')) {
         return json({ databases: [{ name: 'mailpostal-server-14', messages: 26458, marketing: 919 }, { name: 'txpostalprod-server-10', messages: 17853, marketing: 41 }, { name: 'txpostalprod-server-7', messages: 900, marketing: 0 }],

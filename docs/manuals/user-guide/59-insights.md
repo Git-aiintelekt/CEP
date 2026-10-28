@@ -191,11 +191,27 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. The dialog shows the statement the engine runs for you, with the values written in, and the linked dataset's statement when the report has one. Your row access rules are in it.
 3. **Copy** puts a statement on the clipboard. Nothing runs from this dialog.
 
-**Explain This Report, with AI**
+**Explain: What This Means, free, and What the Rows Show, with AI**
 
-1. Open a report and press **Explain**. The button is there when the platform allows it and the workspace's **Explain This Report** switch is on (Settings → AI Assistant).
-2. A panel above the rows says what they show in a few sentences, with the main points and what the rows cannot tell. The model reads the report's name, its columns and up to 100 of the rows you see; masked personal data is left out.
-3. Each explanation counts as one prompt. Check the figures before you act on them.
+1. Open a report and press **Explain**. A panel opens above the rows on **What This Means**: a verdict (On Track, Watch, Act or No Benchmark), up to four figures against their targets, **Why** with a link to the report each reason came from, and **Do Next**, at most three actions with a button each. It is written by set rules from the engine's own figures: it uses no AI, counts no prompt, shows at once and reads the same each time, so it is there in every workspace.
+2. On an Email Campaign report (Base Reports), it reads the campaign's delivery, hard bounces, opens and clicks, the most common failure reply, the links clicked and the five campaigns sent before it. **Export the Addresses** downloads the hard-failed recipients of the same campaign as a CSV (masked unless you may see personal data). On any other report, it judges the report's totals against the benchmarks set for its measures and names its largest and smallest group.
+3. **Copy as Email** puts the brief on the clipboard as plain text.
+4. **What the Rows Show** is the AI's few sentences on the rows, with the main points and what the rows cannot tell. The tab is there when the platform allows it and the workspace's **Explain This Report** switch is on (Settings → AI Assistant). The model reads the report's name, its columns and up to 100 of the rows you see; masked personal data is left out. It is asked only when you open the tab, and counts as one prompt. Check the figures before you act on them.
+
+**How What This Means stays accurate**
+
+- **A verdict only when the figures are sure of it.** For a rate made of a count and a base (Delivered of Sent), the engine works out its 95% range (the Wilson interval). When the whole range sits in one band, the verdict is plain (On Target); when it crosses a band's edge, it says **Likely** (Likely On Target). Under 30 in the base it says **Too Few to Judge**.
+- **Estimates are named.** Machine opens (Apple Mail Privacy Protection, scanners) are recognised from the email client, so People Who Opened is marked **≈** and estimated.
+- **Comparisons say what they compared.** "Earlier" is the campaigns sent before this one, pooled; the line at the bottom says how many and their dates. A later campaign is never used.
+- **Facts, not causes.** Each reason states a figure and links to the report it came from; none says one thing caused another.
+
+**Benchmarks**
+
+1. Open **Benchmarks** in the Insights menu. Everyone sees them; a report or user administrator changes them.
+2. **Add a Benchmark**: the dataset, the measure, whether higher or lower is better, **Good** and **Act**. Between them is Watch. Higher is better: Good at or above Good, Act below Act. Lower is better: the same the other way.
+3. For a rate, choose **Made Of: Count** and **Made Of: Base** (such as Delivered and Sent): then its 95% range is worked out, as above.
+4. After adding the Email Campaign Reports, **Add the Email Campaign Defaults** sets four at once: Delivery Rate (Good 95%, Act under 90%), Bounce Rate (Good 2% or less, Act over 5%), Click-Through Rate (Good 1.5%, Act under 0.5%) and Unsubscribe Rate (Good 0.3% or less, Act over 0.5%). Change them to your own.
+5. Without a benchmark, What This Means states the figures and says it cannot judge them, with **Set a Benchmark**.
 
 **Change a report with a prompt, with AI**
 
@@ -474,7 +490,7 @@ Insights → Reports lists every report you can open, grouped by its component (
 
 ### Base Reports: ready-made reports from the platform
 
-**Add Base Reports** on Insights → Reports offers the platform's ready-made **packs**: datasets, shared formulas, reports and dashboards that work together. A pack is added as this workspace's own copies, filed in a folder named after it; you may change them like any report, and a later version of the pack never changes them. Adding a pack needs report administration.
+**Add Base Reports** on Insights → Reports offers the platform's ready-made **packs**: datasets, shared formulas, reports and dashboards that work together. You see the packs your workspace's components fit; one the platform team chose for you when the workspace was set up is marked **Chosen at Onboarding**. A pack is added as this workspace's own copies, filed in a folder named after it; you may change them like any report, and a later version of the pack never changes them. Adding a pack needs report administration.
 
 The first pack is **Email Campaign Reports**, the reports of CmpReport on the mail server's own tables: Campaign KPIs, Campaign Send Status, Delivery Outcomes, Failure and Bounce Reasons, Provider Performance, Retry Analysis, Contact-List Quality, Link Clicks, Opens by Device and Client, Opens over Time, Customer Detail, Unsubscribes, Campaign Comparison and the best and worst campaigns, with a **Management Dashboard** (every campaign in the period) and a **Campaign Performance** dashboard (one campaign, the latest unless you pick another).
 
@@ -537,6 +553,7 @@ Opening a report runs it and shows the saved view. Above the rows: the view swit
 | Folder | Files the report in a folder, or in a new one (owner or administrator). |
 | Versions | Every saved version with who, when and the note. **Open** shows one as it was, read-only, with Back to Current. **Restore** makes it the current version again, as a new version; nothing is lost. |
 | Schedule | Emails the report on a schedule (below). |
+| Explain | What This Means (free, by rules) and, where the AI is on, What the Rows Show (above). |
 | Edit | The editor (owner or administrator). |
 | Export CSV, Export Excel, Export PDF | The report as a file: CSV the rows; Excel the view with its totals first and the rows after, with number formats; PDF the view styled for paper. |
 | Delete | Removes the report and its versions (owner or administrator). |

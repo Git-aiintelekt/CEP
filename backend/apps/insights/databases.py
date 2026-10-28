@@ -146,7 +146,7 @@ def catalogue_entry(row: dict, conn: dict) -> dict:
     fields = [{"key": f["key"], "label": f["label"], "column": f.get("column"), **({"table": f.get("table") or "t0"} if (joins or query) and f.get("column") else {}), "type": f["type"], "role": f["role"],
                "aggregates": f.get("aggregates") or [], "operators": catalog.OPERATORS[f["type"]], "buckets": catalog.BUCKETS if f["type"] in ("date", "datetime") else [],
                "format": f.get("format"), "sensitivity": f.get("sensitivity") or "NORMAL", **({"formula": f["formula"]} if f.get("formula") else {})} for f in row["fields"]]
-    return {"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row.get("component_key") or "cep", "name": "Engagement"},
+    return {"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row.get("component_key") or "cep", "name": catalog.component_name(row.get("component_key") or "cep")},
             "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{schema}.{row['source_name']}",
             "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins], **({"query": query, "kind": "query"} if query else {"kind": "table"}),
             "workspace_field": None, "engine": external.dialect_of(conn), "external": True, "fields": fields,
@@ -755,10 +755,10 @@ class QueryDatasetView(APIView):
         data = _dataset_body({**body, "sql": str(body.get("sql") or "")}, None, row["engine"])
         dataset_id, key = str(uuid.uuid4()), _unique_key(tenant.pk, data["label"], None)
         with session.tx():
-            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by, component_key)
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                [dataset_id, str(tenant.pk), str(connection_id), key, data["label"], data["description"], "query", data["primary_key"], data["time_field"], json.dumps(data["fields"]),
-                "[]", data["query_sql"], str(request.user.pk), str(request.user.pk)])
+                "[]", data["query_sql"], str(request.user.pk), str(request.user.pk), catalog.home_component(tenant.pk)])
         invalidate(tenant.pk)
         return Response(serialize_dataset(next(d for d in datasets(tenant.pk, connection_id) if d["id"] == dataset_id)), status=status.HTTP_201_CREATED)
 
@@ -828,10 +828,10 @@ def create_dataset(tenant_id, user_id, connection_id, data: dict) -> str:
     """_dataset_body's result stored as a new dataset under a fresh key; its id"""
     dataset_id, key = str(uuid.uuid4()), _unique_key(tenant_id, data["label"], None)
     with session.tx():
-        _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
-              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+        _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by, component_key)
+              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
            [dataset_id, str(tenant_id), str(connection_id), key, data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]),
-            json.dumps(data["joins"]), data["query_sql"], str(user_id), str(user_id)])
+            json.dumps(data["joins"]), data["query_sql"], str(user_id), str(user_id), catalog.home_component(tenant_id)])
     invalidate(tenant_id)
     return dataset_id
 
