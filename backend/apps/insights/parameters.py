@@ -249,7 +249,9 @@ class ParameterValuesView(APIView):
         raw = {"columns": [{"field": key}, *([{"field": measure["key"], "aggregate": measure["aggregates"][0]}] if measure else [])],
                "filters": {"combinator": "and", "rules": rules}, "orderBy": [{"field": key, "direction": "asc"}], "limit": offset + page + 1}
         try:
-            result = runner.run(tenant, request.user, dataset, validate(dataset, raw), "run", limit=page + 1, offset=offset, mask_pii=not _can_see_pii(request))
+            checked = validate(dataset, raw)
+            checked["_plain_order"] = True      # no empty values to put last, so an index on the column can give the order (MySQL)
+            result = runner.run(tenant, request.user, dataset, checked, "run", limit=page + 1, offset=offset, mask_pii=not _can_see_pii(request))
         except DefinitionError:
             return Response({"field": key, "values": [], "choosable": False})
         except runner.RunRefused as exc:
@@ -262,8 +264,8 @@ class ParameterValuesView(APIView):
 def _page(body: dict) -> tuple[int, int, str]:
     """how many values, from where, containing what: VALUES from the first unless asked otherwise"""
     try:
-        page = int(body.get("limit") or VALUES)
-        offset = int(body.get("offset") or 0)
+        page = VALUES if body.get("limit") in (None, "") else int(body["limit"])
+        offset = 0 if body.get("offset") in (None, "") else int(body["offset"])
     except (TypeError, ValueError):
         raise ValidationError({"limit": "Give the limit and offset as whole numbers."})
     if not 1 <= page <= MAX_VALUES_PAGE or offset < 0:
