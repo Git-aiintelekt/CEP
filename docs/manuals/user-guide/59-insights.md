@@ -192,7 +192,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Share a report or a dashboard**
 
-1. Open it and press **Share** (the owner, or a report administrator).
+1. Open it and press **Share** (the owner, or a report administrator). On a report, Share is in **More actions** (the three dots).
 2. Choose who can open it: **You and the people and roles below**, or **Everyone in the workspace**.
 3. Find a person or a role and add them. Give each **Can View** or **Can Edit**; Can Edit lets someone who builds reports change it. A role reaches everyone holding it.
 4. Press **Save**. The list shows a private report as shared.
@@ -296,7 +296,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Explain: What This Means, free, and What the Rows Show, with AI**
 
-1. Open a report and press **Explain**. A panel opens above the rows on **What This Means**: a verdict (On Track, Watch, Act or No Benchmark), up to four figures against their targets, **Why** with a link to the report each reason came from, and **Do Next**, at most three actions with a button each. It is written by set rules from the engine's own figures: it uses no AI, counts no prompt, shows at once and reads the same each time, so it is there in every workspace.
+1. Open a report, open **More actions** (the three dots) and choose **Explain**. A panel opens above the rows on **What This Means**: a verdict (On Track, Watch, Act or No Benchmark), up to four figures against their targets, **Why** with a link to the report each reason came from, and **Do Next**, at most three actions with a button each. It is written by set rules from the engine's own figures: it uses no AI, counts no prompt, shows at once and reads the same each time, so it is there in every workspace.
 2. On an Email Campaign report (Base Reports), it reads the campaign's delivery, hard bounces, opens and clicks, the most common failure reply, the links clicked and the five campaigns sent before it. **Export the Addresses** downloads the hard-failed recipients of the same campaign as a CSV (masked unless you may see personal data). On any other report, it judges the report's totals against the benchmarks set for its measures and names its largest and smallest group.
 3. **Copy as Email** puts the brief on the clipboard as plain text.
 4. **What the Rows Show** is the AI's few sentences on the rows, with the main points and what the rows cannot tell. The tab is there when the platform allows it and the workspace's **Explain This Report** switch is on (Settings → AI Assistant). The model reads the report's name, its columns and up to 100 of the rows you see; masked personal data is left out. It is asked only when you open the tab, and counts as one prompt. Check the figures before you act on them.
@@ -433,7 +433,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Get an email when a value crosses a threshold (Alerts)**
 
-1. Open the report and press **Alerts**.
+1. Open the report, open **More actions** and choose **Alerts**.
 2. Under **New Alert**, choose the value (**When**), the **Condition** (falls below, is at or below, rises above, is at or above) and the **Threshold**. For a percentage, 90 means 90%.
 3. Choose **Check**: Every Day at a time, or Every Hour. Add the addresses to email (people without the right to build reports alert themselves only), and an optional name. Press **Set Alert**.
 4. The value is the report's value over its own filters. When it crosses the threshold you get one email; you are emailed again only after it goes back and crosses again.
@@ -441,7 +441,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Comment on a report or a dashboard, and pin a note to a value**
 
-1. Open the report or dashboard and press **Comments**. Write in the box at the bottom and press **Add Comment**.
+1. Open the report or dashboard and press **Comments** (on a report, in **More actions**). Write in the box at the bottom and press **Add Comment**.
 2. To pin a note to a value, right-click it on a chart or a table and choose **Comment on This Value**. The chart then marks that value, and hovering it shows the note.
 3. On a dashboard, a tile's speech-bubble icon opens comments on that tile, with the count beside it.
 4. **Resolve** puts a thread among the resolved; **Open again** brings it back. You change or delete your own comments; the owner and report administrators delete any.
@@ -650,7 +650,9 @@ Opening a report runs it and shows the saved view. Above the rows: the view swit
 - **Kept results and Refresh:** a report on one of your Report Databases is kept for 15 minutes (other reports for a minute), so opening it again, or a dashboard with it, is instant. The line under the title then says **kept from 10:42**. **Refresh** runs it again now.
 - **Why some reports take longer:** a report on your own database runs there, live. One that adds up a whole month of a large table (millions of rows) can take half a minute; one that lists the newest rows, or one campaign's day, is quick. A date filter on a day worked out from a date and time (such as DATE(SENT_AT)) is run on the date and time itself, so the database's index can help.
 
-| Button | What it does |
+Component and Folder sit beside the title; every other action is in the **More actions** menu (the three dots), so the whole list fits on any screen. The menu is grouped: Explain and Edit; Share, Comments, Alerts, Schedule and Versions; the exports and Print-Ready PDF; Show the SQL and Embed on Another Site; Delete last.
+
+| Action | What it does |
 |---|---|
 | Component | Lists the report under another component of the suite, or Automatic (its data's); it moves at once (owner or administrator). |
 | Folder | Files the report in a folder, or in a new one (owner or administrator). |
@@ -676,7 +678,7 @@ A dashboard is a page of tiles, each tile a saved report in one of its views or 
 
 ## Scheduled delivery
 
-Press **Schedule** on a report or a dashboard:
+Press **Schedule** on a dashboard, or choose it in **More actions** on a report:
 
 | Field | Meaning |
 |---|---|
