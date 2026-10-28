@@ -76,7 +76,8 @@ export const sharedFormulasApi = {
 
 /** the values a parameter offers (apps/insights/parameters.py) */
 export const parametersApi = {
-  values: (body: { dataset: string; field: string }) => api.post<ParameterChoices>('/insights/parameters/values/', body),
+  /** a page of values, A to Z: `limit` from `offset` (200 from the first unless asked), only those containing `q` */
+  values: (body: { dataset: string; field: string; q?: string; offset?: number; limit?: number }) => api.post<ParameterChoices>('/insights/parameters/values/', body),
 }
 
 /** Insights → Uploaded Files (apps/insights/uploads.py) */

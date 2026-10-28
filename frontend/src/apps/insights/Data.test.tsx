@@ -83,6 +83,26 @@ test('a report that asks: nothing runs until Channel is chosen; choosing it runs
   await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/rep-asked/export.csv?params=') && decodeURIComponent(c.url).includes('{"channel":["SMS"]}'))).toBe(true))
 })
 
+test('a filter list: 100 values, More shows the next 100, and typing searches the whole list on the server', async () => {
+  const user = userEvent.setup()
+  const calls = await renderAppAt('/insights/reports/rep-asked')
+  const bar = await screen.findByRole('group', { name: 'Filters' })
+  await user.click(await within(bar).findByRole('button', { name: /^Channel/ }))
+  const list = await screen.findByRole('listbox', { name: 'Channel' })
+  expect(await within(list).findByRole('option', { name: 'Web 098' })).toBeTruthy()
+  expect(within(list).queryByRole('option', { name: 'Web 099' })).toBeNull()
+  expect(screen.getByText('100 shown')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'More (next 100)' }))
+  expect(await within(list).findByRole('option', { name: 'Web 150' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'More (next 100)' })).toBeNull()
+  await user.type(screen.getByRole('textbox', { name: 'Search Channel' }), 'web 14')
+  await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith('/insights/parameters/values/') && (c.body as { q?: string }).q === 'web 14')).toBe(true))
+  await vi.waitFor(() => expect(within(screen.getByRole('listbox', { name: 'Channel' })).getAllByRole('option')).toHaveLength(10))
+  await user.click(within(screen.getByRole('listbox', { name: 'Channel' })).getByRole('option', { name: 'Web 145' }))
+  await user.click(screen.getByRole('button', { name: 'Apply' }))
+  await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/rep-asked/run/') && JSON.stringify((c.body as { params?: unknown }).params) === '{"channel":["Web 145"]}')).toBe(true))
+})
+
 test('the editor: Viewer Filters adds a required question on Channel, saved with the report', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
