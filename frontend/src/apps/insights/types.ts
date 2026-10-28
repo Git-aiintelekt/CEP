@@ -1087,6 +1087,10 @@ export interface BasePack {
   name: string
   summary: string
   source?: string | null
+  /** the suite components a workspace needs for the pack: Insights offers only the packs its components fit */
+  components?: { key: string; name: string }[]
+  /** picked for this workspace in the back-office's Onboard a Tenant */
+  chosen?: boolean
   needs: { label: string; engine: string; tables: string[] }
   contents: { datasets: string[]; reports: string[]; dashboards: string[] }
   added: { version: number; at: string; folder_id: string | null; folder_name: string | null; by: string | null }[]

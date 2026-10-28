@@ -1,17 +1,20 @@
 """Onboard a tenant: the guided flow in the back-office (Tenants -> Onboard a tenant).
 
-Six steps, kept in the staff user's session as a draft until Review; nothing is written before the last step:
+Seven steps, kept in the staff user's session as a draft until Review; nothing is written before the last step:
 
     1 workspace   name, the fixed code, subdomain and custom domain, time zone, region and residency, hosting
     2 plan        the subscription plan (a trial unless a billing reference is given), the industry profile, the
                   per-workspace feature switches, and the resolved result: default -> profile -> override -> plan
-    3 admin       the first administrator: a user with the Workspace Admin role, sign-in by one-time password link
-    4 policies    the consent policy for the workspace (platform defaults otherwise); the rest is shown, not asked
-    5 hand-off    the set-up list the administrator receives with the password link, and a line from the platform team
-    6 review      everything in one place, then finish: the tenant row, its subscription, settings, provisioning
-                  (services.onboard_tenant), the users with their role, and the mail
+    3 components  the suite components the workspace gets (the plan's ticked; one left out is switched off, one added is an
+                  add-on), and the base report packs for them (apps/insights/base_packs), remembered in the tenant's settings
+                  as base_packs: a pack is added in Insights once the workspace connects the database it reads
+    4 admin       the first administrator: a user with the Workspace Admin role, sign-in by one-time password link
+    5 policies    the consent policy for the workspace (platform defaults otherwise); the rest is shown, not asked
+    6 hand-off    the set-up list the administrator receives with the password link, and a line from the platform team
+    7 review      everything in one place, then finish: the tenant row, its subscription, settings, its components,
+                  provisioning (services.onboard_tenant), the users with their role, and the mail
 
-Steps 4 and 5 can be skipped. finish() writes in one transaction; the mail goes afterwards and never undoes it.
+Steps 5 and 6 can be skipped. finish() writes in one transaction; the mail goes afterwards and never undoes it.
 """
 import re
 import zoneinfo
@@ -26,15 +29,15 @@ from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextareaWidget, U
 
 from apps.contact_lists import consent as consent_policy
 from apps.identity.models import AppUser, Role, UserRole
-from apps.platform_ops import links, mail, params
-from apps.platform_ops.models import IndustryProfile, MailServer
+from apps.platform_ops import components, links, mail, params
+from apps.platform_ops.models import IndustryProfile, MailServer, TenantComponent
 
 from . import services
 from .models import SubscriptionPlan, Tenant, TenantSubscription
 
 P = settings.PLATFORM_ALIAS
 SESSION_KEY = "tenant_onboarding"
-STEPS = (("workspace", "Workspace"), ("plan", "Plan and Features"), ("admin", "First Administrator"), ("policies", "Policies"), ("handoff", "Hand-Off"), ("review", "Review and Onboard"))
+STEPS = (("workspace", "Workspace"), ("plan", "Plan and Features"), ("components", "Components and Reports"), ("admin", "First Administrator"), ("policies", "Policies"), ("handoff", "Hand-Off"), ("review", "Review and Onboard"))
 STEP_KEYS = [key for key, _ in STEPS]
 SKIPPABLE = {"policies", "handoff"}
 CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,19}$")
@@ -125,6 +128,54 @@ class PlanForm(forms.Form):
         return {code: self.cleaned_data[f"feature_{code}"] == "on" for code in params.FEATURES if self.cleaned_data.get(f"feature_{code}")}
 
 
+class ComponentsForm(forms.Form):
+    """The components the workspace gets and the base report packs for them. Built for the plan chosen in the step before."""
+
+    def __init__(self, *args, plan_id=None, saved=None, **kwargs):
+        kwargs.pop("initial", None)
+        super().__init__(*args, **kwargs)
+        from apps.insights.base_packs import PACKS, needs
+        self.registry = [spec for spec in components.registry() if spec["release"] in components.OFFERABLE]
+        self.in_plan = set(components.plan_keys(plan_id)) if plan_id else set(components.FALLBACK_PLAN)
+        self.names = {spec["key"]: spec["name"] for spec in components.registry()}
+        self.packs = list(PACKS.values())
+        self.needs = {pack["key"]: needs(pack) for pack in self.packs}
+        on = set(saved["components"]) if saved else self.in_plan
+        picked = set(saved.get("packs") or []) if saved else set()
+        for spec in self.registry:
+            where = "In the plan" if spec["key"] in self.in_plan else "Not in the plan: ticked, it is added as an add-on"
+            self.fields[f"component_{spec['key']}"] = forms.BooleanField(label=spec["name"], required=False, initial=spec["key"] in on,
+                                                                         help_text=f"{spec['tagline']} · {where}" if spec.get("tagline") else where)
+        for pack in self.packs:
+            self.fields[f"pack_{pack['key']}"] = forms.BooleanField(label=pack["name"], required=False, initial=pack["key"] in picked,
+                                                                    help_text=f"{pack['summary']} Needs {', '.join(self.names.get(k, k) for k in self.needs[pack['key']])}.")
+
+    def component_fields(self):
+        return [self[f"component_{spec['key']}"] for spec in self.registry]
+
+    def pack_fields(self):
+        return [self[f"pack_{pack['key']}"] for pack in self.packs]
+
+    def clean(self):
+        data = super().clean()
+        on = {spec["key"] for spec in self.registry if data.get(f"component_{spec['key']}")}
+        if not on:
+            raise forms.ValidationError("Tick at least one component.")
+        for spec in self.registry:
+            missing = [need for need in spec.get("needs") or [] if spec["key"] in on and need not in on]
+            if missing:
+                self.add_error(f"component_{spec['key']}", f"{spec['name']} needs {', '.join(self.names.get(k, k) for k in missing)}.")
+        for pack in self.packs:
+            missing = [k for k in self.needs[pack["key"]] if data.get(f"pack_{pack['key']}") and k not in on]
+            if missing:
+                self.add_error(f"pack_{pack['key']}", f"Needs {', '.join(self.names.get(k, k) for k in missing)}: tick it above, or leave this pack out.")
+        return data
+
+    def choices(self) -> dict:
+        return {"components": [spec["key"] for spec in self.registry if self.cleaned_data.get(f"component_{spec['key']}")],
+                "packs": [pack["key"] for pack in self.packs if self.cleaned_data.get(f"pack_{pack['key']}")]}
+
+
 class AdminForm(forms.Form):
     display_name = forms.CharField(label="Full Name", max_length=200, widget=UnfoldAdminTextInputWidget)
     email = forms.EmailField(label="Email", widget=UnfoldAdminTextInputWidget, help_text="Their sign-in. Must not exist in another workspace.")
@@ -171,7 +222,14 @@ class HandoffForm(forms.Form):
                            help_text="Goes into the password-link email under the set-up list. Optional.")
 
 
-FORMS = {"workspace": WorkspaceForm, "plan": PlanForm, "admin": AdminForm, "policies": PoliciesForm, "handoff": HandoffForm}
+FORMS = {"workspace": WorkspaceForm, "plan": PlanForm, "components": ComponentsForm, "admin": AdminForm, "policies": PoliciesForm, "handoff": HandoffForm}
+
+
+def form_kwargs(draft: dict, step: str) -> dict:
+    """what a step's form needs from the steps before it: the components step is built for the plan chosen"""
+    if step != "components":
+        return {}
+    return {"plan_id": (draft["data"].get("plan") or {}).get("plan"), "saved": draft["data"].get("components")}
 
 
 def _plan_words(plan) -> str:
@@ -181,6 +239,15 @@ def _plan_words(plan) -> str:
     parts.append(f"{plan.max_users} users" if plan.max_users else "no user limit")
     parts.append("dedicated database" if plan.default_isolation_mode == "DEDICATED" else "shared database")
     return " · ".join(parts)
+
+
+def component_groups(form: ComponentsForm) -> list[dict]:
+    """the components step's two groups, as the page shows them"""
+    return [{"key": "components", "title": "Components", "fields": form.component_fields(), "empty": "No component is released yet.",
+             "text": "The plan's components are ticked. Untick one to switch it off for this workspace; tick one outside the plan to add it as an add-on."},
+            {"key": "packs", "title": "Base Reports", "fields": form.pack_fields(), "empty": "No base report pack ships with this release.",
+             "text": "Ready-made reports and dashboards for the components ticked above. Each reads a database the workspace connects, so it is added "
+                     "in Insights → Reports → Add Base Reports afterwards, where the ones chosen here are marked. Insights offers only the packs its components fit."}]
 
 
 # ------------------------------------------------------------------------------------------------------------ the draft
@@ -257,6 +324,21 @@ def policies_summary(data: dict | None) -> list[dict]:
     ]
 
 
+def components_of(draft: dict) -> dict:
+    """the components step in words, and what finish() writes: which plan components go off, which others are add-ons"""
+    from apps.insights.base_packs import PACKS
+    data = draft["data"]
+    plan_id = (data.get("plan") or {}).get("plan")
+    in_plan = set(components.plan_keys(plan_id)) if plan_id else set(components.FALLBACK_PLAN)
+    offerable = [spec for spec in components.registry() if spec["release"] in components.OFFERABLE]
+    chosen = data.get("components")
+    on = set(chosen["components"]) if chosen else in_plan
+    return {"on": [spec["name"] for spec in offerable if spec["key"] in on],
+            "off": [spec["key"] for spec in offerable if spec["key"] in in_plan and spec["key"] not in on],
+            "addon": [spec["key"] for spec in offerable if spec["key"] not in in_plan and spec["key"] in on],
+            "packs": [PACKS[k]["name"] for k in (chosen or {}).get("packs") or [] if k in PACKS], "pack_keys": [k for k in (chosen or {}).get("packs") or [] if k in PACKS]}
+
+
 def mail_ready() -> tuple[bool, str]:
     if mail.is_configured(None):
         server = MailServer.objects.using(P).filter(tenant__isnull=True, is_active=True).first()
@@ -276,7 +358,7 @@ def review_of(draft: dict) -> dict:
     ready, mail_words = mail_ready()
     return {
         "workspace": workspace, "plan": plan_row, "profile": profile, "admin": admin, "policies": data.get("policies"), "handoff": data.get("handoff") or {},
-        "features_on": on, "overrides": overrides,
+        "features_on": on, "overrides": overrides, "components": components_of(draft),
         "subscription": (f"trial for {trial} days" if trial or not plan.get("billing_customer_ref") else "active") + (f" · billing reference {plan['billing_customer_ref']}" if plan.get("billing_customer_ref") else ""),
         "mail_ready": ready, "mail_words": mail_words, "checklist": HANDOFF_CHECKLIST,
         "invites": [admin.get("email")] + list(admin.get("also_invite") or []) if admin else [],
@@ -297,6 +379,9 @@ def finish(draft: dict, *, staff_user_id) -> dict:
         tenant_settings["features"] = plan["features"]
     if policies:
         tenant_settings[consent_policy.KEY] = {**consent_policy.DEFAULTS, **{k: v for k, v in policies.items() if k in consent_policy.DEFAULTS}}
+    chosen = components_of(draft)
+    if chosen["pack_keys"]:
+        tenant_settings["base_packs"] = chosen["pack_keys"]
     plan_row = SubscriptionPlan.objects.using(P).get(pk=plan["plan"])
     trial_days = int(plan.get("trial_days") or 0)
     with transaction.atomic(using=P):
@@ -305,6 +390,10 @@ def finish(draft: dict, *, staff_user_id) -> dict:
             subdomain=workspace.get("subdomain") or None, custom_app_domain=workspace.get("custom_app_domain") or None,
             isolation_mode=workspace.get("isolation_mode") or "SHARED", region=workspace.get("region") or None, data_residency=workspace.get("data_residency") or None,
             settings=tenant_settings, onboarded_at=now, created_by_id=staff_user_id)
+        for key in chosen["off"]:
+            TenantComponent.objects.using(P).create(tenant=tenant, component_id=key, access="OFF", updated_by_id=staff_user_id)
+        for key in chosen["addon"]:
+            TenantComponent.objects.using(P).create(tenant=tenant, component_id=key, access="ADDON", updated_by_id=staff_user_id)
         params.invalidate(tenant.pk)
         provisioned = services.onboard_tenant(tenant, using=P, user_id=staff_user_id)
         TenantSubscription.objects.using(P).create(

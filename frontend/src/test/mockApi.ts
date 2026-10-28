@@ -1862,7 +1862,7 @@ export function installMockApi(options: MockOptions = {}) {
           packs: [{ key: 'email-campaigns', version: 1, name: 'Email Campaign Reports', source: 'CmpReport', summary: 'Campaign KPIs, delivery, opens by device and comparisons.',
             needs: { label: 'a Postal database', engine: 'mysql', tables: ['messages', 'deliveries', 'loads', 'clicks', 'links'] },
             contents: { datasets: ['Email Messages', 'Email Campaigns', 'Email Link Clicks', 'Email Opens'], reports: ['Campaign KPIs', 'Link Clicks'], dashboards: ['Management Dashboard', 'Campaign Performance'] },
-            added: [] }] })
+            components: [{ key: 'insights', name: 'Insights' }], chosen: true, added: [] }] })
       }
       if (path.endsWith('/insights/base-reports/email-campaigns/sources/')) {
         return json({ databases: [{ name: 'mailpostal-server-14', messages: 26458, marketing: 919 }, { name: 'txpostalprod-server-10', messages: 17853, marketing: 41 }, { name: 'txpostalprod-server-7', messages: 900, marketing: 0 }],

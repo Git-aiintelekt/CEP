@@ -210,6 +210,7 @@ PACK = {
     "summary": ("Campaign KPIs, send status, delivery and retries, failures and bounces, providers, list quality, link clicks, opens by device "
                 "and client, customer detail, unsubscribes and comparisons; a Management Dashboard and a Campaign Performance dashboard."),
     "source": "CmpReport",
+    "components": ["insights"],
     "needs": {"engine": "mysql", "label": "a Postal database", "tables": ["messages", "deliveries", "loads", "clicks", "links"]},
     "datasets": DATASETS,
     "formulas": FORMULAS,

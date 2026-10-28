@@ -136,9 +136,11 @@ class TenantAdmin(BaseAdmin):
                     messages.warning(request, f"Email is not configured or failed, so send this one-time link to {email} yourself: {link}")
                 return redirect("admin:tenants_tenant_change", tenant.pk)
             if step != "review":
-                form = onboarding.FORMS[step](request.POST)
+                form = onboarding.FORMS[step](request.POST, **onboarding.form_kwargs(draft, step))
                 if form.is_valid():
                     data = {key: value for key, value in form.cleaned_data.items() if not key.startswith("feature_")}
+                    if step == "components":
+                        data = form.choices()
                     if step == "plan":
                         data["features"] = form.feature_overrides()
                     if step == "policies":
@@ -158,7 +160,7 @@ class TenantAdmin(BaseAdmin):
                 initial["lifetime_months"] = str(initial["lifetime_months"])
             if step == "admin" and isinstance(initial.get("also_invite"), list):
                 initial["also_invite"] = "\n".join(initial["also_invite"])
-            form = onboarding.FORMS[step](initial=initial) if step != "review" else None
+            form = onboarding.FORMS[step](initial=initial, **onboarding.form_kwargs(draft, step)) if step != "review" else None
         plan_data = draft["data"].get("plan") or {}
         if step == "plan" and form is not None and form.is_bound and form.is_valid():
             plan_data = {"plan": form.cleaned_data["plan"], "industry": form.cleaned_data["industry"], "features": form.feature_overrides()}
@@ -168,6 +170,7 @@ class TenantAdmin(BaseAdmin):
                                  for index, (key, label) in enumerate(onboarding.STEPS)],
                    "feature_table": onboarding.feature_table(plan_data.get("plan"), plan_data.get("industry"), plan_data.get("features") or {}) if step == "plan" else None,
                    "policies_summary": onboarding.policies_summary(draft["data"].get("policies")) if step == "policies" else None,
+                   "component_groups": onboarding.component_groups(form) if step == "components" and form is not None else None,
                    "checklist": onboarding.HANDOFF_CHECKLIST, "review": onboarding.review_of(draft) if step == "review" else None, "hours": links.hours()}
         return render(request, "admin/tenants/onboard.html", context)
 

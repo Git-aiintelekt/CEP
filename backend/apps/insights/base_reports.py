@@ -4,7 +4,8 @@ holding the pack's tables, its options), checks it, test-runs each dataset, then
 formulas, the reports and the dashboards through the same endpoints as by hand, in one transaction: all or nothing. Later
 versions of a pack never change what a workspace has; adding it again makes new copies.
 
-    GET   /insights/base-reports/                        the packs, what this workspace added, and the connections a pack can read
+    GET   /insights/base-reports/                        the packs this workspace's components fit (those chosen at onboarding marked),
+                                                         what it added, and the connections a pack can read
     POST  /insights/base-reports/<pack>/sources/         {connection_id}: the databases on it holding the pack's tables; campaign-name tables
     POST  /insights/base-reports/<pack>/check/           {connection_id, options}: the options checked and each dataset test-run
     POST  /insights/base-reports/<pack>/add/             {connection_id, options}: everything made; what was made
@@ -29,7 +30,7 @@ from api.permissions import HasPermissionCode
 from apps.delivery.engine import session
 from apps.insights import catalog, connection_limits, dataset_formulas, databases, external
 from apps.insights.api import VIEW, HasInsights, _has, _q, _tenant
-from apps.insights.base_packs import PACKS
+from apps.insights.base_packs import PACKS, fitting, needs
 from apps.insights.base_packs.email_sql import OptionError
 from apps.reporting import reports
 
@@ -47,11 +48,20 @@ def present() -> bool:
     return found
 
 
-def _pack(key: str) -> dict:
+def _pack(key: str, tenant=None) -> dict:
     pack = PACKS.get(key)
     if pack is None:
         raise NotFound("No such base pack.")
+    if tenant is not None:
+        missing = [k for k in needs(pack) if k not in catalog.components_of(tenant.pk)]
+        if missing:
+            raise ValidationError({"detail": f"{pack['name']} needs {', '.join(catalog.component_name(k) for k in missing)}, which this workspace does not have."})
     return pack
+
+
+def chosen(tenant) -> list[str]:
+    """the packs picked for the workspace when it was onboarded (Onboard a Tenant -> Components and Reports)"""
+    return [str(k) for k in ((tenant.settings or {}).get("base_packs") or [])]
 
 
 def _added(tenant_id) -> list[dict]:
@@ -67,9 +77,10 @@ def _fits(pack: dict, row: dict) -> bool:
     return row["engine"].startswith(pack["needs"]["engine"])
 
 
-def describe(pack: dict, added: list[dict] | None = None) -> dict:
+def describe(pack: dict, added: list[dict] | None = None, picked: list[str] | None = None) -> dict:
     mine = [a for a in added or [] if a["pack_key"] == pack["key"]]
     return {"key": pack["key"], "version": pack["version"], "name": pack["name"], "summary": pack["summary"], "source": pack.get("source"),
+            "components": [{"key": k, "name": catalog.component_name(k)} for k in needs(pack)], "chosen": pack["key"] in (picked or []),
             "needs": {"label": pack["needs"]["label"], "engine": pack["needs"]["engine"], "tables": pack["needs"]["tables"]},
             "contents": {"datasets": [d["label"] for d in pack["datasets"]], "reports": [r["name"] for r in pack["reports"]], "dashboards": [d["name"] for d in pack["dashboards"]]},
             "added": [{"version": a["version"], "at": a["created_at"], "folder_id": a["folder_id"], "folder_name": a["folder_name"], "by": a["added_by"]} for a in mine]}
@@ -262,7 +273,9 @@ class BaseReportsView(APIView):
         added = _added(tenant.pk)
         rows = databases.connections(tenant.pk) if databases._present() else []
         may_add = _has(request, "report.admin") or _has(request, "user.admin")
-        return Response({"packs": [describe(p, added) for p in PACKS.values()], "can_add": may_add, "recorded": present(),
+        picked = chosen(tenant)
+        packs = sorted(fitting(catalog.components_of(tenant.pk)), key=lambda p: p["key"] not in picked)       # the chosen ones first
+        return Response({"packs": [describe(p, added, picked) for p in packs], "can_add": may_add, "recorded": present(),
                          "connections": [{"id": r["id"], "name": r["name"], "engine": r["engine"], "database": r["database_name"],
                                           "usable": r["status"] == "ACTIVE" and r["read_only"] is not None and (r["read_only"] is not False or not databases.read_only_required())}
                                          for r in rows] if may_add else []})
@@ -273,7 +286,7 @@ class _PackView(APIView):
 
     def _given(self, request, pack_key):
         tenant = _tenant()
-        pack = _pack(pack_key)
+        pack = _pack(pack_key, tenant)
         body = request.data if isinstance(request.data, dict) else {}
         if not body.get("connection_id"):
             raise ValidationError({"connection_id": "Pick the connection that holds the pack's tables."})

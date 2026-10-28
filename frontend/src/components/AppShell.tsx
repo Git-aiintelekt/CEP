@@ -72,7 +72,7 @@ function VisitBanner({ workspace, home }: { workspace: string; home: string }) {
 }
 
 const SHORTCUTS: { keys: string; does: string }[] = [
-  { keys: '/', does: 'Search campaigns, lists, templates and pages' },
+  { keys: '/', does: 'Search' },
   { keys: 'n', does: 'Create a campaign' },
   { keys: 'g then c', does: 'Go to Campaigns' },
   { keys: 'g then t', does: 'Go to Templates' },

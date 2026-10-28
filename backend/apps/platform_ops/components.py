@@ -97,6 +97,13 @@ def inputs_for(tenant_id, plan_id) -> tuple[list[dict], list[str] | None, dict[s
     return reg, (plan_keys if plan_keys or plan_id else None), own
 
 
+def plan_keys(plan_id) -> list[str]:
+    """the components a plan includes (the fallback set before patch 0048)"""
+    if not _table_exists("plan_component"):
+        return list(FALLBACK_PLAN)
+    return [row[0] for row in _rows("SELECT component_key FROM plan_component WHERE plan_id = %s", [str(plan_id)])]
+
+
 def for_tenant(tenant_id) -> list[dict]:
     from apps.platform_ops import params
     return params.context_for(tenant_id)["components"]
