@@ -1,4 +1,4 @@
-/** The suite's search, in the top bar: campaigns, contact lists and templates by name, and the pages the person can already see. */
+/** The suite's search, in the top bar: the items the API finds by name, and the pages the person can already see. */
 import { useQuery } from '@tanstack/react-query'
 import { Search, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type RefObject } from 'react'
@@ -62,7 +62,7 @@ export function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: 
         ref={inputRef}
         type="search"
         aria-label="Search"
-        placeholder="Search campaigns, contacts, templates or journeys"
+        placeholder="Search"
         value={query}
         onChange={(event) => {
           setQuery(event.target.value)
@@ -77,7 +77,7 @@ export function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: 
       {open && term && (
         <ul aria-label="Search results" className="absolute top-full right-0 left-0 z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface-overlay py-1 shadow-menu">
           {rows.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-ink-800">{searching ? 'Searching' : term.length < 2 ? 'Type two characters or more.' : 'Nothing matches. Try a campaign, list or template name, or a page such as Settings.'}</li>
+            <li className="px-3 py-2 text-sm text-ink-800">{searching ? 'Searching' : term.length < 2 ? 'Type two characters or more.' : 'Nothing matches. Try another name, or a page such as Settings.'}</li>
           ) : (
             rows.map((row) => (
               <li key={row.key}>
