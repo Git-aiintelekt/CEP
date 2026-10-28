@@ -44,10 +44,9 @@ test('custom fields join the dataset as text dimensions; removing one removes it
 
 test('the editor: a custom field of groups, then Top 3 with Others, both sent with the preview', async () => {
   const user = userEvent.setup()
-  window.localStorage.setItem('insights.editor', 'wells')
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
   await screen.findByRole('textbox', { name: 'Report name' }, { timeout: 5000 })
-  await user.click(screen.getByRole('button', { name: 'Custom Fields' }))
+  await user.click(screen.getByRole('button', { name: 'New Custom Field' }))
   const dialog = await screen.findByRole('dialog', { name: 'Custom Fields' })
   await user.type(within(dialog).getByRole('textbox', { name: /^Name/ }), 'Big Campaigns')
   await user.selectOptions(within(dialog).getByRole('combobox', { name: /^From/ }), 'campaign_name')
@@ -58,6 +57,7 @@ test('the editor: a custom field of groups, then Top 3 with Others, both sent wi
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
   const fields = screen.getByRole('complementary', { name: 'Fields' })
   await user.click(within(fields).getByRole('button', { name: 'Big Campaigns, add' }))
+  await user.click(within(screen.getByRole('region', { name: 'Order' })).getByRole('button', { expanded: false }))
   await user.selectOptions(screen.getByRole('combobox', { name: 'Top' }), '3')
   await vi.waitFor(() => {
     const body = calls.filter((call) => call.url.endsWith('/insights/reports/preview/')).at(-1)?.body as { definition: ReportDefinition } | undefined
@@ -72,7 +72,8 @@ test('a pivot drills: a row label asks for the level below, keeping the levels u
   const calls = await renderAppAt('/insights/reports/rep-1')
   await screen.findByRole('heading', { name: 'Sends by campaign' })
   await user.click(await screen.findByRole('radio', { name: 'Pivot' }, { timeout: 5000 }))
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Across' }), 'channel')
+  await user.click(screen.getByRole('button', { name: /^Across: / }))
+  await user.click(screen.getByRole('option', { name: 'Channel' }))
   await user.click(await screen.findByRole('button', { name: 'Fall Launch' }))
   await vi.waitFor(() => {
     const drilled = calls.filter((call) => call.url.endsWith('/insights/reports/rep-1/run/')).map((call) => (call.body as { drill?: unknown }).drill).filter(Boolean).at(-1)

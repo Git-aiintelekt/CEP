@@ -65,17 +65,16 @@ test('Settings → Fiscal Year: April, named by the year it ends in, saved at on
   expect(await screen.findByText(/^FY\d{4} runs from April \d{4} to March \d{4}; today is in FY\d{4} Q\d\.$/)).toBeTruthy()
 })
 
-test('a report that asks: nothing runs until Channel is chosen; Run Report sends the answer, and the export carries it', async () => {
+test('a report that asks: nothing runs until Channel is chosen; choosing it runs the report with the answer, and the export carries it', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/reports/rep-asked')
-  expect(await screen.findByText('Choose Channel above, then run the report.')).toBeTruthy()
+  expect(await screen.findByText('Choose Channel above and the report runs.')).toBeTruthy()
   expect(calls.some((c) => c.url.includes('/rep-asked/run/'))).toBe(false)
-  const bar = screen.getByRole('form', { name: 'Parameters' })
-  expect((within(bar).getByRole('button', { name: 'Run Report' }) as HTMLButtonElement).disabled).toBe(true)
-  await user.click(await within(within(bar).getByRole('group', { name: 'Channel' })).findByRole('button', { name: 'Any' }))
+  const bar = screen.getByRole('group', { name: 'Filters' })
+  expect(within(bar).getByText('Choose Channel to run the report.')).toBeTruthy()
+  await user.click(within(bar).getByRole('button', { name: 'Channel (Required)' }))
   await user.click(await screen.findByRole('option', { name: 'SMS' }))
   await user.click(screen.getByRole('button', { name: 'Apply' }))
-  await user.click(within(bar).getByRole('button', { name: 'Run Report' }))
   await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/rep-asked/run/') && JSON.stringify((c.body as { params?: unknown }).params) === '{"channel":["SMS"]}')).toBe(true))
   expect(await screen.findByText('Weekend Flash Sale')).toBeTruthy()
   expect(screen.queryByText('Fall Launch')).toBeNull()
@@ -84,18 +83,19 @@ test('a report that asks: nothing runs until Channel is chosen; Run Report sends
   await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/rep-asked/export.csv?params=') && decodeURIComponent(c.url).includes('{"channel":["SMS"]}'))).toBe(true))
 })
 
-test('the editor: Report Filters adds a required question on Channel, saved with the report', async () => {
+test('the editor: Viewer Filters adds a required question on Channel, saved with the report', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
-  await user.click(await screen.findByRole('button', { name: 'Report Filters' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Report Filters' })
+  await user.click(await screen.findByRole('tab', { name: 'Settings' }))
+  await user.click(screen.getByRole('button', { name: /^Viewer Filters/ }))
+  const dialog = await screen.findByRole('dialog', { name: 'Viewer Filters' })
   await user.click(within(dialog).getByRole('button', { name: 'Add Filter' }))
   await user.selectOptions(within(dialog).getByLabelText('Parameter 1 field'), 'Channel')
   expect((within(dialog).getByLabelText('Parameter 1 asked as') as HTMLSelectElement).value).toBe('in')
   await user.click(within(dialog).getByLabelText('An Answer Is Required'))
   await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
-  expect(await screen.findByRole('button', { name: 'Report Filters · 1' })).toBeTruthy()
-  expect(await screen.findByRole('form', { name: 'Parameters' })).toBeTruthy()
+  expect((await screen.findByRole('button', { name: /^Viewer Filters/ })).textContent).toMatch(/1$/)
+  expect(await screen.findByRole('group', { name: 'Filters' })).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => {
     const put = calls.find((c) => c.method === 'PUT' && c.url.endsWith('/insights/reports/rep-1/'))

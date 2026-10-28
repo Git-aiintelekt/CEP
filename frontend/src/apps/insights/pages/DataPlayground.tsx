@@ -124,7 +124,7 @@ export default function DataPlayground() {
           <h1 className="font-display text-page-title font-semibold text-ink-900">Sends for a Channel</h1>
           <ParameterBar dataset="messages" fields={FIELDS} parameters={asked} values={answers} onRun={setAnswers} />
           {asked.some((p) => p.required && !answers[p.key])
-            ? <p className="rounded-md border border-dashed border-line px-4 py-10 text-center text-sm text-ink-800">Choose Channel above, then run the report.</p>
+            ? <p className="rounded-md border border-dashed border-line px-4 py-10 text-center text-sm text-ink-800">Choose Channel above and the report runs.</p>
             : <ReportResult result={RESULT} view={{ type: 'grid' }} label="Report rows" />}
         </>
       )}

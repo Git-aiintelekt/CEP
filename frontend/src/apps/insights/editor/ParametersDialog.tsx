@@ -1,5 +1,5 @@
 /**
- * Report Filters (docs/mockups/report-filters-period.html): questions the report asks before it runs, up to eight. Campaign, Channel
+ * Viewer Filters (docs/mockups/report-filters-period.html): questions the report asks before it runs, up to eight. Campaign, Channel
  * and Period come first (apps/insights/report_filters.py); Period is always asked, so its row takes a default and cannot be removed. Each names a field, how it is asked (one value, several,
  * a range, the last few days), whether an answer is required, and a default: a value, or the latest (the newest campaign, the
  * newest row's day) when the dataset has a time field. A dashboard tile, a schedule or an alert runs the report with the
@@ -43,7 +43,7 @@ export function ParametersDialog({ dataset, parameters, onApply, onClose }: { da
   }
 
   return (
-    <Modal title="Report Filters" subtitle="Filters people choose above the rows. A dashboard uses its own period instead of Period." onClose={onClose} size="lg"
+    <Modal title="Viewer Filters" subtitle="Filters people choose above the rows. A dashboard uses its own period instead of Period." onClose={onClose} size="lg"
       footer={(
         <div className="flex justify-end gap-2">
           <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>

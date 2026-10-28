@@ -1,26 +1,35 @@
 /**
- * The report editor: one definition, two ways to build it. Field Wells (drag or click fields into Rows, Values and
- * Filters, like a spreadsheet pivot) or Steps (Data, Filter, Summarize, Group By, Sort and Limit, read top to bottom).
- * The switch is in the header and remembered per browser. The result runs live as the definition changes, under the
- * preview cap; Save writes a new version. The four views come in turn: the grid first.
+ * The report editor, a workspace of its own (docs/mockups/report-editor-workspace.html): the shell steps aside and the
+ * editor bar carries the way back, the name and its saved state, Change With AI, ⋯, Close (Discard Changes once something
+ * changed) and Save. Leaving with unsaved changes asks first. Under the bar, three panes: the Data pane, the grey canvas
+ * with the result, and the builder (Show, Split By, Only Include, Order). The status line is pinned under the canvas: the
+ * preview follows the definition (under the preview cap) unless Update Automatically is off, when Run Preview runs it.
+ * Save writes a new version.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Code2, Columns3, ListOrdered } from 'lucide-react'
+import { ChevronLeft, Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
+import { IconButton } from '@/components/Button'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
-import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
+import { MenuRow } from '@/components/MenuRow'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { insightsApi, keys, useCatalog, useReport } from '../api'
 import { ReportResult, ViewBar } from '../components/ReportViews'
-import { ChangeWithPrompt } from '../editor/ChangeWithPrompt'
+import { ResultCard } from '../components/ResultCard'
+import { useLeaveGuard } from '@/apps/cep/features/designer/useLeaveGuard'
+import { ActionsMenu } from '../components/ActionsMenu'
+import { ChangeWithAi } from '../editor/ChangeWithAi'
+import { DataPane } from '../editor/DataPane'
+import { EditorSettings } from '../editor/EditorSettings'
+import { PreviewStatus, useAutoPreview } from '../editor/PreviewStatus'
+import { useComponents } from '../reportComponents'
 import { CustomFieldsDialog } from '../editor/CustomFieldsDialog'
 import { LinkedMeasuresDialog } from '../editor/LinkedMeasuresDialog'
-import { ComponentSelect } from '../components/ComponentSelect'
 import { SqlDialog } from '../components/SqlDialog'
 import { TooltipReportDialog } from '../editor/TooltipReportDialog'
 import { DetailReportDialog } from '../editor/DetailReportDialog'
@@ -29,21 +38,8 @@ import { ParametersDialog } from '../editor/ParametersDialog'
 import { ParameterBar } from '../components/ParameterBar'
 import { runWords } from '../components/resultWords'
 import { dimensions, EMPTY, fieldOf, isComplete, setBlend, setView, viewOf, withCustom } from '../editor/definition'
-import { FieldWells } from '../editor/FieldWells'
-import { Steps } from '../editor/Steps'
+import { Builder } from '../editor/Builder'
 import type { ParameterValues, ReportDefinition, RunResult } from '../types'
-
-type Layout = 'wells' | 'steps'
-const LAYOUT_KEY = 'insights.editor'
-const LAYOUTS: SegmentOption<Layout>[] = [{ value: 'wells', label: 'Field Wells', icon: Columns3 }, { value: 'steps', label: 'Steps', icon: ListOrdered }]
-
-function readLayout(): Layout {
-  try {
-    return window.localStorage.getItem(LAYOUT_KEY) === 'steps' ? 'steps' : 'wells'
-  } catch {
-    return 'wells'
-  }
-}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -62,6 +58,8 @@ export function ReportEditorPage() {
   const report = useReport(id)
   const catalog = useCatalog()
   const [formatting, setFormatting] = useState(false)
+  const [fold, setFold] = useState<{ open: boolean; count: number } | undefined>(undefined)
+  const foldAll = (open: boolean) => setFold((was) => ({ open, count: (was?.count ?? 0) + 1 }))
   const [detail, setDetail] = useState(false)
   const [customs, setCustoms] = useState(false)
   const [linking, setLinking] = useState(false)
@@ -69,8 +67,7 @@ export function ReportEditorPage() {
   const [tooltipping, setTooltipping] = useState(false)
   const [asking, setAsking] = useState(false)
   const [answers, setAnswers] = useState<ParameterValues>({})
-  const [layout, setLayoutState] = useState<Layout>(readLayout)
-  const setLayout = (next: Layout) => { setLayoutState(next); try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* no memory of the choice */ } }
+  const [side, setSide] = useState<'build' | 'settings'>('build')
   const [name, setName] = useState<string | null>(null)
   const [component, setComponent] = useState<string | null | undefined>(undefined)          // undefined: unchanged
   const [draft, setDraft] = useState<ReportDefinition | null>(null)
@@ -81,11 +78,20 @@ export function ReportEditorPage() {
   const dirty = draft !== null || (name !== null && name !== report.data?.name) || (component !== undefined && component !== (report.data?.component_key ?? null))
   const complete = dataset ? isComplete(dataset, definition) : false
   const settled = useDebounced(definition, 500)
+  const [auto, setAutoState] = useAutoPreview()
+  // with Update Automatically off, the preview shows the definition last run, not the one being edited
+  const [pinned, setPinned] = useState<ReportDefinition | null>(null)
+  const queried = auto ? settled : pinned ?? report.data?.definition ?? EMPTY
+  const setAuto = (on: boolean) => { setPinned(on ? null : settled); setAutoState(on) }
+  const reportPath = `/insights/reports/${id}`
+  const { requestLeave, dialog: leaveDialog } = useLeaveGuard(dirty, () => navigate(reportPath), `Your changes to ${title || 'this report'} will be lost.`)
+  const { nameOf } = useComponents()
+  const filedUnder = nameOf(component === undefined ? report.data?.component_key ?? report.data?.component_auto ?? null : component ?? report.data?.component_auto ?? null)
 
   const preview = useQuery({
-    queryKey: ['insights', 'preview', report.data?.dataset, settled, answers],
-    queryFn: () => insightsApi.preview({ dataset: report.data?.dataset as string, definition: settled, ...(settled.parameters?.length ? { params: answers } : {}) }),
-    enabled: Boolean(dataset) && isComplete(dataset as never, settled) && settled.columns.length > 0,
+    queryKey: ['insights', 'preview', report.data?.dataset, queried, answers],
+    queryFn: () => insightsApi.preview({ dataset: report.data?.dataset as string, definition: queried, ...(queried.parameters?.length ? { params: answers } : {}) }),
+    enabled: Boolean(dataset) && isComplete(dataset as never, queried) && queried.columns.length > 0,
     retry: false,
     placeholderData: (previous) => previous,
   })
@@ -119,27 +125,43 @@ export function ReportEditorPage() {
 
   const refused = preview.error instanceof ApiError ? preview.error : null
   const axis = dimensions(definition)[0]
-  const result = (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
-        <ViewBar view={viewOf(definition)} onChange={(view) => setDraft(setView(definition, view))} columns={preview.data?.columns} onFormat={() => setFormatting(true)}
-          dimensions={dimensions(definition).map((column) => ({ key: column.field, label: fieldOf(dataset, column.field)?.label ?? column.field }))} />
-        <span className="flex items-center gap-3">
-          {preview.data ? runWords(preview.data) : preview.isFetching ? 'Running…' : complete ? '' : 'Finish the filters to run'}
-          {complete && definition.columns.length > 0 && <button type="button" className="inline-flex items-center gap-1 font-semibold text-brand-800 hover:underline" onClick={() => setShowSql(true)}><Code2 size={14} strokeWidth={1.5} aria-hidden />Show the SQL</button>}
-        </span>
-      </div>
-      <ChangeWithPrompt dataset={report.data.dataset} definition={definition} onChange={setDraft} />
-      {(settled.parameters?.length ?? 0) > 0 && (
-        <ParameterBar key={JSON.stringify(settled.parameters)} dataset={report.data.dataset} fields={dataset.fields} parameters={settled.parameters ?? []} values={answers} onRun={setAnswers} running={preview.isFetching} />
+  const empty = definition.columns.length === 0
+  const stale = !auto && queried !== definition
+  const words = empty ? 'Nothing to preview yet'
+    : !complete ? 'Finish the filters to run'
+    : refused ? 'The preview did not run'
+    : preview.isFetching ? 'Running…'
+    : stale ? 'Not updated since your last change'
+    : preview.data ? `Preview · ${runWords(preview.data)}` : ''
+  const canvas = (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {(queried.parameters?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-ink-800">Viewer Filters</span>
+          <ParameterBar key={JSON.stringify(queried.parameters)} dataset={report.data.dataset} fields={dataset.fields} parameters={queried.parameters ?? []} values={answers} onRun={setAnswers} running={preview.isFetching} />
+        </div>
       )}
-      {refused ? (
+      {empty ? (
+        <section aria-label="Nothing to preview yet" className="flex flex-col items-start gap-1 rounded-lg border border-line bg-surface p-5">
+          <p className="cep-num font-display text-kpi font-semibold text-ink-900">{count.data ? Number(count.data.rows[0]?.[0] ?? 0).toLocaleString() : '…'}</p>
+          <p className="text-sm text-ink-800">{dataset.label}, all time. Add a number under Show, or a field under Split By, such as channel or month, to start.</p>
+        </section>
+      ) : refused ? (
         <ErrorState title={refused.problem?.title ?? 'The preview did not run'} detail={refused.problem?.detail} shownFields={Object.keys(refused.problem?.errors ?? {})} onRetry={() => preview.refetch()} />
       ) : preview.data ? (
-        <ReportResult result={preview.data as RunResult} view={viewOf(definition)} label="Preview rows" minHeight={280} analysis={{ dataset: report.data.dataset, definition: settled, ...(settled.parameters?.length ? { params: answers } : {}) }} />
+        <ResultCard result={preview.data as RunResult} view={viewOf(definition)} bar={(
+          <ViewBar view={viewOf(definition)} onChange={(view) => setDraft(setView(definition, view))} columns={preview.data.columns} onFormat={() => setFormatting(true)} onFold={foldAll}
+            dimensions={dimensions(definition).map((column) => ({ key: column.field, label: fieldOf(dataset, column.field)?.label ?? column.field }))} />
+        )}>
+          <ReportResult result={preview.data as RunResult} view={viewOf(definition)} label="Preview rows" minHeight={280} inCard fold={fold} analysis={{ dataset: report.data.dataset, definition: queried, ...(queried.parameters?.length ? { params: answers } : {}) }} />
+        </ResultCard>
       ) : (
-        <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
+        <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-line bg-surface"><Spinner label="Running the preview" /></div>
       )}
+    </div>
+  )
+  const dialogs = (
+    <>
       {tooltipping && axis && <TooltipReportDialog dataset={report.data.dataset} field={axis.field} fieldLabel={fieldOf(dataset, axis.field)?.label ?? axis.field} reportId={id} current={viewOf(definition).tooltip}
         onClose={() => setTooltipping(false)} onApply={(tooltip) => { const { tooltip: _old, ...rest } = viewOf(definition); setDraft(setView(definition, tooltip ? { ...rest, tooltip } : rest)); setTooltipping(false) }} />}
       {showSql && <SqlDialog dataset={report.data.dataset} definition={definition} name={title} onClose={() => setShowSql(false)} />}
@@ -151,29 +173,73 @@ export function ReportEditorPage() {
         onApply={(parameters) => { const { parameters: _old, ...rest } = definition; setDraft(parameters.length ? { ...rest, parameters } : rest); setAnswers({}); setAsking(false) }} />}
       {formatting && <FormatDialog dataset={dataset} definition={definition} formats={viewOf(definition).formats ?? []} onClose={() => setFormatting(false)}
         onApply={(formats) => { const { formats: _old, ...rest } = viewOf(definition); setDraft(setView(definition, formats.length ? { ...rest, formats } : rest)); setFormatting(false) }} />}
-    </div>
+    </>
   )
+  const showable = complete && !empty
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3 border-b border-line-subtle pb-3">
-        <Link to={`/insights/reports/${id}`} className="inline-flex items-center gap-1 text-sm text-brand-800 hover:underline"><ArrowLeft size={14} strokeWidth={1.5} aria-hidden />Report</Link>
-        <input aria-label="Report name" value={title} onChange={(event) => setName(event.target.value)} maxLength={200}
-          className="min-w-0 flex-1 rounded-control-md border border-transparent bg-transparent px-2 font-display text-page-title font-semibold text-ink-900 hover:border-line focus:border-focus focus:outline-none" />
-        <ComponentSelect inline value={component === undefined ? report.data.component_key ?? null : component} auto={report.data.component_auto ?? null} onChange={setComponent} />
-        <span className="text-xs text-ink-800">{dirty ? 'Not saved yet' : `Saved ${formatDateTime(report.data.updated_at)} · version ${report.data.version}`}</span>
-        <SegmentedControl label="Editor" options={LAYOUTS} value={layout} onChange={setLayout} />
-        <button type="button" className={buttonSecondary} onClick={() => setCustoms(true)}>Custom Fields{definition.derived?.length ? ` · ${definition.derived.length}` : ''}</button>
-        {(base?.links?.length ?? 0) > 0 && <button type="button" className={buttonSecondary} onClick={() => setLinking(true)}>Linked Measures{definition.blend?.columns.length ? ` · ${definition.blend.columns.length}` : ''}</button>}
-        {viewOf(definition).type === 'chart' && axis && <button type="button" className={buttonSecondary} onClick={() => setTooltipping(true)}>Tooltip Report{viewOf(definition).tooltip ? ' · 1' : ''}</button>}
-        <button type="button" className={buttonSecondary} onClick={() => setAsking(true)}>Report Filters{definition.parameters?.length ? ` · ${definition.parameters.length}` : ''}</button>
-        <button type="button" className={buttonSecondary} onClick={() => setDetail(true)}>Detail Report{definition.drillthrough?.length ? ` · ${definition.drillthrough.length}` : ''}</button>
-        <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}`)}>Cancel</button>
-        <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={!dirty || !complete || save.isPending || definition.columns.length === 0}>Save</button>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header aria-label="Editor" className="flex h-[60px] shrink-0 items-center gap-3 border-b border-line bg-surface pr-4 pl-3">
+        <IconButton label="Back to Report" icon={ChevronLeft} size="md" onClick={() => requestLeave(() => navigate(reportPath))} />
+        <span aria-hidden className="h-6 w-px shrink-0 bg-line-subtle" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <p className="truncate text-xs text-ink-800">Reports{filedUnder ? ` · ${filedUnder}` : ''}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <input aria-label="Report name" value={title} onChange={(event) => setName(event.target.value)} maxLength={200}
+              className="-ml-1.5 field-sizing-content min-w-[8ch] max-w-full truncate rounded-sm border border-transparent bg-transparent px-1.5 font-display text-section-title font-semibold text-ink-900 hover:border-line focus:border-focus focus:outline-none" />
+            <span role="status" className={`inline-flex shrink-0 items-center gap-1.5 text-helper whitespace-nowrap ${dirty ? 'font-medium text-warning-text' : 'text-ink-800'}`}>
+              <span aria-hidden className={`h-2 w-2 rounded-full ${dirty ? 'bg-warning' : 'bg-ink-300'}`} />
+              {dirty ? 'Unsaved Changes' : `Saved ${formatDateTime(report.data.updated_at)} · Version ${report.data.version}`}
+            </span>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <ChangeWithAi dataset={report.data.dataset} definition={definition} onChange={setDraft} />
+          <ActionsMenu>
+            {(act) => (
+              <>
+                <MenuRow role="menuitem" divider={false} leading={<Code2 size={16} strokeWidth={1.5} aria-hidden />} title="Show the SQL" disabled={!showable}
+                  onClick={() => { if (showable) act(() => setShowSql(true)) }} />
+              </>
+            )}
+          </ActionsMenu>
+          <span aria-hidden className="h-6 w-px bg-line-subtle" />
+          {dirty
+            ? <button type="button" className={buttonSecondary} onClick={() => navigate(reportPath)}>Discard Changes</button>
+            : <button type="button" className={buttonSecondary} onClick={() => requestLeave(() => navigate(reportPath))}>Close</button>}
+          <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={!dirty || !complete || save.isPending || definition.columns.length === 0}>Save</button>
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-1">
+        {base && <DataPane dataset={dataset} base={base} definition={definition} onChange={setDraft} onCustom={() => setCustoms(true)} onLink={(base.links?.length ?? 0) > 0 ? () => setLinking(true) : undefined} />}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto bg-canvas px-6 py-5">
+            {canvas}
+          </div>
+          <PreviewStatus words={words} live={Boolean(preview.data) && !preview.isFetching && !stale && !refused && !empty && complete} auto={auto} onAuto={setAuto}
+            onRun={!auto && showable && stale ? () => setPinned(definition) : undefined} onSql={showable ? () => setShowSql(true) : undefined} />
+        </div>
+        <aside aria-label="Build" className="flex min-h-0 w-86 shrink-0 flex-col border-l border-line bg-surface">
+          <div role="tablist" aria-label="Build or settings" className="flex h-11 shrink-0 gap-5 border-b border-line-subtle px-4">
+            {(['build', 'settings'] as const).map((tab) => (
+              <button key={tab} type="button" role="tab" id={`editor-tab-${tab}`} aria-selected={side === tab} aria-controls={`editor-panel-${tab}`} onClick={() => setSide(tab)}
+                className={`-mb-px border-b-2 text-button ${side === tab ? 'border-brand-600 font-semibold text-ink-900' : 'border-transparent font-medium text-ink-800 hover:text-ink-900'}`}>
+                {tab === 'build' ? 'Build' : 'Settings'}
+              </button>
+            ))}
+          </div>
+          <div role="tabpanel" id={`editor-panel-${side}`} aria-labelledby={`editor-tab-${side}`} className="min-h-0 flex-1 overflow-y-auto">
+            {side === 'build'
+              ? <Builder dataset={dataset} definition={definition} onChange={setDraft} />
+              : <EditorSettings viewerFilters={definition.parameters?.length ?? 0} detailFields={definition.drillthrough?.length ?? 0}
+                  tooltip={viewOf(definition).type === 'chart' && axis ? Boolean(viewOf(definition).tooltip) : undefined}
+                  component={component === undefined ? report.data.component_key ?? null : component} autoComponent={report.data.component_auto ?? null}
+                  onViewerFilters={() => setAsking(true)} onDetail={() => setDetail(true)} onTooltip={() => setTooltipping(true)} onComponent={setComponent} />}
+          </div>
+        </aside>
       </div>
-      {layout === 'wells'
-        ? <FieldWells dataset={dataset} definition={definition} onChange={setDraft} result={result} />
-        : <Steps dataset={dataset} definition={definition} onChange={setDraft} result={result} rowCount={count.data ? Number(count.data.rows[0]?.[0] ?? 0) : undefined} />}
+      {dialogs}
+      {leaveDialog}
     </div>
   )
 }

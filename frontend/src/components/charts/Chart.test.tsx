@@ -154,12 +154,23 @@ test('palette: the legend swatch and the tooltip swatch match the line and the b
   expect(legendSwatch('Opened')).toBe('var(--color-chart-pair)')
 })
 
-test('bars: grouped per category, each a pill with both ends fully rounded', () => {
+test('bars: grouped per category, square on the axis with 2px top corners', () => {
   renderChart({ type: 'bar' })
   const bars = document.querySelectorAll('[data-series="sent"] path')
   expect(bars).toHaveLength(3)
-  expect(bars[0].getAttribute('d')).toContain('A')
+  const d = bars[0].getAttribute('d')!
+  expect(d.match(/A2 2/g)).toHaveLength(2)
+  expect(d).toMatch(/V[\d.]+Z$/)
   expect(document.querySelectorAll('[data-series="opened"] path')).toHaveLength(3)
+})
+
+test('a bar is never wider than 56px, however few categories there are', () => {
+  render(<Chart title="Contacts by region" categoryHeader="Region" type="bar" categories={[{ key: 'all', label: 'All' }]}
+    series={[{ key: 'contacts', label: 'Contacts', values: [120] }]} />)
+  const d = document.querySelector('[data-series="contacts"] [data-bar-mark]')!.getAttribute('d')!
+  const xs = [...d.matchAll(/(?:M|H)([\d.]+)/g)].map((match) => Number(match[1]))
+  const edges = [...d.matchAll(/A2 2 0 0 1 ([\d.]+)/g)].map((match) => Number(match[1]))
+  expect(Math.max(...xs, ...edges) - Math.min(...xs, ...edges)).toBeLessThanOrEqual(56)
 })
 
 test('areas sit under the line at 12% at most', () => {

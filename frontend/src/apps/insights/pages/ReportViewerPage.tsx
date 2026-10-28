@@ -4,18 +4,18 @@
  * chart, a click on a bar, a slice or a stage drills one level down (the report's next dimension, or a date's next
  * bucket); the drill path above it goes back up. Switching the view leaves the drill.
  */
-import { Bell, CalendarClock, Code2, Download, FileSpreadsheet, FileText, History, Link2, Lock, MessageSquare, Pencil, Presentation, Printer, Share2, Sparkles, Trash2 } from 'lucide-react'
+import { Bell, CalendarClock, ChevronLeft, CircleHelp, Code2, Download, FileSpreadsheet, FileText, History, Info, Link2, Lock, MessageSquare, Pencil, Presentation, Printer, RefreshCw, Share2, Sparkles, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { MenuRow } from '@/components/MenuRow'
-import { PageHelp } from '@/apps/cep/help/HelpPanel'
-import { PageHeader } from '@/components/ResourceList'
+import { HelpPanel } from '@/apps/cep/help/HelpPanel'
+import { IconButton } from '@/components/Button'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, formatRelative } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
 import { insightsApi, keys, usageApi, useAssistant, useCatalog, useComments, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
 import { ActionsMenu, MenuGap } from '../components/ActionsMenu'
@@ -26,8 +26,7 @@ import { PrintDialog } from '../components/PrintDialog'
 import { EmbedDialog } from '../components/EmbedDialog'
 import { ExplainPanel } from '../components/ExplainPanel'
 import { SqlDialog } from '../components/SqlDialog'
-import { ComponentSelect } from '../components/ComponentSelect'
-import { FolderSelect } from '../components/FolderSelect'
+import { ReportDetailsDrawer } from '../components/ReportDetailsDrawer'
 import { ScheduleBanner } from '../components/ScheduleBanner'
 import { ScheduleDialog } from '../components/ScheduleDialog'
 import { VersionsDrawer } from '../components/VersionsDrawer'
@@ -35,9 +34,12 @@ import { canDrill, deeper, throughable } from '../components/drill'
 import { DrillThroughMenu, type ThroughTarget } from '../components/DrillThroughMenu'
 import { ShareDialog } from '../components/ShareDialog'
 import { DrillBar } from '../components/DrillBar'
+import { ReportHighlights } from '../components/ReportHighlights'
+import { ReportSummary } from '../components/ReportSummary'
+import { ResultCard } from '../components/ResultCard'
 import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
 import { formatCell, runWords } from '../components/resultWords'
-import { readAnswers, sentAnswers, unanswered } from '../editor/parameters'
+import { periodCovers, readAnswers, sentAnswers, unanswered } from '../editor/parameters'
 import type { CommentAnchor, DrillStep, Explanation, ParameterValues, ReportView, ResultColumn } from '../types'
 
 /** the values a report was opened through, from the address: [{field, value}] */
@@ -92,6 +94,9 @@ export function ReportViewerPage() {
   const assistant = useAssistant()
   const explainer = assistant.data?.explain
   const [explaining, setExplaining] = useState(false)
+  // the rows the AI explained: a change of filters or drill makes its words stale
+  const pageKey = JSON.stringify(page)
+  const [explainedFor, setExplainedFor] = useState('')
   const explain = useMutation<Explanation, Error>({
     mutationFn: () => insightsApi.explain(id as string, { model: explainer?.model?.id, ...(path.length ? { drill: { path, ...(tabled ? { keep_rest: true } : {}) } } : {}), ...(sent ? { params: sent } : {}) }),
   })
@@ -103,6 +108,10 @@ export function ReportViewerPage() {
   const [talking, setTalking] = useState<{ anchor: CommentAnchor | null } | null>(null)
   const [alerting, setAlerting] = useState(false)
   const [printing, setPrinting] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [fold, setFold] = useState<{ open: boolean; count: number } | undefined>(undefined)
+  const foldAll = (open: boolean) => setFold((was) => ({ open, count: (was?.count ?? 0) + 1 }))
+  const [helping, setHelping] = useState(false)
   const openComments = (comments.data?.comments ?? []).filter((c) => !c.resolved_at)
   const notes = openComments.filter((c) => c.anchor?.field && !c.anchor.tile_id).map((c) => ({ field: c.anchor!.field as string, value: c.anchor!.value, label: c.body.length > 80 ? `${c.body.slice(0, 79)}…` : c.body }))
 
@@ -169,17 +178,24 @@ export function ReportViewerPage() {
 
   return (
     <div className="report-density flex min-h-0 flex-1 flex-col gap-3">
-      <p className="text-xs text-ink-800"><Link to="/insights/reports" className="text-brand-800 hover:underline">All Reports</Link> › {report.data.name}</p>
-      <PageHeader
-        help={<PageHelp chapter="insights" />}
-        title={report.data.name}
-        description={info ? <>{runWords(info)} · version {report.data.version} · <button type="button" onClick={() => refresh.mutate()} disabled={refresh.isPending || run.isFetching}
-          className="font-medium text-link hover:underline disabled:text-ink-700 disabled:no-underline">{refresh.isPending ? 'Refreshing…' : 'Refresh'}</button></> : report.data.description ?? undefined}
-        actions={(
-          <div className="flex items-center gap-2">
-            {report.data.can_edit && <ComponentSelect inline value={report.data.component_key ?? null} auto={report.data.component_auto ?? null} onChange={(key) => move.mutate(key)} disabled={move.isPending} />}
-            {report.data.can_edit && <FolderSelect value={report.data.folder_id} onChange={(folderId) => file.mutate(folderId)} disabled={file.isPending} />}
-            <ActionsMenu>{(act) => (
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link to="/insights/reports" className="mb-3 inline-flex items-center gap-1 text-helper text-brand-800 hover:underline">
+            <ChevronLeft {...ICON} /> Reports
+          </Link>
+          <h1 className="font-display text-page-title font-semibold text-ink-900">{report.data.name}</h1>
+          {report.data.description && <p className="mt-1 max-w-2xl text-sm text-ink-800">{report.data.description}</p>}
+        </div>
+        <div className="flex items-center gap-1">
+          {info && (
+            <span data-run-words title={`${runWords(info)} · version ${report.data.version}`} className="mr-1 text-helper text-ink-800">
+              {refresh.isPending ? 'Refreshing…' : `Updated ${formatRelative(info.ran_at ?? new Date(run.dataUpdatedAt).toISOString())}`}
+              <span className="sr-only"> · {runWords(info)} · version {report.data.version}</span>
+            </span>
+          )}
+          <IconButton label="Refresh" icon={RefreshCw} title="Refresh" onClick={() => refresh.mutate()} disabled={!info || refresh.isPending || run.isFetching} />
+          <IconButton label="Report Details" icon={Info} title="Report Details" pressed={detailsOpen} onClick={() => setDetailsOpen(true)} />
+          <ActionsMenu>{(act) => (
                 <>
                   <MenuRow role="menuitem" divider={false} leading={<Sparkles {...ICON} />} title="Explain" disabled={!info} onClick={() => act(() => setExplaining(true))} />
                   {report.data.can_edit && <MenuRow role="menuitem" divider={false} leading={<Pencil {...ICON} />} title="Edit" onClick={() => act(() => navigate(`/insights/reports/${id}/edit`))} />}
@@ -200,15 +216,26 @@ export function ReportViewerPage() {
                   {(builder || report.data.can_share) && <MenuGap />}
                   {builder && <MenuRow role="menuitem" divider={false} leading={<Code2 {...ICON} />} title="Show the SQL" onClick={() => act(() => setShowSql(true))} />}
                   {report.data.can_share && <MenuRow role="menuitem" divider={false} leading={<Link2 {...ICON} />} title="Embed on Another Site" onClick={() => act(() => setEmbedding(true))} />}
+                  <MenuGap />
+                  <MenuRow role="menuitem" divider={false} leading={<Info {...ICON} />} title="Report Details" onClick={() => act(() => setDetailsOpen(true))} />
+                  <MenuRow role="menuitem" divider={false} leading={<CircleHelp {...ICON} />} title="Help With Reports" onClick={() => act(() => setHelping(true))} />
                   {report.data.can_edit && <>
                     <MenuGap />
                     <MenuRow role="menuitem" divider={false} tone="error" leading={<Trash2 {...ICON} className="text-danger-text" />} title="Delete" disabled={remove.isPending} onClick={() => act(deleteReport)} />
                   </>}
                 </>
             )}</ActionsMenu>
-          </div>
-        )}
-      />
+        </div>
+      </div>
+      {helping && <HelpPanel chapter="insights" onClose={() => setHelping(false)} />}
+      {detailsOpen && (
+        <ReportDetailsDrawer report={report.data} datasetLabel={catalog.data?.datasets.find((d) => d.key === report.data.dataset)?.label ?? report.data.dataset} info={info}
+          schedule={schedule?.words ?? null} comments={openComments.length} canSchedule={builder} saving={move.isPending || file.isPending}
+          onClose={() => setDetailsOpen(false)} onFolder={(folderId) => file.mutate(folderId)} onComponent={(key) => move.mutate(key)}
+          onShare={() => { setDetailsOpen(false); setSharing(true) }} onSchedule={() => { setDetailsOpen(false); setScheduling(true) }}
+          onAlerts={() => { setDetailsOpen(false); setAlerting(true) }} onComments={() => { setDetailsOpen(false); setTalking({ anchor: null }) }}
+          onVersions={() => { setDetailsOpen(false); setVersionsOpen(true) }} />
+      )}
       {schedule && <ScheduleBanner schedule={schedule} onChange={() => setScheduling(true)} />}
       {through.length > 0 && (
         <div role="status" className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">
@@ -241,15 +268,18 @@ export function ReportViewerPage() {
           <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={() => setShownVersion(null)}>Back to Current</button>
         </div>
       )}
+      {!old && waiting.length === 0 && run.data && (
+        <ReportSummary reportId={id as string} dataset={report.data.dataset} result={run.data} params={sent} onWhy={() => setExplaining(true)}
+          period={(() => { const asked = report.data.definition.parameters?.find((p) => p.operator === 'period'); return asked ? periodCovers(sent?.[asked.key] ?? asked.default) : null })()} />
+      )}
       {old ? (
         oldRun.isPending ? <Spinner label={`Running version ${old.version}`} /> : oldRun.isError ? <ErrorState error={oldRun.error} onRetry={() => oldRun.refetch()} /> : (
-          <div className="flex flex-col gap-3">
-            <ViewBar view={shownView} onChange={setView} columns={oldRun.data.columns} dimensions={[]} />
-            <ReportResult result={oldRun.data} view={shownView} label={`Version ${old.version} rows`} />
-          </div>
+          <ResultCard result={oldRun.data} view={shownView} bar={<ViewBar view={shownView} onChange={setView} columns={oldRun.data.columns} dimensions={[]} onFold={foldAll} />}>
+            <ReportResult result={oldRun.data} view={shownView} label={`Version ${old.version} rows`} inCard fold={fold} />
+          </ResultCard>
         )
       ) : waiting.length > 0 ? (
-        <p className="rounded-md border border-dashed border-line px-4 py-10 text-center text-sm text-ink-800">Choose {waiting.map((p) => p.label).join(' and ')} above, then run the report.</p>
+        <p className="rounded-md border border-dashed border-line px-4 py-10 text-center text-sm text-ink-800">Choose {waiting.map((p) => p.label).join(' and ')} above and the report runs.</p>
       ) : run.isPending ? (
         <Spinner label="Running the report" />
       ) : refused ? (
@@ -257,13 +287,17 @@ export function ReportViewerPage() {
       ) : run.isError ? (
         <ErrorState error={run.error} onRetry={() => run.refetch()} />
       ) : (
-        <div className="flex flex-col gap-3">
-          <ViewBar view={shownView} onChange={setView} columns={run.data.columns} dimensions={[]} />
-          {shownView.type !== 'grid' && run.data.drill && <DrillBar info={run.data.drill} onPath={setPath} table={shownView.type === 'pivot' || shownView.type === 'hierarchy'} />}
-          <ReportResult result={run.data} view={shownView} analysis={{ reportId: id as string, ...(sent ? { params: sent } : {}) }} notes={notes} tooltips
+        <>
+        <ResultCard result={run.data} view={shownView} bar={<ViewBar view={shownView} onChange={setView} columns={run.data.columns} dimensions={[]} onFold={foldAll} />}
+          drill={shownView.type !== 'grid' && run.data.drill && run.data.drill.depth > 0 && <DrillBar info={run.data.drill} onPath={setPath} table={shownView.type === 'pivot' || shownView.type === 'hierarchy'} />}
+          hint={shownView.type !== 'grid' && run.data.drill && run.data.drill.depth === 0 && <DrillBar info={run.data.drill} onPath={setPath} table={shownView.type === 'pivot' || shownView.type === 'hierarchy'} />}>
+          <ReportResult result={run.data} view={shownView} analysis={{ reportId: id as string, ...(sent ? { params: sent } : {}) }} notes={notes} tooltips inCard fold={fold}
             onPick={shownView.type !== 'grid' && canDrill(run.data.drill) ? (column, value) => { if (run.data?.drill && canDrill(run.data.drill, column)) setPath(deeper(run.data.drill, value)) } : undefined}
             onContext={(column: ResultColumn, value, at) => { if (throughable(column)) setMenu({ dataset: report.data.dataset, field: column.key, fieldLabel: column.label, value, valueWords: formatCell(column, value), at, from: { id, name: report.data.name } }) }} />
-        </div>
+        </ResultCard>
+        <ReportHighlights key={pageKey} result={run.data} ai={explainer?.enabled ? { explain: () => { setExplainedFor(pageKey); explain.mutate() }, pending: explain.isPending, explanation: explainedFor === pageKey ? explain.data ?? null : null,
+          error: explain.error ? (explain.error instanceof ApiError ? explain.error.problem?.detail ?? explain.error.message : explain.error.message) : null } : null} />
+        </>
       )}
       {scheduling && <ScheduleDialog reportId={id as string} reportName={report.data.name} zone={me?.tenant.timezone ?? 'UTC'} existing={schedule} onClose={() => setScheduling(false)} onSaved={() => setScheduling(false)} />}
       {menu && <DrillThroughMenu target={menu} onClose={() => setMenu(null)} onComment={(target) => setTalking({ anchor: { field: target.field, value: target.value as never, label: target.valueWords } })} />}

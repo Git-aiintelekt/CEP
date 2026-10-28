@@ -127,7 +127,7 @@ function MeaningView({ reportId, reportName, params, meaning }: { reportId: stri
   )
 }
 
-function RowsView({ pending, error, explanation, onRetry }: { pending: boolean; error: string | null; explanation: Explanation | null; onRetry: () => void }) {
+export function RowsView({ pending, error, explanation, onRetry }: { pending: boolean; error: string | null; explanation: Explanation | null; onRetry: () => void }) {
   if (pending) return <Spinner label="Reading the rows" />
   if (error) return <p role="alert" className="text-sm text-danger-text">{error} <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={onRetry}>Try Again</button></p>
   if (!explanation) return null

@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --hover:#eeeff5; --sunken:#eeeff5; --canvas:#f9fafb; --fill-muted:#e7e8ef;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --sidebar:#20265d; --sidebar-text:#e7e8ef; --sidebar-icon:#a9afd0; --sidebar-selected:#313c8e;
+    --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --c1:#3863db; --c2:#9b4d96; --c3:#3f8fa8; --c4:#d9822b;
+    --shadow-menu:0 4px 16px rgb(20 23 31 / 0.12);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  button { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .part { margin:36px 0 4px; font-size:22px; line-height:30px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px; margin-bottom:12px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i14 { width:14px; height:14px }
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-right{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-right.svg)}
+  .i-dots{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/ellipsis.svg)}
+  .i-help{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/circle-help.svg)}
+  .i-grid{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .i-chart{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column.svg)}
+  .i-line{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-line.svg)}
+  .i-area{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-area.svg)}
+  .i-stack{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column-stacked.svg)}
+  .i-stack100{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-bar-stacked.svg)}
+  .i-combo{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-no-axes-combined.svg)}
+  .i-pie{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-pie.svg)}
+  .i-funnel{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/funnel.svg)}
+  .i-scatter{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-scatter.svg)}
+  .i-bubble{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/circle-dot.svg)}
+  .i-treemap{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-grid.svg)}
+  .i-waterfall{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column-decreasing.svg)}
+  .i-kpi{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/target.svg)}
+  .i-gauge{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/gauge.svg)}
+  .i-map{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/map.svg)}
+  .i-pivot{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/grid-3x3.svg)}
+  .i-tree{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-tree.svg)}
+  .i-bulb{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/lightbulb.svg)}
+  .i-network{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/network.svg)}
+  .i-check{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/check.svg)}
+  .i-refresh{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/refresh-cw.svg)}
+  .i-cal{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/calendar.svg)}
+  .i-sliders{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sliders-horizontal.svg)}
+  .i-report{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-chart-column.svg)}
+  .i-dash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-grid.svg)}
+  .i-home{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-dashboard.svg)}
+  .i-mail{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/megaphone.svg)}
+  .i-settings{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/settings.svg)}
+  .i-clock{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/calendar-clock.svg)}
+  .i-up{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-up.svg)}
+  .i-sigma{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sigma.svg)}
+  .i-log{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/scroll-text.svg)}
+  .i-activity{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/activity.svg)}
+  .i-sparkles{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+
+  /* shell */
+  .top { height:56px; background:var(--sidebar); color:var(--sidebar-text); display:flex; align-items:center; gap:12px; padding:0 16px }
+  .top .c { width:32px; height:32px; border-radius:8px; background:var(--brand-600); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center }
+  .top .name { font-weight:600 }
+  .top .search { margin:0 auto; width:420px; height:36px; border-radius:999px; background:#2c336f; display:flex; align-items:center; padding:0 14px; color:var(--sidebar-icon); font-size:14px }
+  .top .acc { width:32px; height:32px; border-radius:999px; background:#363e82; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center }
+  .shell { display:flex; min-height:860px }
+  .rail { width:88px; background:var(--sidebar); padding:8px; display:flex; flex-direction:column; gap:4px }
+  .tile { height:64px; border-radius:8px; color:var(--sidebar-text); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:12px }
+  .tile .i { color:var(--sidebar-icon) } .tile.on { background:var(--sidebar-selected) } .tile.on .i { color:#fff }
+  .menu { width:240px; background:var(--surface); border-right:1px solid var(--line); padding:16px 12px; display:flex; flex-direction:column; gap:2px }
+  .mi { height:40px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:15px }
+  .mi .i { color:var(--ink-800) } .mi.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 } .mi.on .i { color:var(--brand-800) }
+  .content { flex:1; padding:24px; display:flex; flex-direction:column; gap:16px; min-width:0 }
+
+  /* page head */
+  .crumb { font-size:12px; color:var(--ink-800) } .crumb a { color:var(--brand-800); text-decoration:none }
+  .ph { display:flex; align-items:flex-start; gap:16px; margin-top:-8px }
+  .ph h1 { font-size:24px; line-height:32px; font-weight:600; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px }
+  .ph h1 .i { color:var(--ink-800) }
+  .status { display:flex; align-items:center; gap:6px; margin-top:2px; font-size:13px; color:var(--ink-800) }
+  .status .live { width:8px; height:8px; border-radius:99px; background:#2e9e5b }
+  .status button { color:var(--brand-600); font-weight:500; display:inline-flex; align-items:center; gap:4px }
+  .status .tip { position:relative; border-bottom:1px dotted var(--ink-300); cursor:default }
+  .status .tip:hover::after { content:attr(data-tip); position:absolute; left:0; top:22px; white-space:nowrap; background:var(--ink-900); color:#fff; font-size:12px; padding:6px 10px; border-radius:8px; z-index:5 }
+  .ph .act { margin-left:auto; display:flex; gap:8px; align-items:center }
+  .ph .back { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800); margin-left:-6px }
+  .ph .back:hover { background:var(--hover) }
+  .ph .updated { font-size:13px; color:var(--ink-800); margin-right:4px }
+  .tip { position:relative }
+  .tip:hover::after { content:attr(data-tip); position:absolute; right:0; top:calc(100% + 6px); white-space:nowrap; background:var(--ink-900); color:#fff; font-size:12px; font-weight:400; padding:6px 10px; border-radius:8px; z-index:5 }
+  .dd.tip:hover::after { left:0; right:auto }
+  .ph .desc { font-size:15px; color:var(--ink-800); margin:2px 0 0 32px; max-width:720px }
+  .shell { position:relative }
+  .summary { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden }
+  .figs { display:grid; grid-template-columns:repeat(4, 1fr) }
+  .fig { padding:16px 20px; display:flex; flex-direction:column; gap:2px; border-right:1px solid var(--line-subtle) }
+  .fig:last-child { border-right:0 }
+  .fig .l { font-size:13px; color:var(--ink-800) }
+  .fig .v { font-size:28px; line-height:36px; font-weight:600; letter-spacing:-0.01em; font-variant-numeric:tabular-nums }
+  .fig .s { font-size:12px; color:var(--ink-800); display:flex; align-items:center; gap:6px }
+  .means { display:flex; align-items:flex-start; gap:10px; padding:12px 20px; border-top:1px solid var(--line-subtle); background:var(--surface-subtle); font-size:14px; line-height:20px }
+  .means p { color:var(--ink-800) } .means b { color:var(--ink-900); font-weight:600 } .means a, .drawer a { color:var(--brand-600); font-weight:500; text-decoration:none }
+  .tag { height:20px; padding:0 8px; border-radius:6px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; flex:none }
+  .tag.watch { background:var(--warning-bg); color:var(--warning-text) }
+  .hl { padding:16px 20px }
+  .hlh { display:flex; align-items:center; gap:10px; margin-bottom:8px }
+  .hlh h3 { font-size:16px } .hlh span { font-size:13px; color:var(--ink-800) }
+  .hlh .ai { margin-left:auto; height:32px; border-radius:999px; border:1px solid var(--brand-600); color:var(--brand-600); padding:0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:600 }
+  .hl ul { margin:0; padding:0; list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:4px 24px }
+  .hl li { display:flex; gap:10px; align-items:flex-start; padding:6px 0; font-size:14px; line-height:20px; color:var(--ink-800) }
+  .hl li b { color:var(--ink-900); font-weight:600 }
+  .hl .dot { width:8px; height:8px; border-radius:99px; background:var(--brand-600); margin-top:6px; flex:none }
+  .hl .dot.down { background:var(--warning-text) } .hl .dot.low { background:var(--ink-300) }
+  .drawer { position:absolute; top:0; right:0; bottom:0; width:380px; background:#fff; border-left:1px solid var(--line); box-shadow:-8px 0 24px rgb(20 23 31 / 0.08); padding:20px; display:flex; flex-direction:column; gap:4px; overflow:auto; z-index:30 }
+  .drawer[hidden] { display:none }
+  .dh { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px } .dh h3 { font-size:18px }
+  .dsec { padding:12px 0; border-top:1px solid var(--line-subtle); display:flex; flex-direction:column; gap:10px; font-size:14px; line-height:20px }
+  .dsec .dl { font-size:13px; color:var(--ink-800) }
+  .dsec .row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:28px }
+  .dsec .row span { color:var(--ink-800) } .dsec .row b { font-weight:500; text-align:right }
+  .meta.sm { height:30px; font-weight:500 }
+  .i-info{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/info.svg)}
+  .i-x{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/x.svg)}
+  .i-left{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-left.svg)}
+  .meta { height:36px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 12px 0 14px; display:inline-flex; align-items:center; gap:6px; font-size:14px }
+  .meta span { color:var(--ink-800) } .meta .i { color:var(--ink-800) }
+  .ibtn { width:36px; height:36px; border-radius:999px; border:1px solid var(--line); background:#fff; display:inline-flex; align-items:center; justify-content:center }
+
+  /* filter line: the list pages' chips */
+  .tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .dd { height:36px; border-radius:999px; border:1px solid var(--line-control); background:#fff; padding:0 12px 0 14px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; position:relative }
+  .dd .i { color:var(--ink-800) } .dd b { font-weight:600; color:var(--brand-800) }
+  .dd.set { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) } .dd.set .i { color:var(--brand-800) }
+  .dd.open { border-color:var(--brand-600); box-shadow:0 0 0 3px rgb(56 99 219 / 0.24) }
+  .tools .range { font-size:13px; color:var(--ink-800); margin-left:4px }
+  .tools .clear { font-size:14px; font-weight:500; color:var(--brand-600); padding:0 6px }
+  .tools .updating { margin-left:auto; font-size:13px; color:var(--ink-800); display:none; align-items:center; gap:6px }
+  .tools .updating.on { display:inline-flex }
+  .spin { width:14px; height:14px; border-radius:99px; border:2px solid var(--line); border-top-color:var(--brand-600); animation:sp 0.8s linear infinite }
+  @keyframes sp { to { transform:rotate(360deg) } }
+
+  /* result card */
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px }
+  .bar { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--line-subtle); flex-wrap:wrap; min-height:61px }
+  .seg { display:inline-flex; padding:3px; border-radius:999px; background:var(--sunken); gap:2px }
+  .seg button { height:30px; padding:0 12px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; color:var(--ink-800) }
+  .seg button .i { color:var(--ink-800) }
+  .seg button.on { background:#fff; color:var(--ink-900); box-shadow:0 1px 2px rgb(20 23 31 / 0.12) } .seg button.on .i { color:var(--brand-600) }
+  .vsep { width:1px; height:24px; background:var(--line-subtle); margin:0 4px }
+  .opt { height:32px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 10px 0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px; position:relative }
+  .opt span { color:var(--ink-800) } .opt .i { color:var(--ink-800) }
+  .opt.open { border-color:var(--brand-600); box-shadow:0 0 0 3px rgb(56 99 219 / 0.24) }
+  .bar .right { margin-left:auto; display:flex; gap:8px; align-items:center }
+  .badge { height:18px; min-width:18px; padding:0 5px; border-radius:99px; background:var(--brand-600); color:#fff; font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center }
+  .body { padding:16px }
+  .foot { display:flex; align-items:center; gap:12px; padding:0 16px 14px; font-size:13px; color:var(--ink-800) }
+  .foot button { color:var(--brand-800); font-weight:600; font-size:13px }
+  .foot .r { margin-left:auto }
+
+  /* menus */
+  .pop { position:absolute; top:40px; left:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); padding:6px; min-width:220px; text-align:left; color:var(--ink-900); font-weight:400 }
+  .pop.r { left:auto; right:0 }
+  .pop .h { font-size:12px; font-weight:600; color:var(--ink-800); padding:8px 10px 4px }
+  .pop .it { height:36px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:14px; white-space:nowrap }
+  .pop .it:hover { background:var(--hover) } .pop .it .i { color:var(--ink-800) }
+  .pop .it.on { color:var(--brand-800); font-weight:500 } .pop .it.on .i { color:var(--brand-800) }
+  .pop .it .ck { margin-left:auto; color:var(--brand-600) }
+  .pop .sep { height:1px; background:var(--line-subtle); margin:6px 4px }
+  .pop .note { font-size:12px; line-height:16px; color:var(--ink-800); padding:2px 10px 6px; max-width:240px; white-space:normal }
+  .kinds { display:grid; grid-template-columns:repeat(5, 76px); gap:4px; padding:4px }
+  .kind { height:64px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:12px; color:var(--ink-800); text-align:center; line-height:14px }
+  .kind .i { width:20px; height:20px; color:var(--ink-800) }
+  .kind:hover { background:var(--hover) }
+  .kind.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 } .kind.on .i { color:var(--brand-800) }
+  .sw { width:32px; height:18px; border-radius:99px; background:var(--fill-muted); margin-left:auto; position:relative; flex:none }
+  .sw::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:99px; background:#fff; box-shadow:0 1px 2px rgb(0 0 0 / 0.2) }
+  .sw.on { background:var(--brand-600) } .sw.on::after { left:16px }
+  .cal { display:flex; gap:12px; padding:8px 10px 4px }
+  .cal .f { flex:1 } .cal .f label { font-size:12px; color:var(--ink-800) }
+  .cal .f div { height:36px; border:1px solid var(--line-control); border-radius:999px; display:flex; align-items:center; gap:6px; padding:0 12px; font-size:14px }
+
+  /* tables */
+  table { width:100%; border-collapse:collapse }
+  thead th { height:40px; background:var(--surface-subtle); text-align:left; font-size:13px; font-weight:500; color:var(--ink-900); padding:0 12px; border-bottom:1px solid var(--line); white-space:nowrap }
+  thead th.n, td.n { text-align:right; font-variant-numeric:tabular-nums }
+  td { height:40px; padding:0 12px; border-bottom:1px solid var(--line-subtle); font-size:14px; white-space:nowrap }
+  td.muted { color:var(--ink-300) }
+  tr.total td { font-weight:600; border-bottom:0; background:var(--surface-subtle) }
+  tr.g td:first-child { font-weight:600 }
+  tr.child td:first-child { padding-left:40px; color:var(--ink-800) }
+  .tw { display:inline-flex; align-items:center; gap:6px } .tw .i { color:var(--ink-800) }
+  .tablewrap { border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .spark { display:inline-block; vertical-align:middle }
+
+  /* chart */
+  .legend { display:flex; gap:16px; font-size:13px; color:var(--ink-800); margin-bottom:8px }
+  .legend span { display:inline-flex; align-items:center; gap:6px }
+  .legend i { width:12px; height:12px; border-radius:3px; display:inline-block }
+
+  /* notes */
+  .notes { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px }
+  .nc { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; font-size:14px; line-height:20px }
+  .nc h3 { font-size:15px; margin-bottom:6px }
+  .nc p { color:var(--ink-800) }
+  .nc .was { font-size:12px; color:var(--ink-700); margin-top:8px }
+  .map { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .map td, .map th { height:auto; padding:9px 14px; font-size:14px; white-space:normal; vertical-align:top; text-align:left }
+  .map th { background:var(--surface-subtle); font-weight:500; font-size:13px }
+  .flag { display:inline-block; font-size:11px; font-weight:600; padding:1px 7px; border-radius:6px; background:var(--warning-bg); color:var(--warning-text); margin-left:6px }
+  .before { display:grid; grid-template-columns:1fr 1fr; gap:16px }
+  .slot { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-800); padding:10px 14px; background:#fff; border:1px dashed var(--line); border-radius:12px; flex-wrap:wrap }
+  .slot b { color:var(--ink-900); font-weight:600 }
+  .slot .k { height:24px; padding:0 10px; border-radius:99px; background:var(--sunken); display:inline-flex; align-items:center; font-size:12px; color:var(--ink-900) }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="strip">Mockup for review, not built. Real data from the local NWA report “Revenue by Campaign and Month”. Click the view switch, the chart type, Show and Analyse to see each view in the same frame.</p>
+
+  <h2 class="part">One report page for every view</h2>
+  <p>Today each view brings its own toolbar: the grid has one row, the chart has two rows of options, the pivot and the hierarchy each have their own. Here every view uses the same three places: the filter line above the card, a toolbar inside the card, and the result.</p>
+
+  <div class="frame">
+    <div class="top"><span class="c">C</span><span class="name">C360</span><span style="opacity:.5">|</span><span>Insights</span><span class="search">Search</span><span style="font-size:13px">Workspace <b>NWA</b></span><span class="acc">MC</span></div>
+    <div class="shell">
+      <div class="rail"><div class="tile"><i class="i i-mail"></i>Engagement</div><div class="tile on"><i class="i i-chart"></i>Insights</div><div style="flex:1"></div><div class="tile"><i class="i i-settings"></i>Settings</div></div>
+      <div class="menu">
+        <div class="mi"><i class="i i-home"></i>Home</div>
+        <div class="mi on"><i class="i i-report"></i>Reports</div>
+        <div class="mi"><i class="i i-dash"></i>Dashboards</div>
+        <div class="mi"><i class="i i-sparkles"></i>AI Reports</div>
+        <div class="mi"><i class="i i-clock"></i>Scheduled</div>
+        <div class="mi"><i class="i i-up"></i>Uploaded Files</div>
+        <div class="mi"><i class="i i-sigma"></i>Shared Formulas</div>
+        <div class="mi"><i class="i i-log"></i>Run Log</div>
+        <div class="mi"><i class="i i-activity"></i>Usage</div>
+      </div>
+      <div class="content">
+        <div class="ph">
+          <div>
+            <h1><a href="#" class="back" title="Back to Reports"><i class="i i-left"></i></a>Revenue by Campaign and Month</h1>
+            <p class="desc">Revenue from attributed orders, by the campaign each order is credited to and the month it was placed.</p>
+          </div>
+          <div class="act">
+            <span class="updated tip" data-tip="Live data · ran in 8 ms · version 2">Updated 2 minutes ago</span>
+            <button class="ibtn" title="Refresh"><i class="i i-refresh"></i></button>
+            <button class="ibtn" title="Details" id="info"><i class="i i-info"></i></button>
+            <span style="position:relative"><button class="ibtn" title="More actions" id="more"><i class="i i-dots"></i></button>
+              <div class="pop r" id="morepop" style="display:none; top:44px; min-width:260px">
+                <div class="it">Explain</div><div class="it">Edit</div><div class="sep"></div>
+                <div class="it">Share</div><div class="it">Comments</div><div class="it">Alerts</div><div class="it">Schedule</div><div class="it">Versions</div><div class="sep"></div>
+                <div class="it">Report Details</div><div class="sep"></div>
+                <div class="it">Export <span style="margin-left:auto;color:var(--ink-800)">CSV, Excel, PDF… ›</span></div><div class="it">Print-Ready PDF</div><div class="it">Show the SQL</div><div class="it">Embed on Another Site</div><div class="sep"></div>
+                <div class="it">Help With Reports</div><div class="it" style="color:#c93a32">Delete</div>
+              </div></span>
+          </div>
+        </div>
+
+        <div class="tools">
+          <button class="dd set tip" id="period" data-tip="29 Oct 2025 to 28 Oct 2026">Period: <b>Last Year</b> <i class="i i14 i-down"></i></button>
+          <button class="dd" data-filter>Campaign <i class="i i14 i-down"></i></button>
+          <button class="dd" data-filter>Channel <i class="i i14 i-down"></i></button>
+          <span class="updating" id="updating"><span class="spin"></span>Updating…</span>
+        </div>
+
+        <div class="summary">
+          <div class="figs">
+            <div class="fig"><span class="l">Amount</span><span class="v">$80,444.68</span><span class="s">Aug to Oct 2026</span></div>
+            <div class="fig"><span class="l">Orders</span><span class="v">650</span><span class="s">9 campaigns and not credited</span></div>
+            <div class="fig"><span class="l">Average Order</span><span class="v">$123.76</span><span class="s">Amount ÷ orders</span></div>
+            <div class="fig"><span class="l">Credited to a Campaign</span><span class="v">55.5%</span><span class="s"><span class="tag watch">Watch</span> Benchmark 70% or more</span></div>
+          </div>
+          <div class="means">
+            <span class="tag watch">Watch</span>
+            <p><b>Less of your revenue is credited to campaigns than your benchmark.</b> 44.5% ($35,766.58) has no campaign, mostly from in-store orders. <a href="#">Why it's judged this way</a></p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="bar" id="bar"></div>
+          <div class="body" id="body"></div>
+          <div class="foot" id="foot"></div>
+        </div>
+
+        <div class="card hl">
+          <div class="hlh"><h3>Highlights</h3><span>Worked out from these rows</span><button class="ai"><i class="i i14 i-sparkles"></i>Explain With AI</button></div>
+          <ul>
+            <li><span class="dot down"></span><p><b>Revenue fell 30% from August to October</b>, from $30,639.69 to $21,344.19.</p></li>
+            <li><span class="dot"></span><p><b>August Style Edit is the top campaign</b> at $8,840.54, then Fall Launch Preview at $7,872.59.</p></li>
+            <li><span class="dot"></span><p><b>September's best was a text campaign:</b> Weekend Flash Texts brought in $6,571.07.</p></li>
+            <li><span class="dot low"></span><p><b>Hottest Designer Deals brought in $148.74</b>, the least of any campaign.</p></li>
+          </ul>
+        </div>
+      </div>
+      <aside class="drawer" id="drawer" hidden>
+        <div class="dh"><h3>Report Details</h3><button class="ibtn" id="close" title="Close"><i class="i i-x"></i></button></div>
+        <div class="dsec">
+          <p class="dl">Description</p>
+          <p>Revenue from attributed orders, by the campaign each order is credited to and the month it was placed. <a href="#">Edit</a></p>
+        </div>
+        <div class="dsec">
+          <div class="row"><span>Owner</span><b>Maria Chen</b></div>
+          <div class="row"><span>Data</span><b>Attributed Orders</b></div>
+          <div class="row"><span>Folder</span><button class="meta sm">Finance <i class="i i14 i-down"></i></button></div>
+          <div class="row"><span>Component</span><button class="meta sm">Engagement <i class="i i14 i-down"></i></button></div>
+        </div>
+        <div class="dsec">
+          <div class="row"><span>Shared With</span><b>Only you · <a href="#">Share</a></b></div>
+          <div class="row"><span>Schedule</span><b>Not scheduled · <a href="#">Schedule</a></b></div>
+          <div class="row"><span>Alerts</span><b>None · <a href="#">Add</a></b></div>
+          <div class="row"><span>Comments</span><b>0 · <a href="#">Open</a></b></div>
+        </div>
+        <div class="dsec">
+          <div class="row"><span>Version</span><b>2 · <a href="#">See Versions</a></b></div>
+          <div class="row"><span>Last Edited</span><b>27 Oct 2026 by Maria Chen</b></div>
+          <div class="row"><span>Created</span><b>27 Oct 2026</b></div>
+          <div class="row"><span>Last Run</span><b>Live data, 8 ms</b></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <h2 class="part">The toolbar has the same slots in every view</h2>
+  <p>Left: the view switch. Middle: at most two choices that shape the view. Right: Show (things to switch on) and Analyse (Key Influencers, Decomposition Tree). A slot with nothing in it is left out.</p>
+  <div style="display:flex; flex-direction:column; gap:8px">
+    <div class="slot"><b style="width:90px">Grid</b><span class="k">View switch</span>—<span style="flex:1"></span><span class="k">Analyse</span></div>
+    <div class="slot"><b style="width:90px">Chart</b><span class="k">View switch</span><span class="k">Chart Type</span><span class="k">Across</span><span style="flex:1"></span><span class="k">Show: Forecast, Flag Anomalies, Repeat By</span><span class="k">Analyse</span></div>
+    <div class="slot"><b style="width:90px">Hierarchy</b><span class="k">View switch</span>—<span style="flex:1"></span><span class="k">Expand All · Collapse All</span><span class="k">Analyse</span></div>
+    <div class="slot"><b style="width:90px">Pivot</b><span class="k">View switch</span><span class="k">Across</span><span class="k">Value</span><span style="flex:1"></span><span class="k">Show: All Values, Trend Column</span><span class="k">Analyse</span></div>
+  </div>
+
+  <h2 class="part">What changes</h2>
+  <p>Every control on today's page is still here; some have moved.</p>
+  <table class="map">
+    <thead><tr><th style="width:26%">Today</th><th style="width:38%">In the mockup</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>A boxed filter card with labelled selects and a Run Report button</td><td>Filter chips, the same as the list pages. The report updates when a chip changes; “Updating…” shows while it runs <span class="flag">Your call</span></td><td>One filter pattern across Insights; one less click. Reports that need answers first (“Choose Campaign above”) still wait for them.</td></tr>
+      <tr><td>Period date range under the select (“28 Oct to 28 Oct 2026”)</td><td>On hover over the Period chip, and in its menu: “29 Oct 2025 to 28 Oct 2026”</td><td>Less on the line; today's words also drop the start year.</td></tr>
+      <tr><td>“11 rows · 52 ms · live data · kept from 19:10 · version 2 · Refresh” under the title</td><td>“Updated 2 minutes ago” and a Refresh icon at the right. Live data, speed and version on hover; the row count is in the grid's pages</td><td>The title stands alone.</td></tr>
+      <tr><td>Breadcrumb “All Reports › name” and the help icon</td><td>A back arrow before the title; Help With Reports in More Actions</td><td>The rail already says you're in Reports.</td></tr>
+      <tr><td>Component and Folder selects beside the title</td><td>In the Report Details drawer (the “i” button), with owner, data, sharing, schedule, alerts, comments, versions and dates</td><td>Set once, rarely changed; they don't need the header.</td></tr>
+      <tr><td>The report's description, hidden once the report runs</td><td>Always under the title</td><td>Says what the report answers before you read it.</td></tr>
+      <tr><td>Nothing between the filters and the result</td><td><b>New:</b> summary figures (one per measure, plus figures worked out from them) and the What This Means line</td><td>The page answers “how are we doing?” before the chart. What This Means is today's free rule-based check, moved out of Explain.</td></tr>
+      <tr><td>Explain panel, opened from More Actions</td><td><b>New:</b> a Highlights card under the result, worked out from the rows; Explain With AI replaces it with the AI summary when the add-on is on</td><td>Something to read on every report, at no AI cost.</td></tr>
+      <tr><td>View switch, then Analyse as a select, then for charts a second row of 8 kinds + More Charts</td><td>One toolbar inside the result card. All 15 chart kinds in one Chart Type menu, grouped</td><td>The chart page drops from three rows of controls to one.</td></tr>
+      <tr><td>Forecast and Flag Anomalies buttons; All Values and Trend Column buttons; Repeat By select</td><td>Switches in the Show menu, with a count on the button when any is on</td><td>Same place in every view.</td></tr>
+      <tr><td>Target (KPI, Gauge) and Map Of (Map)</td><td>Appear in the middle slot only for those chart kinds</td><td>Only shown when they apply, as today.</td></tr>
+      <tr><td>“Click a bar… to drill down” line above the chart; Show the Numbers below</td><td>Both in the card's footer line</td><td>The result starts right under the toolbar.</td></tr>
+      <tr><td>Bars drawn as pills, so a wide bar becomes a circle (Contacts by Region, Sends by Channel)</td><td>Bars at most 56px wide, 2px top corners <span class="flag">Bug</span></td><td>Fix belongs in the shared chart parts, so dashboards get it too.</td></tr>
+      <tr><td>⋯ More Actions; schedule, version, drill-through and access notes</td><td>Unchanged; the notes sit between the filter line and the card</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="part">Questions for you</h2>
+  <div class="notes">
+    <div class="nc"><h3>Update straight away?</h3><p>Should a filter change run the report at once (as here), or keep a Run Report button? Running at once is simpler; a big query may take a few seconds each time.</p></div>
+    <div class="nc"><h3>“Grid” or “Table”?</h3><p>The mockup keeps today's word, Grid. Table may be clearer to most people; the list pages already call it a table.</p></div>
+    <div class="nc"><h3>Change vs previous period <span class="flag">Backend</span></h3><p>Figures can't show “+12% vs previous period” yet: a report run returns no previous value unless the report adds a comparison column. Dashboards' figure tiles already get one. We'd ask the backend team for the same on a report run.</p></div>
+    <div class="nc"><h3>Which figures?</h3><p>The mockup shows each measure's total plus two worked out (Average Order, Credited Share). Should a report owner pick its figures, or do we always show the totals?</p></div>
+    <div class="nc"><h3>Highlights with no AI</h3><p>Highlights are written by simple rules: biggest change, top and bottom value, largest share. Are rule-written lines enough when the AI add-on is off?</p></div>
+    <div class="nc"><h3>Not credited</h3><p>Orders with no campaign show “—” as the campaign name. The mockup writes “Not Credited”. Is that the wording you want?</p></div>
+  </div>
+</div>
+
+<script>
+const months = ['Aug 2026', 'Sept 2026', 'Oct 2026']
+const rows = [
+  ['Not Credited', [14636.58, 12338.26, 8791.74]],
+  ['August Style Edit', [8840.54, null, null]],
+  ['Back to School Sale', [6863.33, null, null]],
+  ['Fall Launch Preview', [null, 6603.46, 1269.13]],
+  ['Weekend Flash Texts', [null, 6571.07, null]],
+  ['Loyalty Double Points', [null, null, 5432.72]],
+  ['October Style Edit', [null, null, 3383.40]],
+  ['Labor Day Weekend', [299.24, 2948.01, null]],
+  ['Flash Sale Friday', [null, null, 2318.46]],
+  ['Hottest Designer Deals', [null, null, 148.74]],
+]
+const money = (v) => v == null ? '—' : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const orders = (v) => v == null ? '—' : Math.round(v / 124)
+const sum = (a) => a.reduce((s, v) => s + (v || 0), 0)
+const KINDS = [
+  ['Compare', [['bar', 'Bars', 'chart'], ['line', 'Lines', 'line'], ['area', 'Area', 'area'], ['combo', 'Combo', 'combo'], ['scatter', 'Scatter', 'scatter']]],
+  ['Parts of a Whole', [['stacked', 'Stacked', 'stack'], ['stacked100', '100% Stacked', 'stack100'], ['pie', 'Pie', 'pie'], ['treemap', 'Treemap', 'treemap'], ['funnel', 'Funnel', 'funnel']]],
+  ['More Charts', [['kpi', 'KPI Card', 'kpi'], ['gauge', 'Gauge', 'gauge'], ['waterfall', 'Waterfall', 'waterfall'], ['bubble', 'Bubble', 'bubble'], ['map', 'Map', 'map']]],
+]
+const kindName = Object.fromEntries(KINDS.flatMap(([, k]) => k.map(([v, l, i]) => [v, [l, i]])))
+const state = { view: 'chart', kind: 'bar', open: null, show: { forecast: false, anomalies: false, matrix: false, sparklines: false }, expanded: { 'Aug 2026': true } }
+
+const $ = (id) => document.getElementById(id)
+function viewSwitch() {
+  const v = [['grid', 'Grid', 'grid'], ['chart', 'Chart', 'chart'], ['hierarchy', 'Hierarchy', 'tree'], ['pivot', 'Pivot', 'pivot']]
+  return `<div class="seg" role="group" aria-label="View">${v.map(([k, l, i]) => `<button data-view="${k}" class="${state.view === k ? 'on' : ''}"><i class="i i-${i}"></i>${l}</button>`).join('')}</div>`
+}
+function opt(id, label, value, pop = '', right = false) {
+  return `<button class="opt ${state.open === id ? 'open' : ''}" data-open="${id}"><span>${label}</span> ${value} <i class="i i14 i-down"></i>${state.open === id ? `<div class="pop ${right ? 'r' : ''}">${pop}</div>` : ''}</button>`
+}
+function item(label, on, extra = '') { return `<div class="it ${on ? 'on' : ''}" ${extra}>${label}${on ? '<i class="i i14 i-check ck"></i>' : ''}</div>` }
+function toggle(key, label) { return `<div class="it" data-toggle="${key}">${label}<span class="sw ${state.show[key] ? 'on' : ''}"></span></div>` }
+function showMenu(items) {
+  const on = items.filter(([k]) => state.show[k]).length
+  const id = 'show'
+  return `<button class="opt ${state.open === id ? 'open' : ''}" data-open="${id}"><i class="i i14 i-sliders"></i> Show ${on ? `<span class="badge">${on}</span>` : ''}<i class="i i14 i-down"></i>${state.open === id ? `<div class="pop r">${items.map(([k, l]) => k === 'repeat' ? `<div class="it">Repeat By <span style="margin-left:auto;color:var(--ink-800)">One Chart ›</span></div>` : toggle(k, l)).join('')}${state.view === 'chart' ? '<p class="note">Forecast and Flag Anomalies need a date across the bottom.</p>' : ''}</div>` : ''}</button>`
+}
+function analyse() {
+  return opt('analyse', '', 'Analyse', `<div class="it"><i class="i i-bulb"></i>Key Influencers</div><div class="it"><i class="i i-network"></i>Decomposition Tree</div><p class="note">Opens as its own view; the switch shows it until you pick another.</p>`, true)
+}
+function kindMenu() {
+  return KINDS.map(([h, list]) => `<p class="h">${h}</p><div class="kinds">${list.map(([v, l, i]) => `<div class="kind ${state.kind === v ? 'on' : ''}" data-kind="${v}"><i class="i i-${i}"></i>${l}</div>`).join('')}</div>`).join('')
+}
+function renderBar() {
+  let mid = '', right = ''
+  if (state.view === 'chart') {
+    const [l, i] = kindName[state.kind]
+    mid = `<span class="vsep"></span>
+      <button class="opt ${state.open === 'kind' ? 'open' : ''}" data-open="kind"><i class="i i14 i-${i}"></i> ${l} <i class="i i14 i-down"></i>${state.open === 'kind' ? `<div class="pop" style="min-width:0">${kindMenu()}</div>` : ''}</button>
+      ${['pie', 'funnel', 'combo', 'treemap', 'waterfall', 'kpi', 'gauge', 'scatter', 'bubble', 'map'].includes(state.kind) ? '' : opt('across', 'Across', 'Placed', item('Each Value on Its Own', false) + item('Placed', true) + item('Credited To', false))}
+      ${state.kind === 'kpi' || state.kind === 'gauge' ? `<button class="opt"><span>Target</span> $90,000</button>` : ''}
+      ${state.kind === 'map' ? opt('geo', 'Map Of', 'Worked Out', item('Worked Out', true) + item('US States', false) + item('Countries', false)) : ''}`
+    right = showMenu([['forecast', 'Forecast'], ['anomalies', 'Flag Anomalies'], ['repeat', 'Repeat By']])
+  }
+  if (state.view === 'pivot') {
+    mid = `<span class="vsep"></span>${opt('across', 'Across', 'Placed', item('Placed', true) + item('Credited To', false))}${opt('value', 'Value', 'Amount', item('Amount', true) + item('Orders', false))}`
+    right = showMenu([['matrix', 'All Values'], ['sparklines', 'Trend Column']])
+  }
+  if (state.view === 'hierarchy') right = `<button class="opt" data-expand="all">Expand All</button><button class="opt" data-expand="none">Collapse All</button>`
+  $('bar').innerHTML = `${viewSwitch()}${mid}<div class="right">${right}${analyse()}</div>`
+}
+
+function chartSvg() {
+  const W = 1000, H = 300, L = 64, B = 34, T = 10
+  const data = rows.map(([n, v]) => [n, sum(v)]).sort((a, b) => b[1] - a[1]).slice(0, 8)
+  const max = 40000, plotW = W - L - 10, plotH = H - B - T, band = plotW / data.length
+  const y = (v) => T + plotH - (v / max) * plotH
+  let g = ''
+  for (let t = 0; t <= max; t += 10000) g += `<line x1="${L}" x2="${W - 10}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line-subtle)"/><text x="${L - 10}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="var(--ink-800)">$${t / 1000}k</text>`
+  if (state.kind === 'line' || state.kind === 'area') {
+    const pts = data.map(([, v], i) => [L + band * i + band / 2, y(v)])
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + p.join(' ')).join('')
+    if (state.kind === 'area') g += `<path d="${d}L${pts.at(-1)[0]} ${y(0)}L${pts[0][0]} ${y(0)}Z" fill="var(--c1)" fill-opacity=".14"/>`
+    g += `<path d="${d}" fill="none" stroke="var(--c1)" stroke-width="2"/>` + pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#fff" stroke="var(--c1)" stroke-width="2"/>`).join('')
+  } else if (state.kind === 'pie') {
+    const total = sum(data.map((d) => d[1])), cx = W / 2, cy = H / 2 - 6, r = 120
+    let a = -Math.PI / 2
+    const cols = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', '#6b8fe8', '#b97bb5', '#7bb4c6', '#e8a865']
+    data.forEach(([, v], i) => { const b = a + (v / total) * Math.PI * 2; const large = b - a > Math.PI ? 1 : 0
+      g += `<path d="M${cx} ${cy}L${cx + r * Math.cos(a)} ${cy + r * Math.sin(a)}A${r} ${r} 0 ${large} 1 ${cx + r * Math.cos(b)} ${cy + r * Math.sin(b)}Z" fill="${cols[i]}" stroke="#fff" stroke-width="2"/>`; a = b })
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`
+  } else {
+    const bw = Math.min(56, band * 0.6)
+    data.forEach(([, v], i) => { const x = L + band * i + band / 2 - bw / 2, top = y(v), r = 2
+      g += `<path d="M${x} ${y(0)}V${top + r}Q${x} ${top} ${x + r} ${top}H${x + bw - r}Q${x + bw} ${top} ${x + bw} ${top + r}V${y(0)}Z" fill="var(--c1)"/>` })
+  }
+  if (state.show.forecast && state.kind !== 'pie') g += `<text x="${W - 14}" y="${T + 14}" text-anchor="end" font-size="12" fill="var(--ink-800)">Forecast needs dates across the bottom</text>`
+  data.forEach(([n], i) => g += `<text x="${L + band * i + band / 2}" y="${H - 12}" text-anchor="middle" font-size="12" fill="var(--ink-800)">${n.length > 16 ? n.slice(0, 15) + '…' : n}</text>`)
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`
+}
+function spark(v) {
+  const max = 15000, pts = v.map((x, i) => `${4 + i * 26},${22 - ((x || 0) / max) * 18}`).join(' ')
+  return `<svg class="spark" width="60" height="24"><polyline points="${pts}" fill="none" stroke="var(--c1)" stroke-width="1.5"/></svg>`
+}
+function renderBody() {
+  const tot = months.map((_, i) => sum(rows.map((r) => r[1][i])))
+  let html = '', foot = '', count = 0
+  if (state.view === 'chart') {
+    html = `<div class="legend"><span><i style="background:var(--c1)"></i>Amount</span></div>${chartSvg()}`
+    foot = `<span>Click a bar to see the campaigns inside it; right-click for more.</span><button class="r">Show the Numbers</button>`
+    count = 14
+  }
+  if (state.view === 'grid') {
+    const flat = []; rows.forEach(([n, v]) => v.forEach((x, i) => { if (x != null) flat.push([n, months[i], x]) }))
+    count = flat.length
+    html = `<div class="tablewrap"><table><thead><tr><th>Credited To</th><th>Placed</th><th class="n">Amount</th><th class="n">Orders</th></tr></thead><tbody>${flat.map(([n, m, x]) => `<tr><td>${n}</td><td>${m}</td><td class="n">${money(x)}</td><td class="n">${orders(x)}</td></tr>`).join('')}</tbody></table></div>`
+    foot = `<span>Right-click a value to open the rows behind it or add a comment.</span><span class="r">1–${count} of ${count}</span>`
+  }
+  if (state.view === 'hierarchy') {
+    count = 3
+    html = `<div class="tablewrap"><table><thead><tr><th>Placed / Credited To</th><th class="n">Amount</th><th class="n">Orders</th></tr></thead><tbody>${months.map((m, i) => {
+      const open = state.expanded[m]
+      const kids = rows.filter((r) => r[1][i] != null)
+      return `<tr class="g"><td><button class="tw" data-node="${m}"><i class="i i14 ${open ? 'i-down' : 'i-right'}"></i>${m}</button></td><td class="n">${money(tot[i])}</td><td class="n">${orders(tot[i])}</td></tr>` +
+        (open ? kids.map(([n, v]) => `<tr class="child"><td>${n}</td><td class="n">${money(v[i])}</td><td class="n">${orders(v[i])}</td></tr>`).join('') : '')
+    }).join('')}<tr class="total"><td>Total</td><td class="n">${money(sum(tot))}</td><td class="n">${orders(sum(tot))}</td></tr></tbody></table></div>`
+    foot = `<span>Click a row to open it; right-click for more.</span>`
+  }
+  if (state.view === 'pivot') {
+    count = 14
+    html = `<div class="tablewrap"><table><thead><tr><th>Credited To</th>${months.map((m) => `<th class="n">${m}</th>`).join('')}<th class="n">Total</th>${state.show.sparklines ? '<th>Trend</th>' : ''}</tr></thead><tbody>${rows.map(([n, v]) => `<tr><td>${n}</td>${v.map((x) => `<td class="n ${x == null ? 'muted' : ''}">${money(x)}</td>`).join('')}<td class="n">${money(sum(v))}</td>${state.show.sparklines ? `<td>${spark(v)}</td>` : ''}</tr>`).join('')}<tr class="total"><td>Total</td>${tot.map((x) => `<td class="n">${money(x)}</td>`).join('')}<td class="n">${money(sum(tot))}</td>${state.show.sparklines ? '<td></td>' : ''}</tr></tbody></table></div>`
+    foot = `<span>Amount · Credited To down, Placed across.</span>`
+  }
+  $('body').innerHTML = html
+  $('foot').innerHTML = foot
+}
+function render() { renderBar(); renderBody() }
+
+document.addEventListener('click', (e) => {
+  const pop = $('morepop')
+  if (e.target.closest('#more')) { pop.style.display = pop.style.display === 'none' ? 'block' : 'none'; return }
+  if (!e.target.closest('#morepop')) pop.style.display = 'none'
+  if (e.target.closest('#info')) { $('drawer').hidden = !$('drawer').hidden; return }
+  if (e.target.closest('#close')) { $('drawer').hidden = true; return }
+  const t = e.target.closest('[data-view],[data-kind],[data-toggle],[data-open],[data-node],[data-expand],[data-filter],#period')
+  if (!t) { if (state.open) { state.open = null; renderBar() } return }
+  if (t.dataset.view) { state.view = t.dataset.view; state.open = null }
+  else if (t.dataset.kind) { state.kind = t.dataset.kind; state.open = null; e.stopPropagation() }
+  else if (t.dataset.toggle) { state.show[t.dataset.toggle] = !state.show[t.dataset.toggle]; e.stopPropagation() }
+  else if (t.dataset.node) { state.expanded[t.dataset.node] = !state.expanded[t.dataset.node] }
+  else if (t.dataset.expand) { months.forEach((m) => state.expanded[m] = t.dataset.expand === 'all') }
+  else if (t.dataset.open) { if (e.target.closest('.pop')) return; state.open = state.open === t.dataset.open ? null : t.dataset.open }
+  else if (t.id === 'period' || t.dataset.filter !== undefined) {
+    $('updating').classList.add('on'); setTimeout(() => $('updating').classList.remove('on'), 900); return
+  }
+  render()
+})
+render()
+</script>
+</body>
+</html>

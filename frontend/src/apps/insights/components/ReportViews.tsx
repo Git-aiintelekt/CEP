@@ -6,14 +6,18 @@
  * edges. Any report switches between them without losing its fields; the chosen view and its settings save with the
  * definition (`view`).
  */
-import { ChartArea, ChartBarStacked, ChartColumn, ChartColumnStacked, ChartLine, ChartNoAxesCombined, ChartPie, ChartColumnDecreasing, ChartScatter, ChevronDown, ChevronRight, ChevronsDown, CircleAlert, CircleDot, Funnel, Gauge as GaugeIcon, Grid3x3, LayoutGrid, Lightbulb, ListTree, Map as MapIcon, Network, Paintbrush, Rows3, Table2, Target, TrendingUp } from 'lucide-react'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { ChartArea, ChartBarStacked, ChartColumn, ChartColumnStacked, ChartLine, ChartNoAxesCombined, ChartPie, ChartColumnDecreasing, ChartScatter, ChevronDown, ChevronRight, ChevronsDown, CircleAlert, CircleDot, Funnel, Gauge as GaugeIcon, Grid3x3, LayoutGrid, Lightbulb, ListTree, Map as MapIcon, Network, Paintbrush, SlidersHorizontal, Table2, Target, TrendingUp } from 'lucide-react'
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 
 import { Chart } from '@/components/charts/Chart'
 import { FunnelChart } from '@/components/charts/FunnelChart'
 import { PieChart } from '@/components/charts/PieChart'
 import { Select, TextInput } from '@/components/Form'
+import { SingleSelectMenu, type MenuOption } from '@/components/FilterChip'
+import { Popover } from '@/components/Popover'
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
+import { Switch } from '@/components/Switch'
+import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { TooltipReport } from './TooltipReport'
 import type { AnalysisSource, Bucket, ChartKind, ChartSignal, ColumnFormat, ReportView, ResultColumn, RunResult, ViewType } from '../types'
 import { DecompositionTree } from '../visuals/DecompositionTree'
@@ -62,104 +66,191 @@ const SIGNALS: { value: ChartSignal; label: string; icon: typeof TrendingUp }[] 
 
 const number = (column: ResultColumn) => (value: number) => formatCell(column, value)
 
-/** The view switch, the chart's kind, and for a chart or a pivot which dimension goes across: the controls above the result. */
-export function ViewBar({ view, onChange, columns, dimensions, onFormat }: { view: ReportView; onChange: (next: ReportView) => void; columns?: ResultColumn[]; dimensions: { key: string; label: string }[]; onFormat?: () => void }) {
+/** the chart kinds, in the Chart Type menu's three groups of five */
+const KIND_GROUPS: { label: string; kinds: ChartKind[] }[] = [
+  { label: 'Compare', kinds: ['bar', 'line', 'area', 'combo', 'scatter'] },
+  { label: 'Parts of a Whole', kinds: ['stacked', 'stacked100', 'pie', 'treemap', 'funnel'] },
+  { label: 'More Charts', kinds: ['kpi', 'gauge', 'waterfall', 'bubble', 'map'] },
+]
+const KIND = new Map([...CHARTS, ...MORE_CHARTS].map((item) => [item.value, item]))
+const BAR_BUTTON = 'inline-flex h-8 items-center gap-1.5 rounded-control-md border px-2.5 text-xs font-semibold whitespace-nowrap transition-colors duration-fast ease-standard'
+const barButton = (on = false) => `${BAR_BUTTON} ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`
+
+/** a toolbar button that opens a small menu under it */
+function BarMenu({ label, text, icon: Icon, count = 0, align = 'start', width, children }: { label: string; text: ReactNode; icon?: typeof Table2; count?: number; align?: 'start' | 'end'; width?: number; children: (close: () => void) => ReactNode }) {
+  const menus = useSingleDropdown<'menu'>()
+  const open = menus.isOpen('menu')
+  return (
+    <span className="relative inline-flex">
+      <button type="button" {...menus.triggerProps('menu')} aria-label={count ? `${label} · ${count} on` : label} className={barButton(open)}>
+        {Icon && <Icon size={14} strokeWidth={1.5} aria-hidden />}{text}
+        {count > 0 && <span aria-hidden className="cep-num inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-xs text-on-brand">{count}</span>}
+        <ChevronDown size={14} strokeWidth={1.5} aria-hidden className={`transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <Popover {...menus.panelProps('menu')} label={label} placement={align === 'end' ? 'bottom-end' : 'bottom-start'} width={width}>{children(() => menus.close())}</Popover>}
+    </span>
+  )
+}
+
+/** a choice in the toolbar, looking like Show and Analyse: "Across Placed", its menu the options */
+function BarChoice<V extends string>({ label, name = label, value, options, onChange }: { label: string; /** the accessible name, when it says more than the label */ name?: string; value: V; options: MenuOption<V>[]; onChange: (value: V) => void }) {
+  const chosen = options.find((option) => option.value === value)?.label ?? ''
+  return (
+    <BarMenu label={`${name}: ${chosen}`} text={<><span className="font-normal text-ink-800">{label}</span>{chosen}</>} width={260}>
+      {(close) => <SingleSelectMenu label={name} options={options} value={value} onChange={(next) => { onChange(next); close() }} />}
+    </BarMenu>
+  )
+}
+
+function MenuSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (on: boolean) => void }) {
+  return <div className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5 text-sm text-ink-900"><span>{label}</span><Switch ariaLabel={label} checked={checked} onChange={onChange} /></div>
+}
+
+function Labelled({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="flex items-center gap-1.5 text-xs text-ink-800"><span>{label}</span>{children}</label>
+}
+
+/**
+ * The result's toolbar, the same three slots in every view: the view switch; then what shapes the view (the chart's
+ * type, Across, Target, Map Of; a pivot's Across and Value; what Key Influencers explains or the tree splits); then Show
+ * (what can be switched on: Forecast, Flag Anomalies and Repeat By for a chart, All Values and Trend Column for a pivot,
+ * with a count of those on), a hierarchy's Expand All and Collapse All, Format Values in the editor, and Analyse.
+ */
+export function ViewBar({ view, onChange, columns, dimensions, onFormat, onFold }: { view: ReportView; onChange: (next: ReportView) => void; columns?: ResultColumn[]; dimensions: { key: string; label: string }[]; onFormat?: () => void
+  /** a hierarchy's Expand All (true) and Collapse All (false) */
+  onFold?: (open: boolean) => void }) {
   const dims = columns ? columns.filter((column) => !column.aggregate).map((column) => ({ key: column.key, label: column.label })) : dimensions
   const values = (columns ?? []).filter((column) => column.aggregate && !column.compare)
   const kind = view.chart ?? 'bar'
+  const shown = KIND.get(kind) ?? CHARTS[0]
   const without = (key: keyof ReportView) => { const { [key]: _gone, ...rest } = view; return rest as ReportView }
-  const acrossNeeded = (view.type === 'chart' && !ONE_SERIES.includes(view.chart ?? 'bar')) || view.type === 'pivot'
+  const acrossNeeded = (view.type === 'chart' && !ONE_SERIES.includes(kind)) || view.type === 'pivot'
+  const repeat = view.type === 'chart' && MULTIPLE_KINDS.includes(kind) && dims.length > 1
+  const signals = signalsApply(view)
+  const showCount = view.type === 'chart' ? (view.signals?.length ?? 0) + (view.multiples ? 1 : 0) : view.type === 'pivot' ? Number(Boolean(view.matrix)) + Number(Boolean(view.sparklines)) : 0
+  const showMenu = (view.type === 'chart' && (signals || repeat)) || view.type === 'pivot'
+  const toggleSignal = (value: ChartSignal) => {
+    const on = view.signals?.includes(value) ?? false
+    const next = on ? (view.signals ?? []).filter((item) => item !== value) : [...(view.signals ?? []), value]
+    onChange({ ...view, signals: next.length ? next : undefined })
+  }
+  const middle: ReactNode[] = []
+  if (view.type === 'chart') {
+    middle.push(
+      <BarMenu key="kind" label="Chart type" text={shown.label} icon={shown.icon} width={420}>
+        {(close) => (
+          <div className="flex flex-col gap-1 p-2">
+            {KIND_GROUPS.map((group) => (
+              <div key={group.label} role="group" aria-label={group.label}>
+                <p className="px-1 pt-1 pb-1.5 text-xs font-semibold text-ink-800">{group.label}</p>
+                <div className="grid grid-cols-5 gap-1">
+                  {group.kinds.map((value) => {
+                    const item = KIND.get(value)!
+                    const Icon = item.icon ?? ChartColumn
+                    const on = value === kind
+                    return (
+                      <button key={value} type="button" aria-pressed={on} onClick={() => { onChange({ ...view, chart: value }); close() }}
+                        className={`flex h-16 flex-col items-center justify-center gap-1.5 rounded-md px-1 text-center text-xs leading-tight ${on ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-800 hover:bg-surface-hover'}`}>
+                        <Icon size={20} strokeWidth={1.5} aria-hidden />{item.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </BarMenu>,
+    )
+  }
+  if (acrossNeeded) {
+    middle.push(
+      <BarChoice key="across" label="Across" value={view.across ?? ''} onChange={(across) => onChange({ ...view, across: across || undefined })}
+        options={[{ value: '', label: view.type === 'pivot' ? 'Choose a Dimension' : 'Each Value on Its Own' }, ...dims.map((dim) => ({ value: dim.key, label: dim.label }))]} />,
+    )
+  }
+  if (view.type === 'pivot' && !view.matrix && values.length > 1) {
+    middle.push(
+      <BarChoice key="value" label="Value" name="Pivot value" value={view.measure ?? values[0].key} onChange={(measure) => onChange({ ...view, measure })}
+        options={values.map((value) => ({ value: value.key, label: value.label }))} />,
+    )
+  }
+  if (view.type === 'chart' && (kind === 'kpi' || kind === 'gauge')) {
+    middle.push(
+      <Labelled key="target" label="Target">
+        <span className="w-28"><TextInput aria-label="Target" controlSize="sm" type="number" step="any" value={view.target ?? ''}
+          onChange={(event) => onChange(event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? without('target') : { ...view, target: Number(event.target.value) })} /></span>
+      </Labelled>,
+    )
+  }
+  if (view.type === 'chart' && kind === 'map') {
+    middle.push(
+      <BarChoice key="geo" label="Map Of" value={view.geo ?? 'auto'} onChange={(geo) => onChange(geo === 'auto' ? without('geo') : { ...view, geo: geo as 'us' | 'world' })}
+        options={[{ value: 'auto', label: 'Worked Out' }, { value: 'us', label: 'US States' }, { value: 'world', label: 'Countries' }]} />,
+    )
+  }
+  if ((view.type === 'influencers' || view.type === 'decomposition') && values.length > 1) {
+    middle.push(
+      <BarChoice key="measure" label={view.type === 'influencers' ? 'Explain' : 'Split'} name={view.type === 'influencers' ? 'Value to explain' : 'Value to split'} value={view.measure ?? values[0].key}
+        onChange={(measure) => onChange({ ...view, measure })} options={values.map((value) => ({ value: value.key, label: value.label }))} />,
+    )
+  }
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div role="toolbar" aria-label="Report view" className="flex flex-wrap items-center gap-2">
       <SegmentedControl label="View" options={[...VIEWS, ...ANALYSE.filter((item) => item.value === view.type)]} value={view.type} onChange={(type) => onChange({ ...view, type })} />
-      <span className="w-32"><Select aria-label="Analyse" controlSize="sm" value="" onChange={(event) => { if (event.target.value) onChange({ ...view, type: event.target.value as ViewType }) }}>
-        <option value="">Analyse</option>
-        {ANALYSE.filter((item) => item.value !== view.type).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-      </Select></span>
-      {view.type === 'chart' && (
-        <div className="max-w-full overflow-x-auto">
-          <SegmentedControl label="Chart kind" options={[...CHARTS, ...MORE_CHARTS.filter((item) => item.value === kind)]} value={kind} onChange={(chart) => onChange({ ...view, chart })} />
-        </div>
-      )}
-      {view.type === 'chart' && (
-        <span className="w-36"><Select aria-label="More charts" controlSize="sm" value="" onChange={(event) => { if (event.target.value) onChange({ ...view, chart: event.target.value as ChartKind }) }}>
-          <option value="">More Charts</option>
-          {MORE_CHARTS.filter((item) => item.value !== kind).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-        </Select></span>
-      )}
-      {view.type === 'chart' && (kind === 'kpi' || kind === 'gauge') && (
-        <label className="flex items-center gap-1.5 text-xs text-ink-800">
-          <span>Target</span>
-          <span className="w-28"><TextInput aria-label="Target" controlSize="sm" type="number" step="any" value={view.target ?? ''}
-            onChange={(event) => onChange(event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? without('target') : { ...view, target: Number(event.target.value) })} /></span>
-        </label>
-      )}
-      {view.type === 'chart' && kind === 'map' && (
-        <label className="flex items-center gap-1.5 text-xs text-ink-800">
-          <span>Map Of</span>
-          <span className="w-36"><Select aria-label="Map of" controlSize="sm" value={view.geo ?? 'auto'} onChange={(event) => onChange(event.target.value === 'auto' ? without('geo') : { ...view, geo: event.target.value as 'us' | 'world' })}>
-            <option value="auto">Worked Out</option><option value="us">US States</option><option value="world">Countries</option>
-          </Select></span>
-        </label>
-      )}
-      {view.type === 'chart' && MULTIPLE_KINDS.includes(kind) && dims.length > 1 && (
-        <label className="flex items-center gap-1.5 text-xs text-ink-800">
-          <span>Repeat By</span>
-          <span className="w-40"><Select aria-label="Repeat by" controlSize="sm" value={view.multiples ?? ''} onChange={(event) => onChange(event.target.value ? { ...view, multiples: event.target.value } : without('multiples'))}>
-            <option value="">One Chart</option>
-            {dims.filter((dim) => dim.key !== view.across).map((dim) => <option key={dim.key} value={dim.key}>{dim.label}</option>)}
-          </Select></span>
-        </label>
-      )}
-      {view.type === 'pivot' && (
-        <div role="group" aria-label="Pivot options" className="flex items-center gap-1.5">
-          {([['matrix', 'All Values', Rows3], ['sparklines', 'Trend Column', TrendingUp]] as const).map(([flag, label, Icon]) => {
-            const on = Boolean(view[flag])
-            return (
-              <button key={flag} type="button" aria-pressed={on} onClick={() => onChange(on ? without(flag) : { ...view, [flag]: true })}
-                className={`inline-flex h-8 items-center gap-1.5 rounded-control-md border px-2.5 text-xs font-semibold ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>
-                <Icon size={14} strokeWidth={1.5} aria-hidden />{label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-      {(view.type === 'influencers' || view.type === 'decomposition') && values.length > 1 && (
-        <label className="flex items-center gap-1.5 text-xs text-ink-800">
-          <span>{view.type === 'influencers' ? 'Explain' : 'Split'}</span>
-          <span className="w-44"><Select aria-label={view.type === 'influencers' ? 'Value to explain' : 'Value to split'} controlSize="sm" value={view.measure ?? values[0].key} onChange={(event) => onChange({ ...view, measure: event.target.value })}>
-            {values.map((value) => <option key={value.key} value={value.key}>{value.label}</option>)}
-          </Select></span>
-        </label>
-      )}
-      {acrossNeeded && (
-        <label className="flex items-center gap-1.5 text-xs text-ink-800">
-          <span>Across</span>
-          <span className="w-40"><Select aria-label="Across" controlSize="sm" value={view.across ?? ''} onChange={(event) => onChange({ ...view, across: event.target.value || undefined })}>
-            <option value="">{view.type === 'pivot' ? 'Choose a dimension' : 'Each value on its own'}</option>
-            {dims.map((dim) => <option key={dim.key} value={dim.key}>{dim.label}</option>)}
-          </Select></span>
-        </label>
-      )}
-      {signalsApply(view) && (
-        <div role="group" aria-label="Signals" className="flex items-center gap-1.5">
-          {SIGNALS.map(({ value, label, icon: Icon }) => {
-            const on = view.signals?.includes(value) ?? false
-            const signals = on ? (view.signals ?? []).filter((item) => item !== value) : [...(view.signals ?? []), value]
-            return (
-              <button key={value} type="button" aria-pressed={on} onClick={() => onChange({ ...view, signals: signals.length ? signals : undefined })}
-                className={`inline-flex h-8 items-center gap-1.5 rounded-control-md border px-2.5 text-xs font-semibold ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>
-                <Icon size={14} strokeWidth={1.5} aria-hidden />{label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-      {onFormat && view.type !== 'chart' && (
-        <button type="button" onClick={onFormat} className="inline-flex h-8 items-center gap-1.5 rounded-control-md border border-line bg-surface px-2.5 text-xs font-semibold text-ink-900 hover:bg-surface-hover">
-          <Paintbrush size={14} strokeWidth={1.5} aria-hidden />Format Values{view.formats?.length ? ` · ${view.formats.length}` : ''}
-        </button>
-      )}
+      {middle.length > 0 && <span aria-hidden className="mx-1 h-6 w-px bg-line-subtle" />}
+      {middle}
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {showMenu && (
+          <BarMenu label="Show" text="Show" icon={SlidersHorizontal} count={showCount} align="end" width={280}>
+            {() => (
+              <div className="py-1">
+                {view.type === 'chart' && signals && SIGNALS.map(({ value, label }) => <MenuSwitch key={value} label={label} checked={view.signals?.includes(value) ?? false} onChange={() => toggleSignal(value)} />)}
+                {view.type === 'chart' && repeat && (
+                  <label className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5 text-sm text-ink-900">
+                    <span>Repeat By</span>
+                    <span className="w-36"><Select aria-label="Repeat by" controlSize="sm" value={view.multiples ?? ''} onChange={(event) => onChange(event.target.value ? { ...view, multiples: event.target.value } : without('multiples'))}>
+                      <option value="">One Chart</option>
+                      {dims.filter((dim) => dim.key !== view.across).map((dim) => <option key={dim.key} value={dim.key}>{dim.label}</option>)}
+                    </Select></span>
+                  </label>
+                )}
+                {view.type === 'chart' && signals && <p className="px-3 pt-1 pb-2 text-helper text-ink-800">Forecast and Flag Anomalies read the first value along dates.</p>}
+                {view.type === 'pivot' && <>
+                  <MenuSwitch label="All Values" checked={Boolean(view.matrix)} onChange={(on) => onChange(on ? { ...view, matrix: true } : without('matrix'))} />
+                  <MenuSwitch label="Trend Column" checked={Boolean(view.sparklines)} onChange={(on) => onChange(on ? { ...view, sparklines: true } : without('sparklines'))} />
+                </>}
+              </div>
+            )}
+          </BarMenu>
+        )}
+        {view.type === 'hierarchy' && onFold && <>
+          <button type="button" className={barButton()} onClick={() => onFold(true)}>Expand All</button>
+          <button type="button" className={barButton()} onClick={() => onFold(false)}>Collapse All</button>
+        </>}
+        {onFormat && view.type !== 'chart' && (
+          <button type="button" onClick={onFormat} className={barButton()}>
+            <Paintbrush size={14} strokeWidth={1.5} aria-hidden />Format Values{view.formats?.length ? ` · ${view.formats.length}` : ''}
+          </button>
+        )}
+        <BarMenu label="Analyse" text="Analyse" align="end" width={240}>
+          {(close) => (
+            <ul className="py-1">
+              {ANALYSE.map((item) => {
+                const Icon = item.icon ?? Lightbulb
+                return (
+                  <li key={item.value}>
+                    <button type="button" aria-pressed={view.type === item.value} onClick={() => { onChange({ ...view, type: item.value }); close() }}
+                      className={`flex min-h-9 w-full items-center gap-2 px-3 py-2 text-left text-sm ${view.type === item.value ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>
+                      <Icon size={16} strokeWidth={1.5} aria-hidden />{item.label}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </BarMenu>
+      </div>
     </div>
   )
 }
@@ -170,17 +261,21 @@ function Reason({ children, minHeight }: { children: string; minHeight: number }
 
 /** The result in the chosen view. `onPick` (a dashboard's cross-filter) gets the dimension and the value clicked on a chart or a grid cell;
  * `analysis` is where Key Influencers and the Decomposition Tree read from (the saved report, or the editor's draft). */
-export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick, onContext, analysis, notes, tooltips = false }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; analysis?: AnalysisSource
+export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick, onContext, analysis, notes, tooltips = false, inCard = false, fold }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; analysis?: AnalysisSource
   /** comments pinned to values: a chart marks them */
   notes?: Note[]
   /** a chart's tooltip report shows on hover (the viewer and dashboards) */
-  tooltips?: boolean }) {
+  tooltips?: boolean
+  /** inside a ResultCard: the toolbar holds a pivot's Value and a hierarchy's Expand All, the footer their captions, and a chart drops its own frame */
+  inCard?: boolean
+  /** a hierarchy's last Expand All (open) or Collapse All, counted so each press applies again */
+  fold?: { open: boolean; count: number } }) {
   switch (view.type) {
-    case 'chart': return view.multiples ? <SmallMultiples result={result} view={view} minHeight={minHeight} onPick={onPick} /> : <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} onContext={onContext} notes={notes} tooltips={tooltips} />
+    case 'chart': return view.multiples ? <SmallMultiples result={result} view={view} minHeight={minHeight} onPick={onPick} /> : <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} onContext={onContext} notes={notes} tooltips={tooltips} bare={inCard} />
     case 'influencers': return <Influencers source={analysis} view={view} result={result} minHeight={Math.min(minHeight, 280)} />
     case 'decomposition': return <DecompositionTree key={view.measure ?? ''} source={analysis} view={view} result={result} minHeight={Math.min(minHeight, 280)} />
-    case 'hierarchy': return <Hierarchy result={result} label={label} minHeight={minHeight} formats={view.formats} onPick={onPick} />
-    case 'pivot': return <Pivot result={result} view={view} label={label} minHeight={minHeight} onPick={onPick} />
+    case 'hierarchy': return <Hierarchy key={fold?.count ?? 0} result={result} label={label} minHeight={minHeight} formats={view.formats} onPick={onPick} inCard={inCard} folded={fold ? (fold.open ? 'open' : 'closed') : null} />
+    case 'pivot': return <Pivot result={result} view={view} label={label} minHeight={minHeight} onPick={onPick} inCard={inCard} />
     default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} onContext={onContext} />
   }
 }
@@ -220,16 +315,19 @@ function SmallMultiples({ result, view, minHeight, onPick }: { result: RunResult
   )
 }
 
-function ReportChart({ result, view, minHeight, onPick, onContext, yMax, compact = false, notes = [], tooltips = false }: { result: RunResult; view: ReportView; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; yMax?: number; compact?: boolean; notes?: Note[]; tooltips?: boolean }) {
+function ReportChart({ result, view, minHeight, onPick, onContext, yMax, compact = false, notes = [], tooltips = false, bare = false }: { result: RunResult; view: ReportView; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; yMax?: number; compact?: boolean; notes?: Note[]; tooltips?: boolean
+  /** no frame of its own: the card around it is the frame */
+  bare?: boolean }) {
+  const frame = bare ? '' : 'rounded-md border border-line p-4'
   const kind = view.chart ?? 'bar'
   const shape = useMemo(() => chartShape(result, ONE_SERIES.includes(kind) ? undefined : view.across), [result, view.across, kind])
   const [hover, setHover] = useState<{ index: number; x: number } | null>(null)
-  if (kind === 'scatter' || kind === 'bubble') return <div className="rounded-md border border-line p-4"><ScatterChart result={result} bubble={kind === 'bubble'} minHeight={minHeight} onPick={onPick} /></div>
-  if (kind === 'treemap') return <div className="rounded-md border border-line p-4"><Treemap result={result} minHeight={minHeight} onPick={onPick} /></div>
-  if (kind === 'waterfall') return <div className="rounded-md border border-line p-4"><Waterfall result={result} minHeight={minHeight} onPick={onPick} /></div>
+  if (kind === 'scatter' || kind === 'bubble') return <div className={frame}><ScatterChart result={result} bubble={kind === 'bubble'} minHeight={minHeight} onPick={onPick} /></div>
+  if (kind === 'treemap') return <div className={frame}><Treemap result={result} minHeight={minHeight} onPick={onPick} /></div>
+  if (kind === 'waterfall') return <div className={frame}><Waterfall result={result} minHeight={minHeight} onPick={onPick} /></div>
   if (kind === 'kpi') return <KpiCard result={result} view={view} minHeight={minHeight} />
-  if (kind === 'gauge') return <div className="rounded-md border border-line p-4"><Gauge result={result} view={view} minHeight={minHeight} /></div>
-  if (kind === 'map') return <div className="rounded-md border border-line p-4"><Suspense fallback={<div className="text-sm text-ink-800" style={{ minHeight }}>Loading the map…</div>}><MapChart result={result} view={view} minHeight={minHeight} onPick={onPick} /></Suspense></div>
+  if (kind === 'gauge') return <div className={frame}><Gauge result={result} view={view} minHeight={minHeight} /></div>
+  if (kind === 'map') return <div className={frame}><Suspense fallback={<div className="text-sm text-ink-800" style={{ minHeight }}>Loading the map…</div>}><MapChart result={result} view={view} minHeight={minHeight} onPick={onPick} /></Suspense></div>
   if (shape.reason) return <Reason minHeight={minHeight}>{shape.reason}</Reason>
   const title = `${shape.measure.label} by ${shape.categoryHeader}`
   const pick = onPick ? (index: number) => onPick(shape.axis, shape.categories[index].value) : undefined
@@ -258,7 +356,7 @@ function ReportChart({ result, view, minHeight, onPick, onContext, yMax, compact
   })
   const tooltipId = tooltips ? view.tooltip : undefined
   return (
-    <div className={`relative rounded-md border border-line ${compact ? 'p-2' : 'p-4'}`}>
+    <div className={`relative ${bare ? '' : `rounded-md border border-line ${compact ? 'p-2' : 'p-4'}`}`}>
       {kind === 'pie' ? (
         <PieChart title={title} categoryHeader={shape.categoryHeader} valueLabel={shape.measure.label} height={Math.max(200, Math.min(280, minHeight - 120))} formatValue={number(shape.measure)} onSelect={pick} onContext={context}
           slices={shape.categories.map((category, index) => ({ key: category.key, label: category.label, value: first?.values[index] ?? 0 }))} />
@@ -323,12 +421,14 @@ function chartSignals(shape: Shape, wanted: ChartSignal[]) {
 const cell = 'cep-num px-3 text-right whitespace-nowrap'
 const dash = '—'
 
-function Hierarchy({ result, label, minHeight, formats, onPick }: { result: RunResult; label: string; minHeight: number; formats?: ColumnFormat[]; onPick?: (column: ResultColumn, value: unknown) => void }) {
+const path = (node: HierarchyNode, parent: string) => `${parent}\u001f${node.key}`
+
+/** `folded`: the toolbar's last Expand All ('open') or Collapse All ('closed'); the hierarchy starts again from it */
+function Hierarchy({ result, label, minHeight, formats, onPick, inCard = false, folded = null }: { result: RunResult; label: string; minHeight: number; formats?: ColumnFormat[]; onPick?: (column: ResultColumn, value: unknown) => void; inCard?: boolean; folded?: 'open' | 'closed' | null }) {
   const shape = useMemo(() => hierarchyShape(result), [result])
-  const [allOpen, setAllOpen] = useState(false)
-  const [toggled, setToggled] = useState<Set<string>>(() => new Set())
+  const [allOpen, setAllOpen] = useState(folded === 'open')
+  const [toggled, setToggled] = useState<Set<string>>(() => new Set(folded === 'closed' ? shape.roots.map((node) => path(node, '')) : []))
   if (shape.reason) return <Reason minHeight={minHeight}>{shape.reason}</Reason>
-  const path = (node: HierarchyNode, parent: string) => `${parent}\u001f${node.key}`
   // the first level starts open and the rest closed; a click flips a group; Expand All opens everything, Collapse All closes the first level
   const show = (id: string, depth: number) => (allOpen ? !toggled.has(id) : (depth === 0) !== toggled.has(id))
   const toggle = (id: string) => setToggled((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
@@ -347,11 +447,11 @@ function Hierarchy({ result, label, minHeight, formats, onPick }: { result: RunR
   const ranges = shape.measures.map((measure, m) => (formatOf(formats, measure.key) ? rangeOf(leafValues(m)) : null))
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-3 text-xs text-ink-800">
+      {!inCard && <div className="flex items-center gap-3 text-xs text-ink-800">
         <span>{shape.levels.map((level) => level.label).join(', then ')}</span>
         <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={() => { setAllOpen(true); setToggled(new Set()) }}>Expand All</button>
         <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={() => { setAllOpen(false); setToggled(new Set(shape.roots.map((node) => path(node, '')))) }}>Collapse All</button>
-      </div>
+      </div>}
       <div className="overflow-x-auto rounded-md border border-line" role="region" aria-label={label} style={{ minHeight }}>
         <table className="min-w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
           <thead className="bg-surface-subtle text-xs text-ink-800">
@@ -397,9 +497,10 @@ function Hierarchy({ result, label, minHeight, formats, onPick }: { result: RunR
   )
 }
 
-function Pivot({ result, view, label, minHeight, onPick }: { result: RunResult; view: ReportView; label: string; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
+function Pivot({ result, view, label, minHeight, onPick, inCard = false }: { result: RunResult; view: ReportView; label: string; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void; inCard?: boolean }) {
   const { meas } = split(result, view.across)
-  const [measureKey, setMeasureKey] = useState<string | undefined>(undefined)
+  const [picked, setMeasureKey] = useState<string | undefined>(undefined)
+  const measureKey = inCard ? view.measure : picked
   const values = meas.filter(({ column }) => !column.compare)
   const matrix = Boolean(view.matrix) && values.length > 1
   const shapes = matrix ? values.map(({ column }) => pivotShape(result, view.across, column.key)) : [pivotShape(result, view.across, measureKey)]
@@ -414,14 +515,14 @@ function Pivot({ result, view, label, minHeight, onPick }: { result: RunResult; 
   const acrossLabel = result.columns.find((column) => column.key === view.across)?.label
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-xs text-ink-800">
+      {!inCard && <div className="flex items-center gap-2 text-xs text-ink-800">
         <span>{matrix ? shapes.map((s) => s.measure.label).join(', ') : shape.measure.label} · {shape.rowHeader} down, {acrossLabel} across</span>
         {!matrix && meas.length > 1 && (
           <span className="w-40"><Select aria-label="Pivot value" controlSize="sm" value={shape.measure.key} onChange={(event) => setMeasureKey(event.target.value)}>
             {meas.map(({ column }) => <option key={column.key} value={column.key}>{column.label}</option>)}
           </Select></span>
         )}
-      </div>
+      </div>}
       <div className="overflow-x-auto rounded-md border border-line" role="region" aria-label={label} style={{ minHeight }}>
         <table className="min-w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
           <thead className="bg-surface-subtle text-xs text-ink-800">

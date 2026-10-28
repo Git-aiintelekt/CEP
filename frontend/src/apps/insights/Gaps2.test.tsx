@@ -93,9 +93,9 @@ test('the viewer: opening is counted; Explain says what it means, then the AI re
 
 test('the editor: Change with a Prompt changes the draft and Undo puts it back; Linked Measures adds Amount from Attributed Orders', async () => {
   const user = userEvent.setup()
-  window.localStorage.setItem('insights.editor', 'wells')
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
   await screen.findByRole('textbox', { name: 'Report name' }, { timeout: 5000 })
+  await user.click(await screen.findByRole('button', { name: 'Change With AI' }))
   await user.type(await screen.findByRole('textbox', { name: 'What to change' }), 'By channel only, as a bar chart')
   await user.click(screen.getByRole('button', { name: 'Change' }))
   expect(await screen.findByText(/Changed: By channel only, as a bar chart/)).toBeTruthy()
@@ -106,7 +106,7 @@ test('the editor: Change with a Prompt changes the draft and Undo puts it back; 
   await user.click(screen.getByRole('button', { name: 'Undo' }))
   expect(await screen.findByText('The change was undone.')).toBeTruthy()
 
-  await user.click(screen.getByRole('button', { name: 'Linked Measures' }))
+  await user.click(screen.getByRole('button', { name: 'Link a Measure' }))
   const linked = await screen.findByRole('dialog', { name: 'Linked Measures' })
   expect(within(linked).getByText(/Both share Campaign, Channel, Sent by a period/)).toBeTruthy()
   await user.click(within(linked).getByRole('checkbox', { name: 'Amount' }))
@@ -115,7 +115,7 @@ test('the editor: Change with a Prompt changes the draft and Undo puts it back; 
     const body = calls.filter((call) => call.url.endsWith('/insights/reports/preview/')).at(-1)?.body as { definition: ReportDefinition } | undefined
     expect(body?.definition.blend).toEqual({ dataset: 'attributed_orders', columns: [{ field: 'amount', aggregate: 'sum' }] })
   })
-  expect(screen.getByRole('button', { name: 'Linked Measures · 1' })).toBeTruthy()
+  expect(within(screen.getByRole('region', { name: 'Linked Measures' })).getByText('Amount')).toBeTruthy()
 })
 
 test('removing linked measures drops a sort on them', () => {

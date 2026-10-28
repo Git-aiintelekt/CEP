@@ -49,11 +49,13 @@ test('New Report opened from a component with no data of its own shows every dat
   expect(await within(dialog).findByRole('radio', { name: 'Attributed Orders' })).toBeTruthy()
 })
 
-test('the report page: Component beside Folder moves the report at once; the editor saves a change with Save', async () => {
+test('the report page: Component in Report Details moves the report at once; the editor saves a change with Save', async () => {
   const calls = await renderAppAt('/insights/reports/rep-1')
   const user = userEvent.setup()
-  const component = await screen.findByRole('combobox', { name: 'Component' })
-  expect(screen.getByRole('combobox', { name: 'Folder' })).toBeTruthy()
+  await user.click(await screen.findByRole('button', { name: 'Report Details' }))
+  const details = await screen.findByRole('dialog', { name: 'Report Details' })
+  const component = await within(details).findByRole('combobox', { name: 'Component' })
+  expect(within(details).getByRole('combobox', { name: 'Folder' })).toBeTruthy()
   await user.selectOptions(component, 'inv')
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && (call.body as Record<string, unknown>)?.component === 'inv')).toBe(true))
   expect(insightsReportsNow.find((r) => r.id === 'rep-1')?.component.key).toBe('inv')
@@ -63,8 +65,9 @@ test('the report page: Component beside Folder moves the report at once; the edi
   await screen.findByRole('textbox', { name: 'Report name' })
   const save = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement
   expect(save.disabled).toBe(true)
+  await user.click(await screen.findByRole('tab', { name: 'Settings' }))
   await user.selectOptions(await screen.findByRole('combobox', { name: 'Component' }), 'crm')
-  expect(screen.getByText('Not saved yet')).toBeTruthy()
+  expect(screen.getByText('Unsaved Changes')).toBeTruthy()
   await user.click(save)
   await vi.waitFor(() => expect(edits.some((call) => call.method === 'PUT' && (call.body as Record<string, unknown>)?.component === 'crm')).toBe(true))
 })

@@ -10,7 +10,8 @@ import { keys, libraryApi, useFolders } from '../api'
 
 const NEW = '__new__'
 
-export function FolderSelect({ value, onChange, disabled }: { value: string | null; onChange: (folderId: string | null) => void; disabled?: boolean }) {
+/** `bare` leaves out the label beside the select, for a row that labels it (Report Details) */
+export function FolderSelect({ value, onChange, disabled, bare = false }: { value: string | null; onChange: (folderId: string | null) => void; disabled?: boolean; bare?: boolean }) {
   const folders = useFolders()
   const client = useQueryClient()
   const toast = useToast()
@@ -30,8 +31,8 @@ export function FolderSelect({ value, onChange, disabled }: { value: string | nu
   return (
     <>
       <label className="flex items-center gap-1.5 text-xs text-ink-800">
-        <span>Folder</span>
-        <span className="w-44"><Select aria-label="Folder" controlSize="sm" value={value ?? ''} disabled={disabled || folders.isPending}
+        {!bare && <span>Folder</span>}
+        <span className={bare ? 'w-60' : 'w-44'}><Select aria-label="Folder" controlSize="sm" value={value ?? ''} disabled={disabled || folders.isPending}
           onChange={(event) => { if (event.target.value === NEW) setNaming(true); else onChange(event.target.value || null) }}>
           <option value="">No folder</option>
           {(folders.data?.folders ?? []).map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}

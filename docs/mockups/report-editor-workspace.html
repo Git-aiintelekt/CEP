@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Editor Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#fff; --subtle:#f9fafb; --hover:#eeeff5; --sunken:#eeeff5; --canvas:#f3f4f7; --fill-muted:#e7e8ef;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --sidebar:#20265d; --sidebar-text:#e7e8ef; --sidebar-icon:#a9afd0;
+    --warning-bg:#fcf4cb; --warning-text:#87451d; --warning-dot:#d08a1f; --live:#2e9e5b; --c1:#3863db; --c2:#9b4d96;
+    --shadow-menu:0 4px 16px rgb(20 23 31 / 0.12);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  button, input { font:inherit; color:inherit; background:none; border:0; padding:0 }
+  button { cursor:pointer }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .part { margin:36px 0 4px; font-size:22px; line-height:30px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px; margin-bottom:12px }
+  .frame { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i14 { width:14px; height:14px }
+  .i-up{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-up.svg)}
+  .i-left{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-left.svg)}
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-right{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-right.svg)}
+  .i-dots{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/ellipsis.svg)}
+  .i-search{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/search.svg)}
+  .i-text{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/type.svg)}
+  .i-hash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/hash.svg)}
+  .i-cal{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/calendar.svg)}
+  .i-plus{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/plus.svg)}
+  .i-x{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/x.svg)}
+  .i-grip{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/grip-vertical.svg)}
+  .i-filter{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-filter.svg)}
+  .i-fx{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sigma.svg)}
+  .i-link{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/link-2.svg)}
+  .i-code{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/code-xml.svg)}
+  .i-grid{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .i-chart{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column.svg)}
+  .i-line{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-line.svg)}
+  .i-tree{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-tree.svg)}
+  .i-pivot{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/grid-3x3.svg)}
+  .i-sliders{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sliders-horizontal.svg)}
+  .i-sparkles{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+  .i-db{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/database.svg)}
+  .i-steps{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-ordered.svg)}
+  .i-wells{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/columns-3.svg)}
+  .i-refresh{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/refresh-cw.svg)}
+  .i-rows{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-properties.svg)}
+  .i-tip{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/message-square-text.svg)}
+  .i-fold{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/panel-left-close.svg)}
+  .i-unfold{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/panel-left-open.svg)}
+  .i-check{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/check.svg)}
+  .i-toggle{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/toggle-left.svg)}
+  .i-folder{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/folder.svg)}
+
+  .top { height:48px; background:var(--sidebar); color:var(--sidebar-text); display:flex; align-items:center; gap:12px; padding:0 16px; font-size:14px }
+  .top .c { width:28px; height:28px; border-radius:8px; background:var(--brand-600); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center }
+  .top .search { margin:0 auto; width:420px; height:32px; border-radius:999px; background:#2c336f; display:flex; align-items:center; padding:0 14px; color:var(--sidebar-icon); font-size:14px }
+  .top .acc { width:28px; height:28px; border-radius:999px; background:#363e82; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center }
+
+  /* the editor's own bar */
+  .ebar { height:60px; display:flex; align-items:center; gap:12px; padding:0 16px 0 12px; border-bottom:1px solid var(--line) }
+  .ibtn { width:36px; height:36px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800); position:relative }
+  .ibtn:hover { background:var(--hover) }
+  .ibtn.out { border:1px solid var(--line) }
+  .vsep { width:1px; height:24px; background:var(--line-subtle); flex:none }
+  .crumb { font-size:12px; line-height:16px; color:var(--ink-800) }
+  .name { font-size:18px; line-height:24px; font-weight:600; border-radius:6px; padding:0 6px; margin-left:-6px; outline:none; border:1px solid transparent }
+  .name:hover { border-color:var(--line) } .name:focus { border-color:var(--brand-600) }
+  .state { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-800); white-space:nowrap }
+  .state i.d { width:8px; height:8px; border-radius:99px; background:var(--ink-300) }
+  .state.dirty { color:var(--warning-text); font-weight:500 } .state.dirty i.d { background:var(--warning-dot) }
+  .ebar .right { margin-left:auto; display:flex; align-items:center; gap:8px }
+  .btn { height:36px; border-radius:999px; padding:0 16px; display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:14px; white-space:nowrap }
+  .btn.primary { background:var(--brand-600); color:#fff } .btn.primary[disabled] { background:var(--fill-muted); color:var(--ink-700); cursor:default }
+  .btn.secondary { border:1px solid var(--brand-600); color:var(--brand-600); background:#fff }
+  .btn.quiet { color:var(--ink-900); border:1px solid var(--line) }
+  .btn.quiet .i { color:var(--brand-600) }
+
+  /* three docked panes */
+  .ebody { display:grid; grid-template-columns:248px minmax(0,1fr) 344px; height:820px }
+  .pane { background:#fff; display:flex; flex-direction:column; min-height:0 }
+  .pane.left { border-right:1px solid var(--line) } .pane.right { border-left:1px solid var(--line) }
+  .phead { padding:14px 16px 10px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--line-subtle) }
+  .plabel { font-size:12px; line-height:16px; font-weight:600; color:var(--ink-800) }
+  .pscroll { flex:1; overflow:auto; min-height:0 }
+  .pfoot { border-top:1px solid var(--line-subtle); padding:10px 16px; display:flex; flex-direction:column; gap:2px }
+
+  .source { display:flex; align-items:center; gap:10px; height:44px; border:1px solid var(--line); border-radius:8px; padding:0 10px }
+  .source .i-db { color:var(--brand-600) } .source b { font-weight:600; font-size:14px } .source .i-down { margin-left:auto; color:var(--ink-800) }
+  .srch { height:34px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 12px; color:var(--ink-300); font-size:14px }
+  .srch .i { color:var(--ink-800) }
+  .group { font-size:14px; line-height:20px; font-weight:600; color:var(--ink-900); padding:14px 16px 4px; display:flex; align-items:center }
+  .group .ga { margin-left:auto; color:var(--brand-600) }
+  .field { height:32px; display:flex; align-items:center; gap:8px; padding:0 16px; font-size:14px; cursor:grab }
+  .field .i { color:var(--ink-800) } .field .t { margin-left:auto; font-size:11px; font-weight:600; color:var(--ink-700); letter-spacing:0.02em }
+  .field .add { margin-left:auto; width:24px; height:24px; border-radius:6px; display:none; align-items:center; justify-content:center; color:var(--brand-600) }
+  .field:hover { background:var(--hover) } .field:hover .add { display:inline-flex } .field:hover .t { display:none }
+  .field.used { color:var(--brand-800); font-weight:500 } .field.used .i { color:var(--brand-800) }
+  .field.used::after { content:'In Use'; margin-left:auto; font-size:11px; font-weight:600; color:var(--brand-800) }
+  .addlink { font-size:13px; font-weight:500; color:var(--brand-600); display:inline-flex; align-items:center; gap:6px; height:28px }
+
+  /* the canvas */
+  .canvas { background:var(--canvas); display:flex; flex-direction:column; min-width:0; min-height:0 }
+  .cscroll { flex:1; overflow:auto; padding:20px 24px; display:flex; flex-direction:column; gap:12px }
+  .vf { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .vf .lab { font-size:12px; font-weight:600; color:var(--ink-800); margin-right:2px }
+  .dd { height:34px; border-radius:999px; border:1px solid var(--line-control); background:#fff; padding:0 12px 0 14px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500 }
+  .dd b { font-weight:600; color:var(--brand-800) } .dd.set { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px }
+  .cbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--line-subtle) }
+  .seg { display:inline-flex; padding:3px; border-radius:999px; background:var(--sunken); gap:2px }
+  .seg button { height:30px; padding:0 12px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; color:var(--ink-800) }
+  .seg button.on { background:#fff; color:var(--ink-900); box-shadow:0 1px 2px rgb(20 23 31 / 0.12) } .seg button.on .i { color:var(--brand-600) }
+  .seg.full { display:flex } .seg.full button { flex:1; justify-content:center }
+  .opt { height:32px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 10px 0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; white-space:nowrap }
+  .opt .i { color:var(--ink-800) } .opt span.k { color:var(--ink-800); font-weight:400 }
+  .cbody { padding:16px } .cfoot { padding:0 16px 14px; font-size:13px; color:var(--ink-800) }
+  .legend { display:flex; gap:16px; font-size:13px; color:var(--ink-800); margin-bottom:6px }
+  .legend i { width:12px; height:12px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px }
+
+  .status { height:40px; flex:none; border-top:1px solid var(--line); background:#fff; display:flex; align-items:center; gap:16px; padding:0 16px; font-size:13px; color:var(--ink-800) }
+  .status .live { width:8px; height:8px; border-radius:99px; background:var(--live); display:inline-block; margin-right:6px }
+  .status .r { margin-left:auto; display:flex; align-items:center; gap:16px }
+  .status a { color:var(--brand-800); font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:6px }
+  .sw { display:inline-flex; align-items:center; gap:8px; color:var(--ink-900) }
+  .sw span { width:30px; height:18px; border-radius:99px; background:var(--brand-600); position:relative }
+  .sw span::after { content:''; position:absolute; top:2px; right:2px; width:14px; height:14px; border-radius:99px; background:#fff }
+  .sw.off span { background:var(--line-control) } .sw.off span::after { right:auto; left:2px }
+
+  /* the inspector */
+  .tabs { display:flex; gap:20px; padding:0 16px; border-bottom:1px solid var(--line-subtle) }
+  .tabs button { height:44px; font-size:14px; font-weight:500; color:var(--ink-800); border-bottom:2px solid transparent; margin-bottom:-1px }
+  .tabs button.on { color:var(--ink-900); font-weight:600; border-color:var(--brand-600) }
+  .sec { padding:14px 16px; border-bottom:1px solid var(--line-subtle) }
+  .sec h3 { font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; margin-bottom:8px }
+  .sec h3 + .q { margin:-6px 0 10px; font-size:13px; line-height:18px; color:var(--ink-800) }
+  .fc { display:flex; align-items:center; gap:8px; min-height:40px; padding:5px 6px 5px 6px; margin-bottom:6px; border:1px solid var(--line-subtle); background:var(--subtle); border-radius:8px; font-size:14px; font-weight:500; flex-wrap:wrap }
+  .fc > .i-grip { color:var(--ink-300); cursor:grab; visibility:hidden } .cards.multi .fc:hover > .i-grip { visibility:visible }
+  .fc .more { width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-700) } .fc .more:hover { background:var(--hover) }
+  .pop .it[aria-disabled="true"] { color:var(--ink-300); cursor:default } .pop .it[aria-disabled="true"]:hover { background:none } .pop .it[aria-disabled="true"] .i { color:var(--ink-300) }
+  .pop.card { min-width:180px; top:30px } .fc .ty { color:var(--ink-800) }
+  .fc .nm { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .cards:not(.multi) .fc > .i-grip, .cards:not(.multi) .fc .more { display:none }
+  .fc .x { width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-700) } .fc .x:hover { background:var(--hover) }
+  .fc .chip.agg { font-weight:500 }
+  .fc .place { flex-basis:100%; display:flex; align-items:center; gap:8px; padding:4px 0 2px 22px; font-size:12px; font-weight:400; color:var(--ink-800); white-space:nowrap }
+  .seg.sm button { height:26px; padding:0 10px; font-size:12px; white-space:nowrap }
+  .pop .ph { font-size:12px; font-weight:600; color:var(--ink-800); padding:6px 10px 2px }
+  .pop .it.on { color:var(--brand-800); font-weight:600 } .pop .it.on .i { color:var(--brand-600) }
+  .pop:not(.card) .it:not(.on) { padding-left:34px }
+  .fold { width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left }
+  .fold b { display:block; font-size:14px; font-weight:600 } .fold .sum { display:block; font-size:13px; color:var(--ink-800) }
+  .fold .i { color:var(--ink-800); transition:transform .15s } .fold.open .i { transform:rotate(180deg) }
+  .obody { display:flex; flex-direction:column; gap:8px; margin-top:12px }
+  .orow { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:13px; color:var(--ink-800) } .orow > span { width:56px }
+  .sec h3 .num { width:20px; height:20px; border-radius:99px; background:var(--brand-100); color:var(--brand-800); font-size:12px; display:inline-flex; align-items:center; justify-content:center }
+  .sec h3 .h { margin-left:auto; font-size:12px; font-weight:400; color:var(--ink-800) }
+  .pill { border:1px solid var(--line-subtle); background:var(--subtle); border-radius:8px; padding:8px 8px 8px 6px; display:flex; flex-direction:column; gap:6px; margin-bottom:6px }
+  .pill .row1 { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:500 }
+  .pill .row1 .i-grip { color:var(--ink-300) } .pill .row1 .x { margin-left:auto; color:var(--ink-700) }
+  .pill .row2 { display:flex; gap:6px; flex-wrap:wrap; padding-left:22px }
+  .chip { height:28px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 8px 0 10px; display:inline-flex; align-items:center; gap:4px; font-size:13px }
+  .chip .i { color:var(--ink-800) }
+  .drop { height:34px; border:1px dashed var(--line); border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; font-size:13px; color:var(--ink-800) }
+  .drop .i { color:var(--brand-600) }
+  .sent { font-size:14px; color:var(--ink-800); display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+  .srow { display:flex; align-items:center; gap:10px; min-height:44px; padding:6px 16px; border-bottom:1px solid var(--line-subtle); font-size:14px }
+  .srow .i { color:var(--ink-800) } .srow .v { margin-left:auto; color:var(--ink-800); display:inline-flex; align-items:center; gap:4px; font-size:13px }
+  .srow .n { height:18px; min-width:18px; padding:0 5px; border-radius:99px; background:var(--brand-100); color:var(--brand-800); font-size:12px; font-weight:600; display:inline-flex; align-items:center; justify-content:center }
+  .srow small { display:block; font-size:12px; line-height:16px; color:var(--ink-800) }
+
+  .pop { position:absolute; top:42px; right:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); padding:6px; min-width:240px; text-align:left; display:none; color:var(--ink-900) }
+  .pop.open { display:block }
+  .pop .it { height:36px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:14px; white-space:nowrap }
+  .pop .it:hover { background:var(--hover) } .pop .it .i { color:var(--ink-800) }
+  .pop .sep { height:1px; background:var(--line-subtle); margin:6px 4px }
+
+  table.map { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .map td, .map th { padding:9px 14px; font-size:14px; vertical-align:top; text-align:left; border-bottom:1px solid var(--line-subtle) }
+  .map th { background:var(--subtle); font-weight:500; font-size:13px }
+  .flag { display:inline-block; font-size:11px; font-weight:600; padding:1px 7px; border-radius:6px; background:var(--warning-bg); color:var(--warning-text); margin-left:6px }
+  .notes { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px }
+  .nc { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; font-size:14px; line-height:20px }
+  .nc h3 { font-size:15px; margin-bottom:6px } .nc p { color:var(--ink-800) }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="strip">Mockup for review, not built. Second direction for the report editor: a workspace, not a page. Real report “Weekly Sends Over Time” from local NWA. Try the Build / Settings tabs, Sum ▾ on Sent Count, Add a Split, Order, the ⋯ menu, and type in the name to see the unsaved state.</p>
+
+  <h2 class="part">An editor workspace: data on the left, the report in the middle, settings on the right</h2>
+  <p>The first mockup was still a page of floating cards that scrolls. Editors on Mobbin (Zendesk, Salesforce, Shopify, Mixpanel, Fibery) fill the screen with panes docked to the edges, put the thing being made on a grey canvas, and give it its own bar with the name and Save. The side menus step aside while you edit; ‹ takes you back.</p>
+
+  <div class="frame">
+    <div class="top"><span class="c">C</span><b>C360</b><span style="opacity:.5">|</span><span>Insights</span><span class="search">Search</span><span class="acc">MC</span></div>
+
+    <div class="ebar">
+      <a class="ibtn" href="#" title="Back to Report" aria-label="Back to Report"><i class="i i-left"></i></a>
+      <span class="vsep"></span>
+      <div style="min-width:0">
+        <p class="crumb">Reports · Engagement</p>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="name" id="name" contenteditable="true" aria-label="Report name">Weekly Sends Over Time</div>
+          <span class="state" id="state"><i class="d"></i>Saved 27 Oct, 22:12 · Version 2</span>
+        </div>
+      </div>
+      <div class="right">
+        <button class="btn quiet"><i class="i i14 i-sparkles"></i>Change With AI</button>
+        <span style="position:relative"><button class="ibtn out" id="more" title="More" aria-label="More"><i class="i i-dots"></i></button>
+          <div class="pop" id="morepop">
+            <div class="it"><i class="i i-code"></i>Show the SQL</div>
+            <div class="it"><i class="i i-refresh"></i>See Versions</div>
+          </div></span>
+        <span class="vsep"></span>
+        <button class="btn secondary" id="discard" style="display:none">Discard Changes</button>
+        <button class="btn secondary" id="close">Close</button>
+        <button class="btn primary" id="save" disabled>Save</button>
+      </div>
+    </div>
+
+    <div class="ebody">
+      <!-- Data pane -->
+      <aside class="pane left">
+        <div class="phead">
+          <p class="plabel">Data</p>
+          <div class="source"><i class="i i-db"></i><div><b>Messages</b></div><i class="i i14 i-down"></i></div>
+          <div class="srch"><i class="i i14 i-search"></i>Search fields</div>
+        </div>
+        <div class="pscroll">
+          <p class="group">Dimensions</p>
+          <div class="field"><i class="i i14 i-text"></i>Channel<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-text"></i>Campaign<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-text"></i>Campaign Type<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-text"></i>Status<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field used"><i class="i i14 i-cal"></i>Sent</div>
+          <div class="field"><i class="i i14 i-cal"></i>Delivered<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-text"></i>Customer<span class="t">PII</span><span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-cal"></i>Send Month<span class="t">SHARED</span><span class="add"><i class="i i14 i-plus"></i></span></div>
+          <p class="group">Measures</p>
+          <div class="field"><i class="i i14 i-hash"></i>Messages<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field used"><i class="i i14 i-hash"></i>Sent Count</div>
+          <div class="field used"><i class="i i14 i-hash"></i>Delivered Count</div>
+          <div class="field"><i class="i i14 i-hash"></i>Opened<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-hash"></i>Clicked<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-hash"></i>Delivered Rate<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-hash"></i>Open Rate<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <div class="field"><i class="i i14 i-hash"></i>Unopened<span class="t">SHARED</span><span class="add"><i class="i i14 i-plus"></i></span></div>
+          <p class="group">Custom Fields <span class="ga"><i class="i i14 i-plus"></i></span></p>
+          <div class="field"><i class="i i14 i-fx"></i>Click Rate<span class="add"><i class="i i14 i-plus"></i></span></div>
+          <p class="group">Linked Measures <span class="ga"><i class="i i14 i-plus"></i></span></p>
+          <div class="field"><i class="i i14 i-link"></i>Orders · Revenue<span class="add"><i class="i i14 i-plus"></i></span></div>
+        </div>
+        <div class="pfoot">
+          <button class="addlink"><i class="i i14 i-fx"></i>New Custom Field</button>
+          <button class="addlink"><i class="i i14 i-link"></i>Link a Measure</button>
+        </div>
+      </aside>
+
+      <!-- Canvas -->
+      <main class="canvas">
+        <div class="cscroll">
+          <div class="vf">
+            <span class="lab">Viewer Filters</span>
+            <button class="dd set">Period: <b>Last Year</b> <i class="i i14 i-down"></i></button>
+            <button class="dd">Campaign <i class="i i14 i-down"></i></button>
+            <button class="dd">Channel <i class="i i14 i-down"></i></button>
+          </div>
+          <div class="card">
+            <div class="cbar">
+              <div class="seg"><button><i class="i i-grid"></i>Grid</button><button class="on"><i class="i i-chart"></i>Chart</button><button><i class="i i-tree"></i>Hierarchy</button><button><i class="i i-pivot"></i>Pivot</button></div>
+              <span class="vsep" style="margin:0 2px"></span>
+              <button class="opt"><i class="i i14 i-line"></i>Lines <i class="i i14 i-down"></i></button>
+              <button class="opt"><span class="k">Across</span>Each Value on Its Own <i class="i i14 i-down"></i></button>
+              <span style="margin-left:auto;display:flex;gap:8px"><button class="opt"><i class="i i14 i-sliders"></i>Show <i class="i i14 i-down"></i></button><button class="opt">Analyse <i class="i i14 i-down"></i></button></span>
+            </div>
+            <div class="cbody">
+              <div class="legend"><span><i style="background:var(--c1)"></i>Sent Count</span><span><i style="background:var(--c2)"></i>Delivered Count</span></div>
+              <svg viewBox="0 0 700 300" width="100%">
+                <g stroke="var(--line-subtle)"><line x1="40" x2="690" y1="20" y2="20"/><line x1="40" x2="690" y1="100" y2="100"/><line x1="40" x2="690" y1="180" y2="180"/><line x1="40" x2="690" y1="260" y2="260"/></g>
+                <g font-size="11" fill="var(--ink-800)" text-anchor="end"><text x="32" y="24">3,000</text><text x="32" y="104">2,000</text><text x="32" y="184">1,000</text><text x="32" y="264">0</text></g>
+                <polyline fill="none" stroke="var(--c1)" stroke-width="2" points="50,167 128,185 206,96 284,252 362,260 440,174 518,198 596,110 674,192"/>
+                <polyline fill="none" stroke="var(--c2)" stroke-width="2" points="50,170 128,187 206,99 284,254 362,260 440,177 518,200 596,113 674,194"/>
+                <g font-size="11" fill="var(--ink-800)" text-anchor="middle"><text x="50" y="282">3 Aug</text><text x="206" y="282">31 Aug</text><text x="362" y="282">14 Sept</text><text x="518" y="282">5 Oct</text><text x="674" y="282">19 Oct</text></g>
+              </svg>
+            </div>
+            <div class="cfoot">Sent Count by Sent, weekly</div>
+          </div>
+        </div>
+        <div class="status">
+          <span><span class="live"></span>Preview · 9 rows · 71 ms · live data</span>
+          <span class="r">
+            <button class="sw" id="auto"><span></span>Update Automatically</button>
+            <a href="#" id="run" style="display:none"><i class="i i14 i-refresh"></i>Run Preview</a>
+            <a href="#"><i class="i i14 i-code"></i>Show the SQL</a>
+          </span>
+        </div>
+      </main>
+
+      <!-- Inspector -->
+      <aside class="pane right">
+        <div class="tabs"><button class="on" data-tab="build">Build</button><button data-tab="settings">Settings</button></div>
+
+        <div id="build" class="pscroll">
+          <div class="sec">
+            <h3>Show</h3>
+            <p class="q">What should the report count or add up?</p>
+            <div class="cards">
+            <div class="fc"><i class="i i14 i-grip"></i><i class="i i14 i-hash ty"></i><span class="nm">Sent Count</span>
+              <span style="position:relative"><button class="chip agg" data-menu="m1">Sum <i class="i i14 i-down"></i></button>
+                <div class="pop" id="m1">
+                  <p class="ph">Add Up As</p>
+                  <div class="it on"><i class="i i14 i-check"></i>Sum</div><div class="it">Average</div><div class="it">Count</div><div class="it">Smallest</div><div class="it">Largest</div>
+                  <div class="sep"></div>
+                  <p class="ph">Compare With</p>
+                  <div class="it">Previous Period</div><div class="it">Same Time Last Year</div>
+                </div></span>
+              <button class="x" aria-label="Remove Sent Count"><i class="i i14 i-x"></i></button></div>
+            <div class="fc"><i class="i i14 i-grip"></i><i class="i i14 i-hash ty"></i><span class="nm">Delivered Count</span><button class="chip agg">Sum <i class="i i14 i-down"></i></button><button class="x" aria-label="Remove Delivered Count"><i class="i i14 i-x"></i></button></div>
+            </div>
+            <button class="addlink"><i class="i i14 i-plus"></i>Add a Number</button>
+          </div>
+
+          <div class="sec">
+            <h3>Split By</h3>
+            <p class="q">How should it be broken down?</p>
+            <div id="splits" class="cards">
+              <div class="fc"><i class="i i14 i-grip"></i><i class="i i14 i-cal ty"></i><span class="nm">Sent</span><button class="chip agg">by Week <i class="i i14 i-down"></i></button><button class="x" aria-label="Remove Sent"><i class="i i14 i-x"></i></button></div>
+            </div>
+            <button class="addlink" id="addsplit"><i class="i i14 i-plus"></i>Add a Split</button>
+          </div>
+
+          <div class="sec">
+            <h3>Only Include</h3>
+            <p class="q">Leave rows out, e.g. “Channel is Email”.</p>
+            <button class="addlink"><i class="i i14 i-plus"></i>Add a Rule</button>
+          </div>
+
+          <div class="sec" style="border-bottom:0">
+            <button class="fold" id="order"><span><b>Order</b><span class="sum">Sent · Lowest First · All Rows</span></span><i class="i i14 i-down"></i></button>
+            <div id="orderbody" class="obody" style="display:none">
+              <div class="orow"><span>Sort By</span><button class="chip">Sent <i class="i i14 i-down"></i></button><button class="chip">Lowest First <i class="i i14 i-down"></i></button></div>
+              <div class="orow"><span>Show</span><button class="chip">All Rows <i class="i i14 i-down"></i></button><button class="chip">Every Value <i class="i i14 i-down"></i></button></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="settings" class="pscroll" style="display:none">
+          <div class="srow"><i class="i i-filter"></i><div>Viewer Filters<small>Questions people answer when they open the report</small></div><span class="v"><span class="n">3</span><i class="i i14 i-right"></i></span></div>
+          <div class="srow"><i class="i i-rows"></i><div>Detail Report<small>Opens when someone clicks a row</small></div><span class="v">None<i class="i i14 i-right"></i></span></div>
+          <div class="srow"><i class="i i-tip"></i><div>Tooltip Report<small>Shows when someone points at a chart mark</small></div><span class="v">None<i class="i i14 i-right"></i></span></div>
+          <div class="srow"><i class="i i-folder"></i><div>Component</div><span class="v">Automatic (Engagement)<i class="i i14 i-down"></i></span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <h2 class="part">What changes from the first mockup</h2>
+  <p>Every control on today's editor is still here; only where it sits changes.</p>
+  <table class="map">
+    <thead><tr><th style="width:26%">First mockup</th><th style="width:40%">Workspace</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>A page of floating cards with padding round them; it scrolls as a whole</td><td>Three panes docked to the edges, full height, split by 1px lines. Only the inside of a pane scrolls</td><td>This is what makes it read as an editor: the tools stay put, the work moves.</td></tr>
+      <tr><td>Side rail and side menu stay</td><td>They step aside; the editor gets its own bar. ‹ goes back to the report</td><td>More room for the three panes. <span class="flag">Your call</span></td></tr>
+      <tr><td>‹ Report link, then a 24px name with Cancel, Save, ⋯</td><td>One bar: ‹, “Reports · Engagement”, the name (click to rename), its saved state, Change With AI, ⋯, Close / Discard Changes, Save</td><td>Save is grey until something changes; then the state turns amber (“Unsaved Changes”) and Close becomes Discard Changes, like Shopify and Pipedrive.</td></tr>
+      <tr><td>A setup bar of six pills</td><td>Gone. Custom Fields and Linked Measures sit in the Data pane with the fields they make; Viewer Filters, Detail Report, Tooltip Report and Component are on the Settings tab</td><td>Each setting lives next to what it changes.</td></tr>
+      <tr><td>Two builders, Field Wells and Steps, with a switch between them</td><td>One builder that asks plain questions: Show, Split By, Only Include, Order. No switch</td><td>One way to build, nothing to choose first. Order follows how the report is worked out (what Steps did well); each field is a small card (what Field Wells did well). Like Mixpanel and Attio. <span class="flag">Change</span></td></tr>
+      <tr><td>Values well / Summarize step: Sum and Add a Comparison as two chips on each field</td><td>Show: each number is one card with one menu, “Sum ▾”, holding Add Up As (Sum, Average, Count, Smallest, Largest) and Compare With (Previous Period, Same Time Last Year)</td><td>One short row per number; the comparison is still one click away.</td></tr>
+      <tr><td>Rows and Columns wells / Group By step</td><td>Split By. The words Rows and Columns are gone: the first split goes down the side; a second split gets “Put it: Down the Side / Across the Top”</td><td>People meet the side-or-top idea only when there are two splits.</td></tr>
+      <tr><td>Filters well / Filter step</td><td>Only Include, with an example (“Channel is Email”) and Add a Rule</td><td>Says what it does, and no longer sounds like Viewer Filters.</td></tr>
+      <tr><td>Sort and Limit: four chips always showing</td><td>Order, folded, with its setting in one line (“Sent · Lowest First · All Rows”); open it for Sort By and Show</td><td>Rarely changed, so it starts short.</td></tr>
+      <tr><td>“Preview · 9 rows · live data” beside the filter chips</td><td>A status line under the canvas: rows, time, live data, Update Automatically (off shows Run Preview), Show the SQL</td><td>Like Salesforce's “Update Preview Automatically”, for slow reports. <span class="flag">New</span></td></tr>
+      <tr><td>Report Filters chips with no label</td><td>Labelled “Viewer Filters” above the result</td><td>Tells them apart from the Filters section. <span class="flag">Rename</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="part">Questions for you</h2>
+  <div class="notes">
+    <div class="nc"><h3>Hide the side menus while editing?</h3><p>The workspace uses the full width. The navy bar stays, so search and your account are still there.</p></div>
+    <div class="nc"><h3>Update Automatically</h3><p>A new switch. On by default, as today. Off would mean you click Run Preview after each change.</p></div>
+    <div class="nc"><h3>Drop Field Wells and Steps?</h3><p>The single builder replaces both. Everything they set is still here. Is anyone attached to Field Wells for pivots, so it should stay as an option?</p></div>
+  </div>
+</div>
+<script>
+  function refreshCards() {
+    document.querySelectorAll('.cards').forEach((list) => {
+      const cards = [...list.children]
+      list.classList.toggle('multi', cards.length > 1)
+      cards.forEach((card, i) => {
+        if (!card.querySelector('.more')) {
+          const name = card.querySelector('.nm').textContent
+          card.querySelector('.x').insertAdjacentHTML('beforebegin',
+            `<span style="position:relative"><button class="more" aria-label="More for ${name}"><i class="i i14 i-dots"></i></button>` +
+            `<div class="pop card"><div class="it" data-move="up"><i class="i i14 i-up"></i>Move Up</div><div class="it" data-move="down"><i class="i i14 i-down"></i>Move Down</div></div></span>`)
+        }
+        card.querySelector('[data-move=up]').setAttribute('aria-disabled', i === 0)
+        card.querySelector('[data-move=down]').setAttribute('aria-disabled', i === cards.length - 1)
+      })
+    })
+  }
+  refreshCards()
+  const save = document.getElementById('save'), state = document.getElementById('state')
+  const discard = document.getElementById('discard'), close = document.getElementById('close')
+  document.getElementById('name').addEventListener('input', () => {
+    save.disabled = false
+    state.classList.add('dirty'); state.innerHTML = '<i class="d"></i>Unsaved Changes'
+    discard.style.display = ''; close.style.display = 'none'
+  })
+  document.addEventListener('click', (e) => {
+    const move = e.target.closest('[data-move]')
+    if (move && move.getAttribute('aria-disabled') !== 'true') {
+      const card = move.closest('.fc')
+      if (move.dataset.move === 'up') card.previousElementSibling.before(card); else card.nextElementSibling.after(card)
+      move.closest('.pop').classList.remove('open'); refreshCards(); return
+    }
+    if (move) return
+    const more = e.target.closest('.more')
+    document.querySelectorAll('.pop.card').forEach((p) => { if (!more || p !== more.nextElementSibling) p.classList.remove('open') })
+    if (more) { more.nextElementSibling.classList.toggle('open'); return }
+    const menu = e.target.closest('[data-menu]')
+    document.querySelectorAll('.fc .pop').forEach((p) => { if (!menu || p.id !== menu.dataset.menu) p.classList.remove('open') })
+    if (menu) { document.getElementById(menu.dataset.menu).classList.toggle('open'); return }
+    if (e.target.closest('#addsplit')) {
+      document.getElementById('splits').insertAdjacentHTML('beforeend',
+        '<div class="fc"><i class="i i14 i-grip"></i><i class="i i14 i-text ty"></i><span class="nm">Channel</span><button class="x" aria-label="Remove Channel"><i class="i i14 i-x"></i></button>' +
+        '<div class="place">Put it<div class="seg sm"><button>Down the Side</button><button class="on">Across the Top</button></div></div></div>')
+      e.target.closest('#addsplit').style.display = 'none'; refreshCards()
+      return
+    }
+    const place = e.target.closest('.place button')
+    if (place) { place.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === place)); return }
+    const order = e.target.closest('#order')
+    if (order) { order.classList.toggle('open'); document.getElementById('orderbody').style.display = order.classList.contains('open') ? '' : 'none'; return }
+    const t = e.target.closest('[data-tab]')
+    if (t) {
+      document.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b === t))
+      document.getElementById('build').style.display = t.dataset.tab === 'build' ? '' : 'none'
+      document.getElementById('settings').style.display = t.dataset.tab === 'settings' ? '' : 'none'
+      return
+    }
+    const auto = e.target.closest('#auto')
+    if (auto) { auto.classList.toggle('off'); document.getElementById('run').style.display = auto.classList.contains('off') ? '' : 'none'; return }
+    const pop = document.getElementById('morepop')
+    if (e.target.closest('#more')) { pop.classList.toggle('open'); return }
+    if (!e.target.closest('#morepop')) pop.classList.remove('open')
+  })
+</script>
+</body>
+</html>

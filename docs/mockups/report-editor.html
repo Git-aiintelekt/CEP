@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#fff; --subtle:#f9fafb; --hover:#eeeff5; --sunken:#eeeff5; --canvas:#f9fafb; --fill-muted:#e7e8ef;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --sidebar:#20265d; --sidebar-text:#e7e8ef; --sidebar-icon:#a9afd0; --sidebar-selected:#313c8e;
+    --warning-bg:#fcf4cb; --warning-text:#87451d; --c1:#3863db; --c2:#9b4d96;
+    --shadow-menu:0 4px 16px rgb(20 23 31 / 0.12);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  button, input { font:inherit; color:inherit; background:none; border:0; padding:0 }
+  button { cursor:pointer }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .part { margin:36px 0 4px; font-size:22px; line-height:30px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1000px; margin-bottom:12px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i14 { width:14px; height:14px }
+  .i-left{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-left.svg)}
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-dots{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/ellipsis.svg)}
+  .i-search{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/search.svg)}
+  .i-text{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/type.svg)}
+  .i-hash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/hash.svg)}
+  .i-cal{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/calendar.svg)}
+  .i-plus{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/plus.svg)}
+  .i-x{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/x.svg)}
+  .i-grip{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/grip-vertical.svg)}
+  .i-filter{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-filter.svg)}
+  .i-fx{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sigma.svg)}
+  .i-link{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/link-2.svg)}
+  .i-rows{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-properties.svg)}
+  .i-tip{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/message-square-text.svg)}
+  .i-code{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/code-xml.svg)}
+  .i-grid{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .i-chart{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column.svg)}
+  .i-line{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-line.svg)}
+  .i-tree{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-tree.svg)}
+  .i-pivot{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/grid-3x3.svg)}
+  .i-sliders{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sliders-horizontal.svg)}
+  .i-sparkles{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+  .i-mail{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/megaphone.svg)}
+  .i-settings{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/settings.svg)}
+  .i-report{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-chart-column.svg)}
+  .i-home{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-dashboard.svg)}
+  .i-dash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-grid.svg)}
+  .i-steps{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-ordered.svg)}
+  .i-wells{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/columns-3.svg)}
+
+  .top { height:56px; background:var(--sidebar); color:var(--sidebar-text); display:flex; align-items:center; gap:12px; padding:0 16px }
+  .top .c { width:32px; height:32px; border-radius:8px; background:var(--brand-600); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center }
+  .top .search { margin:0 auto; width:420px; height:36px; border-radius:999px; background:#2c336f; display:flex; align-items:center; padding:0 14px; color:var(--sidebar-icon); font-size:14px }
+  .top .acc { width:32px; height:32px; border-radius:999px; background:#363e82; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center }
+  .shell { display:flex; min-height:860px }
+  .rail { width:88px; background:var(--sidebar); padding:8px; display:flex; flex-direction:column; gap:4px }
+  .tile { height:64px; border-radius:8px; color:var(--sidebar-text); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:12px }
+  .tile .i { color:var(--sidebar-icon) } .tile.on { background:var(--sidebar-selected) } .tile.on .i { color:#fff }
+  .mini { width:64px; background:#fff; border-right:1px solid var(--line); padding:12px 12px; display:flex; flex-direction:column; gap:6px; align-items:center }
+  .mini span { width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .mini span.on { background:var(--brand-100); color:var(--brand-800) }
+  .content { flex:1; padding:20px 24px 24px; display:flex; flex-direction:column; gap:16px; min-width:0 }
+
+  .back { font-size:13px; color:var(--brand-800); display:inline-flex; align-items:center; gap:4px; text-decoration:none }
+  .head { display:flex; align-items:center; gap:12px; margin-top:-6px }
+  .title { flex:1; min-width:0; height:40px; border-radius:8px; border:1px solid transparent; padding:0 8px; margin-left:-9px; font-size:24px; font-weight:600; letter-spacing:-0.01em; display:flex; align-items:center }
+  .title:hover { border-color:var(--line) }
+  .saved { font-size:13px; color:var(--ink-800); white-space:nowrap }
+  .saved.dirty { color:var(--warning-text); font-weight:500 }
+  .btn { height:40px; border-radius:999px; padding:0 18px; display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:15px; white-space:nowrap }
+  .btn.primary { background:var(--brand-600); color:#fff } .btn.secondary { border:1px solid var(--brand-600); color:var(--brand-600); background:#fff }
+  .ibtn { width:40px; height:40px; border-radius:999px; border:1px solid var(--line); background:#fff; display:inline-flex; align-items:center; justify-content:center; position:relative }
+
+  .bar2 { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:10px 12px; background:#fff; border:1px solid var(--line); border-radius:16px }
+  .seg { display:inline-flex; padding:3px; border-radius:999px; background:var(--sunken); gap:2px }
+  .seg button { height:30px; padding:0 12px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; color:var(--ink-800) }
+  .seg button.on { background:#fff; color:var(--ink-900); box-shadow:0 1px 2px rgb(20 23 31 / 0.12) } .seg button.on .i { color:var(--brand-600) }
+  .vsep { width:1px; height:24px; background:var(--line-subtle); margin:0 4px }
+  .opt { height:32px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 10px 0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; white-space:nowrap; position:relative }
+  .opt .i { color:var(--ink-800) } .opt span.k { color:var(--ink-800); font-weight:400 }
+  .opt .n { height:18px; min-width:18px; padding:0 5px; border-radius:99px; background:var(--brand-100); color:var(--brand-800); font-size:12px; font-weight:600; display:inline-flex; align-items:center; justify-content:center }
+  .bar2 .lbl { font-size:13px; color:var(--ink-800); margin-right:2px }
+  .bar2 .right { margin-left:auto; display:flex; gap:8px; align-items:center }
+
+  .work { display:grid; grid-template-columns:232px minmax(0,1fr) 280px; gap:16px; align-items:start }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px }
+  .panel h3 { font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px }
+  .panel h3 .h { margin-left:auto; font-size:12px; font-weight:400; color:var(--ink-800) }
+  .srch { height:36px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 12px; color:var(--ink-300); font-size:14px; margin-bottom:10px }
+  .srch .i { color:var(--ink-800) }
+  .group { font-size:12px; font-weight:600; color:var(--ink-800); padding:10px 6px 4px }
+  .field { height:34px; border-radius:8px; display:flex; align-items:center; gap:8px; padding:0 6px; font-size:14px }
+  .field .i { color:var(--ink-800) } .field .t { margin-left:auto; font-size:11px; font-weight:600; color:var(--ink-700); letter-spacing:0.02em }
+  .field .add { margin-left:auto; width:24px; height:24px; border-radius:6px; display:none; align-items:center; justify-content:center; color:var(--brand-600) }
+  .field:hover { background:var(--hover) } .field:hover .add { display:inline-flex } .field:hover .t { display:none }
+  .field.used { color:var(--brand-800); font-weight:500 } .field.used .i { color:var(--brand-800) }
+
+  .wells { display:flex; flex-direction:column; gap:12px }
+  .well h3 { margin-bottom:8px }
+  .well p.hint { font-size:12px; line-height:16px; color:var(--ink-800); margin:-4px 0 8px }
+  .pill { border:1px solid var(--line-subtle); background:var(--subtle); border-radius:10px; padding:8px 8px 8px 6px; display:flex; flex-direction:column; gap:6px; margin-bottom:6px }
+  .pill .row1 { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:500 }
+  .pill .row1 .i-grip { color:var(--ink-300) } .pill .row1 .x { margin-left:auto; color:var(--ink-700) }
+  .pill .row2 { display:flex; gap:6px; flex-wrap:wrap; padding-left:22px }
+  .chip { height:28px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 8px 0 10px; display:inline-flex; align-items:center; gap:4px; font-size:13px }
+  .chip .i { color:var(--ink-800) }
+  .drop { height:36px; border:1px dashed var(--line); border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px; font-size:13px; color:var(--ink-800) }
+  .drop .i { color:var(--brand-600) }
+  .addlink { font-size:13px; font-weight:500; color:var(--brand-600); display:inline-flex; align-items:center; gap:4px }
+
+  .tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .dd { height:36px; border-radius:999px; border:1px solid var(--line-control); background:#fff; padding:0 12px 0 14px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500 }
+  .dd b { font-weight:600; color:var(--brand-800) } .dd.set { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) }
+  .tools .run { margin-left:auto; font-size:13px; color:var(--ink-800); display:flex; align-items:center; gap:6px }
+  .tools .run .live { width:8px; height:8px; border-radius:99px; background:#2e9e5b }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px }
+  .cbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--line-subtle) }
+  .cbody { padding:16px } .cfoot { padding:0 16px 14px; font-size:13px; color:var(--ink-800); display:flex; gap:12px }
+  .cfoot b { color:var(--brand-800); font-weight:600; margin-left:auto }
+  .legend { display:flex; gap:16px; font-size:13px; color:var(--ink-800); margin-bottom:6px }
+  .legend i { width:12px; height:12px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px }
+
+  .steps { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden }
+  .step { display:grid; grid-template-columns:150px 1fr; gap:12px; align-items:center; padding:12px 16px; border-top:1px solid var(--line-subtle) }
+  .step:first-child { border-top:0 }
+  .step .n { display:flex; align-items:center; gap:10px; font-weight:600; font-size:14px }
+  .step .n span { width:24px; height:24px; border-radius:99px; background:var(--brand-100); color:var(--brand-800); font-size:12px; display:inline-flex; align-items:center; justify-content:center }
+  .step .v { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:14px; color:var(--ink-800) }
+
+  .pop { position:absolute; top:46px; right:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); padding:6px; min-width:260px; text-align:left; display:none }
+  .pop.open { display:block }
+  .pop .it { height:36px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:14px; white-space:nowrap }
+  .pop .it:hover { background:var(--hover) } .pop .it .i { color:var(--ink-800) } .pop .it .r { margin-left:auto; color:var(--ink-800); font-size:13px }
+  .pop .sep { height:1px; background:var(--line-subtle); margin:6px 4px }
+
+  table.map { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .map td, .map th { padding:9px 14px; font-size:14px; vertical-align:top; text-align:left; border-bottom:1px solid var(--line-subtle) }
+  .map th { background:var(--subtle); font-weight:500; font-size:13px }
+  .flag { display:inline-block; font-size:11px; font-weight:600; padding:1px 7px; border-radius:6px; background:var(--warning-bg); color:var(--warning-text); margin-left:6px }
+  .notes { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px }
+  .nc { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; font-size:14px; line-height:20px }
+  .nc h3 { font-size:15px; margin-bottom:6px } .nc p { color:var(--ink-800) }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="strip">Mockup for review, not built. Real report “Weekly Sends Over Time” from local NWA. Switch Field Wells / Steps and open ⋯ to see where things went.</p>
+
+  <h2 class="part">One header, one setup bar, three columns</h2>
+  <p>Today the editor has eleven controls across the top, wrapping onto two lines, and the report name is squeezed to two letters (“We”). Here the name gets the whole width, Save and Cancel stay at the right, and everything that adds to the report sits on one setup bar.</p>
+
+  <div class="frame">
+    <div class="top"><span class="c">C</span><b>C360</b><span style="opacity:.5">|</span><span>Insights</span><span class="search">Search</span><span class="acc">MC</span></div>
+    <div class="shell">
+      <div class="rail"><div class="tile"><i class="i i-mail"></i>Engagement</div><div class="tile on"><i class="i i-chart"></i>Insights</div><div style="flex:1"></div><div class="tile"><i class="i i-settings"></i>Settings</div></div>
+      <div class="mini"><span><i class="i i-home"></i></span><span class="on"><i class="i i-report"></i></span><span><i class="i i-dash"></i></span><span><i class="i i-sparkles"></i></span></div>
+      <div class="content">
+        <a class="back" href="#"><i class="i i-left"></i>Report</a>
+        <div class="head">
+          <div class="title" contenteditable="true" aria-label="Report name">Weekly Sends Over Time</div>
+          <span class="saved dirty" id="saved">Not saved yet</span>
+          <button class="btn secondary">Cancel</button>
+          <button class="btn primary">Save</button>
+          <span style="position:relative"><button class="ibtn" id="more" title="More"><i class="i i-dots"></i></button>
+            <div class="pop" id="morepop">
+              <div class="it">Component <span class="r">Automatic (Engagement) ›</span></div>
+              <div class="it"><i class="i i-code"></i>Show the SQL</div>
+              <div class="sep"></div>
+              <div class="it" style="color:var(--ink-800);font-size:13px;height:auto;padding:6px 10px">Saved 27 Oct 2026, 22:12 · version 2</div>
+            </div></span>
+        </div>
+
+        <div class="bar2">
+                    <div class="seg"><button data-mode="wells" class="on"><i class="i i-wells"></i>Field Wells</button><button data-mode="steps"><i class="i i-steps"></i>Steps</button></div>
+          <span class="vsep"></span>
+          <button class="opt"><i class="i i14 i-filter"></i>Report Filters <span class="n">3</span></button>
+          <button class="opt"><i class="i i14 i-fx"></i>Custom Fields</button>
+          <button class="opt"><i class="i i14 i-link"></i>Linked Measures</button>
+          <button class="opt"><i class="i i14 i-rows"></i>Detail Report</button>
+          <button class="opt"><i class="i i14 i-tip"></i>Tooltip Report</button>
+          <div class="right"><button class="opt"><i class="i i14 i-sparkles"></i>Change With AI</button></div>
+        </div>
+
+        <div id="steps" class="steps" style="display:none">
+          <div class="step"><div class="n"><span>1</span>Data</div><div class="v"><button class="chip">Messages <i class="i i14 i-down"></i></button> Every email and text a campaign sent: who, when, and what became of it</div></div>
+          <div class="step"><div class="n"><span>2</span>Filter</div><div class="v"><button class="addlink"><i class="i i14 i-plus"></i>Add Filter</button></div></div>
+          <div class="step"><div class="n"><span>3</span>Summarize</div><div class="v"><button class="chip">Sum <i class="i i14 i-down"></i></button> of Sent Count <button class="chip">Add a Comparison <i class="i i14 i-down"></i></button> <button class="chip">Sum <i class="i i14 i-down"></i></button> of Delivered Count <button class="addlink"><i class="i i14 i-plus"></i>Add Value</button></div></div>
+          <div class="step"><div class="n"><span>4</span>Group By</div><div class="v">Sent <button class="chip">by Week <i class="i i14 i-down"></i></button> <button class="addlink"><i class="i i14 i-plus"></i>Add Grouping</button></div></div>
+          <div class="step"><div class="n"><span>5</span>Sort and Limit</div><div class="v"><button class="chip">Sent <i class="i i14 i-down"></i></button><button class="chip">Lowest First <i class="i i14 i-down"></i></button><button class="chip">All Rows <i class="i i14 i-down"></i></button><button class="chip">Every Value <i class="i i14 i-down"></i></button></div></div>
+        </div>
+
+        <div class="work" id="work">
+          <aside class="panel" id="fields">
+            <div class="srch"><i class="i i14 i-search"></i>Search fields</div>
+            <p class="group">Messages · Dimensions</p>
+            <div class="field"><i class="i i14 i-text"></i>Channel<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-text"></i>Campaign<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-text"></i>Campaign Type<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-text"></i>Status<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field used"><i class="i i14 i-cal"></i>Sent</div>
+            <div class="field"><i class="i i14 i-cal"></i>Delivered<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-text"></i>Customer<span class="t">PII</span><span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-cal"></i>Send Month<span class="t">SHARED</span><span class="add"><i class="i i14 i-plus"></i></span></div>
+            <p class="group">Measures</p>
+            <div class="field"><i class="i i14 i-hash"></i>Messages<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field used"><i class="i i14 i-hash"></i>Sent Count</div>
+            <div class="field used"><i class="i i14 i-hash"></i>Delivered Count</div>
+            <div class="field"><i class="i i14 i-hash"></i>Opened<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-hash"></i>Clicked<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-hash"></i>Delivered Rate<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-hash"></i>Open Rate<span class="add"><i class="i i14 i-plus"></i></span></div>
+            <div class="field"><i class="i i14 i-hash"></i>Unopened<span class="t">SHARED</span><span class="add"><i class="i i14 i-plus"></i></span></div>
+          </aside>
+
+          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+            <div class="tools">
+              <button class="dd set">Period: <b>Last Year</b> <i class="i i14 i-down"></i></button>
+              <button class="dd">Campaign <i class="i i14 i-down"></i></button>
+              <button class="dd">Channel <i class="i i14 i-down"></i></button>
+              <span class="run"><span class="live"></span>Preview · 9 rows · live data</span>
+            </div>
+            <div class="card">
+              <div class="cbar">
+                <div class="seg"><button><i class="i i-grid"></i>Grid</button><button class="on"><i class="i i-chart"></i>Chart</button><button><i class="i i-tree"></i>Hierarchy</button><button><i class="i i-pivot"></i>Pivot</button></div>
+                <span class="vsep"></span>
+                <button class="opt"><i class="i i14 i-line"></i>Lines <i class="i i14 i-down"></i></button>
+                <button class="opt"><span class="k">Across</span>Each Value on Its Own <i class="i i14 i-down"></i></button>
+                <span style="margin-left:auto;display:flex;gap:8px"><button class="opt"><i class="i i14 i-sliders"></i>Show <i class="i i14 i-down"></i></button><button class="opt">Analyse <i class="i i14 i-down"></i></button></span>
+              </div>
+              <div class="cbody">
+                <div class="legend"><span><i style="background:var(--c1)"></i>Sent Count</span><span><i style="background:var(--c2)"></i>Delivered Count</span></div>
+                <svg viewBox="0 0 700 240" width="100%">
+                  <g stroke="var(--line-subtle)"><line x1="40" x2="690" y1="20" y2="20"/><line x1="40" x2="690" y1="80" y2="80"/><line x1="40" x2="690" y1="140" y2="140"/><line x1="40" x2="690" y1="200" y2="200"/></g>
+                  <g font-size="11" fill="var(--ink-800)" text-anchor="end"><text x="32" y="24">3,000</text><text x="32" y="84">2,000</text><text x="32" y="144">1,000</text><text x="32" y="204">0</text></g>
+                  <polyline fill="none" stroke="var(--c1)" stroke-width="2" points="50,129 128,143 206,76 284,194 362,200 440,134 518,152 596,85 674,147"/>
+                  <polyline fill="none" stroke="var(--c2)" stroke-width="2" points="50,131 128,144 206,78 284,195 362,200 440,136 518,153 596,87 674,148"/>
+                  <g font-size="11" fill="var(--ink-800)" text-anchor="middle"><text x="50" y="222">3 Aug</text><text x="206" y="222">31 Aug</text><text x="362" y="222">14 Sept</text><text x="518" y="222">5 Oct</text><text x="674" y="222">19 Oct</text></g>
+                </svg>
+              </div>
+              <div class="cfoot"><span>Sent Count by Sent, weekly</span><b>Show the Numbers</b></div>
+            </div>
+          </div>
+
+          <aside class="wells" id="wells">
+            <div class="panel well">
+              <h3>Rows <span class="h">Down the side</span></h3>
+              <div class="pill"><div class="row1"><i class="i i14 i-grip"></i>Sent<i class="i i14 i-x x"></i></div><div class="row2"><button class="chip">by Week <i class="i i14 i-down"></i></button></div></div>
+              <div class="drop"><i class="i i14 i-plus"></i>Add a Field</div>
+            </div>
+            <div class="panel well">
+              <h3>Columns <span class="h">Across the top</span></h3>
+              <p class="hint">Spread one dimension across: the pivot's columns, the chart's series.</p>
+              <div class="drop"><i class="i i14 i-plus"></i>Add a Field</div>
+            </div>
+            <div class="panel well">
+              <h3>Values</h3>
+              <div class="pill"><div class="row1"><i class="i i14 i-grip"></i>Sent Count<i class="i i14 i-x x"></i></div><div class="row2"><button class="chip">Sum <i class="i i14 i-down"></i></button><button class="chip">Add a Comparison <i class="i i14 i-down"></i></button></div></div>
+              <div class="pill"><div class="row1"><i class="i i14 i-grip"></i>Delivered Count<i class="i i14 i-x x"></i></div><div class="row2"><button class="chip">Sum <i class="i i14 i-down"></i></button><button class="chip">Add a Comparison <i class="i i14 i-down"></i></button></div></div>
+              <div class="drop"><i class="i i14 i-plus"></i>Add a Measure</div>
+            </div>
+            <div class="panel well">
+              <h3>Filters <span class="h">Keep only matching rows</span></h3>
+              <button class="addlink"><i class="i i14 i-plus"></i>Add Filter</button>
+            </div>
+            <div class="panel well">
+              <h3>Sort and Limit</h3>
+              <div class="row2" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip">Sent <i class="i i14 i-down"></i></button><button class="chip">A to Z <i class="i i14 i-down"></i></button><button class="chip">All Rows <i class="i i14 i-down"></i></button><button class="chip">Every Value <i class="i i14 i-down"></i></button></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="part">What changes</h2>
+  <p>Every control on today's editor is still here.</p>
+  <table class="map">
+    <thead><tr><th style="width:28%">Today</th><th style="width:38%">In the mockup</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>“← Report”, the name, Component, “Saved … · version 2”, the Field Wells / Steps switch, five setup buttons, Cancel and Save, all on one wrapping row</td><td>Line 1: “‹ Report” (like Campaigns). Line 2: the name at full width, then “Not saved yet” / “Saved 2 min ago”, Cancel, Save, ⋯</td><td>The name was squeezed to two letters (“We”) by the buttons beside it. <span class="flag">Bug</span></td></tr>
+      <tr><td>Component select in the header</td><td>⋯ → Component, showing its value; also in the report's Report Details</td><td>Set once; rarely changed while building.</td></tr>
+      <tr><td>Show the SQL link above the preview</td><td>⋯ → Show the SQL</td><td>A builder's tool, not an everyday one.</td></tr>
+      <tr><td>Field Wells / Steps switch; Custom Fields, Linked Measures, Tooltip Report, Report Filters, Detail Report as big outline buttons</td><td>One setup bar: the Field Wells / Steps switch, then the report's extras as small pills with a count when set. Tooltip Report only for charts, Linked Measures only when the data has links, as today</td><td>They're settings of the report, not actions on the page; small pills read as such and fit on one line.</td></tr>
+      <tr><td>Change With a Prompt box above the preview (AI workspaces)</td><td>“Change With AI” at the right of the setup bar; it opens the same box</td><td>The preview starts higher.</td></tr>
+      <tr><td>Fields list: grey uppercase group names (MEASURES)</td><td>“Messages · Dimensions”, “Measures” in Title Case; + on hover to add; used fields in blue</td><td>Title Case rule; clicking + is easier than dragging.</td></tr>
+      <tr><td>Wells headed ROWS / COLUMNS / VALUES in uppercase</td><td>Title Case headings with a short helper (“Down the side”, “Across the top”); each field a card with its options; dashed “Add a Field” targets</td><td>Reads like the rest of CEP; the drop targets say what they take.</td></tr>
+      <tr><td>Run words above the preview (“9 rows · 71 ms · live data”)</td><td>“Preview · 9 rows · live data” at the end of the filter line</td><td>Same words, next to what they describe.</td></tr>
+      <tr><td>Preview, its filter chips and toolbar</td><td>Unchanged: the same chips, toolbar and card as the report page (P3–P4)</td><td>—</td></tr>
+      <tr><td>Steps: five numbered rows</td><td>Same rows, in the same card style, with the same pill controls</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="part">Questions for you</h2>
+  <div class="notes">
+    <div class="nc"><h3>Keep both builders?</h3><p>Field Wells and Steps build the same report two ways. Keeping both costs a switch on every visit. Should one be the default for new people (Steps reads more easily)?</p></div>
+    <div class="nc"><h3>Leave without saving</h3><p>Today Cancel leaves at once and drops the changes. Should it ask first when there are unsaved changes?</p></div>
+    <div class="nc"><h3>“Report Filters” name</h3><p>The questions a viewer answers (Period, Campaign) are called Report Filters, and the Filters well (rows kept) sounds the same. Rename the first to “Viewer Filters”?</p></div>
+  </div>
+</div>
+<script>
+  document.addEventListener('click', (e) => {
+    const m = e.target.closest('[data-mode]')
+    if (m) {
+      document.querySelectorAll('[data-mode]').forEach((b) => b.classList.toggle('on', b === m))
+      const steps = m.dataset.mode === 'steps'
+      document.getElementById('steps').style.display = steps ? '' : 'none'
+      document.getElementById('fields').style.display = steps ? 'none' : ''
+      document.getElementById('wells').style.display = steps ? 'none' : ''
+      document.getElementById('work').style.gridTemplateColumns = steps ? 'minmax(0,1fr)' : ''
+      return
+    }
+    const pop = document.getElementById('morepop')
+    if (e.target.closest('#more')) { pop.classList.toggle('open'); return }
+    if (!e.target.closest('#morepop')) pop.classList.remove('open')
+  })
+</script>
+</body>
+</html>
