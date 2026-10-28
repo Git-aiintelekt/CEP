@@ -169,3 +169,16 @@ test('the Settings tab: Viewer Filters with its count, Detail Report, Component;
   await user.click(within(screen.getByRole('group', { name: 'Settings' })).getByRole('button', { name: /^Tooltip Report/ }))
   expect(await screen.findByRole('dialog', { name: 'Tooltip Report' })).toBeTruthy()
 })
+
+test('in a narrow window the Data pane starts folded to a strip; Show Fields opens it and Hide Fields folds it again', async () => {
+  const user = userEvent.setup()
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: !query.includes('1280px'), media: query, addEventListener: () => undefined, removeEventListener: () => undefined }))
+  await renderAppAt('/insights/reports/rep-1/edit')
+  await screen.findByRole('textbox', { name: 'Report name' })
+  const pane = () => screen.getByRole('complementary', { name: 'Fields' })
+  expect(within(pane()).queryByRole('searchbox', { name: 'Search fields' })).toBeNull()
+  await user.click(within(pane()).getByRole('button', { name: 'Show Fields' }))
+  expect(within(pane()).getByRole('searchbox', { name: 'Search fields' })).toBeTruthy()
+  await user.click(within(pane()).getByRole('button', { name: 'Hide Fields' }))
+  expect(within(pane()).getByRole('button', { name: 'Show Fields' })).toBeTruthy()
+})

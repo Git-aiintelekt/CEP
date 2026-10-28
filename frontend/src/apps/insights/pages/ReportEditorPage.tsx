@@ -18,6 +18,7 @@ import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { insightsApi, keys, useCatalog, useReport } from '../api'
 import { ReportResult, ViewBar } from '../components/ReportViews'
 import { ResultCard } from '../components/ResultCard'
@@ -68,6 +69,9 @@ export function ReportEditorPage() {
   const [asking, setAsking] = useState(false)
   const [answers, setAnswers] = useState<ParameterValues>({})
   const [side, setSide] = useState<'build' | 'settings'>('build')
+  // the Data pane folds in a narrow window, unless the person opened or folded it themselves
+  const wide = useMinWidth(BREAKPOINT.xl)
+  const [dataFolded, setDataFolded] = useState<boolean | null>(null)
   const [name, setName] = useState<string | null>(null)
   const [component, setComponent] = useState<string | null | undefined>(undefined)          // undefined: unchanged
   const [draft, setDraft] = useState<ReportDefinition | null>(null)
@@ -211,7 +215,8 @@ export function ReportEditorPage() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        {base && <DataPane dataset={dataset} base={base} definition={definition} onChange={setDraft} onCustom={() => setCustoms(true)} onLink={(base.links?.length ?? 0) > 0 ? () => setLinking(true) : undefined} />}
+        {base && <DataPane dataset={dataset} base={base} definition={definition} onChange={setDraft} onCustom={() => setCustoms(true)} onLink={(base.links?.length ?? 0) > 0 ? () => setLinking(true) : undefined}
+          folded={dataFolded ?? !wide} onFold={setDataFolded} />}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto bg-canvas px-6 py-5">
             {canvas}

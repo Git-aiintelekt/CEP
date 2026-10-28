@@ -1,10 +1,10 @@
 /**
  * Waterfall: the first value by the first dimension, in the report's order, as steps that float from the running total
- * before them; rises in blue, falls in plum, and the whole at the end in grey.
+ * before them; rises in blue, falls in plum, and the whole at the end in grey. Bars are at most BAR_MAX wide, like every bar chart.
  */
 import { useState } from 'react'
 
-import { niceTicks } from '@/components/charts/scale'
+import { BAR_MAX, niceTicks } from '@/components/charts/scale'
 import { formatCell } from '../components/resultWords'
 import { split } from '../components/shape'
 import type { ResultColumn, RunResult } from '../types'
@@ -39,6 +39,8 @@ export function Waterfall({ result, minHeight, onPick }: { result: RunResult; mi
   const plotWidth = Math.max(1, width - PAD.left - PAD.right)
   const plotHeight = Math.max(1, height - PAD.top - PAD.bottom)
   const band = plotWidth / steps.length
+  const barWidth = Math.min(BAR_MAX, band * 0.7)
+  const inset = (band - barWidth) / 2
   const y = (v: number) => PAD.top + plotHeight * (1 - (v - bottom) / (top - bottom || 1))
   const every = Math.max(1, Math.ceil(steps.length / Math.max(1, Math.floor(plotWidth / 80))))
   const shown = active === null ? null : steps[active]
@@ -57,15 +59,15 @@ export function Waterfall({ result, minHeight, onPick }: { result: RunResult; mi
             </g>
           ))}
           {steps.map((s, i) => {
-            const x = PAD.left + band * i + band * 0.15
+            const x = PAD.left + band * i + inset
             const yTop = y(Math.max(s.start, s.end))
             const h = Math.max(1, Math.abs(y(s.start) - y(s.end)))
             return (
               <g key={i} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} onClick={() => { if (s.kind !== 'total') onPick?.(dim.column, rows[i][dim.index]) }}
                 className={onPick && s.kind !== 'total' ? 'cursor-pointer' : undefined}>
-                <rect data-step={s.kind} x={x} y={yTop} width={band * 0.7} height={h} rx={2} fill={COLOR[s.kind]} fillOpacity={active === null || active === i ? 1 : 0.4} />
-                {i < steps.length - 1 && <line x1={x + band * 0.7} x2={x + band} y1={y(s.end)} y2={y(s.end)} stroke="var(--color-ink-300)" strokeDasharray="2 2" />}
-                {i % every === 0 && <text x={x + band * 0.35} y={height - 8} textAnchor="middle" fontSize={12} fill="var(--color-ink-800)">{labels[i].length > 12 ? `${labels[i].slice(0, 11)}…` : labels[i]}</text>}
+                <rect data-step={s.kind} x={x} y={yTop} width={barWidth} height={h} rx={2} fill={COLOR[s.kind]} fillOpacity={active === null || active === i ? 1 : 0.4} />
+                {i < steps.length - 1 && <line x1={x + barWidth} x2={x + band} y1={y(s.end)} y2={y(s.end)} stroke="var(--color-ink-300)" strokeDasharray="2 2" />}
+                {i % every === 0 && <text x={x + barWidth / 2} y={height - 8} textAnchor="middle" fontSize={12} fill="var(--color-ink-800)">{labels[i].length > 12 ? `${labels[i].slice(0, 11)}…` : labels[i]}</text>}
               </g>
             )
           })}

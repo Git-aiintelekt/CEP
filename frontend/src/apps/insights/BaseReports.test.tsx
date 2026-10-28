@@ -87,6 +87,8 @@ test('with no Postal database connected, step 2 connects one inside the pop-up, 
   await within(dialog).findByRole('heading', { name: 'Email Campaign Reports' })
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
   expect(within(dialog).getByText(/These reports read your/)).toBeTruthy()
+  const engine = within(dialog).getByLabelText('Engine') as HTMLSelectElement
+  expect([...engine.options].map((option) => option.text)).toEqual(['MySQL 5.7', 'MySQL 8.0'])                 // the pack reads MySQL only
   const save = within(dialog).getByRole('button', { name: 'Save and Continue' }) as HTMLButtonElement
   expect(save.disabled).toBe(true)
   await user.type(within(dialog).getByLabelText(/^Name/), 'NWA Postal')

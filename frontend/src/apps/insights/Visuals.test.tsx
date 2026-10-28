@@ -66,6 +66,14 @@ test('a waterfall shows rises, falls and the total; a KPI card and a gauge read 
   const water = show(months, { type: 'chart', chart: 'waterfall' })
   expect([...water.container.querySelectorAll('[data-step]')].map((el) => el.getAttribute('data-step'))).toEqual(['up', 'down', 'up', 'total'])
   cleanup()
+  // a wide box: the bars stop at 56px, as in every bar chart
+  const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1200)
+  const wide = show(months, { type: 'chart', chart: 'waterfall' })
+  const bars = [...wide.container.querySelectorAll('[data-step]')].map((el) => Number(el.getAttribute('width')))
+  expect(bars).toHaveLength(4)
+  expect(bars.every((w) => w === 56)).toBe(true)
+  width.mockRestore()
+  cleanup()
   const kpi = show(months, { type: 'chart', chart: 'kpi', target: 1000 })
   const card = kpi.container.querySelector('[data-kpi]') as HTMLElement
   expect(within(card).getByText('900')).toBeTruthy()

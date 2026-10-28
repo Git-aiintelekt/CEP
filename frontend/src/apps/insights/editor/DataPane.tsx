@@ -2,9 +2,10 @@
  * The editor's Data pane (docs/mockups/report-editor-workspace.html): the data the report reads, a search, and its fields
  * in four groups, Dimensions, Measures, the report's Custom Fields and its Linked Measures (when the data has links). A
  * field already in the report says In Use; any other one shows a + on hover and goes where it belongs when clicked, or
- * can be dragged. Custom fields and linked measures are made and changed in their own dialogs, opened from here.
+ * can be dragged. Custom fields and linked measures are made and changed in their own dialogs, opened from here. The pane
+ * folds to a 48px strip (the editor folds it in a narrow window), so the canvas keeps its room.
  */
-import { Calendar, Database, Hash, Link2, Plus, Search, Sigma, ToggleLeft, Type } from 'lucide-react'
+import { Calendar, Database, Hash, Link2, PanelLeftClose, PanelLeftOpen, Plus, Search, Sigma, ToggleLeft, Type } from 'lucide-react'
 import { useState, type DragEvent, type ReactNode } from 'react'
 
 import type { CatalogDataset, CatalogField, ReportDefinition } from '../types'
@@ -50,7 +51,7 @@ function Group({ title, onAdd, addLabel, children }: { title: string; onAdd?: ()
 
 const footLink = 'inline-flex h-7 items-center gap-1.5 text-helper font-medium text-brand-600 hover:underline'
 
-export function DataPane({ dataset, base, definition, onChange, onCustom, onLink }: {
+export function DataPane({ dataset, base, definition, onChange, onCustom, onLink, folded = false, onFold }: {
   /** the report's data with its custom fields among the fields */
   dataset: CatalogDataset
   /** the data as the catalogue has it: its links name the linked measures */
@@ -60,6 +61,9 @@ export function DataPane({ dataset, base, definition, onChange, onCustom, onLink
   onCustom: () => void
   /** set when the data has links */
   onLink?: () => void
+  folded?: boolean
+  /** set when the pane can fold */
+  onFold?: (folded: boolean) => void
 }) {
   const [search, setSearch] = useState('')
   const term = search.trim().toLowerCase()
@@ -72,10 +76,27 @@ export function DataPane({ dataset, base, definition, onChange, onCustom, onLink
   const linked = (definition.blend?.columns ?? []).map((column) => ({ key: column.field, label: column.label ?? link?.measures.find((m) => m.key === column.field)?.label ?? column.field, from: link?.to_label }))
     .filter((measure) => !term || measure.label.toLowerCase().includes(term))
   const nothing = term && dims.length + meas.length + customs.length + linked.length === 0
+  if (folded && onFold) {
+    return (
+      <aside aria-label="Fields" className="flex w-12 shrink-0 flex-col items-center gap-2 border-r border-line bg-surface pt-3">
+        <button type="button" aria-label="Show Fields" title="Show Fields" onClick={() => onFold(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-800 hover:bg-surface-hover">
+          <PanelLeftOpen size={16} strokeWidth={1.5} aria-hidden />
+        </button>
+        <Database size={16} strokeWidth={1.5} aria-hidden className="text-brand-600" />
+      </aside>
+    )
+  }
   return (
     <aside aria-label="Fields" className="flex min-h-0 w-62 shrink-0 flex-col border-r border-line bg-surface">
       <div className="flex flex-col gap-2.5 border-b border-line-subtle px-4 pt-3.5 pb-3">
-        <p className="text-xs font-semibold text-ink-800">Data</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-ink-800">Data</p>
+          {onFold && (
+            <button type="button" aria-label="Hide Fields" title="Hide Fields" onClick={() => onFold(true)} className="-mr-1.5 inline-flex h-7 w-7 items-center justify-center rounded-sm text-ink-800 hover:bg-surface-hover">
+              <PanelLeftClose size={14} strokeWidth={1.5} aria-hidden />
+            </button>
+          )}
+        </div>
         <div className="flex flex-col gap-0.5">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink-900"><Database size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-brand-600" />{dataset.label}</p>
           {dataset.description && <p className="text-xs text-ink-800">{dataset.description}</p>}

@@ -14,7 +14,7 @@ import { buttonPrimary, buttonSecondary, TextInput } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { formatNumber } from '@/lib/format'
 import { PAGE } from '../sourceGroups'
-import type { ReportDatabase } from '../types'
+import type { DatabaseEngine, ReportDatabase } from '../types'
 import { ENGINE_LABEL, testWords } from '../databaseConnection'
 import { useConnectionStep, usePickSource, type ConnectionStep, type PickSource } from './connectDatabase'
 import { ConnectionFields, LimitFields, TestChecks } from './DatabaseConnectionForm'
@@ -38,12 +38,12 @@ function ConnectionDrawer({ onSaved, onClose }: { onSaved: (database: ReportData
 }
 
 /** the connection's fields, the test's checks and what to do next; formId: the form a footer's submit button names */
-export function ConnectionStepFields({ step, formId }: { step: ConnectionStep; formId: string }) {
+export function ConnectionStepFields({ step, formId, engines }: { step: ConnectionStep; formId: string; engines?: DatabaseEngine[] }) {
   const { form, setForm, errors, outcome, retest, submit } = step
   return (
     <form id={formId} className="flex flex-col gap-4" onSubmit={submit}>
       <p className="text-sm text-ink-800">Read-only. The password stays on the server, and the engine only ever selects from the database.</p>
-      <ConnectionFields form={form} onChange={setForm} errors={errors} />
+      <ConnectionFields form={form} onChange={setForm} errors={errors} engines={engines} />
       <LimitFields form={form} onChange={setForm} errors={errors} />
       {outcome && <TestChecks outcome={outcome} engine={form.engine} />}
       {retest && outcome?.ok && (
