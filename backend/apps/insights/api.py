@@ -103,6 +103,11 @@ def suite_components() -> list[dict]:
     return _q("SELECT key, name FROM suite_component ORDER BY sort_order, name")
 
 
+def _home_sql() -> str:
+    """the workspace's home component as an SQL literal (one of two fixed keys): where a report on its own data is listed"""
+    return f"'{catalog.home_component(context.require().tenant_id)}'"
+
+
 def component_of(value) -> str | None:
     """a report's own component from a request body: None for Automatic (its dataset's); ValidationError for an unknown one or
     before patch 0075"""
@@ -118,7 +123,7 @@ def component_of(value) -> str | None:
 
 def _component_sql() -> str:
     """the component a report is listed under: its own, else its dataset's (d: report_dataset, x: report_dataset_custom)"""
-    return f"COALESCE({'r.component_key, ' if own_component_present() else ''}d.component_key, x.component_key, 'cep')"
+    return f"COALESCE({'r.component_key, ' if own_component_present() else ''}d.component_key, x.component_key, {_home_sql()})"
 
 
 def _report_row(report_id, request) -> dict:
@@ -128,7 +133,7 @@ def _report_row(report_id, request) -> dict:
     own = "r.component_key" if own_component_present() else "NULL::text"
     rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, r.view_type, r.definition, r.visibility, r.version, r.row_version,
                          r.owner_user_id::text, u.display_name AS owner_name, r.folder_id::text, r.last_run_at, r.created_at, r.updated_at,
-                         {own} AS own_component, COALESCE(d.component_key, x.component_key, 'cep') AS auto_component,
+                         {own} AS own_component, COALESCE(d.component_key, x.component_key, {_home_sql()}) AS auto_component,
                          {edit} AS shared_edit, {shared} AS shared
                     FROM report r LEFT JOIN app_user u ON u.id = r.owner_user_id
                     LEFT JOIN report_dataset d ON d.key = r.dataset_key LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id
@@ -186,7 +191,8 @@ class ReportListView(APIView):
     @extend_schema(responses={200: None})
     def get(self, request, version=None):
         where, args = _visible_sql(request)
-        filters, params = [where], list(args)
+        # a report on a platform dataset of a component the workspace does not have is not listed; its own data always is
+        filters, params = [where, "(d.component_key IS NULL OR d.component_key = ANY(%s))"], [*args, catalog.components_of(context.require().tenant_id)]
         if request.query_params.get("dataset"):
             filters.append("r.dataset_key = %s"); params.append(request.query_params["dataset"])
         if request.query_params.get("detail_for"):                  # the detail reports another report can drill through to, by the field clicked

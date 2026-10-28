@@ -52,6 +52,7 @@ function PackCard({ pack, catalog, onAdd }: { pack: BasePack; catalog: BaseRepor
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-base font-semibold text-ink-900">{pack.name}</h3>
         <Tag tone="neutral">{`Version ${pack.version}`}</Tag>
+        {pack.chosen && !latest && <Tag tone="neutral">Chosen at Onboarding</Tag>}
         {latest ? <Tag tone="success">{`Added ${formatDate(latest.at)} · Version ${latest.version}`}</Tag> : <Tag tone="neutral">{`Needs ${pack.needs.label}`}</Tag>}
       </div>
       <p className="max-w-prose text-sm text-ink-800">{pack.summary}</p>

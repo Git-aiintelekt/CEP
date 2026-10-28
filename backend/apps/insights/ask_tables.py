@@ -6,7 +6,7 @@ It is mapped only when someone opens the draft (assistant.open_draft). Nothing a
 """
 import re
 
-from apps.insights import databases, external
+from apps.insights import catalog, databases, external
 from apps.insights.definition import DefinitionError
 
 TABLES_MAX = 20                                                     # tables whose columns are read for one prompt
@@ -118,7 +118,10 @@ def build(context: dict, raw) -> tuple[dict, dict]:
     data["time_field"] = next((f["key"] for f in data["fields"] if f["type"] in ("date", "datetime")), None)
     data["primary_key"] = next((keyed[("t0", c["column"])]["key"] for c in context["columns"][source] if c["key"] and ("t0", c["column"]) in keyed), None)
     body = {**body, "time_field": data["time_field"], "primary_key": data["primary_key"]}
-    entry = databases.catalogue_entry({**data, "key": NEW_KEY, "component_key": "cep"}, context["connection"])
+    from apps.tenants import context as tenant_context
+    current = tenant_context.current()
+    home = catalog.home_component(current.tenant_id) if current is not None else "cep"
+    entry = databases.catalogue_entry({**data, "key": NEW_KEY, "component_key": home}, context["connection"])
     return body, entry
 
 

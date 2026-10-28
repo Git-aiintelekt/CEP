@@ -31,6 +31,8 @@
                 <dl class="cep-list" style="display:grid;grid-template-columns:11rem 1fr;gap:0.375rem 1rem;font-size:13px">
                     <dt class="cep-muted">Workspace</dt><dd style="margin:0">{{ review.workspace.name }} · {{ review.workspace.code }}{% if review.workspace.subdomain %} · {{ review.workspace.subdomain }}{% endif %} · {{ review.workspace.timezone }}{% if review.workspace.region %} · {{ review.workspace.region }}{% if review.workspace.data_residency %}, {{ review.workspace.data_residency }}{% endif %}{% endif %} · {{ review.workspace.isolation_mode|lower }} database</dd>
                     <dt class="cep-muted">Plan</dt><dd style="margin:0">{{ review.plan.name }}, {{ review.subscription }} · {% if review.profile %}{{ review.profile.name }} profile{% else %}installation default profile{% endif %} · {{ review.features_on|length }} features on{% if review.overrides %}, {{ review.overrides|join:", " }} by override{% endif %}</dd>
+                    <dt class="cep-muted">Components</dt><dd style="margin:0" data-review="components">{{ review.components.on|join:", " }}{% if review.components.off %} · {{ review.components.off|length }} plan component{{ review.components.off|length|pluralize }} switched off{% endif %}{% if review.components.addon %} · {{ review.components.addon|length }} add-on{{ review.components.addon|length|pluralize }}{% endif %}</dd>
+                    <dt class="cep-muted">Base Reports</dt><dd style="margin:0" data-review="packs">{% if review.components.packs %}{{ review.components.packs|join:", " }}: added in Insights once the workspace connects the database each reads{% else %}None chosen{% endif %}</dd>
                     <dt class="cep-muted">First administrator</dt><dd style="margin:0">{{ review.admin.display_name }}, {{ review.admin.email }} · Workspace Admin · password link by email{% if review.admin.also_invite %} · also {{ review.admin.also_invite|join:", " }}{% endif %}</dd>
                     <dt class="cep-muted">Policies</dt><dd style="margin:0">{% if review.policies %}Consent: {% if review.policies.without_consent == "REFUSE" %}refuse{% else %}hold back{% endif %} without consent{% if review.policies.texts_need_date %}, texts need a date{% endif %}{% if review.policies.approval_before_send %}, approval before first send{% endif %} · lifetime {{ review.policies.lifetime_months }} months{% else %}Platform defaults (skipped){% endif %}</dd>
                     <dt class="cep-muted">Hand-Off</dt><dd style="margin:0">The set-up checklist goes to {{ review.admin.email }} with the password link{% if review.handoff.note %} · “{{ review.handoff.note }}”{% else %} (default wording){% endif %}</dd>
@@ -42,6 +44,23 @@
                 <p class="cep-muted" style="margin-top:0.75rem">Onboarding is idempotent: Repair onboarding on the tenant's page runs the provisioning again without harm.</p>
             {% else %}
                 {% if form.non_field_errors %}<div style="margin-bottom:1rem;color:var(--cep-bad-text);font-size:13px">{{ form.non_field_errors }}</div>{% endif %}
+                {% if step == "components" %}
+                    {% for group in component_groups %}
+                        <h2 style="font-size:15px;font-weight:600;color:var(--cep-text-strong);margin:{% if forloop.first %}0{% else %}1.5rem{% endif %} 0 0.25rem">{{ group.title }}</h2>
+                        <p class="cep-muted" style="margin:0 0 0.75rem;font-size:13px">{{ group.text }}</p>
+                        <div data-group="{{ group.key }}" style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem 1.25rem">
+                            {% for field in group.fields %}
+                                <div>
+                                    <label style="display:flex;gap:0.5rem;align-items:flex-start;font-size:15px;font-weight:600;color:var(--cep-text-strong)" for="{{ field.id_for_label }}">{{ field }} {{ field.label }}</label>
+                                    {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
+                                    {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
+                                </div>
+                            {% empty %}
+                                <p class="cep-muted" style="margin:0;font-size:13px">{{ group.empty }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                {% else %}
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem 1.25rem">
                     {% for field in form %}
                         <div{% if field.name == "also_invite" or field.name == "note" or field.name == "isolation_mode" or field.name == "plan" or field.name == "industry" %} style="grid-column:1 / -1"{% endif %}>
@@ -56,6 +75,7 @@
                         </div>
                     {% endfor %}
                 </div>
+                {% endif %}
                 {% if step == "plan" %}
                     <table class="cep-plain-table" style="margin-top:1.25rem" data-feature-table>
                         <caption class="cep-muted" style="text-align:left;padding:0 0 0.5rem">Where every switch comes from with the plan, the profile and the overrides chosen above. “Follow” is the catalogue default, then the profile; a plan can only take a feature away.</caption>

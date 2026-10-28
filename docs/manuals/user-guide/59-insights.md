@@ -474,7 +474,7 @@ Insights → Reports lists every report you can open, grouped by its component (
 
 ### Base Reports: ready-made reports from the platform
 
-**Add Base Reports** on Insights → Reports offers the platform's ready-made **packs**: datasets, shared formulas, reports and dashboards that work together. A pack is added as this workspace's own copies, filed in a folder named after it; you may change them like any report, and a later version of the pack never changes them. Adding a pack needs report administration.
+**Add Base Reports** on Insights → Reports offers the platform's ready-made **packs**: datasets, shared formulas, reports and dashboards that work together. You see the packs your workspace's components fit; one the platform team chose for you when the workspace was set up is marked **Chosen at Onboarding**. A pack is added as this workspace's own copies, filed in a folder named after it; you may change them like any report, and a later version of the pack never changes them. Adding a pack needs report administration.
 
 The first pack is **Email Campaign Reports**, the reports of CmpReport on the mail server's own tables: Campaign KPIs, Campaign Send Status, Delivery Outcomes, Failure and Bounce Reasons, Provider Performance, Retry Analysis, Contact-List Quality, Link Clicks, Opens by Device and Client, Opens over Time, Customer Detail, Unsubscribes, Campaign Comparison and the best and worst campaigns, with a **Management Dashboard** (every campaign in the period) and a **Campaign Performance** dashboard (one campaign, the latest unless you pick another).
 
