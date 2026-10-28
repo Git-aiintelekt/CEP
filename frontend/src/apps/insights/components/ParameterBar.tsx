@@ -5,12 +5,15 @@
  * (the newest campaign, its last send day), as the run reported it. Once campaigns are picked by hand, a date that defaults to the
  * latest stays open (any day of theirs) unless a day or range is given.
  */
-import { useQuery } from '@tanstack/react-query'
-import { Play } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { Play, Search } from 'lucide-react'
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
 
-import { FilterChip, MultiSelectMenu } from '@/components/FilterChip'
+import { buttonClass } from '@/components/buttonStyles'
+import { Checkbox } from '@/components/Checkbox'
+import { FilterChip } from '@/components/FilterChip'
 import { buttonPrimary, Select, TextInput } from '@/components/Form'
+import { InputGroup } from '@/components/InputGroup'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { Spinner } from '@/components/States'
 import { parametersApi } from '../api'
@@ -159,34 +162,111 @@ function DayOrRange({ label, value, onChange }: { label: string; value: unknown;
   )
 }
 
-/** a text or number dimension: its values to pick from (one, or any of several); typed in when the field offers no list */
+/** values listed at a time; More adds the next as many */
+const VALUES_PAGE = 100
+const OPTION = 'cep-focus-inset flex min-h-9 cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors duration-fast ease-standard focus-visible:bg-surface-subtle'
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms)
+    return () => clearTimeout(timer)
+  }, [value, ms])
+  return settled
+}
+
+const pickOnKey = (event: KeyboardEvent, pick: () => void) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    pick()
+  }
+}
+
+/** a text or number dimension: its values to pick from (one, or any of several), searched as typed and listed 100 at a time;
+ *  typed in when the field offers no list */
 function ListedAnswer({ dataset, parameter, type, value, onChange, latest = null }: { dataset: string; parameter: ReportParameter; type: CatalogField['type']; value: unknown; onChange: (value: unknown) => void; latest?: string | null }) {
-  const choices = useQuery({ queryKey: ['insights', 'parameter-values', dataset, parameter.field], queryFn: () => parametersApi.values({ dataset, field: parameter.field }), staleTime: 60_000, retry: false })
+  // the menu's first page, unsearched: whether the field offers a list at all
+  const first = useQuery({ queryKey: ['insights', 'parameter-values', dataset, parameter.field, ''], queryFn: () => parametersApi.values({ dataset, field: parameter.field, limit: VALUES_PAGE }), staleTime: 60_000, retry: false })
   const label = parameter.label
-  if (choices.isPending) return <span className="flex h-8 items-center"><Spinner size="sm" label={`Loading ${label} values`} /></span>
-  const offered = choices.data?.choosable ? choices.data.values : null
-  if (!offered) {
+  if (first.isPending) return <span className="flex h-8 items-center"><Spinner size="sm" label={`Loading ${label} values`} /></span>
+  if (!first.data?.choosable) {
     const text = Array.isArray(value) ? value.map(String).join(', ') : String(value ?? '')
     return <span className="w-48"><TextInput aria-label={label} controlSize="sm" value={text} placeholder={parameter.operator === 'in' ? 'one, two, three' : ''}
       onChange={(event) => { const parts = event.target.value.split(',').map((part) => part.trim()).filter(Boolean).map((part) => (type === 'number' ? Number(part) : part)); onChange(parameter.operator === 'in' ? (parts.length ? parts : undefined) : parts[0]) }} /></span>
   }
-  if (parameter.operator === '=') {
-    return (
-      <span className="w-48"><Select aria-label={label} controlSize="sm" value={value === undefined ? '' : String(value)} onChange={(event) => onChange(event.target.value === '' ? undefined : offered.find((v) => String(v) === event.target.value))}>
-        <option value="">{latest !== null ? 'Latest' : parameter.required ? 'Choose One' : 'Any'}</option>
-        {offered.map((v) => <option key={String(v)} value={String(v)}>{String(v)}</option>)}
-      </Select></span>
-    )
-  }
+  const empty = latest !== null ? 'Latest' : parameter.required ? 'Choose One' : 'Any'
+  const many = parameter.operator === 'in'
   const picked = Array.isArray(value) ? value : value === undefined ? [] : [value]
-  const raw = new Map(offered.map((v) => [String(v), v]))
+  const chip = many ? (picked.length === 0 && latest !== null ? 'Latest' : answerWords('in', picked)) : value === undefined ? empty : String(value)
   return (
-    <FilterChip label={picked.length === 0 && latest !== null ? 'Latest' : answerWords('in', picked)} active={picked.length > 0} menuLabel={`${label} values`} menuWidth={280}>
+    <FilterChip label={chip} active={picked.length > 0} menuLabel={`${label} values`} menuWidth={300}>
       {({ close }) => (
-        <MultiSelectMenu label={label} searchLabel={`Search ${label}`} options={offered.map((v) => ({ value: String(v), label: String(v) }))} value={picked.map(String)}
-          onApply={(next) => { onChange(next.length ? next.map((key) => raw.get(key) ?? key) : undefined); close() }}
-          note={choices.data?.more ? 'The first 200 values' : undefined} />
+        <ValuesMenu dataset={dataset} field={parameter.field} label={label} many={many} empty={empty} picked={picked}
+          onDone={(next) => { onChange(many ? (next.length ? next : undefined) : next[0]); close() }} />
       )}
     </FilterChip>
+  )
+}
+
+/** The values to pick from, A to Z: what is typed searches the whole list on the server, 100 shown at a time with More for
+ *  the next. One value: a click picks it. Several: ticks are a draft until Apply, kept while searching. */
+function ValuesMenu({ dataset, field, label, many, empty, picked, onDone }: { dataset: string; field: string; label: string; many: boolean; empty: string; picked: unknown[]; onDone: (values: unknown[]) => void }) {
+  const [query, setQuery] = useState('')
+  const term = useDebounced(query.trim(), 250)
+  const [draft, setDraft] = useState<unknown[]>(picked)
+  const pages = useInfiniteQuery({
+    queryKey: ['insights', 'parameter-values', dataset, field, term, 'pages'],
+    queryFn: ({ pageParam }) => parametersApi.values({ dataset, field, q: term || undefined, offset: pageParam, limit: VALUES_PAGE }),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => (last.more ? all.length * VALUES_PAGE : undefined),
+    staleTime: 60_000,
+    retry: false,
+  })
+  const shown = pages.data?.pages.flatMap((page) => page.values) ?? []
+  const isPicked = (v: unknown) => draft.some((d) => String(d) === String(v))
+  const toggle = (v: unknown) => setDraft((current) => (current.some((d) => String(d) === String(v)) ? current.filter((d) => String(d) !== String(v)) : [...current, v]))
+  return (
+    <div>
+      <div className="border-b border-line-subtle p-2">
+        <InputGroup tone="sunken" autoFocus aria-label={`Search ${label}`} placeholder={`Type to search ${label}…`} value={query} onChange={(event) => setQuery(event.target.value)}
+          start={<Search size={16} strokeWidth={1.5} aria-hidden />} />
+      </div>
+      <ul role="listbox" aria-label={label} aria-multiselectable={many || undefined} aria-busy={pages.isFetching || undefined} className="max-h-72 overflow-y-auto py-1">
+        {!many && term === '' && (
+          <li role="option" aria-selected={picked.length === 0} tabIndex={-1} data-dropdown-item onClick={() => onDone([])} onKeyDown={(event) => pickOnKey(event, () => onDone([]))}
+            className={`${OPTION} ${picked.length === 0 ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>{empty}</li>
+        )}
+        {shown.map((v) => {
+          const on = isPicked(v)
+          const pick = () => (many ? toggle(v) : onDone([v]))
+          return (
+            <li key={String(v)} role="option" aria-selected={on} tabIndex={-1} data-dropdown-item onClick={pick} onKeyDown={(event) => pickOnKey(event, pick)}
+              className={`${OPTION} ${!many && on ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>
+              {many && <Checkbox label="" checked={on} readOnly tabIndex={-1} aria-hidden className="pointer-events-none shrink-0" />}
+              <span className="min-w-0 truncate">{String(v)}</span>
+            </li>
+          )
+        })}
+        {pages.isPending && <li className="flex justify-center px-3 py-2"><Spinner size="sm" label={`Loading ${label} values`} /></li>}
+        {pages.isError && <li className="px-3 py-2 text-helper text-danger-plain">The values could not be read. Try again.</li>}
+        {!pages.isPending && !pages.isError && shown.length === 0 && <li className="px-3 py-2 text-helper text-ink-800">{term ? `Nothing matches “${term}”.` : 'No values.'}</li>}
+      </ul>
+      {(pages.hasNextPage || shown.length > 0) && (
+        <div data-menu-note className="flex items-center justify-between gap-2 border-t border-line-subtle px-3 py-2 text-helper text-ink-800">
+          <span>{shown.length} shown{many && draft.length > 0 ? ` · ${draft.length} picked` : ''}</span>
+          {pages.hasNextPage && (
+            <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>
+              {pages.isFetchingNextPage ? 'Loading…' : `More (next ${VALUES_PAGE})`}
+            </button>
+          )}
+        </div>
+      )}
+      {many && (
+        <div className="flex items-center justify-between gap-2 border-t border-line-subtle px-3 py-2">
+          <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setDraft([])}>Clear</button>
+          <button type="button" className={buttonClass({ variant: 'primary', size: 'sm' })} onClick={() => onDone(draft)}>Apply</button>
+        </div>
+      )}
+    </div>
   )
 }

@@ -227,7 +227,7 @@ export interface ReportParameter {
 }
 /** the answers, by parameter key */
 export type ParameterValues = Record<string, unknown>
-export interface ParameterChoices { field: string; label?: string; values: (string | number | boolean)[]; choosable: boolean; more?: boolean }
+export interface ParameterChoices { field: string; label?: string; values: (string | number | boolean)[]; choosable: boolean; more?: boolean; offset?: number; limit?: number; q?: string }
 
 /** Insights → Uploaded Files (apps/insights/uploads.py) */
 export type UploadColumnType = 'string' | 'number' | 'date' | 'datetime' | 'boolean'

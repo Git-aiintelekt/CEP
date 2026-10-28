@@ -210,6 +210,17 @@ def test_api(check, world, admin_email):
     check("a file takes the answers in its address", exported.status_code == 200, exported.content[:200] if hasattr(exported, "content") else "")
     values = world.api("post", "/api/v1/insights/parameters/values/", {"dataset": "messages", "field": "channel"})
     check("the values to choose from: the field's own, read with the person's access", values.status_code == 200 and values.json()["choosable"] is True and isinstance(values.json()["values"], list), values.content[:200])
+    every = values.json()["values"]
+    paged = world.api("post", "/api/v1/insights/parameters/values/", {"dataset": "messages", "field": "channel", "limit": 1})
+    following = world.api("post", "/api/v1/insights/parameters/values/", {"dataset": "messages", "field": "channel", "limit": 1, "offset": 1})
+    check("a page of values: limit from offset, A to Z, and more when there are others after it",
+          paged.status_code == 200 and paged.json()["values"] == every[:1] and paged.json()["more"] is (len(every) > 1)
+          and following.json()["values"] == every[1:2], (paged.content[:200], following.content[:200]))
+    searched = world.api("post", "/api/v1/insights/parameters/values/", {"dataset": "messages", "field": "channel", "q": "ema"})
+    check("typed text searches the whole list, any case", searched.status_code == 200 and searched.json()["values"] == [v for v in every if "ema" in v.lower()]
+          and searched.json()["q"] == "ema", searched.content[:200])
+    refused = world.api("post", "/api/v1/insights/parameters/values/", {"dataset": "messages", "field": "channel", "limit": 0})
+    check("a page of no values is refused", refused.status_code == 400, refused.content[:200])
     measure = world.api("post", "/api/v1/insights/parameters/values/", {"dataset": "messages", "field": "sent"})
     check("a measure offers no list (typed in)", measure.status_code == 200 and measure.json()["choosable"] is False)
 
