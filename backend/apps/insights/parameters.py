@@ -15,7 +15,11 @@ The viewer, the editor's preview and the exports send the answers as `params` ({
 the address of a file). A report run by itself (a dashboard tile, a schedule, an alert, an embed) uses the defaults, and a
 parameter with no default and no answer leaves its rule out. Only the viewer insists on a required answer (`require`).
 
-    POST /insights/parameters/values/     {dataset, field} -> the field's values to choose from (up to 200, the person's rows only)
+    POST /insights/parameters/values/     {dataset, field, q?, offset?, limit?} -> the field's values to choose from, the person's rows only
+
+A page of values, A to Z: `limit` of them (VALUES unless asked, at most MAX_VALUES_PAGE) from `offset`, `more` when there are
+others after them. `q` keeps the text values that contain it, any case, so a long list (thousands of customers) is searched
+whole rather than only the page in the menu.
 """
 import re
 
@@ -29,6 +33,8 @@ OPERATORS = ("=", "in", ">=", "<=", "between", "last_days", "period")
 PERIODS = {"7d": 7, "15d": 15, "30d": 30, "quarter": 91, "half": 182, "year": 365}
 KEY = re.compile(r"^[a-z][a-z0-9_]{0,30}$")
 VALUES = 200
+MAX_VALUES_PAGE = 500
+MAX_SEARCH = 100
 CHOOSABLE = ("string", "number", "boolean")
 LATEST = {"latest": True}
 
@@ -234,14 +240,33 @@ class ParameterValuesView(APIView):
         field = next((f for f in dataset["fields"] if f["key"] == key), None)
         if field is None or field["type"] not in CHOOSABLE or field["role"] != "dimension":
             return Response({"field": key, "values": [], "choosable": False})
+        page, offset, search = _page(body)
         measure = next((f for f in dataset["fields"] if f["role"] == "measure" and f["aggregates"]), None)
+        rules = [{"field": key, "operator": "is_not_null"}]
+        if search and field["type"] == "string":
+            rules.append({"field": key, "operator": "contains", "value": search})
+        # one row past the page says whether there are more
         raw = {"columns": [{"field": key}, *([{"field": measure["key"], "aggregate": measure["aggregates"][0]}] if measure else [])],
-               "filters": {"combinator": "and", "rules": [{"field": key, "operator": "is_not_null"}]}, "orderBy": [{"field": key, "direction": "asc"}], "limit": VALUES}
+               "filters": {"combinator": "and", "rules": rules}, "orderBy": [{"field": key, "direction": "asc"}], "limit": offset + page + 1}
         try:
-            result = runner.run(tenant, request.user, dataset, validate(dataset, raw), "run", limit=VALUES, mask_pii=not _can_see_pii(request))
+            result = runner.run(tenant, request.user, dataset, validate(dataset, raw), "run", limit=page + 1, offset=offset, mask_pii=not _can_see_pii(request))
         except DefinitionError:
             return Response({"field": key, "values": [], "choosable": False})
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The values could not be read", "status": 422, "detail": exc.reason}, status=422)
         values = list(dict.fromkeys(r[0] for r in result["rows"] if r[0] is not None))
-        return Response({"field": key, "label": field["label"], "values": values, "choosable": True, "more": len(values) >= VALUES})
+        return Response({"field": key, "label": field["label"], "values": values[:page], "choosable": True, "more": len(values) > page,
+                         "offset": offset, "limit": page, "q": search})
+
+
+def _page(body: dict) -> tuple[int, int, str]:
+    """how many values, from where, containing what: VALUES from the first unless asked otherwise"""
+    try:
+        page = int(body.get("limit") or VALUES)
+        offset = int(body.get("offset") or 0)
+    except (TypeError, ValueError):
+        raise ValidationError({"limit": "Give the limit and offset as whole numbers."})
+    if not 1 <= page <= MAX_VALUES_PAGE or offset < 0:
+        raise ValidationError({"limit": f"Ask for 1 to {MAX_VALUES_PAGE} values from an offset of 0 or more."})
+    search = str(body.get("q") or "").strip()[:MAX_SEARCH]
+    return page, offset, search

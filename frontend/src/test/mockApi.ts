@@ -1624,8 +1624,11 @@ export function installMockApi(options: MockOptions = {}) {
         return json(row)
       }
       if (path.endsWith('/insights/parameters/values/') && method === 'POST') {
-        const field = (body as { field: string }).field
-        return json(field === 'channel' ? { field, label: 'Channel', values: ['EMAIL', 'SMS'], choosable: true, more: false } : { field, values: [], choosable: false })
+        // A to Z, searched by q (contains, any case), a page of `limit` from `offset`: enough channels to need More
+        const { field, q = '', offset = 0, limit = 200 } = body as { field: string; q?: string; offset?: number; limit?: number }
+        if (field !== 'channel') return json({ field, values: [], choosable: false })
+        const all = ['EMAIL', 'SMS', ...Array.from({ length: 150 }, (_, i) => `Web ${String(i + 1).padStart(3, '0')}`)].filter((v) => v.toLowerCase().includes(q.toLowerCase()))
+        return json({ field, label: 'Channel', values: all.slice(offset, offset + limit), choosable: true, more: all.length > offset + limit, offset, limit, q })
       }
       if (path.endsWith('/insights/uploads/') && method === 'POST') {
         const file = (init.body as FormData).get('file') as File
