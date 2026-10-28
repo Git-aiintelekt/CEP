@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create Report Dialog v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --hover:#eeeff5; --sunken:#eeeff5; --canvas:#f9fafb; --fill-muted:#e7e8ef;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0; --tag-bg:#dee9fc; --tag-text:#233c9e;
+    --scrim:rgb(19 21 27 / 0.45); --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  .wrap { max-width:1120px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .part { margin:36px 0 4px; font-size:22px; line-height:30px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:960px; margin-bottom:12px }
+
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i20 { width:20px; height:20px }
+  .i-x{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/x.svg)}
+  .i-table{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .i-spark{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+  .i-tpl{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-template.svg)}
+  .i-code{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/database.svg)}
+  .i-search{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/search.svg)}
+  .i-left{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-left.svg)}
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-right{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-right.svg)}
+  .i-msg{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/mail.svg)}
+  .i-cart{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/shopping-cart.svg)}
+  .i-users{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/users.svg)}
+  .i-route{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/route.svg)}
+  .i-db{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/database-zap.svg)}
+  .i-file{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-spreadsheet.svg)}
+  .i-up{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-up.svg)}
+  .i-plus{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/plus.svg)}
+  .i-check{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/check.svg)}
+
+  /* the scrim over the Reports list */
+  .stage { position:relative; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--canvas); padding:40px 24px; min-height:760px; display:flex; align-items:center; justify-content:center }
+  .stage::before { content:""; position:absolute; inset:0; background:
+      linear-gradient(var(--canvas),var(--canvas)) 24px 24px/40% 28px no-repeat,
+      linear-gradient(#fff,#fff) 24px 80px/calc(100% - 48px) 520px no-repeat; }
+  .stage::after { content:""; position:absolute; inset:0; background:var(--scrim) }
+
+  .dialog { position:relative; z-index:1; width:768px; max-width:100%; background:#fff; border-radius:16px; display:flex; flex-direction:column; box-shadow:0 12px 32px rgb(20 23 31 / 0.18) }
+  .dh { padding:20px 24px 16px; border-bottom:1px solid var(--line-subtle); display:flex; flex-direction:column; gap:10px }
+  .dh .row { display:flex; align-items:center; justify-content:space-between }
+  .dh h2 { font-size:16px; line-height:24px; font-weight:600 }
+  .close { width:32px; height:32px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) }
+  .stepline { font-size:13px; line-height:18px; color:var(--ink-800) }
+  .bar { display:flex; gap:4px } .bar span { height:4px; flex:1; border-radius:2px; background:var(--hover) } .bar span.on { background:var(--brand-600) }
+  .db { padding:24px; display:flex; flex-direction:column; gap:24px }
+  .df { padding:16px 24px; border-top:1px solid var(--line-subtle); display:flex; align-items:center; gap:8px }
+  .df .grow { flex:1 }
+  .btn { height:40px; border-radius:999px; padding:0 16px; display:inline-flex; align-items:center; gap:8px; font:500 15px/1 var(--font); border:0; cursor:pointer }
+  .btn.primary { background:var(--brand-600); color:#fff }
+  .btn.secondary { background:#fff; color:var(--brand-600); border:1px solid var(--brand-600) }
+
+  .lead { font-size:15px; color:var(--ink-800) }
+  .tiles { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px }
+  .tile { border:1px solid var(--line); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:6px; text-align:left; background:#fff }
+  .tile.on { border-color:var(--brand-600); background:var(--brand-100) }
+  .tile .top { display:flex; align-items:center; justify-content:space-between }
+  .tile .top .i { color:var(--ink-800) } .tile.on .top .i { color:var(--brand-600) }
+  .tile b { font-size:15px; font-weight:600 } .tile span.t { font-size:13px; line-height:18px; color:var(--ink-800) }
+  .tag { height:20px; border-radius:6px; padding:0 6px; background:var(--tag-bg); color:var(--tag-text); font-size:12px; font-weight:500; display:inline-flex; align-items:center }
+  .goes { font-size:12px; line-height:16px; color:var(--ink-700); display:flex; align-items:center; gap:4px; margin-top:2px }
+
+  /* step 2 */
+  .picker { display:grid; grid-template-columns:200px minmax(0,1fr); border:1px solid var(--line); border-radius:12px; overflow:hidden; min-height:360px }
+  .groups { border-right:1px solid var(--line-subtle); background:var(--surface-subtle); padding:8px }
+  .grp { height:36px; border-radius:8px; display:flex; align-items:center; gap:8px; padding:0 10px; font-size:15px; color:var(--ink-900) }
+  .grp .n { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .grp.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 } .grp.on .n { color:var(--brand-800) }
+  .list { display:flex; flex-direction:column }
+  .srch { margin:12px; height:40px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 14px; color:var(--ink-300) }
+  .srch .i { color:var(--ink-800) }
+  .ds { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-top:1px solid var(--line-subtle) }
+  .ds.on { background:var(--brand-100) }
+  .radio { width:18px; height:18px; border-radius:999px; border:1.5px solid var(--line-control); margin-top:2px; flex:none; background:#fff }
+  .ds.on .radio { border:5px solid var(--brand-600) }
+  .ds .ic { width:32px; height:32px; border-radius:8px; background:var(--hover); display:flex; align-items:center; justify-content:center; color:var(--ink-800); flex:none }
+  .ds.on .ic { background:#fff; color:var(--brand-600) }
+  .ds b { display:block; font-size:15px; font-weight:600 } .ds.on b { color:var(--brand-800) }
+  .ds .d { display:block; font-size:13px; line-height:18px; color:var(--ink-800) }
+  .ds .f { display:block; font-size:12px; line-height:16px; color:var(--ink-700); margin-top:2px }
+  .add { display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--line-subtle); color:var(--brand-600); font-weight:500; font-size:15px }
+  .add .ic { width:32px; height:32px; border-radius:8px; border:1px dashed var(--line-control); display:flex; align-items:center; justify-content:center; flex:none }
+  .add small { display:block; color:var(--ink-800); font-weight:400; font-size:13px; line-height:18px }
+
+  .fields { display:grid; grid-template-columns:minmax(0,1fr) 240px; gap:16px }
+  .fld label { display:block; font-size:13px; line-height:18px; font-weight:500; color:var(--ink-800); margin-bottom:6px }
+  .input { height:40px; border:1px solid var(--line-control); border-radius:999px; padding:0 14px; display:flex; align-items:center; font-size:15px; color:var(--ink-900); background:#fff; justify-content:space-between }
+  .hint { font-size:12px; line-height:16px; color:var(--ink-800); margin-top:6px }
+
+  .notes { margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px }
+  .note { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; font-size:13px; line-height:19px; color:var(--ink-800) }
+  .note b { color:var(--ink-900); display:block; margin-bottom:2px; font-size:14px }
+
+  .i-ok{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/circle-check.svg)}
+  .i-cloud{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/upload.svg)}
+  .i-eye{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table.svg)}
+  .sect { display:flex; flex-direction:column; gap:8px }
+  .sect h3 { font-size:14px; line-height:20px; font-weight:600; color:var(--ink-900) }
+  .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px }
+  .card { border:1px solid var(--line); border-radius:16px; padding:12px 14px; display:flex; gap:12px; align-items:flex-start; background:#fff }
+  .card.on { border-color:var(--brand-600); background:var(--brand-100) }
+  .card .ic { width:32px; height:32px; border-radius:8px; background:var(--hover); color:var(--ink-800); display:flex; align-items:center; justify-content:center; flex:none }
+  .card.on .ic { background:#fff; color:var(--brand-600) }
+  .card b { display:block; font-size:15px; font-weight:600 } .card.on b { color:var(--brand-800) }
+  .card .d { display:block; font-size:13px; line-height:18px; color:var(--ink-800) }
+  .card .f { display:block; font-size:12px; line-height:16px; color:var(--ink-700); margin-top:3px }
+  .card.add { border-style:dashed; border-color:var(--line-control) } .card.add b { color:var(--brand-600) }
+  .card.add .ic { background:#fff; border:1px dashed var(--line-control); color:var(--brand-600) }
+  .crumb { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-800) } .crumb b { color:var(--ink-900); font-weight:600 } .crumb .link { color:var(--brand-600); font-weight:500 }
+  .form { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:14px 16px }
+  .form .fld { grid-column:span 3 } .form .fld.s2 { grid-column:span 2 } .form .fld.s4 { grid-column:span 4 } .form .fld.s6 { grid-column:span 6 }
+  .seg { display:inline-flex; border:1px solid var(--line-control); border-radius:999px; padding:3px; gap:2px }
+  .seg span { height:32px; padding:0 14px; border-radius:999px; display:inline-flex; align-items:center; font-size:14px; color:var(--ink-800) }
+  .seg span.on { background:var(--brand-100); color:var(--brand-800); font-weight:600 }
+  .input.ph { color:var(--ink-300) }
+  .ok { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; background:#e3f4e5; color:#0e6027; font-size:14px }
+  .tables { border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .tables .srch { margin:10px }
+  .trow { display:flex; align-items:center; gap:12px; padding:10px 14px; border-top:1px solid var(--line-subtle); font-size:14px }
+  .trow.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 }
+  .trow small { margin-left:auto; color:var(--ink-700); font-size:12px; font-weight:400 }
+  .drop { border:1.5px dashed var(--line-control); border-radius:16px; padding:40px 24px; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; background:var(--surface-subtle) }
+  .drop .ic { width:48px; height:48px; border-radius:12px; background:var(--brand-100); color:var(--brand-800); display:flex; align-items:center; justify-content:center }
+  .drop b { font-size:15px } .drop p { font-size:13px; color:var(--ink-800); max-width:420px }
+  table.cols { width:100%; border-collapse:collapse; font-size:14px; border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  table.cols th { background:var(--surface-subtle); text-align:left; font-size:13px; font-weight:500; padding:8px 10px; border-bottom:1px solid var(--line) }
+  table.cols td { padding:8px 10px; border-top:1px solid var(--line-subtle); vertical-align:middle }
+  table.cols td .input { height:32px; font-size:14px; padding:0 12px }
+  table.cols td.v { color:var(--ink-700); font-size:12px }
+  .sel { height:32px; border:1px solid var(--line-control); border-radius:999px; padding:0 10px 0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px; background:#fff; white-space:nowrap }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="strip">Mockup only, revised to your notes. Step 1 starts with Report Name and Component, then How Do You Want to Start. Step 2 is Choose Your Data, where Connect a Database and Upload a File are set up inside the pop-up, so nobody leaves it. Sample data.</p>
+<h2 class="part">1 · Step 1 of 2 · Name and How to Start</h2>
+  <p>With Ask AI: for a workspace subscribed to it. Name and Component first, then the four ways in, two by two. Start from Data goes on to step 2. Ask AI, Base Reports and Write a Query carry the name and component with them to where that work happens.</p>
+  <div class="stage" style="min-height:820px"><div class="dialog" role="dialog" aria-label="Create Report"><div class="dh"><div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 1 of 2 · Name and How to Start</span><div class="bar"><span class="on"></span><span></span></div></div><div class="db">
+        <div class="fields">
+          <div class="fld"><label>Report Name</label><div class="input">Weekly Sends by Channel</div><p class="hint">You can rename it later.</p></div>
+          <div class="fld"><label>Component</label><div class="input">Automatic<span class="i i-down" style="color:var(--ink-800)"></span></div><p class="hint">Where the report is listed. Automatic files it with its data.</p></div>
+        </div>
+        <div class="sect"><h3>How Do You Want to Start?</h3>
+        <div class="tiles" role="radiogroup">
+          <div class="tile on" role="radio" aria-checked="true"><span class="top"><span class="i i20 i-table"></span><span class="tag">Most Common</span></span><b>Start from Data</b><span class="t">Pick a dataset, one of your databases or a file, then choose what to show.</span></div>
+          <div class="tile" role="radio"><span class="top"><span class="i i20 i-spark"></span></span><b>Ask AI</b><span class="t">Describe the report in your own words, and AI drafts it for you to check.</span></div>
+          <div class="tile" role="radio"><span class="top"><span class="i i20 i-tpl"></span></span><b>Use Base Reports</b><span class="t">Add a ready-made pack, such as Email Campaign Reports, as your own copies.</span></div>
+          <div class="tile" role="radio"><span class="top"><span class="i i20 i-code"></span></span><b>Write a Query</b><span class="t">Pick tables and columns, or write the SELECT, on one of your databases.</span></div>
+        </div></div>
+      </div><div class="df"><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Next</button></div></div></div>
+<h2 class="part">1b · Step 1 of 2 · Without Ask AI</h2>
+  <p>For a workspace that is not subscribed to AI Reports: there is no Ask AI tile, and the other three sit in a single row. Nothing hints at AI, and there is no gap where it would be.</p>
+  <div class="stage" style="min-height:700px"><div class="dialog" role="dialog" aria-label="Create Report"><div class="dh"><div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 1 of 2 · Name and How to Start</span><div class="bar"><span class="on"></span><span></span></div></div><div class="db">
+        <div class="fields">
+          <div class="fld"><label>Report Name</label><div class="input">Weekly Sends by Channel</div><p class="hint">You can rename it later.</p></div>
+          <div class="fld"><label>Component</label><div class="input">Automatic<span class="i i-down" style="color:var(--ink-800)"></span></div><p class="hint">Where the report is listed. Automatic files it with its data.</p></div>
+        </div>
+        <div class="sect"><h3>How Do You Want to Start?</h3>
+        <div class="tiles" role="radiogroup" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="tile on" role="radio" aria-checked="true"><span class="top"><span class="i i20 i-table"></span><span class="tag">Most Common</span></span><b>Start from Data</b><span class="t">Pick a dataset, one of your databases or a file, then choose what to show.</span></div>
+          
+          <div class="tile" role="radio"><span class="top"><span class="i i20 i-tpl"></span></span><b>Use Base Reports</b><span class="t">Add a ready-made pack, such as Email Campaign Reports, as your own copies.</span></div>
+          <div class="tile" role="radio"><span class="top"><span class="i i20 i-code"></span></span><b>Write a Query</b><span class="t">Pick tables and columns, or write the SELECT, on one of your databases.</span></div>
+        </div></div>
+      </div><div class="df"><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Next</button></div></div></div>
+<h2 class="part">2 · Step 2 of 2 · Choose Your Data</h2>
+  <p>The same cards as today, in three Title Case groups instead of capital-letter headings. Each card lists a few fields in plain words, instead of "9 dimensions · 12 measures". A search box above narrows all three groups at once. Create Report opens the editor.</p>
+  <div class="stage" style="min-height:900px"><div class="dialog" role="dialog" aria-label="Create Report"><div class="dh"><div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · Choose Your Data</span><div class="bar"><span class="on"></span><span class="on"></span></div></div><div class="db" style="gap:20px">
+        <div class="srch" style="margin:0"><span class="i i-search"></span>Search your data</div>
+        <div class="sect"><h3>C360 Data</h3><div class="cards" role="radiogroup"><div class="card on" role="radio" aria-checked="true"><span class="ic"><span class="i i-msg"></span></span><span><b>Messages</b><span class="d">Every email and text a campaign sent: who, when, and what became of it.</span><span class="f">Campaign, Channel, Status, Sent date, Delivered rate…</span></span></div><div class="card" role="radio" aria-checked="false"><span class="ic"><span class="i i-cart"></span></span><span><b>Attributed Orders</b><span class="d">Orders the shop reported, and the campaign each was credited to.</span><span class="f">Campaign, Store, Order date, Revenue…</span></span></div><div class="card" role="radio" aria-checked="false"><span class="ic"><span class="i i-users"></span></span><span><b>Contacts</b><span class="d">The customer records the workspace can reach.</span><span class="f">City, Region, Source, Consent…</span></span></div><div class="card" role="radio" aria-checked="false"><span class="ic"><span class="i i-route"></span></span><span><b>Journey Enrolments</b><span class="d">Every customer a journey took: where they are, how they left.</span><span class="f">Journey, Stage, Enrolled date, Converted…</span></span></div></div></div>
+        <div class="sect"><h3>Your Databases</h3><div class="cards"><div class="card" role="radio" aria-checked="false"><span class="ic"><span class="i i-db"></span></span><span><b>Sales Lines</b><span class="d">NWA Postal (PostgreSQL)</span><span class="f">Store, Week, Net sales, Units…</span></span></div><div class="card add"><span class="ic"><span class="i i-plus"></span></span><span><b>Connect a Database</b><span class="d">MySQL, PostgreSQL or ClickHouse, read-only. Set it up here.</span></span></div></div></div>
+        <div class="sect"><h3>Your Files</h3><div class="cards"><div class="card add"><span class="ic"><span class="i i-up"></span></span><span><b>Upload a File</b><span class="d">A CSV or Excel file. Review its columns here, then report on it.</span></span></div></div></div>
+      </div><div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Create Report</button></div></div></div>
+<h2 class="part">3 · Connect a Database, inside step 2</h2>
+  <p>Pressing Connect a Database swaps the cards for the connection form, without leaving the pop-up. The trail at the top goes back to the cards. Test Connection checks it, and Save and Continue keeps the connection for the workspace.</p>
+  <div class="stage" style="min-height:820px"><div class="dialog" role="dialog" aria-label="Create Report"><div class="dh"><div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · Choose Your Data</span><div class="bar"><span class="on"></span><span class="on"></span></div></div><div class="db">
+        <div class="crumb"><span class="link">Choose Your Data</span><span class="i i-right" style="width:12px;height:12px"></span><b>Connect a Database</b></div>
+        <div class="form">
+          <div class="fld s6"><label>Engine</label><div class="seg"><span>MySQL</span><span class="on">PostgreSQL</span><span>ClickHouse</span></div></div>
+          <div class="fld s6"><label>Name</label><div class="input">NWA Postal</div><p class="hint">How it is called in Insights.</p></div>
+          <div class="fld s4"><label>Host</label><div class="input">postal-db.nwa.internal</div></div>
+          <div class="fld s2"><label>Port</label><div class="input">5432</div></div>
+          <div class="fld"><label>Database</label><div class="input">postal</div></div>
+          <div class="fld"><label>Schema</label><div class="input">public</div></div>
+          <div class="fld"><label>User</label><div class="input">reports_ro</div></div>
+          <div class="fld"><label>Password</label><div class="input">••••••••••</div></div>
+        </div>
+        <div class="ok"><span class="i i-ok"></span>Connected: read-only, 42 tables and views found.</div>
+        <p class="hint" style="margin-top:-12px">Time Limit, Reports at Once and SSL keep their safe defaults; change them later under Settings → Report Databases.</p>
+      </div><div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Test Connection</button><button class="btn secondary">Cancel</button><button class="btn primary">Save and Continue</button></div></div></div>
+<h2 class="part">4 · Then pick a table or view</h2>
+  <p>The same second screen as the Connect a Database drawer today. Picking a table and pressing Create Report maps it and opens the editor. The database then appears under Your Databases for next time.</p>
+  <div class="stage" style="min-height:640px"><div class="dialog" role="dialog" aria-label="Create Report"><div class="dh"><div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · Choose Your Data</span><div class="bar"><span class="on"></span><span class="on"></span></div></div><div class="db">
+        <div class="crumb"><span class="link">Choose Your Data</span><span class="i i-right" style="width:12px;height:12px"></span><span class="link">Connect a Database</span><span class="i i-right" style="width:12px;height:12px"></span><b>A Table or View</b></div>
+        <p class="lead">NWA Postal is connected. Pick the table or view this report reads.</p>
+        <div class="tables">
+          <div class="srch"><span class="i i-search"></span>Search tables and views</div>
+          <div class="trow on"><span class="i i-eye"></span>sales_lines<small>Table · 1.2M rows</small></div>
+          <div class="trow"><span class="i i-eye"></span>stores<small>Table · 84 rows</small></div>
+          <div class="trow"><span class="i i-eye"></span>weekly_sales_v<small>View</small></div>
+          <div class="trow"><span class="i i-eye"></span>campaign_mail<small>Table · 310K rows</small></div>
+        </div>
+      </div><div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Create Report</button></div></div></div>
+<h2 class="part">5 · Upload a File, inside step 2</h2>
+  <p>Pressing Upload a File swaps the cards for a drop zone. Next lights up once a file is in.</p>
+  <div class="stage" style="min-height:560px"><div class="dialog" role="dialog" aria-label="Create Report"><div class="dh"><div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · Choose Your Data</span><div class="bar"><span class="on"></span><span class="on"></span></div></div><div class="db">
+        <div class="crumb"><span class="link">Choose Your Data</span><span class="i i-right" style="width:12px;height:12px"></span><b>Upload a File</b></div>
+        <div class="drop"><span class="ic"><span class="i i20 i-cloud"></span></span><b>Drop a CSV or Excel file here</b><p>or <span class="link">choose a file</span>. The first row names the columns; in a workbook the first sheet is read. Up to 100,000 rows, 50 columns and 20 MB.</p></div>
+      </div><div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary" style="opacity:.45">Next</button></div></div></div>
+<h2 class="part">6 · Review the columns, then create</h2>
+  <p>The review the Uploaded Files page has today, inside the pop-up. Save and Create Report saves the file as a dataset and opens the editor on it. The file is also listed under Your Files afterwards.</p>
+  <div class="stage" style="min-height:640px"><div class="dialog" role="dialog" aria-label="Create Report"><div class="dh"><div class="row"><h2>Create Report</h2><span class="close"><span class="i i20 i-x"></span></span></div>
+        <span class="stepline">Step 2 of 2 · Choose Your Data</span><div class="bar"><span class="on"></span><span class="on"></span></div></div><div class="db">
+        <div class="crumb"><span class="link">Choose Your Data</span><span class="i i-right" style="width:12px;height:12px"></span><span class="link">Upload a File</span><span class="i i-right" style="width:12px;height:12px"></span><b>Review the Columns</b></div>
+        <div class="fields"><div class="fld"><label>Dataset Name</label><div class="input">Store Targets</div></div><div class="fld"><label>File</label><div class="input" style="color:var(--ink-800)">store_targets.xlsx · 1,240 rows</div></div></div>
+        <table class="cols" aria-label="Columns">
+          <thead><tr><th>In the File</th><th>Label</th><th>Type</th><th>Use As</th><th>First Values</th></tr></thead>
+          <tbody>
+            <tr><td>store_no</td><td><div class="input">Store</div></td><td><span class="sel">Number<span class="i i-down" style="width:14px;height:14px"></span></span></td><td><span class="sel">A Dimension (Groups)<span class="i i-down" style="width:14px;height:14px"></span></span></td><td class="v">014, 022, 031</td></tr>
+            <tr><td>month</td><td><div class="input">Month</div></td><td><span class="sel">Date<span class="i i-down" style="width:14px;height:14px"></span></span></td><td class="v">—</td><td class="v">2026-01, 2026-02</td></tr>
+            <tr><td>target_rev</td><td><div class="input">Revenue Target</div></td><td><span class="sel">Number<span class="i i-down" style="width:14px;height:14px"></span></span></td><td><span class="sel">A Measure (Adds Up)<span class="i i-down" style="width:14px;height:14px"></span></span></td><td class="v">12,400, 9,850</td></tr>
+          </tbody>
+        </table>
+      </div><div class="df"><button class="btn secondary"><span class="i i-left"></span>Back</button><span class="grow"></span><button class="btn secondary">Cancel</button><button class="btn primary">Save and Create Report</button></div></div></div>
+
+  <div class="notes">
+    <div class="note"><b>The trail keeps step 2 one step</b>Connect and Upload are screens inside step 2, not new steps. The step line still says "Step 2 of 2", and the trail at the top (Choose Your Data › Connect a Database) shows where you are. Back goes one screen back.</div>
+    <div class="note"><b>Ask AI only with the subscription</b>The Ask AI tile shows only where the workspace has AI Reports (the same switch that puts AI Reports in the Insights menu). Without it, Start from Data, Use Base Reports and Write a Query sit in one row of three.</div>
+    <div class="note"><b>Who sees Connect and Upload</b>Only people who can build reports, as today. Someone without that right sees just the datasets.</div>
+    <div class="note"><b>Built from what exists</b>The connection form, the table picker and the column review are today's components (DatabaseConnectionForm, the drawer's table step, UploadReviewDialog), moved into the pop-up. No backend change.</div>
+  </div>
+</div>
+</body>
+</html>

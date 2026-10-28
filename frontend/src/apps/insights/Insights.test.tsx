@@ -57,14 +57,15 @@ test('Insights is an app on the rail when the workspace has it, never an item in
   expect(insightsTile()).toBeNull()
 })
 
-test('New Report: pick a dataset, name it, and the report opens in the viewer with its rows in the grid', async () => {
+test('New Report: name it, pick a dataset, and the report opens in the editor with its rows previewed', async () => {
   const user = userEvent.setup()
   await renderAppAt('/insights/reports/new?component=cep')
-  await screen.findByRole('heading', { name: 'New Report' })
-  const create = await screen.findByRole('button', { name: 'Create Report' })
+  const dialog = await screen.findByRole('dialog', { name: 'Create Report' })
+  await user.type(within(dialog).getByLabelText('Report Name'), 'Revenue by campaign')                // step 1: the name, then how to start
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  const create = await within(dialog).findByRole('button', { name: 'Create Report' })
   expect((create as HTMLButtonElement).disabled).toBe(true)                            // nothing picked yet
-  await user.click(screen.getByRole('radio', { name: /Attributed Orders/ }))
-  await user.type(screen.getByLabelText('Name'), 'Revenue by campaign')
+  await user.click(await within(dialog).findByRole('radio', { name: 'Attributed Orders' }))
   await user.click(create)
   // the new report opens in the editor, named, with its rows previewed
   const nameBox = await screen.findByRole('textbox', { name: 'Report name' })

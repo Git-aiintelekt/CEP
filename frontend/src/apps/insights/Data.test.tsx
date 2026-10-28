@@ -102,7 +102,7 @@ test('the editor: Report Filters adds a required question on Channel, saved with
   })
 })
 
-test('Uploaded Files: a CSV is read, its columns reviewed, and New Report offers it', async () => {
+test('Uploaded Files: a CSV is read, its columns reviewed, and Create Report opens on it, picked', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/uploads')
   expect(await screen.findByRole('heading', { name: 'Uploaded Files' })).toBeTruthy()
@@ -121,9 +121,9 @@ test('Uploaded Files: a CSV is read, its columns reviewed, and New Report offers
     const put = calls.find((c) => c.method === 'PUT' && c.url.endsWith('/insights/uploads/upl-1/'))
     expect(put?.body).toMatchObject({ ready: true, columns: [{ key: 'store' }, { key: 'sales', label: 'Net Sales', type: 'number', role: 'measure' }, { key: 'opened' }] })
   })
-  expect(await screen.findByRole('heading', { name: 'New Report' })).toBeTruthy()
-  const option = await screen.findByRole('radio', { name: /store sales/ })
-  expect((option as HTMLInputElement).checked).toBe(true)
-  expect(screen.getByText('store_sales.csv · 3 rows')).toBeTruthy()
-  expect(screen.getByRole('button', { name: /Upload a File/ })).toBeTruthy()
+  const create = await screen.findByRole('dialog', { name: 'Create Report' })
+  const option = await within(create).findByRole('radio', { name: /store sales/i })
+  expect(option.getAttribute('aria-checked')).toBe('true')
+  expect(within(create).getByText('store_sales.csv · 3 rows')).toBeTruthy()
+  expect(within(create).getByRole('button', { name: /Upload a File/ })).toBeTruthy()
 })
