@@ -55,7 +55,7 @@ export default function ExplainPlayground() {
   const params = sparse ? undefined : PARAMS
   const [primed] = useState(() => { client.setQueryData(keys.meaning(id, params), sparse ? SPARSE : BUSY); return true })
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 bg-surface p-6">
+    <div className="report-density mx-auto flex max-w-6xl flex-col gap-3 bg-surface p-6">
       <h1 className="text-page-title font-semibold text-ink-900">{sparse ? 'Net Sales by Category and Month' : 'Delivery Outcomes'}</h1>
       {primed && <ExplainPanel reportId={id} reportName={sparse ? 'Net Sales by Category and Month' : 'Delivery Outcomes'} params={params} onClose={() => undefined}
         ai={sparse ? null : { explain: () => undefined, pending: false, error: null, explanation: null, asked: true }} />}

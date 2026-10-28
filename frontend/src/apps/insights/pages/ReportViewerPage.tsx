@@ -9,8 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { iconButtonClass } from '@/components/buttonStyles'
-import { buttonDanger, buttonSecondary } from '@/components/Form'
+import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
@@ -50,6 +49,9 @@ function readThrough(raw: string | null): { field: string; value: unknown }[] {
     return []
   }
 }
+
+const headerButton = buttonClass({ size: 'sm' })
+const headerDanger = buttonClass({ variant: 'danger', size: 'sm' })
 
 export function ReportViewerPage() {
   const { id } = useParams()
@@ -175,7 +177,7 @@ export function ReportViewerPage() {
   const shownView = view ?? (old ? old.definition.view : report.data.definition.view) ?? DEFAULT_VIEW
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="report-density flex min-h-0 flex-1 flex-col gap-3">
       <p className="text-xs text-ink-800"><Link to="/insights/reports" className="text-brand-800 hover:underline">All Reports</Link> › {report.data.name}</p>
       <PageHeader
         help={<PageHelp chapter="insights" />}
@@ -186,19 +188,19 @@ export function ReportViewerPage() {
           <div className="flex items-center gap-2">
             {report.data.can_edit && <ComponentSelect inline value={report.data.component_key ?? null} auto={report.data.component_auto ?? null} onChange={(key) => move.mutate(key)} disabled={move.isPending} />}
             {report.data.can_edit && <FolderSelect value={report.data.folder_id} onChange={(folderId) => file.mutate(folderId)} disabled={file.isPending} />}
-            {report.data.can_share && <button type="button" className={buttonSecondary} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{report.data.shared ? 'Shared' : 'Share'}</button>}
-            <button type="button" className={buttonSecondary} onClick={() => setVersionsOpen(true)}><History size={16} strokeWidth={1.5} aria-hidden />Versions</button>
+            {report.data.can_share && <button type="button" className={headerButton} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{report.data.shared ? 'Shared' : 'Share'}</button>}
+            <button type="button" className={headerButton} onClick={() => setVersionsOpen(true)}><History size={16} strokeWidth={1.5} aria-hidden />Versions</button>
             {(can('report.edit') || can('report.admin')) && (
-              <button type="button" className={buttonSecondary} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
+              <button type="button" className={headerButton} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
             )}
-            <button type="button" className={buttonSecondary} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
-            <button type="button" className={buttonSecondary} onClick={() => setAlerting(true)}><Bell size={16} strokeWidth={1.5} aria-hidden />Alerts</button>
-            <button type="button" className={buttonSecondary} onClick={() => setExplaining(true)} disabled={!info}><Sparkles size={16} strokeWidth={1.5} aria-hidden />Explain</button>
-            {report.data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
-            <button type="button" className={buttonSecondary} onClick={() => exportAs('csv')} disabled={exporting !== null || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
-            <button type="button" className={buttonSecondary} onClick={() => exportAs('xlsx')} disabled={exporting !== null || !info}><FileSpreadsheet size={16} strokeWidth={1.5} aria-hidden />Export Excel</button>
-            <button type="button" className={buttonSecondary} onClick={() => exportAs('pdf')} disabled={exporting !== null || !info}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
-            {report.data.can_edit && <button type="button" className={buttonDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
+            <button type="button" className={headerButton} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
+            <button type="button" className={headerButton} onClick={() => setAlerting(true)}><Bell size={16} strokeWidth={1.5} aria-hidden />Alerts</button>
+            <button type="button" className={headerButton} onClick={() => setExplaining(true)} disabled={!info}><Sparkles size={16} strokeWidth={1.5} aria-hidden />Explain</button>
+            {report.data.can_edit && <button type="button" className={headerButton} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
+            <button type="button" className={headerButton} onClick={() => exportAs('csv')} disabled={exporting !== null || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
+            <button type="button" className={headerButton} onClick={() => exportAs('xlsx')} disabled={exporting !== null || !info}><FileSpreadsheet size={16} strokeWidth={1.5} aria-hidden />Export Excel</button>
+            <button type="button" className={headerButton} onClick={() => exportAs('pdf')} disabled={exporting !== null || !info}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
+            {report.data.can_edit && <button type="button" className={headerDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
             {(
               <div ref={moreBox} className="relative">
                 <button type="button" aria-haspopup="menu" aria-expanded={more} aria-label="More actions" onClick={() => setMore((open) => !open)} className={iconButtonClass({ pressed: more })}>

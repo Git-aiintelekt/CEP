@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { buttonClass } from '@/components/buttonStyles'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { DashboardBody } from '../dashboards/DashboardBody'
@@ -124,9 +125,9 @@ export default function DashboardPlayground() {
     setSelection((now) => toggleValue(now, column.key, value))
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className={`${editing ? 'gap-4' : 'report-density gap-3'} flex min-h-0 flex-1 flex-col`}>
       <PageHeader title="Marketing Weekly" description={editing ? undefined : `Sends, revenue and the top campaigns, by week · ${periodWords(bounds)}`}
-        actions={<div className="flex gap-2">{editing ? <><span className={buttonSecondary}>Add Tile</span><span className={buttonPrimary}>Done</span></> : <span className={buttonSecondary}>Edit</span>}</div>} />
+        actions={<div className="flex gap-2">{editing ? <><span className={buttonSecondary}>Add Tile</span><span className={buttonPrimary}>Done</span></> : <span className={buttonClass({ size: 'sm' })}>Edit</span>}</div>} />
       <PeriodBar period={period} onPeriod={setPeriod} compare={compare} onCompare={setCompare} bounds={bounds} />
       {!editing && <SlicerBar slicers={layout.slicers ?? []} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))}
         onRemoveExtra={(field) => { setExtra((now) => now.filter((item) => item.field !== field)); setSelection((now) => ({ ...now, [field]: [] })) }}

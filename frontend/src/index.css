@@ -849,6 +849,19 @@ h4 {
   --text-xs--letter-spacing: 0;
 }
 
+/* Report screens (the viewer, its tables, figures, dashboard tiles, the Explain panel) are denser than pages people read through:
+   docs/mockups/report-typography.html, option B. Dialogs and drawers open in a portal, so they keep the app's sizes. */
+.report-density {
+  --text-page-title: 20px;
+  --text-page-title--line-height: 28px;
+  --text-kpi: 22px;
+  --text-kpi--line-height: 28px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-button: 13px;
+  --text-button--line-height: 18px;
+}
+
 /* Numerals line up in tables and KPI tiles. */
 .cep-num {
   font-variant-numeric: tabular-nums;

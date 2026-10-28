@@ -16,9 +16,9 @@ export function KpiCard({ result, view, minHeight }: { result: RunResult; view: 
   const share = reach(figure.value, view.target)
   const met = share !== null && share >= 1
   return (
-    <div data-kpi className="flex flex-col gap-2 rounded-md border border-line p-5" style={{ minHeight: Math.min(minHeight, 200) }}>
+    <div data-kpi className="flex flex-col gap-1 rounded-md border border-line px-3 py-2.5" style={{ minHeight: Math.min(minHeight, 200) }}>
       <span className="text-sm font-medium text-ink-800">{figure.measure.label}</span>
-      <span className="cep-num font-display text-[40px] leading-none font-semibold text-ink-900">{formatCell(figure.measure, figure.value)}</span>
+      <span className="cep-num font-display text-kpi font-semibold text-ink-900">{formatCell(figure.measure, figure.value)}</span>
       {view.target !== undefined ? (
         <span className="cep-num text-sm text-ink-800">
           Target {formatCell(figure.measure, view.target)}

@@ -48,7 +48,7 @@ export default function EmbedPage() {
   }
   const data = page.data
   return (
-    <main className="flex min-h-dvh flex-col gap-4 bg-surface p-4 md:p-6">
+    <main className="report-density flex min-h-dvh flex-col gap-3 bg-surface p-4 md:p-6">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-display text-card-heading font-semibold text-ink-900">{data.name}</h1>
         <span className="text-xs text-ink-800">

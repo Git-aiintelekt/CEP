@@ -355,7 +355,7 @@ function Hierarchy({ result, label, minHeight, formats, onPick }: { result: RunR
       <div className="overflow-x-auto rounded-md border border-line" role="region" aria-label={label} style={{ minHeight }}>
         <table className="min-w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
           <thead className="bg-surface-subtle text-xs text-ink-800">
-            <tr className="h-9 border-b border-line">
+            <tr className="h-8 border-b border-line">
               <th scope="col" className="px-3 text-left font-semibold">{shape.levels.map((level) => level.label).join(' / ')}</th>
               {shape.measures.map((measure) => <th key={measure.key} scope="col" className="px-3 text-right font-semibold">{measure.label}</th>)}
             </tr>
@@ -364,7 +364,7 @@ function Hierarchy({ result, label, minHeight, formats, onPick }: { result: RunR
             {lines.map(({ node, id, open }) => {
               const group = node.children.length > 0
               return (
-                <tr key={id} className={`h-9 border-b border-line-subtle ${group ? 'bg-surface-subtle/60 font-medium text-ink-900' : 'text-ink-900'}`}>
+                <tr key={id} className={`h-8 border-b border-line-subtle ${group ? 'bg-surface-subtle/60 font-medium text-ink-900' : 'text-ink-900'}`}>
                   <td className="px-3" style={{ paddingLeft: 12 + node.depth * 20 }}>
                     {group ? (
                       <button type="button" aria-expanded={open} onClick={() => toggle(id)} className="inline-flex items-center gap-1 text-left hover:text-brand-800">
@@ -425,7 +425,7 @@ function Pivot({ result, view, label, minHeight, onPick }: { result: RunResult; 
       <div className="overflow-x-auto rounded-md border border-line" role="region" aria-label={label} style={{ minHeight }}>
         <table className="min-w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
           <thead className="bg-surface-subtle text-xs text-ink-800">
-            <tr className="h-9 border-b border-line">
+            <tr className="h-8 border-b border-line">
               <th scope="col" rowSpan={matrix ? 2 : 1} className="px-3 text-left font-semibold whitespace-nowrap">{shape.rowHeader}</th>
               {shape.columns.map((column) => <th key={column.key} scope="col" colSpan={span} className={`px-3 font-semibold whitespace-nowrap ${matrix ? `${edge} text-center` : 'text-right'}`}>{column.label}</th>)}
               <th scope="col" colSpan={span} className={`px-3 font-semibold ${edge} ${matrix ? 'text-center' : 'text-right'}`}>Total</th>
