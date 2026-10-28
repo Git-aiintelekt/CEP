@@ -10,6 +10,7 @@ from apps.insights import access as insights_access
 from apps.insights import ai_report as insights_ai
 from apps.insights import alerts as insights_alerts
 from apps.insights import base_reports as insights_base_reports
+from apps.insights import meaning as insights_meaning
 from apps.insights import fiscal as insights_fiscal
 from apps.insights import parameters as insights_parameters
 from apps.insights import formula as insights_formula
@@ -210,6 +211,11 @@ urlpatterns = [
     path("insights/base-reports/<slug:pack>/sources/", insights_base_reports.SourcesView.as_view(), name="insights-base-report-sources"),
     path("insights/base-reports/<slug:pack>/check/", insights_base_reports.CheckView.as_view(), name="insights-base-report-check"),
     path("insights/base-reports/<slug:pack>/add/", insights_base_reports.AddView.as_view(), name="insights-base-report-add"),
+    path("insights/benchmarks/", insights_meaning.BenchmarksView.as_view(), name="insights-benchmarks"),
+    path("insights/benchmarks/defaults/", insights_meaning.BenchmarkDefaultsView.as_view(), name="insights-benchmark-defaults"),
+    path("insights/benchmarks/<uuid:benchmark_id>/", insights_meaning.BenchmarkView.as_view(), name="insights-benchmark"),
+    path("insights/reports/<uuid:report_id>/meaning/", insights_meaning.MeaningView.as_view(), name="insights-report-meaning"),
+    path("insights/reports/<uuid:report_id>/meaning/failed.csv", insights_meaning.FailedExportView.as_view(), name="insights-report-meaning-failed"),
     path("insights/folders/", insights_library.FolderListView.as_view(), name="insights-folders"),
     path("insights/folders/<uuid:folder_id>/", insights_library.FolderView.as_view(), name="insights-folder"),
     path("insights/runs/", insights_audit.RunLogView.as_view(), name="insights-runs"),

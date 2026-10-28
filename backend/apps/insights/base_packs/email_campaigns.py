@@ -14,6 +14,7 @@ def _measure(column, label, format_="integer"):
 
 
 def _formula(dataset, label, expression, description, format_="percent"):
+    """a shared formula; a percent is worked out in percent (DIVIDE(...) * 100), as the app shows a percent's value with a % sign"""
     return {"dataset": dataset, "label": label, "kind": "measure", "expression": expression, "description": description, "format": format_}
 
 
@@ -59,23 +60,31 @@ DATASETS = [
 ]
 
 FORMULAS = [
-    _formula("messages", "Delivery Rate", "DIVIDE(SUM([Delivered]), SUM([Sent]))", "Delivered as a share of emails sent"),
-    _formula("messages", "Open Rate", "DIVIDE(SUM([Opened]), SUM([Delivered]))", "Recipients who opened, as a share of delivered"),
-    _formula("messages", "Click-Through Rate", "DIVIDE(SUM([Clicked]), SUM([Delivered]))", "Recipients who clicked, as a share of delivered"),
-    _formula("messages", "Bounce Rate", "DIVIDE(SUM([Hard Fail]), SUM([Sent]))", "Hard fails as a share of emails sent"),
-    _formula("messages", "Unsubscribe Rate", "DIVIDE(SUM([Unsubscribed]), SUM([Sent]))", "Unsubscribes as a share of emails sent"),
-    _formula("messages", "First-Attempt Rate", "DIVIDE(SUM([Delivered First Attempt]), SUM([Sent]))", "Delivered on the first attempt, as a share of emails sent"),
-    _formula("messages", "Retry Recovery", "DIVIDE(SUM([Delivered After Retry]), SUM([Delivered]))", "Deliveries that needed a retry, as a share of delivered"),
-    _formula("messages", "Retry %", "DIVIDE(SUM([Retried]), SUM([Sent]))", "Emails that needed more than one attempt"),
+    _formula("messages", "Delivery Rate", "DIVIDE(SUM([Delivered]), SUM([Sent])) * 100", "Delivered as a share of emails sent"),
+    _formula("messages", "Open Rate", "DIVIDE(SUM([Opened]), SUM([Delivered])) * 100", "Recipients who opened, as a share of delivered"),
+    _formula("messages", "Click-Through Rate", "DIVIDE(SUM([Clicked]), SUM([Delivered])) * 100", "Recipients who clicked, as a share of delivered"),
+    _formula("messages", "Bounce Rate", "DIVIDE(SUM([Hard Fail]), SUM([Sent])) * 100", "Hard fails as a share of emails sent"),
+    _formula("messages", "Unsubscribe Rate", "DIVIDE(SUM([Unsubscribed]), SUM([Sent])) * 100", "Unsubscribes as a share of emails sent"),
+    _formula("messages", "First-Attempt Rate", "DIVIDE(SUM([Delivered First Attempt]), SUM([Sent])) * 100", "Delivered on the first attempt, as a share of emails sent"),
+    _formula("messages", "Retry Recovery", "DIVIDE(SUM([Delivered After Retry]), SUM([Delivered])) * 100", "Deliveries that needed a retry, as a share of delivered"),
+    _formula("messages", "Retry %", "DIVIDE(SUM([Retried]), SUM([Sent])) * 100", "Emails that needed more than one attempt"),
     _formula("messages", "Avg Retries per Recipient", "DIVIDE(SUM([Retry Attempts]), SUM([Retried]))", "Retry attempts per retried recipient", "decimal"),
-    _formula("campaigns", "Delivery Rate", "DIVIDE(SUM([Delivered]), SUM([Emails Sent]))", "Delivered as a share of emails sent"),
-    _formula("campaigns", "Open Rate", "DIVIDE(SUM([Opened]), SUM([Delivered]))", "Recipients who opened, as a share of delivered"),
-    _formula("campaigns", "Click-Through Rate", "DIVIDE(SUM([Clicked]), SUM([Delivered]))", "Recipients who clicked, as a share of delivered"),
-    _formula("campaigns", "Unsubscribe Rate", "DIVIDE(SUM([Unsubscribed]), SUM([Emails Sent]))", "Unsubscribes as a share of emails sent"),
-    _formula("campaigns", "First-Attempt Rate", "DIVIDE(SUM([Delivered First Attempt]), SUM([Emails Sent]))", "Delivered on the first attempt"),
-    _formula("campaigns", "Retry Recovery", "DIVIDE(SUM([Delivered After Retry]), SUM([Delivered]))", "Deliveries that needed a retry"),
+    _formula("campaigns", "Delivery Rate", "DIVIDE(SUM([Delivered]), SUM([Emails Sent])) * 100", "Delivered as a share of emails sent"),
+    _formula("campaigns", "Open Rate", "DIVIDE(SUM([Opened]), SUM([Delivered])) * 100", "Recipients who opened, as a share of delivered"),
+    _formula("campaigns", "Click-Through Rate", "DIVIDE(SUM([Clicked]), SUM([Delivered])) * 100", "Recipients who clicked, as a share of delivered"),
+    _formula("campaigns", "Unsubscribe Rate", "DIVIDE(SUM([Unsubscribed]), SUM([Emails Sent])) * 100", "Unsubscribes as a share of emails sent"),
+    _formula("campaigns", "First-Attempt Rate", "DIVIDE(SUM([Delivered First Attempt]), SUM([Emails Sent])) * 100", "Delivered on the first attempt"),
+    _formula("campaigns", "Retry Recovery", "DIVIDE(SUM([Delivered After Retry]), SUM([Delivered])) * 100", "Deliveries that needed a retry"),
     _formula("clicks", "Emails Clicked", "DISTINCTCOUNT([Message Key])", "Emails with at least one click on the link", "integer"),
-    _formula("opens", "Machine Open Share", "DIVIDE(SUM([Machine Open]), SUM([Opens]))", "Opens by a proxy or scanner rather than a person"),
+    _formula("opens", "Machine Open Share", "DIVIDE(SUM([Machine Open]), SUM([Opens])) * 100", "Opens by a proxy or scanner rather than a person"),
+]
+
+# What "good" means for the messages dataset's rates (Settings -> Benchmarks offers them); count and base make each rate's range
+BENCHMARKS = [
+    {"dataset": "messages", "measure": "f_delivery_rate", "higher": True, "good": 95, "act": 90, "count": "delivered", "base": "sent"},
+    {"dataset": "messages", "measure": "f_bounce_rate", "higher": False, "good": 2, "act": 5, "count": "hard_fail", "base": "sent"},
+    {"dataset": "messages", "measure": "f_click_through_rate", "higher": True, "good": 1.5, "act": 0.5, "count": "clicked", "base": "delivered"},
+    {"dataset": "messages", "measure": "f_unsubscribe_rate", "higher": False, "good": 0.3, "act": 0.5, "count": "unsubscribed", "base": "sent"},
 ]
 
 LATEST_CAMPAIGN = {"key": "campaign", "field": "campaign_name", "label": "Campaign", "operator": "in", "required": False, "default": {"latest": True}}
@@ -206,5 +215,6 @@ PACK = {
     "formulas": FORMULAS,
     "reports": REPORTS,
     "dashboards": DASHBOARDS,
+    "benchmarks": BENCHMARKS,
     "checked": email_sql.checked,
 }
