@@ -8,7 +8,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { buttonDanger, buttonSecondary } from '@/components/Form'
+import { buttonClass } from '@/components/buttonStyles'
+import { buttonSecondary } from '@/components/Form'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -29,6 +30,9 @@ import { SavedViews } from '../dashboards/SavedViews'
 import { SlicerBar } from '../dashboards/SlicerBar'
 import { Tabs } from '@/components/Tabs'
 import type { CommentAnchor, DashboardSlicer, DashboardTile, DrillStep, Period, ResultColumn, SavedView, SlicerSelection } from '../types'
+
+const headerButton = buttonClass({ size: 'sm' })
+const headerDanger = buttonClass({ variant: 'danger', size: 'sm' })
 
 export function DashboardPage() {
   const { id } = useParams()
@@ -116,21 +120,21 @@ export function DashboardPage() {
     setSelection((now) => ({ ...now, [field]: [] }))
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="report-density flex min-h-0 flex-1 flex-col gap-3">
       <p className="text-xs text-ink-800"><Link to="/insights/dashboards" className="text-brand-800 hover:underline">Dashboards</Link> › {data.name}</p>
       <PageHeader help={<PageHelp chapter="insights" />} title={data.name} description={data.description ?? `${tiles(data.layout).length} tile${tiles(data.layout).length === 1 ? '' : 's'} · ${periodWords(data.bounds)}`}
         actions={(
           <div className="flex items-center gap-2">
             {(can('report.edit') || can('report.admin')) && (
-              <button type="button" className={buttonSecondary} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
+              <button type="button" className={headerButton} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
             )}
-            {data.can_share && <button type="button" className={buttonSecondary} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{data.shared ? 'Shared' : 'Share'}</button>}
-            {data.can_share && <button type="button" className={buttonSecondary} onClick={() => setEmbedding(true)}><Link2 size={16} strokeWidth={1.5} aria-hidden />Embed</button>}
-            <button type="button" className={buttonSecondary} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
-            <button type="button" className={buttonSecondary} onClick={() => exportAs('pdf')} disabled={exporting !== null || tiles(data.layout).length === 0}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
-            <button type="button" className={buttonSecondary} onClick={() => exportAs('pptx')} disabled={exporting !== null || tiles(data.layout).length === 0}><Presentation size={16} strokeWidth={1.5} aria-hidden />Export PowerPoint</button>
-            {data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
-            {data.can_edit && <button type="button" className={buttonDanger} onClick={deleteDashboard} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
+            {data.can_share && <button type="button" className={headerButton} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{data.shared ? 'Shared' : 'Share'}</button>}
+            {data.can_share && <button type="button" className={headerButton} onClick={() => setEmbedding(true)}><Link2 size={16} strokeWidth={1.5} aria-hidden />Embed</button>}
+            <button type="button" className={headerButton} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
+            <button type="button" className={headerButton} onClick={() => exportAs('pdf')} disabled={exporting !== null || tiles(data.layout).length === 0}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
+            <button type="button" className={headerButton} onClick={() => exportAs('pptx')} disabled={exporting !== null || tiles(data.layout).length === 0}><Presentation size={16} strokeWidth={1.5} aria-hidden />Export PowerPoint</button>
+            {data.can_edit && <button type="button" className={headerButton} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
+            {data.can_edit && <button type="button" className={headerDanger} onClick={deleteDashboard} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
           </div>
         )} />
       {schedule && <ScheduleBanner schedule={schedule} onChange={() => setScheduling(true)} />}

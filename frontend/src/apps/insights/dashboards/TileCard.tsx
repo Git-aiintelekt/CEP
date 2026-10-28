@@ -109,7 +109,7 @@ function TileBody({ data, tile, onPick, onContext }: { data: TileResult; tile: D
     const change = data.compared && data.previous !== null && data.value !== null && Number(data.previous) !== 0 ? (Number(data.value) - Number(data.previous)) / Math.abs(Number(data.previous)) : null
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="cep-num font-display text-[26px] leading-tight font-semibold text-ink-900">{value}</span>
+        <span className="cep-num font-display text-kpi font-semibold text-ink-900">{value}</span>
         {data.compared && (
           <span className="cep-num text-xs font-semibold text-ink-800">
             {change === null ? 'No previous period to compare' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(change * 100).toFixed(1)}% vs previous`}

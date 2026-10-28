@@ -33,8 +33,8 @@ const theme = themeQuartz.withParams({
   fontSize: 13,
   headerFontSize: 12,
   headerFontWeight: 600,
-  rowHeight: 36,
-  headerHeight: 36,
+  rowHeight: 32,
+  headerHeight: 32,
   wrapperBorderRadius: 0,
   cellHorizontalPadding: 12,
 })
