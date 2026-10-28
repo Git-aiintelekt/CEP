@@ -63,7 +63,8 @@ test('the viewer: opening is counted; Explain says what it means, then the AI re
   const calls = await renderAppAt('/insights/reports/rep-1')
   await screen.findByRole('heading', { name: 'Sends by campaign' })
   await vi.waitFor(() => expect(insightsOpenedNow).toContainEqual({ kind: 'report', id: 'rep-1' }))
-  await user.click(await screen.findByRole('button', { name: 'Explain' }, { timeout: 5000 }))
+  await user.click(await screen.findByRole('button', { name: 'More actions' }, { timeout: 5000 }))
+  await user.click(screen.getByRole('menuitem', { name: 'Explain' }))
   const explained = await screen.findByRole('region', { name: 'Explanation' })
   expect(await within(explained).findByText('Sent Count: 2,000.')).toBeTruthy()                 // What This Means first: rules, no prompt
   expect(calls.some((call) => call.url.endsWith('/insights/reports/rep-1/explain/'))).toBe(false)

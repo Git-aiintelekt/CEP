@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
+import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
@@ -50,8 +50,7 @@ function readThrough(raw: string | null): { field: string; value: unknown }[] {
   }
 }
 
-const headerButton = buttonClass({ size: 'sm' })
-const headerDanger = buttonClass({ variant: 'danger', size: 'sm' })
+const ICON = { size: 16, strokeWidth: 1.5, 'aria-hidden': true } as const
 
 export function ReportViewerPage() {
   const { id } = useParams()
@@ -103,9 +102,15 @@ export function ReportViewerPage() {
   useEffect(() => {
     if (!more) return
     const away = (event: PointerEvent) => { if (!moreBox.current?.contains(event.target as Node)) setMore(false) }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMore(false) }
     document.addEventListener('pointerdown', away)
-    return () => document.removeEventListener('pointerdown', away)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', escape)
+    }
   }, [more])
+  const act = (then: () => void) => { setMore(false); then() }
   useEffect(() => { if (id) usageApi.opened('report', id).catch(() => undefined) }, [id])
   const builder = can('report.edit') || can('report.admin')
   const comments = useComments('report', id)
@@ -188,34 +193,38 @@ export function ReportViewerPage() {
           <div className="flex items-center gap-2">
             {report.data.can_edit && <ComponentSelect inline value={report.data.component_key ?? null} auto={report.data.component_auto ?? null} onChange={(key) => move.mutate(key)} disabled={move.isPending} />}
             {report.data.can_edit && <FolderSelect value={report.data.folder_id} onChange={(folderId) => file.mutate(folderId)} disabled={file.isPending} />}
-            {report.data.can_share && <button type="button" className={headerButton} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{report.data.shared ? 'Shared' : 'Share'}</button>}
-            <button type="button" className={headerButton} onClick={() => setVersionsOpen(true)}><History size={16} strokeWidth={1.5} aria-hidden />Versions</button>
-            {(can('report.edit') || can('report.admin')) && (
-              <button type="button" className={headerButton} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
-            )}
-            <button type="button" className={headerButton} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
-            <button type="button" className={headerButton} onClick={() => setAlerting(true)}><Bell size={16} strokeWidth={1.5} aria-hidden />Alerts</button>
-            <button type="button" className={headerButton} onClick={() => setExplaining(true)} disabled={!info}><Sparkles size={16} strokeWidth={1.5} aria-hidden />Explain</button>
-            {report.data.can_edit && <button type="button" className={headerButton} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
-            <button type="button" className={headerButton} onClick={() => exportAs('csv')} disabled={exporting !== null || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
-            <button type="button" className={headerButton} onClick={() => exportAs('xlsx')} disabled={exporting !== null || !info}><FileSpreadsheet size={16} strokeWidth={1.5} aria-hidden />Export Excel</button>
-            <button type="button" className={headerButton} onClick={() => exportAs('pdf')} disabled={exporting !== null || !info}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
-            {report.data.can_edit && <button type="button" className={headerDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
-            {(
-              <div ref={moreBox} className="relative">
-                <button type="button" aria-haspopup="menu" aria-expanded={more} aria-label="More actions" onClick={() => setMore((open) => !open)} className={iconButtonClass({ pressed: more })}>
-                  <MoreHorizontal size={18} strokeWidth={1.5} aria-hidden />
-                </button>
-                {more && (
-                  <div role="menu" className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-md border border-line bg-surface-overlay shadow-menu">
-                    <MenuRow role="menuitem" divider={false} leading={<Presentation size={16} strokeWidth={1.5} aria-hidden />} title="Export PowerPoint" disabled={exporting !== null || !info} onClick={() => { setMore(false); void exportAs('pptx') }} />
-                    <MenuRow role="menuitem" divider={false} leading={<Printer size={16} strokeWidth={1.5} aria-hidden />} title="Print-Ready PDF" disabled={!info} onClick={() => { setMore(false); setPrinting(true) }} />
-                    {builder && <MenuRow role="menuitem" divider={false} leading={<Code2 size={16} strokeWidth={1.5} aria-hidden />} title="Show the SQL" onClick={() => { setMore(false); setShowSql(true) }} />}
-                    {report.data.can_share && <MenuRow role="menuitem" divider={false} leading={<Link2 size={16} strokeWidth={1.5} aria-hidden />} title="Embed on Another Site" onClick={() => { setMore(false); setEmbedding(true) }} />}
-                  </div>
-                )}
-              </div>
-            )}
+            <div ref={moreBox} className="relative">
+              <button type="button" aria-haspopup="menu" aria-expanded={more} aria-label="More actions" onClick={() => setMore((open) => !open)} className={iconButtonClass({ pressed: more })}>
+                <MoreHorizontal size={18} strokeWidth={1.5} aria-hidden />
+              </button>
+              {more && (
+                <div role="menu" aria-label="More actions" className="absolute right-0 z-20 mt-1 max-h-[calc(100dvh-10rem)] w-64 overflow-y-auto rounded-md border border-line bg-surface-overlay shadow-menu">
+                  <MenuRow role="menuitem" divider={false} leading={<Sparkles {...ICON} />} title="Explain" disabled={!info} onClick={() => act(() => setExplaining(true))} />
+                  {report.data.can_edit && <MenuRow role="menuitem" divider={false} leading={<Pencil {...ICON} />} title="Edit" onClick={() => act(() => navigate(`/insights/reports/${id}/edit`))} />}
+                  <MenuGap />
+                  {report.data.can_share && <MenuRow role="menuitem" divider={false} leading={<Share2 {...ICON} />} title={report.data.shared ? 'Shared' : 'Share'} onClick={() => act(() => setSharing(true))} />}
+                  <MenuRow role="menuitem" divider={false} leading={<MessageSquare {...ICON} />} title={openComments.length ? `Comments · ${openComments.length}` : 'Comments'} onClick={() => act(() => setTalking({ anchor: null }))} />
+                  <MenuRow role="menuitem" divider={false} leading={<Bell {...ICON} />} title="Alerts" onClick={() => act(() => setAlerting(true))} />
+                  {(can('report.edit') || can('report.admin')) && (
+                    <MenuRow role="menuitem" divider={false} leading={<CalendarClock {...ICON} />} title={schedule ? `Scheduled · ${schedule.words}` : 'Schedule'} onClick={() => act(() => setScheduling(true))} />
+                  )}
+                  <MenuRow role="menuitem" divider={false} leading={<History {...ICON} />} title="Versions" onClick={() => act(() => setVersionsOpen(true))} />
+                  <MenuGap />
+                  <MenuRow role="menuitem" divider={false} leading={<Download {...ICON} />} title="Export CSV" disabled={exporting !== null || !info} onClick={() => act(() => void exportAs('csv'))} />
+                  <MenuRow role="menuitem" divider={false} leading={<FileSpreadsheet {...ICON} />} title="Export Excel" disabled={exporting !== null || !info} onClick={() => act(() => void exportAs('xlsx'))} />
+                  <MenuRow role="menuitem" divider={false} leading={<FileText {...ICON} />} title="Export PDF" disabled={exporting !== null || !info} onClick={() => act(() => void exportAs('pdf'))} />
+                  <MenuRow role="menuitem" divider={false} leading={<Presentation {...ICON} />} title="Export PowerPoint" disabled={exporting !== null || !info} onClick={() => act(() => void exportAs('pptx'))} />
+                  <MenuRow role="menuitem" divider={false} leading={<Printer {...ICON} />} title="Print-Ready PDF" disabled={!info} onClick={() => act(() => setPrinting(true))} />
+                  {(builder || report.data.can_share) && <MenuGap />}
+                  {builder && <MenuRow role="menuitem" divider={false} leading={<Code2 {...ICON} />} title="Show the SQL" onClick={() => act(() => setShowSql(true))} />}
+                  {report.data.can_share && <MenuRow role="menuitem" divider={false} leading={<Link2 {...ICON} />} title="Embed on Another Site" onClick={() => act(() => setEmbedding(true))} />}
+                  {report.data.can_edit && <>
+                    <MenuGap />
+                    <MenuRow role="menuitem" divider={false} tone="error" leading={<Trash2 {...ICON} className="text-danger-text" />} title="Delete" disabled={remove.isPending} onClick={() => act(deleteReport)} />
+                  </>}
+                </div>
+              )}
+            </div>
           </div>
         )}
       />
@@ -286,4 +295,9 @@ export function ReportViewerPage() {
       {versionsOpen && <VersionsDrawer report={report.data} shown={shownVersion} canEdit={report.data.can_edit} onOpen={(v) => { setShownVersion(v); setView(null); if (v !== null) setVersionsOpen(false) }} onClose={() => setVersionsOpen(false)} />}
     </div>
   )
+}
+
+/** a hairline between groups of menu rows */
+function MenuGap() {
+  return <div role="separator" className="my-1 border-t border-line-subtle" />
 }

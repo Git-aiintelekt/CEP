@@ -46,7 +46,9 @@ test('figures read as the rules write them, and the brief copies as plain text',
 test('Explain shows What This Means even with the AI switched off, and says how to get a verdict', async () => {
   const calls = await renderAppAt('/insights/reports/rep-1', () => { workspaceAssistantNow.explain = false })
   await screen.findByRole('heading', { name: 'Sends by campaign' })
-  await userEvent.setup().click(await screen.findByRole('button', { name: 'Explain' }, { timeout: 5000 }))
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'More actions' }, { timeout: 5000 }))
+  await user.click(screen.getByRole('menuitem', { name: 'Explain' }))
   const explained = await screen.findByRole('region', { name: 'Explanation' })
   expect(await within(explained).findByText('No Benchmark')).toBeTruthy()
   expect(within(explained).getByText('Largest Campaign: Fall Launch, 1,200 (60.0% of Sent Count).')).toBeTruthy()

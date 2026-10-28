@@ -79,7 +79,8 @@ test('a report that asks: nothing runs until Channel is chosen; Run Report sends
   await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/rep-asked/run/') && JSON.stringify((c.body as { params?: unknown }).params) === '{"channel":["SMS"]}')).toBe(true))
   expect(await screen.findByText('Weekend Flash Sale')).toBeTruthy()
   expect(screen.queryByText('Fall Launch')).toBeNull()
-  await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+  await user.click(await screen.findByRole('button', { name: 'More actions' }, { timeout: 5000 }))
+  await user.click(screen.getByRole('menuitem', { name: 'Export CSV' }))
   await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/rep-asked/export.csv?params=') && decodeURIComponent(c.url).includes('{"channel":["SMS"]}'))).toBe(true))
 })
 
