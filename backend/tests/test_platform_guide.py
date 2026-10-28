@@ -36,7 +36,7 @@ def test_platform_guide(check):
     check("the sidebar offers the Platform Guide", "Platform Guide" in body and "menu_book" in body)
     page = client.get("/admin/platform_ops/platformsetting/guide/onboarding/")
     body = page.content.decode() if page.status_code == 200 else ""
-    check("a chapter page renders its sections and its table", page.status_code == 200 and "<h1>Onboarding a Tenant</h1>" in body and "<h2>The six steps</h2>" in body
+    check("a chapter page renders its sections and its table", page.status_code == 200 and "<h1>Onboarding a Tenant</h1>" in body and "<h2>The seven steps</h2>" in body
           and "<th>Step</th>" in body and "Onboard CODE" in body, f"{page.status_code}")
     check("the chapter list marks the current chapter", 'aria-current="page"' in body)
     page = client.get("/admin/platform_ops/platformsetting/guide/no-such-chapter/")
