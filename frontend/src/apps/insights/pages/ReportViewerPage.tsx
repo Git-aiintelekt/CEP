@@ -4,12 +4,11 @@
  * chart, a click on a bar, a slice or a stage drills one level down (the report's next dimension, or a date's next
  * bucket); the drill path above it goes back up. Switching the view leaves the drill.
  */
-import { Bell, CalendarClock, Code2, Download, FileSpreadsheet, FileText, History, Link2, Lock, MessageSquare, MoreHorizontal, Pencil, Presentation, Printer, Share2, Sparkles, Trash2 } from 'lucide-react'
+import { Bell, CalendarClock, Code2, Download, FileSpreadsheet, FileText, History, Link2, Lock, MessageSquare, Pencil, Presentation, Printer, Share2, Sparkles, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
@@ -19,6 +18,7 @@ import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
 import { insightsApi, keys, usageApi, useAssistant, useCatalog, useComments, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
+import { ActionsMenu, MenuGap } from '../components/ActionsMenu'
 import { AlertsDialog } from '../components/AlertsDialog'
 import { CommentsDrawer } from '../components/CommentsDrawer'
 import { ParameterBar } from '../components/ParameterBar'
@@ -95,22 +95,8 @@ export function ReportViewerPage() {
   const explain = useMutation<Explanation, Error>({
     mutationFn: () => insightsApi.explain(id as string, { model: explainer?.model?.id, ...(path.length ? { drill: { path, ...(tabled ? { keep_rest: true } : {}) } } : {}), ...(sent ? { params: sent } : {}) }),
   })
-  const [more, setMore] = useState(false)
   const [showSql, setShowSql] = useState(false)
   const [embedding, setEmbedding] = useState(false)
-  const moreBox = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!more) return
-    const away = (event: PointerEvent) => { if (!moreBox.current?.contains(event.target as Node)) setMore(false) }
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMore(false) }
-    document.addEventListener('pointerdown', away)
-    document.addEventListener('keydown', escape)
-    return () => {
-      document.removeEventListener('pointerdown', away)
-      document.removeEventListener('keydown', escape)
-    }
-  }, [more])
-  const act = (then: () => void) => { setMore(false); then() }
   useEffect(() => { if (id) usageApi.opened('report', id).catch(() => undefined) }, [id])
   const builder = can('report.edit') || can('report.admin')
   const comments = useComments('report', id)
@@ -193,12 +179,8 @@ export function ReportViewerPage() {
           <div className="flex items-center gap-2">
             {report.data.can_edit && <ComponentSelect inline value={report.data.component_key ?? null} auto={report.data.component_auto ?? null} onChange={(key) => move.mutate(key)} disabled={move.isPending} />}
             {report.data.can_edit && <FolderSelect value={report.data.folder_id} onChange={(folderId) => file.mutate(folderId)} disabled={file.isPending} />}
-            <div ref={moreBox} className="relative">
-              <button type="button" aria-haspopup="menu" aria-expanded={more} aria-label="More actions" onClick={() => setMore((open) => !open)} className={iconButtonClass({ pressed: more })}>
-                <MoreHorizontal size={18} strokeWidth={1.5} aria-hidden />
-              </button>
-              {more && (
-                <div role="menu" aria-label="More actions" className="absolute right-0 z-20 mt-1 max-h-[calc(100dvh-10rem)] w-64 overflow-y-auto rounded-md border border-line bg-surface-overlay shadow-menu">
+            <ActionsMenu>{(act) => (
+                <>
                   <MenuRow role="menuitem" divider={false} leading={<Sparkles {...ICON} />} title="Explain" disabled={!info} onClick={() => act(() => setExplaining(true))} />
                   {report.data.can_edit && <MenuRow role="menuitem" divider={false} leading={<Pencil {...ICON} />} title="Edit" onClick={() => act(() => navigate(`/insights/reports/${id}/edit`))} />}
                   <MenuGap />
@@ -222,9 +204,8 @@ export function ReportViewerPage() {
                     <MenuGap />
                     <MenuRow role="menuitem" divider={false} tone="error" leading={<Trash2 {...ICON} className="text-danger-text" />} title="Delete" disabled={remove.isPending} onClick={() => act(deleteReport)} />
                   </>}
-                </div>
-              )}
-            </div>
+                </>
+            )}</ActionsMenu>
           </div>
         )}
       />
@@ -295,9 +276,4 @@ export function ReportViewerPage() {
       {versionsOpen && <VersionsDrawer report={report.data} shown={shownVersion} canEdit={report.data.can_edit} onOpen={(v) => { setShownVersion(v); setView(null); if (v !== null) setVersionsOpen(false) }} onClose={() => setVersionsOpen(false)} />}
     </div>
   )
-}
-
-/** a hairline between groups of menu rows */
-function MenuGap() {
-  return <div role="separator" className="my-1 border-t border-line-subtle" />
 }

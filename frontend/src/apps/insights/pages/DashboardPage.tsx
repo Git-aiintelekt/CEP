@@ -8,14 +8,15 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { buttonClass } from '@/components/buttonStyles'
 import { buttonSecondary } from '@/components/Form'
+import { MenuRow } from '@/components/MenuRow'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/auth/AuthContext'
 import { dashboardsApi, keys, usageApi, useComments, useDashboard, useDeleteDashboard, useSchedules } from '../api'
+import { ActionsMenu, MenuGap } from '../components/ActionsMenu'
 import { CommentsDrawer } from '../components/CommentsDrawer'
 import { themeStyle } from '../dashboards/themes'
 import { EmbedDialog } from '../components/EmbedDialog'
@@ -31,8 +32,7 @@ import { SlicerBar } from '../dashboards/SlicerBar'
 import { Tabs } from '@/components/Tabs'
 import type { CommentAnchor, DashboardSlicer, DashboardTile, DrillStep, Period, ResultColumn, SavedView, SlicerSelection } from '../types'
 
-const headerButton = buttonClass({ size: 'sm' })
-const headerDanger = buttonClass({ variant: 'danger', size: 'sm' })
+const ICON = { size: 16, strokeWidth: 1.5, 'aria-hidden': true } as const
 
 export function DashboardPage() {
   const { id } = useParams()
@@ -124,18 +124,30 @@ export function DashboardPage() {
       <p className="text-xs text-ink-800"><Link to="/insights/dashboards" className="text-brand-800 hover:underline">Dashboards</Link> › {data.name}</p>
       <PageHeader help={<PageHelp chapter="insights" />} title={data.name} description={data.description ?? `${tiles(data.layout).length} tile${tiles(data.layout).length === 1 ? '' : 's'} · ${periodWords(data.bounds)}`}
         actions={(
-          <div className="flex items-center gap-2">
-            {(can('report.edit') || can('report.admin')) && (
-              <button type="button" className={headerButton} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
-            )}
-            {data.can_share && <button type="button" className={headerButton} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{data.shared ? 'Shared' : 'Share'}</button>}
-            {data.can_share && <button type="button" className={headerButton} onClick={() => setEmbedding(true)}><Link2 size={16} strokeWidth={1.5} aria-hidden />Embed</button>}
-            <button type="button" className={headerButton} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
-            <button type="button" className={headerButton} onClick={() => exportAs('pdf')} disabled={exporting !== null || tiles(data.layout).length === 0}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
-            <button type="button" className={headerButton} onClick={() => exportAs('pptx')} disabled={exporting !== null || tiles(data.layout).length === 0}><Presentation size={16} strokeWidth={1.5} aria-hidden />Export PowerPoint</button>
-            {data.can_edit && <button type="button" className={headerButton} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
-            {data.can_edit && <button type="button" className={headerDanger} onClick={deleteDashboard} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
-          </div>
+          <ActionsMenu>{(act) => (
+            <>
+              {data.can_edit && <>
+                <MenuRow role="menuitem" divider={false} leading={<Pencil {...ICON} />} title="Edit" onClick={() => act(() => navigate(`/insights/dashboards/${id}/edit`))} />
+                <MenuGap />
+              </>}
+              {data.can_share && <MenuRow role="menuitem" divider={false} leading={<Share2 {...ICON} />} title={data.shared ? 'Shared' : 'Share'} onClick={() => act(() => setSharing(true))} />}
+              <MenuRow role="menuitem" divider={false} leading={<MessageSquare {...ICON} />} title={openComments.length ? `Comments · ${openComments.length}` : 'Comments'} onClick={() => act(() => setTalking({ anchor: null }))} />
+              {(can('report.edit') || can('report.admin')) && (
+                <MenuRow role="menuitem" divider={false} leading={<CalendarClock {...ICON} />} title={schedule ? `Scheduled · ${schedule.words}` : 'Schedule'} onClick={() => act(() => setScheduling(true))} />
+              )}
+              <MenuGap />
+              <MenuRow role="menuitem" divider={false} leading={<FileText {...ICON} />} title="Export PDF" disabled={exporting !== null || tiles(data.layout).length === 0} onClick={() => act(() => void exportAs('pdf'))} />
+              <MenuRow role="menuitem" divider={false} leading={<Presentation {...ICON} />} title="Export PowerPoint" disabled={exporting !== null || tiles(data.layout).length === 0} onClick={() => act(() => void exportAs('pptx'))} />
+              {data.can_share && <>
+                <MenuGap />
+                <MenuRow role="menuitem" divider={false} leading={<Link2 {...ICON} />} title="Embed on Another Site" onClick={() => act(() => setEmbedding(true))} />
+              </>}
+              {data.can_edit && <>
+                <MenuGap />
+                <MenuRow role="menuitem" divider={false} tone="error" leading={<Trash2 {...ICON} className="text-danger-text" />} title="Delete" disabled={remove.isPending} onClick={() => act(deleteDashboard)} />
+              </>}
+            </>
+          )}</ActionsMenu>
         )} />
       {schedule && <ScheduleBanner schedule={schedule} onChange={() => setScheduling(true)} />}
       <PeriodBar period={shownPeriod} onPeriod={setPeriod} compare={shownCompare} onCompare={setCompare} bounds={saved ? data.bounds : undefined} />

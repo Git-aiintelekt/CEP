@@ -144,7 +144,8 @@ test('a dashboard on a canvas with a theme: a text tile, a button to another pag
   await vi.waitFor(() => expect(insightsCommentsNow[0]).toMatchObject({ kind: 'dashboard', anchor: { tile_id: 'n1' } }))
   await user.click(within(drawer).getByRole('button', { name: 'Close' }))
   expect(await screen.findByRole('button', { name: 'Comments on Read Me, 1' })).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Export PowerPoint' }))
+  await user.click(await screen.findByRole('button', { name: 'More actions' }, { timeout: 5000 }))
+  await user.click(screen.getByRole('menuitem', { name: 'Export PowerPoint' }))
   await vi.waitFor(() => expect(calls.some((c) => c.url.endsWith('/insights/dashboards/dash-1/export.pptx'))).toBe(true))
 })
 

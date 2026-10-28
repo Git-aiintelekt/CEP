@@ -192,7 +192,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Share a report or a dashboard**
 
-1. Open it and press **Share** (the owner, or a report administrator). On a report, Share is in **More actions** (the three dots).
+1. Open it, open **More actions** (the three dots) and choose **Share** (the owner, or a report administrator).
 2. Choose who can open it: **You and the people and roles below**, or **Everyone in the workspace**.
 3. Find a person or a role and add them. Give each **Can View** or **Can Edit**; Can Edit lets someone who builds reports change it. A role reaches everyone holding it.
 4. Press **Save**. The list shows a private report as shared.
@@ -226,7 +226,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Add slicers to a dashboard** (its owner or a report administrator)
 
-1. Open the dashboard and press **Edit**.
+1. Open the dashboard, open **More actions** (the three dots) and choose **Edit**.
 2. Under the period, press **Add Slicer** and choose a dimension, such as Channel or Store. The list shows the dimensions of the tiles' datasets, up to six.
 3. Remove one with its cross, then press **Done**.
 
@@ -330,7 +330,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Embed a report or a dashboard on another site**
 
-1. Open it. For a report, choose **More actions → Embed on Another Site**; for a dashboard, press **Embed** (its owner, or a report administrator).
+1. Open it and choose **More actions → Embed on Another Site** (its owner, or a report administrator).
 2. Add a label for where it goes, choose when it expires, and press **Make a Link**.
 3. Copy the **Address**, or the **Code to paste into a page** (an iframe). The link is shown only once.
 4. Anyone with the link sees the item read-only, without signing in, as you see it: your row access rules apply and personal data is always masked. **Revoke** stops a link at once.
@@ -441,14 +441,14 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Comment on a report or a dashboard, and pin a note to a value**
 
-1. Open the report or dashboard and press **Comments** (on a report, in **More actions**). Write in the box at the bottom and press **Add Comment**.
+1. Open the report or dashboard, open **More actions** and choose **Comments**. Write in the box at the bottom and press **Add Comment**.
 2. To pin a note to a value, right-click it on a chart or a table and choose **Comment on This Value**. The chart then marks that value, and hovering it shows the note.
 3. On a dashboard, a tile's speech-bubble icon opens comments on that tile, with the count beside it.
 4. **Resolve** puts a thread among the resolved; **Open again** brings it back. You change or delete your own comments; the owner and report administrators delete any.
 
 **Export to PowerPoint**
 
-1. For a report, open **More actions** (the three dots) and choose **Export PowerPoint**. For a dashboard, press **Export PowerPoint**.
+1. Open the report or dashboard, open **More actions** (the three dots) and choose **Export PowerPoint**.
 2. The deck has a cover, then a slide per tile (or for the report's view): bars, lines, areas, stacks, pies and funnels as charts you can edit in PowerPoint, figures as large numbers, text and summaries as words, other views as tables.
 3. A schedule can send PowerPoint too: choose it under **Send as**.
 
@@ -674,11 +674,12 @@ A dashboard is a page of tiles, each tile a saved report in one of its views or 
 - **Slicers**: in the editor, **Add Slicer** picks a dimension the tiles' datasets share (Channel, Store, Campaign…), up to six. Viewing, each slicer is a chip under the period; open it, tick values and **Apply**, and every tile whose data has that field runs narrowed to them. A tile without the field says **Not sliced by** it. **Clear** takes the values off.
 - **Cross-filtering**: click a bar, a slice of a pie, a stage of a funnel or a cell in a grid tile, and the other tiles narrow to that value. When the field is not one of the dashboard's slicers, a chip appears for it with a cross to take it off. Clicking the same value again clears it.
 - Viewing a dashboard, you can switch the period, the comparison and the slicers for a look without saving; nothing of a selection is saved, and a PDF or a scheduled delivery is the dashboard as saved.
+- A dashboard's actions are in **More actions** (the three dots), as a report's are: Edit; Share, Comments and Schedule; Export PDF and Export PowerPoint; Embed on Another Site; Delete last.
 - **Export PDF** gives the dashboard with its tiles on its saved period; **Schedule** emails it as PDF.
 
 ## Scheduled delivery
 
-Press **Schedule** on a dashboard, or choose it in **More actions** on a report:
+Choose **Schedule** in **More actions** on a report or a dashboard:
 
 | Field | Meaning |
 |---|---|
