@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { buttonClass } from '@/components/buttonStyles'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
+import { MenuRow } from '@/components/MenuRow'
 import { PageHeader } from '@/components/ResourceList'
+import { ActionsMenu, MenuGap } from '../components/ActionsMenu'
 import { DashboardBody } from '../dashboards/DashboardBody'
 import { PeriodBar } from '../dashboards/PeriodBar'
 import { SlicerBar } from '../dashboards/SlicerBar'
@@ -127,7 +128,19 @@ export default function DashboardPlayground() {
   return (
     <div className={`${editing ? 'gap-4' : 'report-density gap-3'} flex min-h-0 flex-1 flex-col`}>
       <PageHeader title="Marketing Weekly" description={editing ? undefined : `Sends, revenue and the top campaigns, by week · ${periodWords(bounds)}`}
-        actions={<div className="flex gap-2">{editing ? <><span className={buttonSecondary}>Add Tile</span><span className={buttonPrimary}>Done</span></> : <span className={buttonClass({ size: 'sm' })}>Edit</span>}</div>} />
+        actions={<div className="flex gap-2">{editing ? <><span className={buttonSecondary}>Add Tile</span><span className={buttonPrimary}>Done</span></> : <ActionsMenu>{(act) => (
+          <>
+            <MenuRow role="menuitem" divider={false} title="Edit" onClick={() => act(() => undefined)} />
+            <MenuGap />
+            {['Share', 'Comments', 'Schedule'].map((title) => <MenuRow key={title} role="menuitem" divider={false} title={title} onClick={() => act(() => undefined)} />)}
+            <MenuGap />
+            {['Export PDF', 'Export PowerPoint'].map((title) => <MenuRow key={title} role="menuitem" divider={false} title={title} onClick={() => act(() => undefined)} />)}
+            <MenuGap />
+            <MenuRow role="menuitem" divider={false} title="Embed on Another Site" onClick={() => act(() => undefined)} />
+            <MenuGap />
+            <MenuRow role="menuitem" divider={false} tone="error" title="Delete" onClick={() => act(() => undefined)} />
+          </>
+        )}</ActionsMenu>}</div>} />
       <PeriodBar period={period} onPeriod={setPeriod} compare={compare} onCompare={setCompare} bounds={bounds} />
       {!editing && <SlicerBar slicers={layout.slicers ?? []} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))}
         onRemoveExtra={(field) => { setExtra((now) => now.filter((item) => item.field !== field)); setSelection((now) => ({ ...now, [field]: [] })) }}
