@@ -12,10 +12,10 @@ import { CategoryChip, ChannelIcons, FamilyChip, StepStrip, StepTypeStrip, Templ
 
 const CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg bg-surface text-left transition-colors duration-fast ease-standard'
 /** a card on the Journey Templates band: one shade lighter than the band in dark, white on blue in light */
-const BAND_CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg bg-surface-overlay text-left transition-colors duration-fast ease-standard'
-const ROUND_ARROW = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-on-brand group-active:border-brand-800 group-active:bg-brand-fill-pressed'
+export const BAND_CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg bg-surface-overlay text-left transition-colors duration-fast ease-standard'
+export const ROUND_ARROW = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-on-brand group-active:border-brand-800 group-active:bg-brand-fill-pressed'
 
-export function ScratchCard({ onClick }: { onClick: () => void }) {
+export function ScratchCard({ onClick, hint = 'Blank canvas. You choose the trigger and every step.' }: { onClick: () => void; hint?: string }) {
   return (
     <button type="button" onClick={onClick} className={`${BAND_CARD} hover:bg-surface-hover active:bg-fill-subtle`}>
       <span aria-hidden className="flex h-[88px] w-full shrink-0 items-center justify-center bg-plum-50">
@@ -28,7 +28,7 @@ export function ScratchCard({ onClick }: { onClick: () => void }) {
           <span className="text-card-title font-semibold text-ink-900">Start from Scratch</span>
           <span aria-hidden className={ROUND_ARROW}><ArrowRight size={14} strokeWidth={1.5} /></span>
         </span>
-        <span className="text-helper text-ink-800">Blank canvas. You choose the trigger and every step.</span>
+        <span className="text-helper text-ink-800">{hint}</span>
       </span>
     </button>
   )

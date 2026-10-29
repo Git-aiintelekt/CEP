@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboards Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#fff; --subtle:#f9fafb; --hover:#eeeff5; --sunken:#eeeff5; --canvas:#f3f4f7; --fill-muted:#e7e8ef;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --sidebar:#20265d; --sidebar-text:#e7e8ef; --sidebar-icon:#a9afd0; --sidebar-selected:#313c8e;
+    --warning-bg:#fcf4cb; --warning-text:#87451d; --warning-dot:#d08a1f; --success-bg:#e3f4ea; --success-text:#1f6b40; --live:#2e9e5b;
+    --c1:#3863db; --c2:#9b4d96; --c3:#2f9e8f; --c4:#8a8f9c; --c5:#d08a1f;
+    --shadow-menu:0 4px 16px rgb(20 23 31 / 0.12);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  button, input { font:inherit; color:inherit; background:none; border:0; padding:0 }
+  button { cursor:pointer }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px 64px }
+  .strip { margin-top:24px; padding:10px 14px; border-radius:8px; background:var(--warning-bg); color:var(--warning-text); font-size:13px; line-height:18px }
+  .part { margin:36px 0 4px; font-size:22px; line-height:30px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:1040px; margin-bottom:12px }
+  .frame { background:var(--canvas); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i14 { width:14px; height:14px }
+  .i-left{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-left.svg)}
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-dots{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/ellipsis.svg)}
+  .i-search{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/search.svg)}
+  .i-plus{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/plus.svg)}
+  .i-x{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/x.svg)}
+  .i-star{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/star.svg)}
+  .i-grip{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/grip-vertical.svg)}
+  .i-edit{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/pencil.svg)}
+  .i-copy{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/copy.svg)}
+  .i-trash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/trash-2.svg)}
+  .i-share{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/share-2.svg)}
+  .i-refresh{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/refresh-cw.svg)}
+  .i-cal{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/calendar.svg)}
+  .i-filter{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list-filter.svg)}
+  .i-chart{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column.svg)}
+  .i-report{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-chart-column.svg)}
+  .i-dash{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-dashboard.svg)}
+  .i-home{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/house.svg)}
+  .i-mail{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/megaphone.svg)}
+  .i-settings{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/settings.svg)}
+  .i-sparkles{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+  .i-text{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/type.svg)}
+  .i-click{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/mouse-pointer-click.svg)}
+  .i-phone{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/smartphone.svg)}
+  .i-up{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-up-right.svg)}
+  .i-open{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/external-link.svg)}
+  .i-table{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/table-2.svg)}
+  .i-palette{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/palette.svg)}
+  .i-files{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/files.svg)}
+  .i-mails{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/mails.svg)}
+  .i-check{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/check.svg)}
+
+  .top { height:48px; background:var(--sidebar); color:var(--sidebar-text); display:flex; align-items:center; gap:12px; padding:0 16px; font-size:14px }
+  .top .c { width:28px; height:28px; border-radius:8px; background:var(--brand-600); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center }
+  .top .search { margin:0 auto; width:420px; height:32px; border-radius:999px; background:#2c336f; display:flex; align-items:center; padding:0 14px; color:var(--sidebar-icon); font-size:14px }
+  .top .acc { width:28px; height:28px; border-radius:999px; background:#363e82; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center }
+  .shell { display:flex; min-height:760px }
+  .rail { width:88px; background:var(--sidebar); padding:8px; display:flex; flex-direction:column; gap:4px; flex:none }
+  .tile-n { height:64px; border-radius:8px; color:var(--sidebar-text); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:12px }
+  .tile-n .i { color:var(--sidebar-icon) } .tile-n.on { background:var(--sidebar-selected) } .tile-n.on .i { color:#fff }
+  .menu { width:220px; background:#fff; border-right:1px solid var(--line); padding:12px 10px; flex:none }
+  .menu p { font-size:15px; font-weight:600; padding:0 8px 10px }
+  .menu a { display:flex; align-items:center; gap:10px; height:36px; padding:0 8px; border-radius:8px; color:var(--ink-900); text-decoration:none; font-size:14px }
+  .menu a .i { color:var(--ink-800) } .menu a.on { background:var(--brand-100); color:var(--brand-800); font-weight:500 } .menu a.on .i { color:var(--brand-800) }
+  .content { flex:1; min-width:0; padding:24px 32px 32px; display:flex; flex-direction:column; gap:16px; background:#fff }
+
+  .btn { height:40px; border-radius:999px; padding:0 18px; display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:15px; white-space:nowrap }
+  .btn.sm { height:36px; padding:0 16px; font-size:14px }
+  .btn.primary { background:var(--brand-600); color:#fff } .btn.secondary { border:1px solid var(--brand-600); color:var(--brand-600); background:#fff }
+  .ibtn { width:36px; height:36px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800); border:1px solid var(--line); background:#fff; flex:none; position:relative }
+  .ibtn.ghost { border:0; background:none } .ibtn.ghost:hover { background:var(--hover) }
+  .back { font-size:13px; color:var(--brand-800); display:inline-flex; align-items:center; gap:4px; text-decoration:none }
+  .h1 { font-size:24px; line-height:32px; font-weight:600; letter-spacing:-0.01em }
+  .desc { font-size:14px; color:var(--ink-800) }
+  .head { display:flex; align-items:flex-start; gap:16px } .head .r { margin-left:auto; display:flex; align-items:center; gap:8px }
+  .meta { font-size:13px; color:var(--ink-800); display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+
+  /* list */
+  .tabs { display:flex; gap:24px; border-bottom:1px solid var(--line-subtle) }
+  .tabs button { height:40px; font-size:14px; font-weight:500; color:var(--ink-800); border-bottom:2px solid transparent; margin-bottom:-1px }
+  .tabs button.on { color:var(--ink-900); font-weight:600; border-color:var(--brand-600) }
+  .tabs .n { font-weight:400; color:var(--ink-700); margin-left:4px }
+  .filters { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .sfield { width:280px; height:36px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 14px; color:var(--ink-300); font-size:14px } .sfield .i { color:var(--ink-800) }
+  .fchip { height:36px; border-radius:999px; border:1px solid var(--line-control); background:#fff; padding:0 12px 0 14px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500 }
+  .fchip.set { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) }
+  .clear { font-size:14px; font-weight:500; color:var(--brand-600) }
+  .ready { border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; background:var(--subtle) }
+  .ready .rh { display:flex; align-items:center; gap:10px } .ready .rh b { font-size:15px } .ready .rh span { font-size:13px; color:var(--ink-800) } .ready .rh .x { margin-left:auto }
+  .cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px }
+  .rcard { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; gap:12px; align-items:center }
+  .thumb { width:96px; height:60px; border-radius:6px; background:var(--canvas); border:1px solid var(--line-subtle); display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:14px 1fr; gap:3px; padding:4px; flex:none }
+  .thumb i { border-radius:2px; background:#c9d5f5 } .thumb i.w { grid-column:span 3; background:#d9c8e0 } .thumb i.n { background:#c8e3dc }
+  .rcard b { display:block; font-size:14px } .rcard span { display:block; font-size:12px; color:var(--ink-800) } .rcard .btn { margin-left:auto }
+  .band { background:var(--brand-600); border-radius:8px; padding:24px 28px 28px }
+  .band .bh { display:flex; align-items:center; justify-content:space-between } .band h2 { font-size:18px; line-height:26px; font-weight:600; color:#fff }
+  .band .more { height:32px; border-radius:999px; background:#fff; color:var(--brand-800); padding:0 12px; font-size:14px; font-weight:600; display:inline-flex; align-items:center; gap:6px }
+  .band ul { list-style:none; margin:20px 0 0; padding:0; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:16px }
+  .band li { display:flex; min-width:0 }
+  .bcard { background:#fff; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; min-height:220px; text-align:left; width:100% } .bcard:hover { background:var(--subtle) }
+  .bcard .top2 { height:88px; background:var(--subtle); padding:12px 16px; display:flex; flex-direction:column; justify-content:space-between }
+  .bcard .top2.scratch { background:#f6eef5; align-items:center; justify-content:center } .bcard .top2.scratch span { width:40px; height:40px; border-radius:6px; background:#ecdcea; color:#7d3b79; display:flex; align-items:center; justify-content:center }
+  .chip { display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 7px; border-radius:6px; font-size:12px; font-weight:600; background:#fff; border:1px solid var(--line-subtle); color:var(--ink-800); align-self:flex-start }
+  .mini-t { display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:9px 18px; gap:3px; width:104px } .mini-t i { border-radius:2px; background:#c9d5f5 } .mini-t i.n { background:#c8e3dc } .mini-t i.w { grid-column:span 3; background:#d9c8e0 } .mini-t i.f { grid-column:span 4 }
+  .bcard .bb { padding:14px 16px 16px; display:flex; flex-direction:column; gap:4px; flex:1 }
+  .bcard .bt { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; font-size:15px; line-height:21px; font-weight:600 }
+  .bcard .bs { font-size:13px; line-height:18px; color:var(--ink-800) }
+  .rarrow { width:26px; height:26px; border-radius:999px; border:1px solid var(--line); display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800); flex:none }
+  .yours { display:flex; align-items:center; gap:8px; font-size:18px; line-height:26px; font-weight:600; margin-top:8px }
+  .count { font-size:12px; font-weight:600; background:var(--fill-muted); color:var(--ink-800); border-radius:6px; padding:1px 7px }
+  .toggle { margin-left:auto; display:flex; gap:2px; border:1px solid var(--line); border-radius:999px; padding:2px } .toggle button { width:30px; height:30px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) } .toggle button.on { background:var(--brand-100); color:var(--brand-800) }
+  .tcard { border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .tcard .list th { padding:14px 12px } .tcard .list th:first-child, .tcard .list td:first-child { padding-left:20px }
+  .tcard .list tr:last-child td { border-bottom:0 }
+  .starb { width:28px; height:28px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center } .starb:hover { background:var(--hover) }
+  table.list { width:100%; border-collapse:collapse }
+  .list th { text-align:left; font-size:13px; font-weight:600; color:var(--ink-900); padding:10px 12px; border-bottom:1px solid var(--line) }
+  .list td { padding:12px; border-bottom:1px solid var(--line-subtle); font-size:14px; color:var(--ink-800); vertical-align:middle }
+  .list td.name b { color:var(--ink-900); font-weight:500; display:block } .list td.name span { font-size:13px }
+  .list tr:hover td { background:var(--subtle) }
+  .star { color:var(--ink-300) } .star.on { color:#e8a13b }
+  .tag { display:inline-flex; height:22px; align-items:center; padding:0 8px; border-radius:6px; font-size:12px; font-weight:600; background:var(--fill-muted); color:var(--ink-800) }
+  .tag.brand { background:var(--brand-100); color:var(--brand-800) }
+
+  /* dashboard */
+  .pages { display:flex; gap:20px; border-bottom:1px solid var(--line-subtle) }
+  .pages button { height:38px; font-size:14px; font-weight:500; color:var(--ink-800); border-bottom:2px solid transparent; margin-bottom:-1px } .pages button.on { color:var(--ink-900); font-weight:600; border-color:var(--brand-600) }
+  .control { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+  .period { height:36px; border-radius:999px; border:1px solid var(--brand-600); background:var(--brand-100); color:var(--brand-800); padding:0 12px 0 12px; display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:500; position:relative }
+  .period b { font-weight:600 }
+  .sw { display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-900); padding:0 4px }
+  .sw span { width:30px; height:18px; border-radius:99px; background:var(--brand-600); position:relative } .sw span::after { content:''; position:absolute; top:2px; right:2px; width:14px; height:14px; border-radius:99px; background:#fff }
+  .vsep { width:1px; height:24px; background:var(--line-subtle) }
+  .views { margin-left:auto; display:flex; align-items:center; gap:8px }
+  .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; position:relative }
+  .t { background:#fff; border:1px solid var(--line); border-radius:16px; display:flex; flex-direction:column; min-width:0; position:relative }
+  .t.w2 { grid-column:span 2 } .t.w3 { grid-column:span 3 } .t.w4 { grid-column:span 4 } .t.h2 { grid-row:span 2 }
+  .th { display:flex; align-items:flex-start; gap:8px; padding:14px 16px 0 } .th .tt { flex:1; min-width:0 } .th b { font-size:15px; font-weight:600; display:block }
+  .th small { font-size:12px; color:var(--ink-800); display:block }
+  .th .ibtn { width:28px; height:28px; border:0; background:none; margin:-4px -6px 0 0 } .th .ibtn:hover { background:var(--hover) }
+  .tb { padding:10px 16px 16px; flex:1 }
+  .fig { font-size:28px; line-height:36px; font-weight:600; letter-spacing:-0.01em; font-variant-numeric:tabular-nums }
+  .chg { font-size:13px; color:var(--success-text); font-weight:500 } .chg span { color:var(--ink-800); font-weight:400 }
+  .legend { display:flex; gap:14px; font-size:12px; color:var(--ink-800); margin-bottom:4px } .legend i { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px }
+  table.mini { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums }
+  .mini th { text-align:left; font-weight:600; color:var(--ink-900); padding:6px 0; border-bottom:1px solid var(--line) } .mini th:last-child, .mini td:last-child { text-align:right }
+  .mini td { padding:7px 0; border-bottom:1px solid var(--line-subtle) }
+  .tmenu { position:absolute; top:40px; right:10px; z-index:20; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); padding:6px; width:220px; display:none }
+  .tmenu.open { display:block }
+  .pop { position:absolute; top:44px; right:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); padding:6px; min-width:250px; text-align:left; display:none; color:var(--ink-900) }
+  .pop.open { display:block }
+  .it { height:36px; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 10px; font-size:14px; white-space:nowrap; color:var(--ink-900) }
+  .it:hover { background:var(--hover) } .it .i { color:var(--ink-800) } .it.danger { color:#b42318 } .it.danger .i { color:#b42318 } .it .r { margin-left:auto; font-size:13px; color:var(--ink-800) }
+  .sep { height:1px; background:var(--line-subtle); margin:6px 4px }
+  .ppop { position:absolute; top:44px; left:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); display:none; width:560px; color:var(--ink-900) }
+  .ppop.open { display:flex }
+  .ppop .q { width:170px; border-right:1px solid var(--line-subtle); padding:8px } .ppop .q div { height:34px; border-radius:8px; display:flex; align-items:center; padding:0 10px; font-size:14px } .ppop .q div.on { background:var(--brand-100); color:var(--brand-800); font-weight:600 }
+  .ppop .cal { flex:1; padding:12px 14px; display:flex; flex-direction:column; gap:8px }
+  .cal .m { font-size:14px; font-weight:600; text-align:center } .cal .days { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; font-size:12px; text-align:center }
+  .cal .days span { height:28px; display:flex; align-items:center; justify-content:center; border-radius:6px } .cal .days .h { color:var(--ink-700); font-weight:600 } .cal .days .in { background:var(--brand-100) } .cal .days .end { background:var(--brand-600); color:#fff; font-weight:600 }
+  .cal .foot { display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--line-subtle); padding-top:10px }
+
+  /* editor */
+  .ebar { display:flex; align-items:center; gap:12px; padding:12px 32px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5 }
+  .ebar .name { font-size:20px; font-weight:600; border:1px solid transparent; border-radius:6px; padding:0 6px; margin-left:-6px }
+  .ebar .name:hover { border-color:var(--line) }
+  .state { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--warning-text); font-weight:500 } .state i { width:8px; height:8px; border-radius:99px; background:var(--warning-dot) }
+  .ebar .r { margin-left:auto; display:flex; gap:8px; align-items:center }
+  .eset { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 32px; background:#fff; border-bottom:1px solid var(--line-subtle) }
+  .opt { height:32px; border-radius:999px; border:1px solid var(--line); background:#fff; padding:0 10px 0 12px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; white-space:nowrap }
+  .opt .i { color:var(--ink-800) } .opt .k { color:var(--ink-800); font-weight:400 }
+  .ework { display:flex; min-height:720px }
+  .ecanvas { flex:1; min-width:0; padding:20px 32px 32px; background:var(--canvas); position:relative;
+    background-image:linear-gradient(to right, rgb(56 99 219 / 0.06) 1px, transparent 1px); background-size:calc((100% - 64px) / 4 + 4px) 100%; background-position:32px 0 }
+  .ecanvas .grid { gap:16px }
+  .t.edit { cursor:grab } .t.edit:hover { border-color:var(--brand-600); box-shadow:0 0 0 1px var(--brand-600) }
+  .tools { position:absolute; top:-14px; right:12px; display:none; gap:2px; background:#fff; border:1px solid var(--line); border-radius:999px; padding:2px; box-shadow:var(--shadow-menu); z-index:6 }
+  .t.edit:hover .tools, .t.edit.sel .tools { display:flex }
+  .tools button { width:28px; height:28px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-800) } .tools button:hover { background:var(--hover) }
+  .tools .size { width:auto; padding:0 8px 0 10px; font-size:12px; font-weight:600; gap:4px; color:var(--ink-900) }
+  .t.sel { border-color:var(--brand-600); box-shadow:0 0 0 2px var(--brand-600) }
+  .addbox { border:1.5px dashed var(--line-control); border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--brand-600); font-size:14px; font-weight:600; min-height:120px; background:rgb(255 255 255 / 0.6) }
+  .sizepop { position:absolute; top:20px; right:60px; z-index:30; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-menu); padding:6px; width:220px; display:none }
+  .sizepop.open { display:block }
+  .sizepop .it .shape { width:28px; height:18px; border-radius:3px; border:1.5px solid var(--line-control); flex:none }
+  .side { width:344px; flex:none; background:#fff; border-left:1px solid var(--line); display:flex; flex-direction:column }
+  .side .sh { height:52px; display:flex; align-items:center; gap:10px; padding:0 16px; border-bottom:1px solid var(--line-subtle) } .side .sh b { font-size:15px } .side .sh .x { margin-left:auto }
+  .kinds { display:flex; gap:6px; padding:12px 16px; border-bottom:1px solid var(--line-subtle) }
+  .kinds button { flex:1; height:58px; border:1px solid var(--line); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:13px; font-weight:500 }
+  .kinds button.on { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) } .kinds button .i { color:inherit }
+  .side .srch { margin:12px 16px 4px; height:34px; border-radius:999px; background:var(--sunken); display:flex; align-items:center; gap:8px; padding:0 12px; font-size:14px; color:var(--ink-300) } .side .srch .i { color:var(--ink-800) }
+  .group { font-size:12px; font-weight:600; color:var(--ink-800); padding:12px 16px 4px }
+  .rrow { display:flex; align-items:center; gap:10px; padding:8px 16px; font-size:14px } .rrow:hover { background:var(--hover) }
+  .rrow .i { color:var(--ink-800) } .rrow small { display:block; font-size:12px; color:var(--ink-800) } .rrow .add { margin-left:auto; color:var(--brand-600) }
+  .rrow.on { background:var(--brand-100) }
+  .side .sf { margin-top:auto; border-top:1px solid var(--line-subtle); padding:12px 16px; display:flex; flex-direction:column; gap:10px }
+  .lbl { font-size:12px; font-weight:600; color:var(--ink-800) }
+  .seg { display:flex; padding:3px; border-radius:999px; background:var(--sunken); gap:2px }
+  .seg button { flex:1; height:30px; border-radius:999px; font-size:13px; font-weight:500; color:var(--ink-800) } .seg button.on { background:#fff; color:var(--ink-900); box-shadow:0 1px 2px rgb(20 23 31 / 0.12) }
+
+  table.map { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  .map td, .map th { padding:9px 14px; font-size:14px; vertical-align:top; text-align:left; border-bottom:1px solid var(--line-subtle) }
+  .map th { background:var(--subtle); font-weight:500; font-size:13px }
+  .flag { display:inline-block; font-size:11px; font-weight:600; padding:1px 7px; border-radius:6px; background:var(--warning-bg); color:var(--warning-text); margin-left:6px }
+  .notes { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px }
+  .nc { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; font-size:14px; line-height:20px }
+  .nc h3 { font-size:15px; margin-bottom:6px } .nc p { color:var(--ink-800) }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="strip">Mockup for review, not built. Sample data like NWA's “Marketing Weekly”. Click ⋯ on a row or a tile, the period, Share, and in the editor a tile's size or the + box.</p>
+
+  <!-- 1 · LIST -->
+  <h2 class="part">1 · Dashboards list</h2>
+  <p>Laid out like Journeys: a blue Dashboard Templates panel (Start from Scratch, then the ready-made dashboards from the Base Reports packs; no View More while they all fit), then Your Dashboards with its count, search, filter chips, Clear Filters, a list / grid switch and the table in a card. Clicking a template opens a read-only preview with “Use This Template”, as journeys do.</p>
+  <div class="frame">
+    <div class="top"><span class="c">C</span><b>C360</b><span style="opacity:.5">|</span><span>Insights</span><span class="search">Search</span><span class="acc">MC</span></div>
+    <div class="shell">
+      <div class="rail"><div class="tile-n"><i class="i i-mail"></i>Engagement</div><div class="tile-n on"><i class="i i-chart"></i>Insights</div><div style="flex:1"></div><div class="tile-n"><i class="i i-settings"></i>Settings</div></div>
+      <div class="menu"><p>Insights</p><a><i class="i i-report"></i>Reports</a><a class="on"><i class="i i-dash"></i>Dashboards</a><a><i class="i i-sparkles"></i>AI Reports</a><a><i class="i i-cal"></i>Scheduled</a><a><i class="i i-files"></i>Uploaded Files</a></div>
+      <div class="content">
+        <div class="head">
+          <h1 class="h1">Dashboards</h1>
+          <div class="r"><button class="btn primary"><i class="i i-plus"></i>Create Dashboard</button></div>
+        </div>
+        <section class="band" aria-label="Dashboard Templates">
+          <div class="bh"><h2>Dashboard Templates</h2></div>
+          <ul>
+            <li><button class="bcard"><span class="top2 scratch"><span><i class="i i-plus"></i></span></span><span class="bb"><span class="bt">Start from Scratch<span class="rarrow"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-right.svg)"></i></span></span><span class="bs">An empty dashboard. You choose the reports and the period.</span></span></button></li>
+            <li><button class="bcard"><span class="top2"><span class="chip"><i class="i i14 i-mails"></i>Email</span><span class="mini-t"><i class="n"></i><i class="n"></i><i class="n"></i><i class="n"></i><i class="w"></i><i></i></span></span><span class="bb"><span class="bt">Email Campaign Overview<span class="rarrow"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-right.svg)"></i></span></span><span class="bs">Sends, opens, clicks and revenue · 8 tiles</span></span></button></li>
+            <li><button class="bcard"><span class="top2"><span class="chip"><i class="i i14 i-mails"></i>Email</span><span class="mini-t"><i class="n"></i><i class="n"></i><i class="n"></i><i class="n"></i><i></i><i class="w"></i></span></span><span class="bb"><span class="bt">Deliverability Health<span class="rarrow"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-right.svg)"></i></span></span><span class="bs">Bounces, complaints and opt-outs · 6 tiles</span></span></button></li>
+            <li><button class="bcard"><span class="top2"><span class="chip"><i class="i i14 i-mails"></i>Email</span><span class="mini-t"><i class="n"></i><i class="n"></i><i class="n"></i><i class="n"></i><i class="f"></i></span></span><span class="bb"><span class="bt">Revenue by Campaign<span class="rarrow"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-right.svg)"></i></span></span><span class="bs">Revenue and orders from each campaign · 5 tiles</span></span></button></li>
+            <li><button class="bcard"><span class="top2"><span class="chip"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/message-square.svg)"></i>SMS</span><span class="mini-t"><i class="n"></i><i class="n"></i><i class="n"></i><i class="n"></i><i class="w"></i><i></i></span></span><span class="bb"><span class="bt">SMS Overview<span class="rarrow"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/arrow-right.svg)"></i></span></span><span class="bs">Texts sent, delivered and replies · 5 tiles</span></span></button></li>
+          </ul>
+        </section>
+        <h2 class="yours">Your Dashboards <span class="count">7</span></h2>
+        <div class="filters">
+          <div class="sfield"><i class="i i14 i-search"></i>Search dashboards</div>
+          <button class="fchip">Owner <i class="i i14 i-down"></i></button>
+          <button class="fchip set">Shared: Workspace <i class="i i14 i-x"></i></button>
+          <button class="fchip">Favourites</button>
+          <button class="clear">Clear Filters</button>
+          <div class="toggle"><button title="Grid"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-grid.svg)"></i></button><button class="on" title="List"><i class="i i14" style="--u:url(https://unpkg.com/lucide-static@0.454.0/icons/list.svg)"></i></button></div>
+        </div>
+        <div class="tcard">
+        <table class="list">
+          <thead><tr><th style="width:36px"></th><th>Dashboard</th><th>Tiles</th><th>Owner</th><th>Shared</th><th>Changed</th><th style="width:44px"></th></tr></thead>
+          <tbody>
+            <tr><td><i class="i star on i-star"></i></td><td class="name"><b>Marketing Weekly</b><span>Sends, revenue and the top campaigns, by week</span></td><td>10</td><td>Maria Chen</td><td><span class="tag brand">Workspace</span></td><td>27 Oct 2026, 22:12</td>
+              <td style="position:relative"><button class="ibtn ghost" data-pop="rowpop"><i class="i i-dots"></i></button>
+                <div class="pop" id="rowpop" style="right:4px;top:40px"><div class="it"><i class="i i-open"></i>Open</div><div class="it"><i class="i i-edit"></i>Edit</div><div class="it"><i class="i i-copy"></i>Duplicate</div><div class="it"><i class="i i-share"></i>Share</div><div class="it"><i class="i i-star"></i>Remove From Favourites</div><div class="sep"></div><div class="it danger"><i class="i i-trash"></i>Delete</div></div></td></tr>
+            <tr><td><i class="i star on i-star"></i></td><td class="name"><b>Journey Performance</b><span>Enrolments, conversions and drop-off by journey</span></td><td>6</td><td>Maria Chen</td><td><span class="tag brand">Shared</span></td><td>24 Oct 2026, 09:40</td><td><button class="ibtn ghost"><i class="i i-dots"></i></button></td></tr>
+            <tr><td><i class="i star i-star"></i></td><td class="name"><b>Store Contacts</b><span>Contacts and consent by store</span></td><td>4</td><td>Sam Lee</td><td><span class="tag brand">Workspace</span></td><td>21 Oct 2026, 16:05</td><td><button class="ibtn ghost"><i class="i i-dots"></i></button></td></tr>
+            <tr><td><i class="i star i-star"></i></td><td class="name"><b>SMS Weekly</b><span>Texts sent, delivered and replies</span></td><td>5</td><td>Maria Chen</td><td><span class="tag">Private</span></td><td>18 Oct 2026, 11:30</td><td><button class="ibtn ghost"><i class="i i-dots"></i></button></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · DASHBOARD -->
+  <h2 class="part">2 · A dashboard</h2>
+  <p>Header like the report page: back link, description, “Updated … ago” with Refresh, then Share, Edit and ⋯. One control line: period, Compare, slicers, and the saved views at the right. Tiles keep their kinds; the grey kind word goes and each tile's header has its own small line (its period or what it reads) and a ⋯.</p>
+  <div class="frame">
+    <div class="top"><span class="c">C</span><b>C360</b><span style="opacity:.5">|</span><span>Insights</span><span class="search">Search</span><span class="acc">MC</span></div>
+    <div class="shell">
+      <div class="rail"><div class="tile-n"><i class="i i-mail"></i>Engagement</div><div class="tile-n on"><i class="i i-chart"></i>Insights</div><div style="flex:1"></div><div class="tile-n"><i class="i i-settings"></i>Settings</div></div>
+      <div class="menu"><p>Insights</p><a><i class="i i-report"></i>Reports</a><a class="on"><i class="i i-dash"></i>Dashboards</a><a><i class="i i-sparkles"></i>AI Reports</a><a><i class="i i-cal"></i>Scheduled</a><a><i class="i i-files"></i>Uploaded Files</a></div>
+      <div class="content" style="background:var(--surface)">
+        <div>
+          <a class="back" href="#"><i class="i i-left"></i>Dashboards</a>
+          <div class="head" style="margin-top:8px">
+            <div><h1 class="h1">Marketing Weekly</h1><p class="desc">Sends, revenue and the top campaigns, by week</p></div>
+            <div class="r">
+              <span class="meta">Updated 2 min ago</span><button class="ibtn ghost" title="Refresh"><i class="i i-refresh"></i></button>
+              <button class="btn secondary sm"><i class="i i-share"></i>Share</button>
+              <button class="btn secondary sm"><i class="i i-edit"></i>Edit</button>
+              <span style="position:relative"><button class="ibtn" data-pop="dashpop"><i class="i i-dots"></i></button>
+                <div class="pop" id="dashpop"><div class="it"><i class="i i-cal"></i>Schedule <span class="r">Mondays 8:00</span></div><div class="it"><i class="i i-chart"></i>Comments <span class="r">2</span></div><div class="sep"></div><div class="it"><i class="i i-report"></i>Export PDF</div><div class="it"><i class="i i-report"></i>Export PowerPoint</div><div class="it"><i class="i i-open"></i>Embed on Another Site</div><div class="sep"></div><div class="it danger"><i class="i i-trash"></i>Delete</div></div></span>
+            </div>
+          </div>
+        </div>
+        <div class="pages"><button class="on">Overview</button><button>Channels</button><button>Campaigns</button></div>
+        <div class="control">
+          <span style="position:relative"><button class="period" data-pop="perpop"><i class="i i14 i-cal"></i><b>Last 30 Days</b> · 16 Sept – 15 Oct <i class="i i14 i-down"></i></button>
+            <div class="ppop" id="perpop">
+              <div class="q"><div>Last 7 Days</div><div class="on">Last 30 Days</div><div>Last 90 Days</div><div>This Month</div><div>This Quarter</div><div>This Year</div><div>Custom</div></div>
+              <div class="cal"><p class="m">October 2026</p>
+                <div class="days"><span class="h">S</span><span class="h">M</span><span class="h">T</span><span class="h">W</span><span class="h">T</span><span class="h">F</span><span class="h">S</span><span></span><span></span><span></span><span class="in">1</span><span class="in">2</span><span class="in">3</span><span class="in">4</span><span class="in">5</span><span class="in">6</span><span class="in">7</span><span class="in">8</span><span class="in">9</span><span class="in">10</span><span class="in">11</span><span class="in">12</span><span class="in">13</span><span class="in">14</span><span class="end">15</span><span>16</span><span>17</span><span>18</span></div>
+                <div class="foot"><button class="btn secondary sm">Cancel</button><button class="btn primary sm">Apply</button></div></div>
+            </div></span>
+          <span class="sw"><span></span>Compare With Previous Period</span>
+          <span class="vsep"></span>
+          <button class="fchip">Channel <i class="i i14 i-down"></i></button>
+          <button class="fchip">Campaign <i class="i i14 i-down"></i></button>
+          <div class="views"><button class="fchip">View: Default <i class="i i14 i-down"></i></button></div>
+        </div>
+        <div class="grid">
+          <div class="t"><div class="th"><div class="tt"><b>Sent</b><small>Sends by Campaign · Sent Count</small></div><button class="ibtn" data-pop="tilepop"><i class="i i14 i-dots"></i></button></div>
+            <div class="tmenu" id="tilepop"><div class="it"><i class="i i-open"></i>Open the Report</div><div class="it"><i class="i i-table"></i>Show the Numbers</div><div class="it"><i class="i i-report"></i>Export CSV</div><div class="it"><i class="i i-chart"></i>Comment</div></div>
+            <div class="tb"><p class="fig">391,520</p><p class="chg">▲ 8.4% <span>vs previous 30 days</span></p></div></div>
+          <div class="t"><div class="th"><div class="tt"><b>Delivered Rate</b><small>Delivery by Campaign</small></div><button class="ibtn"><i class="i i14 i-dots"></i></button></div><div class="tb"><p class="fig">97.6%</p><p class="chg">▲ 0.3% <span>vs previous 30 days</span></p></div></div>
+          <div class="t"><div class="th"><div class="tt"><b>Attributed Revenue</b><small>Revenue by Campaign · Amount</small></div><button class="ibtn"><i class="i i14 i-dots"></i></button></div><div class="tb"><p class="fig">$94,970</p><p class="chg">▲ 12.1% <span>vs previous 30 days</span></p></div></div>
+          <div class="t"><div class="th"><div class="tt"><b>Unsubscribed</b><small>Unsubscribes</small></div><button class="ibtn"><i class="i i14 i-dots"></i></button></div><div class="tb"><p class="fig">412</p><p class="chg" style="color:#b42318">▲ 5.9% <span>vs previous 30 days</span></p></div></div>
+          <div class="t w3"><div class="th"><div class="tt"><b>Sends by Week and Channel</b><small>Click a bar to filter the other tiles</small></div><button class="ibtn"><i class="i i14 i-dots"></i></button></div>
+            <div class="tb"><div class="legend"><span><i style="background:var(--c1)"></i>Email</span><span><i style="background:var(--c2)"></i>SMS</span></div>
+              <svg viewBox="0 0 620 200" width="100%"><g stroke="var(--line-subtle)"><line x1="50" x2="610" y1="20" y2="20"/><line x1="50" x2="610" y1="80" y2="80"/><line x1="50" x2="610" y1="140" y2="140"/></g><line x1="50" x2="610" y1="176" y2="176" stroke="var(--line)"/>
+                <g font-size="11" fill="var(--ink-800)" text-anchor="end"><text x="42" y="24">150,000</text><text x="42" y="84">100,000</text><text x="42" y="144">50,000</text><text x="42" y="180">0</text></g>
+                <g><rect x="92" y="65" width="44" height="111" rx="2" fill="var(--c1)"/><rect x="140" y="162" width="44" height="14" rx="2" fill="var(--c2)"/><rect x="232" y="34" width="44" height="142" rx="2" fill="var(--c1)"/><rect x="280" y="152" width="44" height="24" rx="2" fill="var(--c2)"/><rect x="372" y="20" width="44" height="156" rx="2" fill="var(--c1)"/><rect x="420" y="159" width="44" height="17" rx="2" fill="var(--c2)"/><rect x="512" y="51" width="44" height="125" rx="2" fill="var(--c1)"/><rect x="560" y="147" width="44" height="29" rx="2" fill="var(--c2)"/></g>
+                <g font-size="11" fill="var(--ink-800)" text-anchor="middle"><text x="138" y="194">14 Sept</text><text x="278" y="194">21 Sept</text><text x="418" y="194">28 Sept</text><text x="558" y="194">5 Oct</text></g></svg></div></div>
+          <div class="t"><div class="th"><div class="tt"><b>Top Campaigns</b><small>Own dates · last 90 days</small></div><button class="ibtn"><i class="i i14 i-dots"></i></button></div>
+            <div class="tb"><table class="mini"><thead><tr><th>Campaign</th><th>Revenue</th></tr></thead><tbody><tr><td>Fall Collection Launch</td><td>$48,210</td></tr><tr><td>VIP Early Access</td><td>$17,980</td></tr><tr><td>Weekend Flash Sale</td><td>$12,940</td></tr><tr><td>Weekly Newsletter</td><td>$7,050</td></tr><tr><td>Back in Stock Alerts</td><td>$5,310</td></tr></tbody></table></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · EDITOR -->
+  <h2 class="part">3 · Editing a dashboard</h2>
+  <p>Edit on the dashboard itself, with a faint column grid. Tiles show a small toolbar on hover: drag, size, edit, duplicate, remove. A dashed + box marks where the next tile goes. Add opens a side panel (Report, Text, Button) instead of a pop-up. The bar says Unsaved Changes and offers Discard Changes and Save, like the report editor. The rows' layout menus and every arrow are gone; a tile's size replaces them.</p>
+  <div class="frame">
+    <div class="top"><span class="c">C</span><b>C360</b><span style="opacity:.5">|</span><span>Insights</span><span class="search">Search</span><span class="acc">MC</span></div>
+    <div class="ebar">
+      <button class="ibtn ghost" title="Back to the Dashboard"><i class="i i-left"></i></button>
+      <span class="name" contenteditable="true">Marketing Weekly</span>
+      <span class="state"><i></i>Unsaved Changes</span>
+      <div class="r"><button class="btn secondary sm">Discard Changes</button><button class="btn primary sm">Save</button></div>
+    </div>
+    <div class="eset">
+      <button class="opt"><i class="i i14 i-cal"></i><span class="k">Period</span>Last 30 Days <i class="i i14 i-down"></i></button>
+      <button class="opt"><span class="k">Compare</span>Previous Period <i class="i i14 i-down"></i></button>
+      <button class="opt"><i class="i i14 i-filter"></i>Slicers · 2 <i class="i i14 i-down"></i></button>
+      <button class="opt"><i class="i i14 i-palette"></i>Theme: Blue <i class="i i14 i-down"></i></button>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <div class="seg" style="width:220px"><button class="on">Grid</button><button>Free Canvas</button></div>
+        <button class="opt"><i class="i i14 i-phone"></i>Phone Preview</button>
+        <button class="btn secondary sm" data-side="1"><i class="i i-plus"></i>Add</button>
+      </span>
+    </div>
+    <div class="pages" style="padding:0 32px;background:#fff"><button class="on">Overview</button><button>Channels</button><button>Campaigns</button><button style="color:var(--brand-600)"><i class="i i14 i-plus"></i> Add Page</button></div>
+    <div class="ework">
+      <div class="ecanvas">
+        <div class="grid">
+          <div class="t edit"><div class="tools"><button title="Drag"><i class="i i14 i-grip"></i></button><button class="size">Small <i class="i i14 i-down"></i></button><button title="Edit"><i class="i i14 i-edit"></i></button><button title="Duplicate"><i class="i i14 i-copy"></i></button><button title="Remove"><i class="i i14 i-trash"></i></button></div>
+            <div class="th"><div class="tt"><b>Sent</b><small>Sends by Campaign · Sent Count</small></div></div><div class="tb"><p class="fig">391,520</p><p class="chg">▲ 8.4% <span>vs previous</span></p></div></div>
+          <div class="t edit"><div class="th"><div class="tt"><b>Delivered Rate</b><small>Delivery by Campaign</small></div></div><div class="tools"><button><i class="i i14 i-grip"></i></button><button class="size">Small <i class="i i14 i-down"></i></button><button><i class="i i14 i-edit"></i></button><button><i class="i i14 i-copy"></i></button><button><i class="i i14 i-trash"></i></button></div><div class="tb"><p class="fig">97.6%</p><p class="chg">▲ 0.3% <span>vs previous</span></p></div></div>
+          <div class="t edit"><div class="th"><div class="tt"><b>Attributed Revenue</b><small>Revenue by Campaign</small></div></div><div class="tools"><button><i class="i i14 i-grip"></i></button><button class="size">Small <i class="i i14 i-down"></i></button><button><i class="i i14 i-edit"></i></button><button><i class="i i14 i-copy"></i></button><button><i class="i i14 i-trash"></i></button></div><div class="tb"><p class="fig">$94,970</p><p class="chg">▲ 12.1% <span>vs previous</span></p></div></div>
+          <div class="addbox" data-side="1"><i class="i i-plus"></i>Add a Tile</div>
+          <div class="t edit w3 sel" style="position:relative">
+            <div class="tools"><button title="Drag"><i class="i i14 i-grip"></i></button><button class="size" data-pop="sizepop">Wide <i class="i i14 i-down"></i></button><button title="Edit"><i class="i i14 i-edit"></i></button><button title="Duplicate"><i class="i i14 i-copy"></i></button><button title="Remove"><i class="i i14 i-trash"></i></button></div>
+            <div class="sizepop" id="sizepop"><p class="lbl" style="padding:6px 10px 4px">Tile Size</p>
+              <div class="it"><span class="shape" style="width:14px"></span>Small <span class="r">¼ width</span></div>
+              <div class="it"><span class="shape" style="width:20px"></span>Medium <span class="r">½ width</span></div>
+              <div class="it" style="background:var(--brand-100);color:var(--brand-800);font-weight:600"><span class="shape" style="width:28px;border-color:var(--brand-600)"></span>Wide <span class="r">¾ width</span></div>
+              <div class="it"><span class="shape" style="width:34px"></span>Full Width</div>
+              <div class="sep"></div>
+              <div class="it"><span class="shape" style="height:26px;width:20px"></span>Tall <span class="r">2 rows high</span></div>
+            </div>
+            <div class="th"><div class="tt"><b>Sends by Week and Channel</b><small>Chart · Sends by Week</small></div></div>
+            <div class="tb"><svg viewBox="0 0 620 150" width="100%"><g stroke="var(--line-subtle)"><line x1="40" x2="610" y1="20" y2="20"/><line x1="40" x2="610" y1="70" y2="70"/></g><line x1="40" x2="610" y1="126" y2="126" stroke="var(--line)"/>
+              <g><rect x="92" y="48" width="44" height="78" rx="2" fill="var(--c1)"/><rect x="140" y="116" width="44" height="10" rx="2" fill="var(--c2)"/><rect x="232" y="26" width="44" height="100" rx="2" fill="var(--c1)"/><rect x="280" y="109" width="44" height="17" rx="2" fill="var(--c2)"/><rect x="372" y="16" width="44" height="110" rx="2" fill="var(--c1)"/><rect x="420" y="114" width="44" height="12" rx="2" fill="var(--c2)"/><rect x="512" y="38" width="44" height="88" rx="2" fill="var(--c1)"/><rect x="560" y="105" width="44" height="21" rx="2" fill="var(--c2)"/></g></svg></div>
+          </div>
+          <div class="t edit"><div class="tools"><button><i class="i i14 i-grip"></i></button><button class="size">Small <i class="i i14 i-down"></i></button><button><i class="i i14 i-edit"></i></button><button><i class="i i14 i-copy"></i></button><button><i class="i i14 i-trash"></i></button></div>
+            <div class="th"><div class="tt"><b>Top Campaigns</b><small>Own dates · last 90 days</small></div></div><div class="tb"><table class="mini"><tbody><tr><td>Fall Collection Launch</td><td>$48,210</td></tr><tr><td>VIP Early Access</td><td>$17,980</td></tr><tr><td>Weekend Flash Sale</td><td>$12,940</td></tr></tbody></table></div></div>
+        </div>
+      </div>
+      <aside class="side" id="side">
+        <div class="sh"><b>Add to the Dashboard</b><button class="ibtn ghost x" title="Close" onclick="document.getElementById('side').style.display='none'"><i class="i i14 i-x"></i></button></div>
+        <div class="kinds"><button class="on"><i class="i i-report"></i>Report</button><button><i class="i i-text"></i>Text</button><button><i class="i i-click"></i>Button</button></div>
+        <div class="srch"><i class="i i14 i-search"></i>Search reports</div>
+        <p class="group">Favourites</p>
+        <div class="rrow on"><i class="i i-chart"></i><div>Revenue by Campaign and Month<small>Pivot · Attributed Orders</small></div><i class="i i-plus add"></i></div>
+        <div class="rrow"><i class="i i-chart"></i><div>Weekly Sends Over Time<small>Chart · Messages</small></div><i class="i i-plus add"></i></div>
+        <p class="group">All Reports</p>
+        <div class="rrow"><i class="i i-chart"></i><div>Contacts by Region<small>Map · Contacts</small></div><i class="i i-plus add"></i></div>
+        <div class="rrow"><i class="i i-chart"></i><div>Journey Conversions<small>Funnel · Journeys</small></div><i class="i i-plus add"></i></div>
+        <div class="rrow"><i class="i i-chart"></i><div>Delivered Rate by Campaign<small>Grid · Messages</small></div><i class="i i-plus add"></i></div>
+        <div class="sf">
+          <p class="lbl">Show It As</p>
+          <div class="seg"><button>Number</button><button class="on">As Saved</button><button>Table</button></div>
+          <p class="lbl">Size</p>
+          <div class="seg"><button>Small</button><button class="on">Medium</button><button>Wide</button><button>Full</button></div>
+          <button class="btn primary sm" style="justify-content:center">Add to Overview</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <h2 class="part">What changes</h2>
+  <p>Every feature today's dashboards have is still here; the table says where each one went.</p>
+  <table class="map">
+    <thead><tr><th style="width:26%">Today</th><th style="width:40%">In the mockup</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><b>1</b> One table, uppercase headers, Favourites grouped on top</td><td>Your Dashboards with its count, Search, Owner, Shared and Favourites chips, Clear Filters, a list / grid switch, Title Case headers, the table in a card; the star stays on each row</td><td>Laid out like the Journeys list.</td></tr>
+      <tr><td><b>2</b> Nothing points to ready-made dashboards</td><td>A blue Dashboard Templates panel above Your Dashboards, as on Journeys: Start from Scratch, then the packs' dashboards with a small picture of the tiles; a click opens a preview with Use This Template. View More comes back only if the packs grow past four</td><td>Sentry and Databricks show templates first. <span class="flag">Needs the pack's dashboards listed</span></td></tr>
+      <tr><td><b>3</b> Duplicate, Share, Delete only on the dashboard page</td><td>⋯ on each row: Open, Edit, Duplicate, Share, Favourite, Delete</td><td>Act without opening it.</td></tr>
+      <tr><td><b>4</b> Name, description with dates, ⋯ (Edit, Share, Schedule, Comments, Export PDF / PowerPoint, Embed, Delete)</td><td>‹ Dashboards, the name and description, “Updated … ago” with Refresh; Share and Edit as buttons; ⋯ keeps Schedule, Comments, the exports, Embed and Delete</td><td>Same header as the report page; the two most used actions are one click.</td></tr>
+      <tr><td><b>5</b> Tile header: the title and a grey kind word (Figure, Chart, Grid)</td><td>The title, a small line saying what the tile reads (its report, “Own dates · last 90 days”, “Click a bar to filter…”), and a ⋯: Open the Report, Show the Numbers, Export CSV, Comment</td><td>The kind is visible from the tile itself; the line says something useful.</td></tr>
+      <tr><td><b>6</b> Period bar on one line, slicers on the next, saved views elsewhere</td><td>One control line: the period (quick choices and a calendar in one menu), Compare, a hairline, the slicers as chips, and View: Default at the right. Pages stay as tabs above it</td><td>Calendly, Whop. A click on a tile still filters the others.</td></tr>
+      <tr><td><b>7</b> Each row: “Row 1 · Four across ▾” ↑ ↓ ✕; each tile ← → ✕</td><td>No row controls. A tile shows a toolbar on hover: drag, size, edit, duplicate, remove. A dashed “+ Add a Tile” box where the next tile goes, and a faint column grid behind</td><td>Sentry, Aboard, Twenty: the dashboard stays readable while editing.</td></tr>
+      <tr><td><b>8</b> Row layouts (Four across, Wide and narrow, Two across…)</td><td>A size per tile: Small (¼), Medium (½), Wide (¾), Full Width, and Tall (two rows high). Tiles flow left to right. Free Canvas stays, a switch away, for exact placing; Phone Preview stays</td><td>Xero. One choice per tile is easier than a layout per row. <span class="flag">Your call</span></td></tr>
+      <tr><td><b>9</b> Add Tile / Add Text / Add Button pop-ups; Done saves, Cancel drops</td><td>Add opens a side panel: Report, Text or Button, searchable, with how to show it and its size, then “Add to Overview”. The bar: Unsaved Changes, Discard Changes, Save; leaving asks first. Period, Compare, Slicers, Theme sit on one settings line</td><td>Twenty, Plane. You see where the tile goes; the bar matches the report editor.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="part">Questions for you</h2>
+  <div class="notes">
+    <div class="nc"><h3>Sizes instead of row layouts?</h3><p>Grid with tile sizes becomes the main way; Free Canvas stays for exact placing. Or keep today's row layouts beside the sizes?</p></div>
+    <div class="nc"><h3>Dashboard templates</h3><p>The panel needs the list of dashboards each Base Reports pack adds. If the pack list does not say, it is a small backend ask.</p></div>
+    <div class="nc"><h3>Headline numbers</h3><p>Today a dashboard's number tiles are ordinary tiles you add. Keep it that way, or always show the first row as headline numbers?</p></div>
+  </div>
+</div>
+<script>
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pop]')
+    document.querySelectorAll('.pop, .tmenu, .ppop, .sizepop').forEach((p) => { if (!b || p.id !== b.dataset.pop) p.classList.remove('open') })
+    if (b) { document.getElementById(b.dataset.pop).classList.toggle('open'); return }
+    if (e.target.closest('[data-side]')) document.getElementById('side').style.display = ''
+  })
+</script>
+</body>
+</html>

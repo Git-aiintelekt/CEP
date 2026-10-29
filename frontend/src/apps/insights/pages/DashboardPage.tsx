@@ -1,17 +1,20 @@
 /**
- * A dashboard, viewed: its rows of tiles on its period. The period and the comparison can be switched here for a look,
- * unsaved; so can the slicers, and a value clicked on a tile filters the others (a field that is not a saved slicer gets a
- * chip of its own for the visit). Edit opens the editor for whoever may; Delete is the owner's.
+ * A dashboard, viewed (docs/mockups/dashboards.html): ‹ Dashboards, its name, when its tiles were updated with Refresh, Share
+ * and Edit, and a ⋯ for the rest. Then its pages as tabs and one control line: the period, the comparison, the slicers and
+ * the saved views. The period and the comparison can be switched here for a look, unsaved; so can the slicers, and a value
+ * clicked on a tile filters the others (a field that is not a saved slicer gets a chip of its own for the visit).
  */
-import { CalendarClock, FileText, Link2, MessageSquare, Pencil, Presentation, Share2, Trash2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { CalendarClock, ChevronLeft, FileText, Link2, MessageSquare, Pencil, Presentation, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { buttonSecondary } from '@/components/Form'
+import { IconButton } from '@/components/Button'
+import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
-import { PageHeader } from '@/components/ResourceList'
+import { Switch } from '@/components/Switch'
+import { formatRelative } from '@/lib/format'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/auth/AuthContext'
@@ -26,7 +29,7 @@ import { ShareDialog } from '../components/ShareDialog'
 import { DashboardBody } from '../dashboards/DashboardBody'
 import { activeSlicers, periodWords, tiles, toggleValue } from '../dashboards/layout'
 import { containerOf, pagesOf } from '../dashboards/pages'
-import { PeriodBar } from '../dashboards/PeriodBar'
+import { PeriodMenu } from '../dashboards/PeriodMenu'
 import { SavedViews } from '../dashboards/SavedViews'
 import { SlicerBar } from '../dashboards/SlicerBar'
 import { Tabs } from '@/components/Tabs'
@@ -58,6 +61,14 @@ export function DashboardPage() {
   useEffect(() => { if (id) usageApi.opened('dashboard', id).catch(() => undefined) }, [id])
   const schedules = useSchedules({ item: id })
   const schedule = schedules.data?.schedules[0] ?? null
+  const client = useQueryClient()
+  const [updatedAt, setUpdatedAt] = useState(() => new Date().toISOString())
+  const [, setTick] = useState(0)
+  useEffect(() => { const timer = window.setInterval(() => setTick((n) => n + 1), 30_000); return () => window.clearInterval(timer) }, [])
+  const refresh = () => {
+    setUpdatedAt(new Date().toISOString())
+    void client.invalidateQueries({ queryKey: keys.tiles(id as string) })
+  }
 
   async function exportAs(kind: 'pdf' | 'pptx') {
     if (!id) return
@@ -121,16 +132,21 @@ export function DashboardPage() {
   }
   return (
     <div className="report-density flex min-h-0 flex-1 flex-col gap-3">
-      <p className="text-xs text-ink-800"><Link to="/insights/dashboards" className="text-brand-800 hover:underline">Dashboards</Link> › {data.name}</p>
-      <PageHeader help={<PageHelp chapter="insights" />} title={data.name} description={data.description ?? `${tiles(data.layout).length} tile${tiles(data.layout).length === 1 ? '' : 's'} · ${periodWords(data.bounds)}`}
-        actions={(
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link to="/insights/dashboards" className="mb-3 inline-flex items-center gap-1 text-helper text-brand-800 hover:underline">
+            <ChevronLeft {...ICON} /> Dashboards
+          </Link>
+          <div className="flex items-center gap-2"><h1 className="font-display text-page-title font-semibold text-ink-900">{data.name}</h1><PageHelp chapter="insights" /></div>
+          <p className="mt-1 max-w-2xl text-sm text-ink-800">{data.description ?? `${tiles(data.layout).length} tile${tiles(data.layout).length === 1 ? '' : 's'} · ${periodWords(data.bounds)}`}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-helper text-ink-800" aria-live="polite">Updated {formatRelative(updatedAt)}</span>
+          <IconButton label="Refresh" icon={RefreshCw} title="Refresh" onClick={refresh} />
+          {data.can_share && <button type="button" className={buttonSecondary} onClick={() => setSharing(true)}><Share2 {...ICON} />{data.shared ? 'Shared' : 'Share'}</button>}
+          {data.can_edit && <button type="button" className={buttonPrimary} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}><Pencil {...ICON} />Edit</button>}
           <ActionsMenu>{(act) => (
             <>
-              {data.can_edit && <>
-                <MenuRow role="menuitem" divider={false} leading={<Pencil {...ICON} />} title="Edit" onClick={() => act(() => navigate(`/insights/dashboards/${id}/edit`))} />
-                <MenuGap />
-              </>}
-              {data.can_share && <MenuRow role="menuitem" divider={false} leading={<Share2 {...ICON} />} title={data.shared ? 'Shared' : 'Share'} onClick={() => act(() => setSharing(true))} />}
               <MenuRow role="menuitem" divider={false} leading={<MessageSquare {...ICON} />} title={openComments.length ? `Comments · ${openComments.length}` : 'Comments'} onClick={() => act(() => setTalking({ anchor: null }))} />
               {(can('report.edit') || can('report.admin')) && (
                 <MenuRow role="menuitem" divider={false} leading={<CalendarClock {...ICON} />} title={schedule ? `Scheduled · ${schedule.words}` : 'Schedule'} onClick={() => act(() => setScheduling(true))} />
@@ -148,15 +164,21 @@ export function DashboardPage() {
               </>}
             </>
           )}</ActionsMenu>
-        )} />
-      {schedule && <ScheduleBanner schedule={schedule} onChange={() => setScheduling(true)} />}
-      <PeriodBar period={shownPeriod} onPeriod={setPeriod} compare={shownCompare} onCompare={setCompare} bounds={saved ? data.bounds : undefined} />
-      <div className="flex flex-wrap items-center gap-2">
-        <SavedViews dashboardId={id as string} canShare={data.can_edit} applied={applied} onApply={applyView}
-          current={{ ...(period ? { period } : {}), ...(compare !== null ? { compare } : {}), ...(page ? { page } : {}), selection: activeSlicers(selection), extra, drills }} />
+        </div>
       </div>
-      <SlicerBar slicers={slicers} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))} onRemoveExtra={removeExtra}
-        loadValues={(field) => dashboardsApi.slicerValues(id as string, { field, period: shownPeriod })} queryKey={[...keys.tiles(id as string), shownPeriod]} />
+      {schedule && <ScheduleBanner schedule={schedule} onChange={() => setScheduling(true)} />}
+      {pages.length > 1 && <Tabs label="Pages" idPrefix="dashboard-page" size="sm" tabs={pages.map((item) => ({ id: item.id, label: item.title }))} value={shownPage.id} onChange={setPage} />}
+      <div role="group" aria-label="Dashboard controls" className="flex flex-wrap items-center gap-2">
+        <PeriodMenu period={shownPeriod} onPeriod={setPeriod} bounds={saved ? data.bounds : undefined} />
+        <Switch checked={shownCompare} onChange={setCompare} label="Compare With Previous Period" />
+        {(slicers.length > 0 || extra.length > 0) && <span aria-hidden className="mx-1 h-6 w-px bg-line-subtle" />}
+        <SlicerBar slicers={slicers} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))} onRemoveExtra={removeExtra}
+          loadValues={(field) => dashboardsApi.slicerValues(id as string, { field, period: shownPeriod })} queryKey={[...keys.tiles(id as string), shownPeriod]} />
+        <span className="ml-auto">
+          <SavedViews dashboardId={id as string} canShare={data.can_edit} applied={applied} onApply={applyView}
+            current={{ ...(period ? { period } : {}), ...(compare !== null ? { compare } : {}), ...(page ? { page } : {}), selection: activeSlicers(selection), extra, drills }} />
+        </span>
+      </div>
       {sharing && <ShareDialog kind="dashboard" id={id as string} name={data.name} onClose={() => setSharing(false)} />}
       {embedding && <EmbedDialog kind="dashboard" id={id as string} name={data.name} onClose={() => setEmbedding(false)} />}
       {talking && <CommentsDrawer kind="dashboard" id={id as string} name={data.name} anchor={talking.anchor} onAnchor={(anchor) => setTalking({ anchor })} onClose={() => setTalking(null)} tileName={tileName} />}
@@ -166,7 +188,6 @@ export function DashboardPage() {
           action={data.can_edit ? <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}>Edit</button> : undefined} />
       ) : (
         <>
-        {pages.length > 1 && <Tabs label="Pages" idPrefix="dashboard-page" size="sm" tabs={pages.map((item) => ({ id: item.id, label: item.title }))} value={shownPage.id} onChange={setPage} />}
         <div style={themeStyle(data.layout.theme)} data-theme-name={data.layout.theme ?? 'default'}>
         <DashboardBody layout={{ ...data.layout, rows: container.rows, canvas: container.canvas, cells: container.cells }} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)} selection={activeSlicers(selection)} onPick={pick}
           drills={drills} onDrill={onDrill} onAction={onAction}
