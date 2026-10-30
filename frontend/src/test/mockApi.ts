@@ -1676,6 +1676,13 @@ export function installMockApi(options: MockOptions = {}) {
         return json(found)
       }
       const alertOne = /\/insights\/alerts\/([\w-]+)\/$/.exec(path)
+      if (alertOne && method === 'PUT') {
+        const found = insightsAlertsNow.find((a) => a.id === alertOne[1]) as Record<string, unknown> | undefined
+        if (!found) return json({ detail: 'No such alert.' }, 404)
+        const put = body as Record<string, unknown>
+        Object.assign(found, { measure: put.measure, op: put.op, threshold: put.threshold, every: put.every, at_time: put.at_time ?? null, recipients: put.recipients, name: put.name ?? null, row_version: (found.row_version as number) + 1 })
+        return json(found)
+      }
       if (alertOne && method === 'DELETE') { insightsAlertsNow.splice(insightsAlertsNow.findIndex((a) => a.id === alertOne[1]), 1); return new Response(null, { status: 204 }) }
       if (path.endsWith('/insights/comments/') && method === 'POST') {
         const posted = body as { kind: string; item_id: string; body: string; anchor?: Record<string, unknown> | null }

@@ -9,7 +9,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type 
 import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 
-export interface RowMenuItem { title: string; icon: ReactNode; tone?: 'default' | 'error'; onSelect: () => void }
+/** disabled: greyed out, with detail saying why ("1 report uses it") */
+export interface RowMenuItem { title: string; icon: ReactNode; tone?: 'default' | 'error'; disabled?: boolean; detail?: string; onSelect: () => void }
 
 const WIDTH = 224
 const GAP = 4
@@ -78,8 +79,8 @@ export function RowMenu({ label, groups }: { label: string; groups: (RowMenuItem
           {shown.map((group, index) => (
             <div key={index} role="group" className={index > 0 ? 'mt-1 border-t border-line-subtle pt-1' : ''}>
               {group.map((item) => (
-                <MenuRow key={item.title} role="menuitem" divider={false} tone={item.tone ?? 'default'} leading={item.icon} title={item.title}
-                  onClick={() => { close(false); item.onSelect() }} />
+                <MenuRow key={item.title} role="menuitem" divider={false} tone={item.tone ?? 'default'} leading={item.icon} title={item.title} detail={item.detail}
+                  disabled={item.disabled} onClick={() => { close(false); item.onSelect() }} />
               ))}
             </div>
           ))}

@@ -310,11 +310,13 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Benchmarks**
 
-1. Open **Benchmarks** in the Insights menu. Everyone sees them; a report or user administrator changes them.
-2. **Add a Benchmark**: the dataset, the measure, whether higher or lower is better, **Good** and **Act**. Between them is Watch. Higher is better: Good at or above Good, Act below Act. Lower is better: the same the other way.
-3. For a rate, choose **Made Of: Count** and **Made Of: Base** (such as Delivered and Sent): then its 95% range is worked out, as above.
-4. After adding the Email Campaign Reports, **Add the Email Campaign Defaults** sets four at once: Delivery Rate (Good 95%, Act under 90%), Bounce Rate (Good 2% or less, Act over 5%), Click-Through Rate (Good 1.5%, Act under 0.5%) and Unsubscribe Rate (Good 0.3% or less, Act over 0.5%). Change them to your own.
-5. Without a benchmark, What This Means states the figures and says it cannot judge them, with **Set a Benchmark**.
+1. Open **Benchmarks** in the Insights menu. Everyone sees them; a report or user administrator changes them. Search and **Dataset** narrow the list.
+2. **Add a Benchmark** takes two steps. **What to Judge**: the dataset, the measure (it says whether it is a percentage, money or a number) and **Better When**: Higher, like a delivery rate, or Lower, like a bounce rate.
+3. **The Bands**: type where **Good** starts and where **Needs Action** starts; the unit shows beside each number, so 95 is 95% for a rate. **Watch** is what lies between and is set for you. A coloured bar and a sentence ("A Delivered Rate of 95.0% or more is Good…") show the bands as you type. Needs Action on the wrong side of Good is refused with a reason.
+4. For a rate, open **Judge Small Numbers Fairly** and choose what is **Counted** and what it is **Out Of** (such as Delivered and Sent), or neither: then its 95% range is worked out, as above.
+5. After adding the Email Campaign Reports, **Add the Suggested Benchmarks** sets four at once: Delivery Rate (Good 95%, Needs Action under 90%), Bounce Rate (Good 2% or less, Needs Action over 5%), Click-Through Rate (Good 1.5%, Needs Action under 0.5%) and Unsubscribe Rate (Good 0.3% or less, Needs Action over 0.5%). Change them to your own.
+6. A benchmark's **⋯** has **Edit**, which opens on The Bands, and **Remove**. The table shows each band as a coloured tag.
+7. Without a benchmark, What This Means states the figures and says it cannot judge them, with **Set a Benchmark**. (Explain still calls the third band Act for now.)
 
 **Change a report with a prompt, with AI**
 
@@ -338,8 +340,9 @@ Workspace administrators add calculated measures to their own datasets (Report D
 **See what people open (Usage)**
 
 1. Open Insights → **Usage** (report administrators).
-2. Choose 7, 30 or 90 days. **Most Opened** and **Who Opens the Most** rank the reports, dashboards and people; the table gives each item's openings, people, openings through embed links and when it was last opened.
-3. **Reports Nobody Opened** lists the reports no one opened in the period: candidates to tidy away. Opening the same item again within ten minutes counts once.
+2. Choose the **Period** (7, 30 or 90 days) and, if you like, the **Kind** (reports or dashboards); both stay in the page's address. **Most Opened** and **Who Opens the Most** rank the reports, dashboards and people.
+3. **All Openings** gives each item's openings, people, openings through embed links and when it was last opened, and **Where** it lives: its folder, owner and data. Two reports of one name also say when each was changed.
+4. **Nobody Opened** lists the reports no one opened in the period: candidates to tidy away. Each one's **⋯** opens it, moves it to a folder or deletes it. Opening the same item again within ten minutes counts once.
 
 **Use a scatter, bubble, treemap or waterfall chart**
 
@@ -446,7 +449,8 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. Under **New Alert**, choose the value (**When**), the **Condition** (falls below, is at or below, rises above, is at or above) and the **Threshold**. For a percentage, 90 means 90%.
 3. Choose **Check**: Every Day at a time, or Every Hour. Add the addresses to email (people without the right to build reports alert themselves only), and an optional name. Press **Set Alert**.
 4. The value is the report's value over its own filters. When it crosses the threshold you get one email; you are emailed again only after it goes back and crosses again.
-5. **Check Now** reads the value at once. **Pause**, **Resume** and **Delete** are on each alert; Insights → Scheduled lists all your alerts.
+5. **Check Now** reads the value at once. **Pause**, **Resume** and **Delete** are on each alert.
+6. Insights → **Scheduled** → **Alerts** lists every alert. **New Alert** there takes two steps: **Pick a Report**, then the alert as above. Each alert's **⋯** has **Edit Alert**, Check Now, Open the Report, Pause and Delete.
 
 **Comment on a report or a dashboard, and pin a note to a value**
 
@@ -469,11 +473,12 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Report on a CSV or Excel file (Uploaded Files)** (anyone who can build reports)
 
-1. Open Insights → **Uploaded Files** and press **Upload a File**, or drop the file on the page. The first row names the columns; in an Excel workbook the first sheet is read. Up to 100,000 rows, 50 columns and 20 MB; save an older .xls as .xlsx first.
-2. **Review the Columns** opens. Each column's type was read from its values: Text, Number, Date, Date and Time, or Yes or No. Rename a column under **Label**, make it **Text** if it is a code, and set a number to **A Dimension (Groups)** when it should group rather than add up, such as a year or a store number. The first values show beside each column.
+1. Open Insights → **Uploaded Files** and press **Upload a File**, or drop the file anywhere on the page. **Choose the File** reads it at once. The first row names the columns; in an Excel workbook the first sheet is read. Up to 100,000 rows, 50 columns and 20 MB; save an older .xls as .xlsx first.
+2. Step 2, **Review the Columns**, follows (Back returns to the file). Each column's type was read from its values: Text, Number, Date, Date and Time, or Yes or No. Rename a column under **Label**, make it **Text** if it is a code, and set a number to **A Dimension (Groups)** when it should group rather than add up, such as a year or a store number. The first values show beside each column.
 3. Give the dataset a **Name** and press **Save as Dataset**. New Report opens with your file picked under **Your Files**. It also offers **Upload a File**.
 4. Dates like 03/04/2026 are read with the day first when any day in the column is over 12, otherwise with the month first. A date and time with no zone is your workspace's time. Codes with leading zeros, such as 007, stay text.
-5. To refresh the rows, open the file's menu (the three dots) and choose **Replace File**. The new file must have the same column names, in any order, and the reports on it read the new rows at once. A file with reports built on it cannot be deleted.
+5. To refresh the rows, open the file's menu (the three dots) and choose **Replace File**. The new file must have the same column names, in any order, and the reports on it read the new rows at once. A file with reports built on it cannot be deleted; its Delete says how many reports use it.
+6. A file read but not saved yet shows **Needs Review**: **Review and Save** in its menu finishes it. Search, **Status** and **Used by Reports** narrow the list.
 
 **Add filters people choose (Report Filters)**
 
@@ -542,11 +547,11 @@ Examples: `IF([Amount] >= 500, "Gold", "Standard")`, `YEAR([Sent]) & "-" & TEXT(
 
 **Share a formula with every report on a dataset** (anyone who can build reports)
 
-1. Open **Insights**, then **Shared Formulas**, and choose the **Dataset**.
-2. Press **Add a Formula**. Give it a **Name**, choose **Measure Formula** or **Formula (Each Row)**, and add a **Description** that says what it means.
-3. Write the formula as in Custom Fields. It may use the dataset's fields and the shared formulas above it. Press **Add Formula**.
+1. Open **Insights**, then **Shared Formulas**. The list shows every dataset's formulas, with a **Dataset** column; the **Dataset** chip narrows it to one, and **Kind** and **Certified** narrow it further.
+2. Press **Add a Formula**. Step 1, **About the Formula**: the **Dataset** (set from the chip), **Measure Formula** or **Formula (Each Row)**, a **Name** and a **Description** that says what it means.
+3. Step 2, **The Formula**: write it as in Custom Fields, with the fields and functions beside it. It may use the dataset's fields and the shared formulas above it. Press **Add Formula**. **Edit** on a formula opens on this step.
 4. Every report on that dataset now lists it among the fields. It shows the word **Shared** next to its name, or a tick when it is certified.
-5. To share a formula you wrote in a report: in the report's **Custom Fields**, press **Share With Every Report** next to it, then **Add Formula**. The report then uses the shared formula in place of its own.
+5. To share a formula you wrote in a report: in the report's **Custom Fields**, press **Share With Every Report** next to it; the pop-up opens on The Formula, filled in; press **Add Formula**. The report then uses the shared formula in place of its own.
 6. A formula that reports use cannot be removed: the **Reports** column shows how many. Renaming one asks first, because a report may call it by name.
 
 **Certify a shared formula** (report administrators)
@@ -697,16 +702,16 @@ Choose **Schedule** in **More actions** on a report or a dashboard:
 |---|---|
 | Every | Day, Weekday, Week (on a day) or Month (on a day of the month, 1 to 28). |
 | At | The time, in the workspace's time zone. |
-| Send as | Excel, CSV or PDF for a report; a dashboard goes as PDF. |
+| Send as | Excel, CSV, PDF or PowerPoint for a report; a dashboard goes as PDF or PowerPoint. |
 | To | Up to twenty addresses; Enter, a comma or a space adds one. |
 | Subject | Optional. `{date}` becomes the sending date. Empty: the report's name and the date. |
 | Note | Optional, at the top of the email. |
 
-The email goes out through the workspace's own mail server (Settings → Email Server; a workspace without one cannot schedule), built at the moment of sending with the rights and masking of whoever scheduled it, the file attached. Under the title the schedule line shows what, when, to how many, the last sending and the next, with **Change** and **Pause**. **Send a Test Now**, on a saved schedule, sends the email to you at once. **Insights → Scheduled** lists every schedule you may see, with Pause, Resume and Delete. Three failures in a row pause a schedule; Resume starts it again.
+The email goes out through the workspace's own mail server (Settings → Email Server; a workspace without one cannot schedule), built at the moment of sending with the rights and masking of whoever scheduled it, the file attached. Under the title the schedule line shows what, when, to how many, the last sending and the next, with **Change** and **Pause**. **Send a Test Now**, on a saved schedule, sends the email to you at once. **Insights → Scheduled** lists every schedule you may see, with who it goes to, the last sending and the next; search, **Kind**, **Owner** and **Status** (Active, Paused, Failing) narrow it. **New Schedule** takes two steps: **What to Send** (a report or a dashboard), then **When and to Whom**, the fields above with a sentence that sums them up. Each schedule's **⋯** has **Edit Schedule** (it opens on the second step), Open, Pause or Resume and Delete. Three failures in a row pause a schedule; Resume starts it again. Alerts have their own tab there.
 
 ## Run Log
 
-Insights → Run Log, for report administrators: every preview, run, export and delivery of the last 7 or 30 days, with the report and its version, the kind, who, the outcome with its reason when it is not OK, the rows and the time, filterable by outcome, person and report name, with a summary of the period.
+Insights → Run Log, for report administrators: every preview, run, export and delivery of the last 7 or 30 days, with the report and its version, the kind, who, the outcome, the rows and the time. The period's figures sit on top: runs, timed out, refused, failed and the median time. Search, **Period**, **Outcome** and **Person** narrow it (kept in the page's address). A run that did not go OK has an arrow beside its outcome: it opens a line saying why, with **Open the Report**. Twenty runs show at a time, or 50 or 100; **Export CSV** takes every run the filters show.
 
 ## How fresh is the data
 
