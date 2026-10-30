@@ -57,6 +57,20 @@ class Tenant(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def clean(self):
+        super().clean()
+        self.normalize_hosts()                                      # before the uniqueness check, so "CG" and "cg" are one name
+
+    def save(self, *args, **kwargs):
+        self.normalize_hosts()
+        super().save(*args, **kwargs)
+
+    def normalize_hosts(self):
+        """Browsers send host names in lower case and fn_resolve_tenant matches them so: the subdomain and the custom domain
+        are kept that way whatever was typed, trimmed, and empty as none."""
+        self.subdomain = (self.subdomain or "").strip().lower() or None
+        self.custom_app_domain = (self.custom_app_domain or "").strip().lower() or None
+
 
 class TenantDatabase(models.Model):
     """Routing record: which database (shared pool or dedicated) hosts the tenant; drives the Django DB router"""
