@@ -91,14 +91,14 @@ test('drill-through: a right-click on a Channel value offers the detail report, 
 
 test('Detail Report in the editor saves the fields others can open the report through', async () => {
   const user = userEvent.setup()
-  window.localStorage.setItem('insights.editor', 'wells')
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
   await screen.findByRole('textbox', { name: 'Report name' })
-  await user.click(screen.getByRole('button', { name: 'Detail Report' }))
+  await user.click(await screen.findByRole('tab', { name: 'Settings' }))
+  await user.click(screen.getByRole('button', { name: /^Detail Report/ }))
   const dialog = await screen.findByRole('dialog', { name: 'Detail Report' })
   await user.click(within(dialog).getByRole('checkbox', { name: 'Channel' }))
   await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
-  expect(screen.getByRole('button', { name: 'Detail Report · 1' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: /^Detail Report/ }).textContent).toMatch(/1$/)
   const save = screen.getByRole('button', { name: 'Save' })
   await vi.waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false))
   await user.click(save)

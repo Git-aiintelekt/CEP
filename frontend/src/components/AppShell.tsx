@@ -124,8 +124,11 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
  * beside it is 240px, or a 64px column of icons when collapsed. xl and up it is open unless the person collapsed it;
  * below xl it is collapsed and the toggle opens it over the page (never pushing it). Below md there is no navigation
  * until the top bar's menu button opens both columns.
+ *
+ * `workspace` is for an editor that needs the whole window (the report editor): no rail or menu, and the page fills the
+ * height under the top bar with no padding or footer, so the editor's own panes do the scrolling.
  */
-export function AppShell() {
+export function AppShell({ workspace = false }: { workspace?: boolean }) {
   const { me, logout, can, has } = useAuth()
   const location = useLocation()
   const isXl = useMinWidth(BREAKPOINT.xl)
@@ -140,7 +143,7 @@ export function AppShell() {
   }
   const menuOpen = isXl ? !userCollapsed : open
   const overlay = open && !isXl
-  const showNav = isMd || open
+  const showNav = !workspace && (isMd || open)
   const support = me?.support_session ?? null
   const visit = me?.platform_visit ?? null
   const enrolFirst = Boolean(me?.mfa_setup_required)
@@ -200,7 +203,7 @@ export function AppShell() {
     }
   }
 
-  const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-[328px]' : current ? 'pl-[152px]' : 'pl-[88px]'
+  const contentOffset = workspace || !isMd ? '' : isXl && !userCollapsed ? 'pl-[328px]' : current ? 'pl-[152px]' : 'pl-[88px]'
   const closeOverlay = overlay ? () => setOpen(false) : undefined
 
   return (
@@ -229,7 +232,7 @@ export function AppShell() {
         current={current}
         pages={pages}
         searchRef={searchRef}
-        toggle={{ kind: !isMd ? (open ? 'close' : 'open') : menuOpen ? 'collapse' : 'expand', onClick: toggle }}
+        toggle={workspace ? undefined : { kind: !isMd ? (open ? 'close' : 'open') : menuOpen ? 'collapse' : 'expand', onClick: toggle }}
         onHelp={() => setHelpOpen(true)}
         onLogout={logout}
         extra={<UploadsIndicator />}
@@ -239,10 +242,14 @@ export function AppShell() {
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
         {visit && <VisitBanner workspace={me?.workspace?.name ?? me?.tenant.code ?? 'this workspace'} home={visit.home} />}
         {/* same side padding as the top bar's search and account, and no width cap, so content lines up with them */}
-        <main className="flex w-full min-w-0 flex-1 flex-col bg-canvas px-4 py-5 md:px-8 md:py-6">
-          <div className="flex-1"><Outlet /></div>
-          <LegalFooter variant="bar" />
-        </main>
+        {workspace ? (
+          <main className="flex h-[calc(100dvh-3.5rem)] w-full min-w-0 flex-col overflow-hidden bg-surface"><Outlet /></main>
+        ) : (
+          <main className="flex w-full min-w-0 flex-1 flex-col bg-canvas px-4 py-5 md:px-8 md:py-6">
+            <div className="flex-1"><Outlet /></div>
+            <LegalFooter variant="bar" />
+          </main>
+        )}
       </div>
       {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}
     </div>

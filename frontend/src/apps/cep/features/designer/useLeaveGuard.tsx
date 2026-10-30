@@ -16,7 +16,7 @@ const MARK = 'cepLeaveGuard'
 
 const isMarked = () => Boolean((window.history.state as Record<string, unknown> | null)?.[MARK])
 
-export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void): { requestLeave: (proceed: () => void) => void; dialog: ReactNode } {
+export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void, message = 'You have unsaved changes to this template. Leaving discards them.'): { requestLeave: (proceed: () => void) => void; dialog: ReactNode } {
   const [asking, setAsking] = useState(false)
   const pending = useRef<(() => void) | null>(null)
   const dirtyRef = useRef(dirty)
@@ -124,7 +124,7 @@ export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void): { req
         </>
       }
     >
-      <p className="text-sm text-ink-800">You have unsaved changes to this template. Leaving discards them.</p>
+      <p className="text-sm text-ink-800">{message}</p>
     </Modal>
   ) : null
 

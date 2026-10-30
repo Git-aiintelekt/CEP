@@ -13,9 +13,11 @@ test('stacked: one bar per category made of its series bottom to top, the scale 
     series={[{ key: 'email', label: 'Email', values: [300, 250] }, { key: 'sms', label: 'Text', values: [100, 50] }]} />)
   const marks = document.querySelectorAll('[data-stacked]')
   expect(marks.length).toBe(4)
-  const [email, sms] = [document.querySelector('[data-series="email"] rect')!, document.querySelector('[data-series="sms"] rect')!]
-  expect(Number(sms.getAttribute('y')) + Number(sms.getAttribute('height'))).toBeCloseTo(Number(email.getAttribute('y')), 5)   // Text sits on Email
-  expect(screen.getByText('400')).toBeTruthy()                                                                              // the top tick covers 300 + 100
+  const [email, sms] = [document.querySelector('[data-series="email"] [data-stacked]')!, document.querySelector('[data-series="sms"] [data-stacked]')!]
+  expect(Number(sms.getAttribute('data-bottom'))).toBeCloseTo(Number(email.getAttribute('data-top')), 5)   // Text sits on Email
+  expect(screen.getByText('400')).toBeTruthy()                                                              // the top tick covers 300 + 100
+  expect(email.getAttribute('d')).not.toContain('A')                                                       // only the top segment is rounded
+  expect(sms.getAttribute('d')).toContain('A2 2')
 })
 
 test('combo: the bars on the left scale, a line with its own format on the right one, and the numbers table reads each in its format', () => {

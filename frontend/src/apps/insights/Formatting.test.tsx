@@ -47,7 +47,6 @@ test('a format goes with its column: removing the measure or the comparison remo
 
 test('Format Values: rules on Sent Count colour the preview cells, and Save writes them with the view', async () => {
   const user = userEvent.setup()
-  window.localStorage.setItem('insights.editor', 'wells')
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
   await screen.findByRole('textbox', { name: 'Report name' })
   await screen.findByRole('region', { name: 'Preview rows' })

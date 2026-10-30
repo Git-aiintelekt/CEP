@@ -89,3 +89,13 @@ export function answerWords(operator: ParameterOperator, value: unknown): string
   if (value === false) return 'No'
   return `${operator === '>=' ? 'from ' : operator === '<=' ? 'up to ' : ''}${String(value)}`
 }
+
+const dayMonthYear = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+
+/** the days a span covers, start year included: "29 Oct 2025 to 28 Oct 2026" */
+export function periodCovers(value: unknown, today = new Date()): string | null {
+  const preset = PERIODS.find((p) => p.value === value)
+  if (preset) return `${dayMonthYear.format(new Date(today.getTime() - (preset.days - 1) * 86_400_000))} to ${dayMonthYear.format(today)}`
+  if (Array.isArray(value) && value[0] && value[1]) return `${dayMonthYear.format(new Date(`${value[0]}T00:00:00`))} to ${dayMonthYear.format(new Date(`${value[1]}T00:00:00`))}`
+  return null
+}

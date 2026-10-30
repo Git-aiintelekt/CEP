@@ -23,7 +23,8 @@ import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { formatDate } from '@/lib/format'
 import { baseReportsApi } from '../api'
-import type { BasePack, BasePackAdded, BasePackCheck, BasePackOptions, BasePackSources } from '../types'
+import { ENGINE_LABEL } from '../databaseConnection'
+import type { BasePack, BasePackAdded, BasePackCheck, BasePackOptions, BasePackSources, DatabaseEngine } from '../types'
 import { ConnectionStepFields } from './ConnectDatabaseDrawer'
 import { useConnectionStep } from './connectDatabase'
 
@@ -52,6 +53,8 @@ export function BaseReportsDialog({ onClose }: { onClose: () => void }) {
   const packs = catalog.data?.packs ?? []
   const pack: BasePack | undefined = packs.find((p) => p.key === packKey) ?? packs[0]
   const readable = (catalog.data?.connections ?? []).filter((c) => pack && c.engine.startsWith(pack.needs.engine))
+  // a new connection can only be one the pack reads: MySQL 5.7 or 8.0 for the Postal pack
+  const packEngines = pack ? (Object.keys(ENGINE_LABEL) as DatabaseEngine[]).filter((engine) => engine.startsWith(pack.needs.engine)) : undefined
   const connection = readable.find((c) => c.id === connectionId) ?? readable.find((c) => c.usable) ?? null
   const showConnect = connecting || (step === 2 && !connection)
   const sources = useQuery({
@@ -153,7 +156,7 @@ export function BaseReportsDialog({ onClose }: { onClose: () => void }) {
             <Info size={20} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0 text-callout-icon" />
             <p>These reports read your <span className="font-semibold">email sending records</span>: every message, delivery, open and click, as kept by Postal, the server that sends your campaigns. They sit in a MySQL database: connect it once, here.</p>
           </div>
-          <ConnectionStepFields step={connect} formId="base-reports-connect" />
+          <ConnectionStepFields step={connect} formId="base-reports-connect" engines={packEngines} />
         </>
       ) : step === 2 && connection ? (
         <>

@@ -18,7 +18,7 @@ import { titleOf } from './markdownParse'
 const ICON = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900'
 const ICON_ON_BRAND = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-on-brand-soft transition-colors duration-fast ease-standard hover:bg-brand-fill-hover hover:text-on-brand'
 
-function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => void }) {
+export function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => void }) {
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
   const [source, setSource] = useState<string | null>(null)

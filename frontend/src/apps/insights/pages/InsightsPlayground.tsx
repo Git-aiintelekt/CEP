@@ -1,5 +1,5 @@
 /**
- * /dev/insights: the two editors on sample data, with no backend: ?layout=wells | steps, ?state=busy | sparse, &masked=1 for a
+ * /dev/insights: the editor's panes on sample data, with no backend (the Data pane, the result, the builder): ?state=busy | sparse, &masked=1 for a
  * reader without the right to personal data, &view=chart | hierarchy | pivot (&across=channel | submitted_at) for the other views,
  * &compare=1 for Sent Count compared with the month before and with last year, &format=1 for conditional formatting (rules on
  * Sent Count, data bars on Opened), &chart=stacked | stacked100 | combo | scatter | bubble | treemap | waterfall | kpi | gauge | map for
@@ -10,12 +10,12 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
 import { ReportResult, ViewBar } from '../components/ReportViews'
+import { ResultCard } from '../components/ResultCard'
 import { runWords } from '../components/resultWords'
 import { EMPTY, setCompare, setView, viewOf } from '../editor/definition'
-import { FieldWells } from '../editor/FieldWells'
-import { Steps } from '../editor/Steps'
+import { Builder } from '../editor/Builder'
+import { DataPane } from '../editor/DataPane'
 import type { CatalogDataset, ChartKind, ReportDefinition, RunResult, ViewType } from '../types'
 
 const DATASET: CatalogDataset = {
@@ -87,12 +87,8 @@ const SAMPLES: Record<string, RunResult> = {
   },
 }
 
-type Layout = 'wells' | 'steps'
-const LAYOUTS: SegmentOption<Layout>[] = [{ value: 'wells', label: 'Field Wells' }, { value: 'steps', label: 'Steps' }]
-
 export default function InsightsPlayground() {
-  const [params, setParams] = useSearchParams()
-  const layout = (params.get('layout') === 'steps' ? 'steps' : 'wells') as Layout
+  const [params] = useSearchParams()
   const [definition, setDefinition] = useState<ReportDefinition>(() => {
     const base = params.get('state') === 'sparse' ? EMPTY : params.get('compare') === '1' ? setCompare(BUSY, 'sent', ['previous_period', 'change_previous_year']) : BUSY
     const type = (params.get('view') ?? 'grid') as ViewType
@@ -109,26 +105,24 @@ export default function InsightsPlayground() {
   const shown: RunResult = params.get('masked')
     ? { ...base, columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...base.columns.slice(1)], rows: base.rows.map((row) => ['•••••', ...row.slice(1)]) }
     : base
-  const result = (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
-        <ViewBar view={viewOf(definition)} onChange={(view) => setDefinition(setView(definition, view))} columns={shown.columns} dimensions={[]} />
-        <span>{runWords(shown)}</span>
-      </div>
-      <ReportResult result={shown} view={viewOf(definition)} label="Preview rows" minHeight={280} />
-    </div>
-  )
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3 border-b border-line-subtle pb-3">
-        <span className="text-sm text-brand-800">← Report</span>
-        <input aria-label="Report name" defaultValue="Monthly Sends by Channel" className="min-w-0 flex-1 rounded-control-md border border-transparent bg-transparent px-2 font-display text-page-title font-semibold text-ink-900 hover:border-line" />
-        <span className="text-xs text-ink-800">Not saved yet</span>
-        <SegmentedControl label="Editor" options={LAYOUTS} value={layout} onChange={(next) => setParams({ layout: next, ...(params.get('state') ? { state: params.get('state') as string } : {}) })} />
+    <div className="flex h-[calc(100dvh-8rem)] min-h-[640px] flex-col overflow-hidden rounded-md border border-line bg-surface">
+      <div className="flex h-15 shrink-0 items-center gap-3 border-b border-line px-4">
+        <input aria-label="Report name" defaultValue="Monthly Sends by Channel" className="min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1.5 font-display text-section-title font-semibold text-ink-900 hover:border-line" />
+        <span className="text-helper text-ink-800">Sample data · no backend</span>
       </div>
-      {layout === 'wells'
-        ? <FieldWells dataset={DATASET} definition={definition} onChange={setDefinition} result={result} />
-        : <Steps dataset={DATASET} definition={definition} onChange={setDefinition} result={result} rowCount={670680} />}
+      <div className="flex min-h-0 flex-1">
+        <DataPane dataset={DATASET} base={DATASET} definition={definition} onChange={setDefinition} onCustom={() => undefined} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-auto bg-canvas px-6 py-5">
+          <ResultCard result={shown} view={viewOf(definition)} bar={<ViewBar view={viewOf(definition)} onChange={(view) => setDefinition(setView(definition, view))} columns={shown.columns} dimensions={[]} />}>
+            <ReportResult result={shown} view={viewOf(definition)} label="Preview rows" minHeight={280} inCard />
+          </ResultCard>
+          <p className="text-helper text-ink-800">Preview · {runWords(shown)}</p>
+        </div>
+        <aside aria-label="Build" className="flex min-h-0 w-86 shrink-0 flex-col overflow-y-auto border-l border-line bg-surface">
+          <Builder dataset={DATASET} definition={definition} onChange={setDefinition} />
+        </aside>
+      </div>
     </div>
   )
 }

@@ -51,7 +51,8 @@ export interface TopBarProps {
   current: EntitledComponent | null
   pages: NavItem[]
   searchRef: RefObject<HTMLInputElement | null>
-  toggle: NavToggle
+  /** none in a workspace, which has no rail or menu to open */
+  toggle?: NavToggle
   onHelp: () => void
   onLogout: () => void
   /** what sits before the account: the uploads indicator */
@@ -67,18 +68,20 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
   const canSwitch = Boolean(me?.principal.is_platform_admin && !me.platform_visit && !me.support_session)
   const name = me?.principal.display_name ?? me?.principal.email
   const role = me?.principal.roles?.[0] ?? me?.principal.email
-  const ToggleIcon = TOGGLE[toggle.kind].icon
+  const ToggleIcon = toggle ? TOGGLE[toggle.kind].icon : null
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-1.5 bg-sidebar pr-3 pl-3 md:gap-2.5">
-      <button
-        type="button"
-        onClick={toggle.onClick}
-        aria-label={TOGGLE[toggle.kind].label}
-        aria-expanded={toggle.kind === 'collapse' || toggle.kind === 'close'}
-        className={`${iconButtonClass({ variant: 'onNavy', size: 'md' })} ${ON_NAVY_FOCUS}`}
-      >
-        <ToggleIcon size={20} strokeWidth={1.5} aria-hidden />
-      </button>
+      {toggle && ToggleIcon && (
+        <button
+          type="button"
+          onClick={toggle.onClick}
+          aria-label={TOGGLE[toggle.kind].label}
+          aria-expanded={toggle.kind === 'collapse' || toggle.kind === 'close'}
+          className={`${iconButtonClass({ variant: 'onNavy', size: 'md' })} ${ON_NAVY_FOCUS}`}
+        >
+          <ToggleIcon size={20} strokeWidth={1.5} aria-hidden />
+        </button>
+      )}
       <AppLauncher me={me} components={components} current={current} />
       <div className="flex min-w-0 shrink-0 items-center gap-2.5">
         <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-600 font-display text-base font-bold text-on-brand">C</span>

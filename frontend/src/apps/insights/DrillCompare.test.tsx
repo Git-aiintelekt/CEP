@@ -58,25 +58,30 @@ test('drill helpers: a step in words, whether a click drills, and the path one l
 
 test('the editor: a measure takes a comparison once the report has a date by month, and the preview asks for it', async () => {
   const user = userEvent.setup()
-  window.localStorage.setItem('insights.editor', 'wells')
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
   await screen.findByRole('textbox', { name: 'Report name' })
-  const values = screen.getByRole('region', { name: 'Values' })
-  const add = within(values).getByRole('combobox', { name: 'Add a comparison to Sent Count' }) as HTMLSelectElement
-  expect((within(add).getByRole('option', { name: /Change vs Last Year \(needs a date/ }) as HTMLOptionElement).disabled).toBe(true)
-  expect((within(add).getByRole('option', { name: '% of Total' }) as HTMLOptionElement).disabled).toBe(false)
+  const show = screen.getByRole('region', { name: 'Show' })
+  await user.click(within(show).getByRole('button', { name: 'Sent Count calculation' }))
+  let menu = screen.getByRole('region', { name: 'Sent Count calculation' })
+  const lastYear = within(menu).getByRole('menuitemcheckbox', { name: /^Change vs Last Year.*needs a date/ })
+  expect(lastYear.getAttribute('aria-disabled')).toBe('true')
+  expect(within(menu).getByRole('menuitemcheckbox', { name: '% of Total' }).getAttribute('aria-disabled')).toBeNull()
+  await user.keyboard('{Escape}')
 
   await user.click(within(screen.getByRole('complementary', { name: 'Fields' })).getByRole('button', { name: 'Sent, add' }))
-  await user.selectOptions(within(screen.getByRole('region', { name: 'Rows' })).getByRole('combobox', { name: 'Sent bucket' }), 'month')
-  await user.selectOptions(within(values).getByRole('combobox', { name: 'Add a comparison to Sent Count' }), 'change_previous_year')
-  expect(within(values).getByRole('button', { name: 'Remove Change vs Last Year from Sent Count' })).toBeTruthy()
+  await user.selectOptions(within(screen.getByRole('region', { name: 'Split By' })).getByRole('combobox', { name: 'Sent bucket' }), 'month')
+  await user.click(within(show).getByRole('button', { name: 'Sent Count calculation' }))
+  menu = screen.getByRole('region', { name: 'Sent Count calculation' })
+  await user.click(within(menu).getByRole('menuitemcheckbox', { name: 'Change vs Last Year' }))
+  await user.keyboard('{Escape}')
+  expect(within(show).getByRole('button', { name: 'Remove Change vs Last Year from Sent Count' })).toBeTruthy()
   await vi.waitFor(() => {
     const previews = calls.filter((call) => call.url.endsWith('/insights/reports/preview/'))
     const last = previews.at(-1)?.body as { definition: ReportDefinition } | undefined
     expect(last?.definition.columns.find((c) => c.field === 'sent')?.compare).toEqual(['change_previous_year'])
   })
-  await user.click(within(values).getByRole('button', { name: 'Remove Change vs Last Year from Sent Count' }))
-  expect(within(values).queryByRole('button', { name: /Remove Change vs Last Year/ })).toBeNull()
+  await user.click(within(show).getByRole('button', { name: 'Remove Change vs Last Year from Sent Count' }))
+  expect(within(show).queryByRole('button', { name: /Remove Change vs Last Year/ })).toBeNull()
 })
 
 test('the viewer: in the chart a click on a bar drills a level down, the path says where it is, and Up One Level goes back', async () => {

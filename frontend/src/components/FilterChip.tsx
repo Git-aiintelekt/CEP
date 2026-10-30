@@ -20,25 +20,29 @@ interface FilterChipProps {
   menuWidth?: number
   /** the label is cut at this width (px), with the full text in a tooltip */
   maxLabelWidth?: number
+  /** shown in the tooltip instead of the label, and always: "29 Oct 2025 to 28 Oct 2026" for a period */
+  hint?: string
+  /** the menu's side: under the chip's right edge (the list pages' filters, at the right) or its left (a line that starts at the left) */
+  align?: 'end' | 'start'
   children: (menu: { close: () => void }) => ReactNode
 }
 
-/** A 40px filter trigger with a chevron; its menu opens under it, aligned to its right edge. */
-export function FilterChip({ label, active = false, menuLabel, menuWidth = 280, maxLabelWidth = 220, children }: FilterChipProps) {
+/** A 40px filter trigger with a chevron; its menu opens under it, aligned to its right edge unless `align` says start. */
+export function FilterChip({ label, active = false, menuLabel, menuWidth = 280, maxLabelWidth = 220, hint, align = 'end', children }: FilterChipProps) {
   const menus = useSingleDropdown<'menu'>()
   const text = useRef<HTMLSpanElement>(null)
   const open = menus.isOpen('menu')
   const cut = () => Boolean(text.current && text.current.scrollWidth > text.current.clientWidth)
   return (
     <span className="relative inline-flex max-w-full">
-      <Tooltip content={label} disabled={() => open || !cut()}>
+      <Tooltip content={hint ?? label} disabled={() => open || (!hint && !cut())}>
         <button type="button" {...menus.triggerProps('menu')} aria-haspopup="listbox" data-filter-chip className={filterChipClass(active)}>
           <span ref={text} className="min-w-0 truncate" style={{ maxWidth: maxLabelWidth }}>{label}</span>
           <ChevronDown size={16} strokeWidth={1.5} aria-hidden className={`shrink-0 transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
         </button>
       </Tooltip>
       {open && (
-        <Popover {...menus.panelProps('menu')} label={menuLabel} placement="bottom-end" width={menuWidth}>
+        <Popover {...menus.panelProps('menu')} label={menuLabel} placement={align === 'start' ? 'bottom-start' : 'bottom-end'} width={menuWidth}>
           {children({ close: () => menus.close() })}
         </Popover>
       )}

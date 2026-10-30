@@ -30,11 +30,14 @@ export function niceTicks(max: number, count = 4, whole = true): number[] {
 }
 
 export const BAR_GAP = 4
+/** no bar is wider than this, however few categories there are */
+export const BAR_MAX = 56
 
-/** a category's bars side by side, 4px apart: the group takes about 78% of the band */
+/** a category's bars side by side, 4px apart: the group takes about 78% of the band, each bar at most BAR_MAX wide */
 export function barGeometry(plot: { band: number }, count: number): { group: number; width: number } {
-  const group = Math.max(count * 2, plot.band * 0.78)
-  return { group, width: Math.max(2, (group - BAR_GAP * (count - 1)) / count) }
+  const room = Math.max(count * 2, plot.band * 0.78)
+  const width = Math.min(BAR_MAX, Math.max(2, (room - BAR_GAP * (count - 1)) / count))
+  return { group: width * count + BAR_GAP * (count - 1), width }
 }
 
 /** the centre of the `place`th of `count` bars side by side in category `index` */

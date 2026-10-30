@@ -44,7 +44,7 @@ test('a formula column and a measure formula become fields of their type and use
 test('Custom Fields: a measure formula is checked as you type, the error shown at its place, then added and saved with its format', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/reports/rep-1/edit')
-  await user.click(await screen.findByRole('button', { name: 'Custom Fields' }))
+  await user.click(await screen.findByRole('button', { name: 'New Custom Field' }))
   const dialog = await screen.findByRole('dialog', { name: 'Custom Fields' })
   await user.type(within(dialog).getByLabelText(/^Name/), 'Email Share')
   await user.selectOptions(within(dialog).getByLabelText('Kind'), 'Measure Formula')
@@ -76,7 +76,7 @@ test('Custom Fields: a measure formula is checked as you type, the error shown a
 test('a formula column: a field put in at the cursor, a number used as a dimension', async () => {
   const user = userEvent.setup()
   await renderAppAt('/insights/reports/rep-1/edit')
-  await user.click(await screen.findByRole('button', { name: 'Custom Fields' }))
+  await user.click(await screen.findByRole('button', { name: 'New Custom Field' }))
   const dialog = await screen.findByRole('dialog', { name: 'Custom Fields' })
   await user.type(within(dialog).getByLabelText(/^Name/), 'Doubled')
   await user.selectOptions(within(dialog).getByLabelText('Kind'), 'Formula (Each Row)')

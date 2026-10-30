@@ -1,7 +1,7 @@
 /** What the chart frame draws its series with: lines (optionally with an area under them) and grouped bars. */
 import { useId } from 'react'
 
-import { BAR_GAP, barGeometry } from './scale'
+import { BAR_GAP, BAR_MAX, barGeometry } from './scale'
 
 export interface Plot {
   left: number
@@ -58,12 +58,14 @@ export function LineSeries({ plot, series, area = false, active }: { plot: Plot;
 }
 
 
-/** a bar standing on the axis with both ends fully rounded: a pill as wide as the bar */
+const BAR_RADIUS = 2
+
+/** a bar standing square on the axis, its top corners rounded 2px */
 function barPath(x: number, y: number, width: number, bottom: number): string {
   const height = bottom - y
   if (height <= 0) return ''
-  const r = Math.min(width / 2, height / 2)
-  return `M${x} ${bottom - r}V${y + r}A${r} ${r} 0 0 1 ${x + width} ${y + r}V${bottom - r}A${r} ${r} 0 0 1 ${x} ${bottom - r}Z`
+  const r = Math.min(BAR_RADIUS, width / 2, height)
+  return `M${x} ${bottom}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}H${x + width - r}A${r} ${r} 0 0 1 ${x + width} ${y + r}V${bottom}Z`
 }
 
 /** each category's bars side by side, 4px apart, the group taking about 78% of its band; while a category is active the others fade to 40% */
@@ -97,21 +99,24 @@ export function BarSeries({ plot, series, active = null }: { plot: Plot; series:
   )
 }
 
-/** each category's bars stacked bottom to top in the series' order, parted by a hairline; while a category is active the others fade to 40% */
+/** each category's bars stacked bottom to top in the series' order, parted by a hairline, the top segment's corners rounded 2px; while a category is active the others fade to 40% */
 export function StackedBarSeries({ plot, series, active = null }: { plot: Plot; series: DrawnSeries[]; active?: number | null }) {
   if (series.length === 0) return null
-  const width = Math.max(4, plot.band * 0.56)
-  const starts = series.map((_, place) => series[0].values.map((__, index) => series.slice(0, place).reduce((sum, item) => sum + Math.max(0, item.values[index] || 0), 0)))
+  const width = Math.min(BAR_MAX, Math.max(4, plot.band * 0.56))
+  const positive = (item: DrawnSeries, index: number) => Math.max(0, item.values[index] || 0)
+  const starts = series.map((_, place) => series[0].values.map((__, index) => series.slice(0, place).reduce((sum, item) => sum + positive(item, index), 0)))
+  const topmost = series[0].values.map((_, index) => series.findLastIndex((item) => positive(item, index) > 0))
   return (
     <g>
       {series.map((item, place) => (
         <g key={item.key} data-series={item.key}>
-          {item.values.map((raw, index) => {
-            const value = Math.max(0, raw || 0)
+          {item.values.map((_, index) => {
+            const value = positive(item, index)
             if (value === 0) return null
             const from = starts[place][index]
             const top = plot.y(from + value)
-            return <rect key={index} data-bar-mark data-stacked x={plot.x(index) - width / 2} y={top} width={width} height={Math.max(0, plot.y(from) - top)} fill={item.color}
+            const x = plot.x(index) - width / 2
+            return <path key={index} data-bar-mark data-stacked data-top={top} data-bottom={plot.y(from)} d={place === topmost[index] ? barPath(x, top, width, plot.y(from)) : `M${x} ${top}H${x + width}V${plot.y(from)}H${x}Z`} fill={item.color}
               stroke="var(--color-surface)" strokeWidth={1} fillOpacity={active === null || active === index ? 1 : 0.4} className="transition-[fill-opacity] duration-fast ease-standard motion-reduce:transition-none" />
           })}
         </g>

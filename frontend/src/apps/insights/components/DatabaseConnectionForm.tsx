@@ -19,7 +19,7 @@ const RADIO =
 const SSL_LABEL = { REQUIRED: 'Required', PREFERRED: 'Preferred', OFF: 'Off' } as const
 const CLICKHOUSE_SSL_LABEL = { REQUIRED: 'HTTPS', OFF: 'Off (plain HTTP)' } as const
 
-export function ConnectionFields({ form, onChange, errors, editing = false, database = null }: {
+export function ConnectionFields({ form, onChange, errors, editing = false, database = null, engines }: {
   form: ConnectionForm
   onChange: (form: ConnectionForm) => void
   errors: Record<string, string | undefined>
@@ -27,6 +27,8 @@ export function ConnectionFields({ form, onChange, errors, editing = false, data
   editing?: boolean
   /** the saved connection, so Find Databases can use its stored password */
   database?: ReportDatabase | null
+  /** the engines this connection may use, when only some will do (Base Reports read MySQL) */
+  engines?: DatabaseEngine[]
 }) {
   const set = <K extends keyof ConnectionForm>(key: K, value: ConnectionForm[K]) => onChange(changed(form, key, value))
   const pg = form.engine === 'postgresql'
@@ -44,9 +46,9 @@ export function ConnectionFields({ form, onChange, errors, editing = false, data
   const sslLabels: Partial<Record<Ssl, string>> = ch ? CLICKHOUSE_SSL_LABEL : SSL_LABEL
   return (
     <>
-      <Field label="Name" required error={errors.name} hint="What people see in New Report.">{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={100} />}</Field>
+      <Field label="Name" required error={errors.name} hint="The name people pick this database by when they create a report.">{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={100} />}</Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Engine" error={errors.engine}>{({ id, describedBy }) => <Select id={id} describedBy={describedBy} value={form.engine} onChange={(e) => set('engine', e.target.value as DatabaseEngine)}>{(Object.keys(ENGINE_LABEL) as DatabaseEngine[]).map((k) => <option key={k} value={k}>{ENGINE_LABEL[k]}</option>)}</Select>}</Field>
+        <Field label="Engine" error={errors.engine} hint={engines ? `These reports read ${engines.map((k) => ENGINE_LABEL[k]).join(' or ')}.` : undefined}>{({ id, describedBy }) => <Select id={id} describedBy={describedBy} value={form.engine} onChange={(e) => set('engine', e.target.value as DatabaseEngine)}>{(engines ?? (Object.keys(ENGINE_LABEL) as DatabaseEngine[])).map((k) => <option key={k} value={k}>{ENGINE_LABEL[k]}</option>)}</Select>}</Field>
         <Field label="SSL" error={errors.ssl} hint={ch ? 'ClickHouse is read over HTTP: 8443 with HTTPS, 8123 without.' : 'Required, Preferred, or Off for a private network.'}>
           {({ id, describedBy }) => <Select id={id} describedBy={describedBy} value={form.ssl} onChange={(e) => set('ssl', e.target.value as Ssl)}>{(Object.keys(sslLabels) as Ssl[]).map((k) => <option key={k} value={k}>{sslLabels[k]}</option>)}</Select>}
         </Field>
