@@ -192,7 +192,8 @@ ON CONFLICT (table_name) DO NOTHING;
 
 -- RLS hides the registry from cep_app until app.current_tenant is set, so tenant resolution runs as SECURITY
 -- DEFINER and returns routing data only (no settings, no billing, no secrets).
--- fn: resolves a request to its tenant before any tenant context exists (by code, subdomain or custom domain)
+-- fn: resolves a request to its tenant before any tenant context exists (by code, subdomain or custom domain), in any
+-- case on both sides: a host name arrives in lower case, and one saved with capitals (CG.example.com) still matches
 CREATE OR REPLACE FUNCTION fn_resolve_tenant(p_key TEXT, p_value TEXT)
 RETURNS TABLE (id UUID, code VARCHAR, timezone VARCHAR, db_alias VARCHAR, db_status VARCHAR)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -200,9 +201,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
     FROM tenant t
     LEFT JOIN tenant_database d ON d.tenant_id = t.id
     WHERE t.status = 'ACTIVE' AND t.deleted_at IS NULL
-      AND CASE p_key WHEN 'code'              THEN t.code = p_value
-                     WHEN 'subdomain'         THEN t.subdomain = lower(p_value)
-                     WHEN 'custom_app_domain' THEN t.custom_app_domain = lower(p_value)
+      AND CASE p_key WHEN 'code'              THEN upper(t.code) = upper(p_value)
+                     WHEN 'subdomain'         THEN lower(t.subdomain) = lower(p_value)
+                     WHEN 'custom_app_domain' THEN lower(t.custom_app_domain) = lower(p_value)
                      ELSE FALSE END
     LIMIT 1
 $$;
