@@ -33,7 +33,12 @@ test('the Run Log is in the menu for a report administrator only; it lists the r
   expect(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Run Log' })).toBeTruthy()
   const table = await screen.findByRole('table', { name: 'Runs' })
   expect(within(table).getAllByRole('row').length).toBe(1 + 3)
-  expect(screen.getByText(/3 runs · 1 timed out · 0 refused · 0 failed · median 42 ms/)).toBeTruthy()
+  const figures = screen.getByRole('group', { name: 'The last 7 days' })
+  expect(within(figures).getByText('Runs in 7 days').previousElementSibling?.textContent).toBe('3')
+  expect(within(figures).getByText('Timed out').previousElementSibling?.textContent).toBe('1')
+  expect(within(figures).getByText('42 ms')).toBeTruthy()
+  expect(within(table).queryByText('15 s statement timeout')).toBeNull()                       // the reason opens on its row
+  await user.click(within(table).getByRole('button', { name: 'Timed Out: show why' }))
   expect(within(table).getByText('15 s statement timeout')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Outcome' }))
   await user.click(await screen.findByRole('option', { name: 'Timed Out' }))

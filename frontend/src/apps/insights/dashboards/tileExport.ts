@@ -1,4 +1,5 @@
 /** A tile's numbers as a table and as CSV, built in the browser from what the tile ran: its rows, or its figure with the previous period. */
+import { csvText, downloadCsv as download } from '../components/csvFile'
 import type { ResultColumn, TileResult } from '../types'
 
 export interface TileTable { columns: ResultColumn[]; rows: unknown[][] }
@@ -12,19 +13,10 @@ export function tileTable(data: TileResult): TileTable | null {
   return null
 }
 
-function cell(value: unknown): string {
-  const text = value === null || value === undefined ? '' : String(value)
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-}
-
 export function toCsv(table: TileTable): string {
-  return [table.columns.map((c) => cell(c.label)), ...table.rows.map((row) => row.map(cell))].map((line) => line.join(',')).join('\r\n')
+  return csvText(table.columns.map((c) => c.label), table.rows)
 }
 
 export function downloadCsv(table: TileTable, name: string) {
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(new Blob([toCsv(table)], { type: 'text/csv;charset=utf-8' }))
-  link.download = `${name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'tile'}.csv`
-  link.click()
-  URL.revokeObjectURL(link.href)
+  download(name || 'tile', table.columns.map((c) => c.label), table.rows)
 }

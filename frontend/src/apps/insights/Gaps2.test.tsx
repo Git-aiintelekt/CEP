@@ -143,12 +143,13 @@ test('an embed link opens without signing in; a revoked one says so', async () =
   expect(await screen.findByText(/This link was revoked or has expired/, undefined, { timeout: 5000 })).toBeTruthy()
 })
 
-test('the usage page: most opened, who opens, and the reports nobody opened', async () => {
+test('the usage page: most opened, who opens, and the reports nobody opened in a tab of their own', async () => {
   await renderAppAt('/insights/usage')
   expect(await screen.findByRole('heading', { name: 'Usage' }, { timeout: 5000 })).toBeTruthy()
   const table = await screen.findByRole('table', { name: 'Openings' })
   expect(within(table).getByRole('link', { name: 'Sends by campaign' })).toBeTruthy()
   expect(within(table).getByText('42')).toBeTruthy()
+  expect(screen.getByText(/^59 openings in the last 30 days/)).toBeTruthy()
+  await userEvent.setup().click(screen.getByRole('tab', { name: /Nobody Opened/ }))
   expect(screen.getByRole('link', { name: 'Spring Promo Clicks' })).toBeTruthy()
-  expect(screen.getByText('59 openings in the last 30 days')).toBeTruthy()
 })
