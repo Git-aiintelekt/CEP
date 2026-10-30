@@ -116,7 +116,7 @@ The words Insights uses, in plain terms, with an example of each. The steps for 
 5. Read what comes back in Run Details. A **draft**: check its view, data, rows, columns, values and filter, change its **Name** if you like, then **Open in Editor** to make it a private report of yours, under that name, and open the editor. **Show** beside the time lists the steps it took. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
 6. **Earlier This Visit** in Run Details lists the prompts you ran while this browser tab is open, newest first: when each started, how long it took, the tokens it used, the model and what came of it (Draft, Saved, Question, No Field or Failed), with its steps under **Show Steps**. The list scrolls.
 7. **Prompt History** under Run Details holds your prompts of the last 90 days, newest first; scroll down and older ones load. **Use Again** puts a prompt back in the box. The pencil beside a name renames the report the prompt became (or its draft, if you have not opened it yet): type the new name, Enter saves, Esc cancels. **Show** hides or shows the list (remembered in your browser). **Clear History…** asks first, then takes your prompts off the list; the reports they became are not touched and the month's prompt count stays as it is. The line at the top right of the box counts the month's prompts against your plan; only a draft counts.
-8. The reports you make here are ordinary reports: they are listed under Insights → Reports with an **AI** mark beside the name, and you put them on a dashboard like any other (Dashboards → Edit → Add Tile).
+8. The reports you make here are ordinary reports: they are listed under Insights → Reports with an **AI** mark beside the name, and you put them on a dashboard like any other (Dashboards → Edit → Add).
 
 **Add a spec or images to a prompt** (anyone who can build reports)
 
@@ -192,7 +192,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Share a report or a dashboard**
 
-1. Open it, open **More actions** (the three dots) and choose **Share** (the owner, or a report administrator).
+1. Open it, open **More actions** (the three dots) and choose **Share**; on a dashboard, press **Share** beside Edit (the owner, or a report administrator).
 2. Choose who can open it: **You and the people and roles below**, or **Everyone in the workspace**.
 3. Find a person or a role and add them. Give each **Can View** or **Can Edit**; Can Edit lets someone who builds reports change it. A role reaches everyone holding it.
 4. Press **Save**. The list shows a private report as shared.
@@ -226,13 +226,13 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Add slicers to a dashboard** (its owner or a report administrator)
 
-1. Open the dashboard, open **More actions** (the three dots) and choose **Edit**.
-2. Under the period, press **Add Slicer** and choose a dimension, such as Channel or Store. The list shows the dimensions of the tiles' datasets, up to six.
-3. Remove one with its cross, then press **Done**.
+1. Open the dashboard and press **Edit**.
+2. On the settings line, open **Slicers**, press **Add Slicer** and choose a dimension, such as Channel or Store. The list shows the dimensions of the tiles' datasets, up to six.
+3. Remove one with its cross, then press **Save**.
 
 **Filter a dashboard with slicers**
 
-1. Each slicer is a chip under the period. Open it, search, tick values and press **Apply**.
+1. Each slicer is a chip on the line under the dashboard's name, after the period and Compare. Open it, search, tick values and press **Apply**.
 2. Every tile whose data has that field narrows to those values. A tile without the field says **Not sliced by** that field.
 3. **Clear** takes the values off.
 
@@ -264,21 +264,21 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Slice a dashboard by a range of numbers or dates**
 
-1. Edit the dashboard, press **Add Slicer** and choose a number (such as Sent Count) or a date that is not the dashboard's period. It becomes a range slicer.
+1. Edit the dashboard, open **Slicers**, press **Add Slicer** and choose a number (such as Sent Count) or a date that is not the dashboard's period. It becomes a range slicer.
 2. In the viewer, open the slicer, type **From**, **To** or both, and press **Apply**. The chip says the range, such as Sent Count: 100 to 500.
 3. **Clear** takes it off. A tile without the field says it is not sliced by it.
 
 **Save a dashboard view (bookmarks)**
 
 1. Set the dashboard the way you want it: the period, the comparison, the page, slicer values and drills.
-2. Open **Views** and press **Save the Current View**. Name it, and tick **Share with everyone who opens this dashboard** if others should have it too.
-3. Later, open **Views** and pick it: everything comes back as it was. The chip shows the view in use.
+2. Open **View: Default** at the right of the line and press **Save the Current View**. Name it, and tick **Share with everyone who opens this dashboard** if others should have it too.
+3. Later, open the **View** chip and pick it: everything comes back as it was. The chip shows the view in use.
 4. Remove a view with its cross. A saved view never changes the dashboard itself.
 
 **Spread a dashboard over pages**
 
 1. Edit the dashboard and press **Add Page**. The tiles so far become Page 1, and Page 2 starts empty.
-2. Click a page's tab to work on it. Type its name in **Page title**, or press **Remove Page** to remove it with its tiles. **Add Tile** adds to the page in view, and **Done** saves.
+2. Click a page's tab to work on it. Its **⋯** has **Rename Page** and **Remove Page** (which removes it with its tiles). **Add** adds to the page in view, and **Save** saves.
 3. In the viewer the pages are tabs above the tiles. The PDF and scheduled deliveries carry every page, each tile titled with its page.
 
 **Add measures from a linked dataset**
@@ -391,39 +391,48 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Add a written summary to a dashboard**
 
-1. Edit the dashboard, press **Add Tile**, pick a report and choose **Written Summary**.
+1. Edit the dashboard, press **Add**, pick a report and, under **Show It As**, choose **Written Summary**.
 2. When the dashboard opens, the tile shows a few sentences from AI on the report's rows for the period, with the main points. It needs the workspace's **Explain This Report** switch (Settings → AI Assistant).
 3. A summary counts as one prompt and is kept for six hours for the same period and slicers, so opening the dashboard again costs nothing. The PDF carries the kept summary; an embed link does not write one.
 
+**Arrange a dashboard (Grid)**
+
+1. Edit the dashboard: it shows as it will look, with a faint guide behind. Tiles flow left to right in their order; each line is as tall as its tallest tile.
+2. Rest the pointer on a tile, or move to it with Tab, to show its toolbar: the grip, its size, edit (text and buttons), **Duplicate** and **Remove**.
+3. Drag the grip onto another tile to move it to that place. Without a mouse, open its size and choose **Move Earlier** or **Move Later**.
+4. Its size: **Small** (a quarter), **One Third**, **Medium** (a half), **Two Thirds**, **Wide** (three quarters) or **Full Width**, and **Tall** for two rows high.
+5. The dashed **Add a Tile** box shows where the next tile goes. A dashboard made before tile sizes opens as the same grid, each row's tiles at their widths.
+6. Press **Save**.
+
 **Lay a dashboard out freely (Free Canvas)**
 
-1. Edit the dashboard and choose **Free Canvas** above the tiles. The rows become places on a 12-column grid, as they were.
+1. Edit the dashboard and choose **Free Canvas** on the settings line. The tiles stay where they are, on a 12-column grid.
 2. Drag a tile by its grip (top left) to move it, and by its handle (bottom right) to resize it. With the keyboard, focus the grip and use the arrow keys to move, or Shift and the arrows (or the handle) to resize. Tiles may overlap; the later one sits on top.
-3. Each page has its own layout. **Rows** turns a canvas back into rows, read top to bottom.
-4. Press **Done** to save.
+3. Each page has its own layout. **Grid** flows the tiles again, in reading order.
+4. Press **Save**.
 
 **See and shape the phone layout**
 
-1. On a canvas page, press **Phone Preview**: the tiles stack top to bottom as a phone shows them.
-2. Press a tile's phone icon to leave it out on a phone (**Hide on Phone**); the preview says how many are hidden.
-3. On a narrow screen, every dashboard on a canvas reads this way. Rows stack on their own.
+1. In the editor, press **Phone Preview**: the tiles stack top to bottom as a phone shows them.
+2. To leave a tile out on a phone, choose **Hide on a Phone** in its size menu (Grid) or press its phone icon (Free Canvas); the preview says how many are hidden.
+3. On a narrow screen, every dashboard reads this way.
 
 **Give a dashboard a theme**
 
-1. Edit the dashboard and choose a **Theme**: Classic, Navy, Earth, Berry or Greyscale.
+1. Edit the dashboard and open **Theme** on the settings line: Classic, Navy, Earth, Berry or Greyscale.
 2. The theme sets the colours of every chart on the dashboard, in the viewer, in an embed link and in the editor. The PDF and PowerPoint keep the classic colours.
 
 **Add text to a dashboard**
 
-1. Edit the dashboard and press **Add Text**.
-2. Give it an optional **Title** and the **Text**: a blank line starts a paragraph, a line starting with - is a bullet, and **words between two stars on each side** are bold.
-3. Press **Add to Dashboard**. Its pencil changes the words later. The text shows in the PDF and PowerPoint too.
+1. Edit the dashboard, press **Add** and choose **Text** in the panel.
+2. Give it an optional **Title** and the **Text**: a blank line starts a paragraph, a line starting with - is a bullet, and **words between two stars on each side** are bold. Choose its **Size**.
+3. Press **Add to the Dashboard** (or **Add to** the page's name). Its pencil opens the panel again to change the words; **Save Changes** keeps them. The text shows in the PDF and PowerPoint too.
 
 **Add a button that opens a saved view, a page or a report**
 
-1. Save the view first if the button should open one (Views → Save the Current View).
-2. Edit the dashboard, press **Add Button**, give it a **Label**, choose **When Pressed** (Open a Saved View, Go to a Page or Open a Report) and which one.
-3. Press **Add to Dashboard**. In the viewer, pressing the button applies the view, opens the page or opens the report.
+1. Save the view first if the button should open one (View → Save the Current View).
+2. Edit the dashboard, press **Add** and choose **Button**. Give it a **Label**, choose **When Pressed** (Open a Saved View, Go to a Page or Open a Report) and which one.
+3. Press **Add to the Dashboard**. In the viewer, pressing the button applies the view, opens the page or opens the report.
 
 **Show another report when someone hovers a value (Tooltip Report)**
 
@@ -441,9 +450,9 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Comment on a report or a dashboard, and pin a note to a value**
 
-1. Open the report or dashboard, open **More actions** and choose **Comments**. Write in the box at the bottom and press **Add Comment**.
+1. Open the report or dashboard, open **More actions** (the three dots) and choose **Comments**. Write in the box at the bottom and press **Add Comment**.
 2. To pin a note to a value, right-click it on a chart or a table and choose **Comment on This Value**. The chart then marks that value, and hovering it shows the note.
-3. On a dashboard, a tile's speech-bubble icon opens comments on that tile, with the count beside it.
+3. On a dashboard, a tile's **⋯** has **Comment**, which opens comments on that tile. Once it has comments, a speech bubble with the count shows on the tile.
 4. **Resolve** puts a thread among the resolved; **Open again** brings it back. You change or delete your own comments; the owner and report administrators delete any.
 
 **Export to PowerPoint**
@@ -667,14 +676,17 @@ Component and Folder sit beside the title; every other action is in the **More a
 
 A dashboard is a page of tiles, each tile a saved report in one of its views or one of its figures, on **one period** that applies to every tile.
 
-- **Insights → Dashboards** lists them, favourites first, with their tiles, owner and sharing.
-- **New Dashboard** opens an empty one in the editor. Name it, choose who can open it (only you, or the workspace), and **Add Tile**: pick a report, then how to show it, one of its views or **one figure**, a measure totalled over the period. Each new tile goes into the last row with room, else a new row.
-- A dashboard is **rows of tiles**: one to four across of equal width, or wide and narrow. The row bar sets the width and moves or removes the row; a tile's controls move it left or right, rename it or remove it. Nothing overlaps or leaves a gap. **Done** saves the layout as a version.
-- **The period**: 7 Days, 30 Days, This Month, Quarter, or Custom dates, in the workspace's time zone, applied to every tile through its dataset's date. A report with its own date filter keeps it and the tile says **Own dates**. **Compare With Previous Period** adds the change to every figure.
-- **Slicers**: in the editor, **Add Slicer** picks a dimension the tiles' datasets share (Channel, Store, Campaign…), up to six. Viewing, each slicer is a chip under the period; open it, tick values and **Apply**, and every tile whose data has that field runs narrowed to them. A tile without the field says **Not sliced by** it. **Clear** takes the values off.
+- **Insights → Dashboards** starts with **Dashboard Templates**: **Start from Scratch**, then the ready-made dashboards of the Base Reports packs. A template opens a preview of what its pack adds; **Use This Template** opens Add Base Reports on that pack (a pack's dashboards come with the pack).
+- **Your Dashboards** lists the rest with their tiles, owner, sharing and when they changed. Search, filter by **Owner**, **Shared** or **Favourites** (the filters stay in the address), and switch between a list and a grid. Each dashboard's **⋯** opens, edits, duplicates (a private copy), shares, stars or deletes it.
+- **Create Dashboard** opens an empty one in the editor, which takes the whole window. The bar has the name and its saved state, **Close** (**Discard Changes** once something changed) and **Save**, which keeps the dashboard as a new version; leaving with changes asks first. The settings line has the period, the comparison, **Slicers**, **Theme**, **Who Can Open It** (only you, or the workspace), **Grid** or **Free Canvas**, **Phone Preview** and **Add**.
+- **Add** opens a panel at the right: **Report**, **Text** or **Button**. For a report, search and pick one, then **Show It As** one of its views or one of its totalled columns as a **Figure**, a title and a **Size**. The tile goes after the others and is chosen, its toolbar showing; the panel stays open for the next.
+- **Grid**: tiles flow left to right in their order, each at its size (Small to Full Width, and Tall). Its toolbar drags it to another place, sizes it, duplicates or removes it. See **Arrange a dashboard** above.
+- **The period**: one chip with the quick choices (7 Days, 30 Days, 90 Days, This Month, Quarter…) and a calendar for a custom range, in the workspace's time zone, applied to every tile through its dataset's date. A report with its own date filter keeps it and the tile's line says **Own dates** and its dates. **Compare With Previous Period** adds the change to every figure.
+- **Slicers**: in the editor, **Slicers → Add Slicer** picks a dimension the tiles' datasets share (Channel, Store, Campaign…), up to six. Viewing, each slicer is a chip after the period and Compare; open it, tick values and **Apply**, and every tile whose data has that field runs narrowed to them. A tile without the field says **Not sliced by** it. **Clear** takes the values off.
 - **Cross-filtering**: click a bar, a slice of a pie, a stage of a funnel or a cell in a grid tile, and the other tiles narrow to that value. When the field is not one of the dashboard's slicers, a chip appears for it with a cross to take it off. Clicking the same value again clears it.
 - Viewing a dashboard, you can switch the period, the comparison and the slicers for a look without saving; nothing of a selection is saved, and a PDF or a scheduled delivery is the dashboard as saved.
-- A dashboard's actions are in **More actions** (the three dots), as a report's are: Edit; Share, Comments and Schedule; Export PDF and Export PowerPoint; Embed on Another Site; Delete last.
+- **Tiles**: under its title, a line says what the tile reads: **Click a bar to filter the other tiles**, **Own dates** with its dates, or its report. Its **⋯** has **Open the Report**, **Show the Numbers** (its rows as a table), **Export CSV** and **Comment**. A tile refused because Insights is busy tries again by itself.
+- The header has ‹ Dashboards, **Updated** with **Refresh** (runs every tile again), **Share** and **Edit**. The rest are in **More actions** (the three dots): Comments and Schedule; Export PDF and Export PowerPoint; Embed on Another Site; Delete last.
 - **Export PDF** gives the dashboard with its tiles on its saved period; **Schedule** emails it as PDF.
 
 ## Scheduled delivery

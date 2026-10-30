@@ -83,13 +83,13 @@ test('a pivot drills: a row label asks for the level below, keeping the levels u
 
 test('pages: the first extra page turns the rows into page 1; renaming and removing work; the last page left turns back into rows', async () => {
   const { addPage, pagesOf, removePage, renamePage, setPageRows } = await import('./dashboards/pages')
-  const { addTile, tiles } = await import('./dashboards/layout')
+  const { tiles } = await import('./dashboards/layout')
   const one = { rows: [{ width: '2' as const, tiles: [{ id: 't1', report_id: 'rep-1', show: 'grid' as const }] }] }
   const added = addPage(one)
   expect(added.pageId).toBe('p2')
   expect(pagesOf(added.layout).map((p) => [p.id, p.title, p.rows.length])).toEqual([['p1', 'Page 1', 1], ['p2', 'Page 2', 0]])
   const page2 = pagesOf(added.layout)[1]
-  const withTile = setPageRows(added.layout, 'p2', addTile({ ...added.layout, rows: page2.rows }, { report_id: 'rep-1', show: 'chart' }).rows)
+  const withTile = setPageRows(added.layout, 'p2', [...page2.rows, { width: '2', tiles: [{ id: 't2', report_id: 'rep-1', show: 'chart' }] }])
   expect(tiles(withTile).map((t) => t.id)).toEqual(['t1', 't2'])                          // ids stay unique across pages
   expect(pagesOf(renamePage(withTile, 'p2', 'Trends'))[1].title).toBe('Trends')
   const back = removePage(withTile, 'p2')
@@ -101,10 +101,11 @@ test('a range slicer on a number: added in the editor, then From and To narrow t
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/dashboards/dash-1/edit')
   await screen.findByRole('textbox', { name: 'Dashboard name' }, { timeout: 5000 })
+  await user.click(screen.getByRole('button', { name: 'Slicers · 1' }))
   const editor = screen.getByRole('group', { name: 'Slicers' })
   await user.click(within(editor).getByRole('button', { name: 'Add Slicer' }))
   await user.selectOptions(await within(editor).findByRole('combobox', { name: 'Slicer field' }), 'sent')
-  await user.click(screen.getByRole('button', { name: 'Done' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
   await screen.findByRole('heading', { name: 'Marketing Weekly' })
   const put = calls.filter((call) => call.method === 'PUT' && call.url.endsWith('/insights/dashboards/dash-1/')).at(-1)?.body as { layout: { slicers: unknown[] } }
   expect(put.layout.slicers).toContainEqual({ field: 'sent', label: 'Sent Count', kind: 'range', type: 'number' })
@@ -128,7 +129,7 @@ test('saved views: the slicer picks are saved under a name, and picking the view
   await user.click(within(slicers).getByRole('button', { name: 'Channel' }))
   await user.click(within(await screen.findByRole('listbox', { name: 'Channel' })).getByRole('option', { name: 'SMS' }))
   await user.click(screen.getByRole('button', { name: 'Apply' }))
-  await user.click(screen.getByRole('button', { name: 'Views' }))
+  await user.click(screen.getByRole('button', { name: 'View: Default' }))
   await user.click(await screen.findByRole('button', { name: 'Save the Current View' }))
   const dialog = await screen.findByRole('dialog', { name: 'Save the Current View' })
   await user.type(within(dialog).getByRole('textbox', { name: /^Name/ }), 'Text only')
