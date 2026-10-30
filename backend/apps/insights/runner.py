@@ -372,6 +372,11 @@ def _blended(tenant_id, user, dataset: dict, definition: dict, base_columns: lis
     return columns, merged, int((time.monotonic() - started) * 1000), over
 
 
+def _every_line(definition: dict) -> dict:
+    """the earlier rows a comparison reads: a line hidden for its zero is still a zero to compare with"""
+    return {k: v for k, v in definition.items() if k != "hideZero"}
+
+
 def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dict], rows: list[list], zone: str, timeout_ms: int, cap: int,
               dialect: str, user=None) -> tuple[list[dict], list[list], int, bool]:
     """The rows with their time comparisons (apps/insights/compare.py): the earlier periods from a second run with the date rules
@@ -394,7 +399,7 @@ def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dic
             if moved is None:
                 earlier[group] = rows
             else:
-                earlier[group], _ = _execute(tenant_id, compiler.compile(dataset, moved, str(tenant_id), zone, limit=cap, offset=0, dialect=dialect), timeout_ms, dialect, dataset, zone)
+                earlier[group], _ = _execute(tenant_id, compiler.compile(dataset, _every_line(moved), str(tenant_id), zone, limit=cap, offset=0, dialect=dialect), timeout_ms, dialect, dataset, zone)
     grand = None
     if "percent_of_total" in kinds:
         wanted = [m for m, c in enumerate(definition["columns"]) if "percent_of_total" in c.get("compare", [])]
@@ -410,7 +415,7 @@ def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dic
         today = timezone.now().astimezone(ZoneInfo(zone)).date()
         wide = compare.widened(definition, found[1], compare.reach_back(kinds, found[2], definition.get("_fiscal", 1)), today)
         if wide is not None:
-            reached, _ = _execute(tenant_id, compiler.compile(dataset, wide, str(tenant_id), zone, limit=cap, offset=0, dialect=dialect), timeout_ms, dialect, dataset, zone)
+            reached, _ = _execute(tenant_id, compiler.compile(dataset, _every_line(wide), str(tenant_id), zone, limit=cap, offset=0, dialect=dialect), timeout_ms, dialect, dataset, zone)
     columns = compare.columns(dataset, definition, base_columns)
     worked = topn.apply(definition, columns, compare.apply(dataset, definition, rows, earlier, grand, reached))
     return columns, worked, int((time.monotonic() - started) * 1000), over

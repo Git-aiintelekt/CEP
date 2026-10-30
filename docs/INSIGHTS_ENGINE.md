@@ -197,6 +197,17 @@ rows, columns and the whole. One entry per total: the dimension values kept and 
 export take the engine's total where there is one and combine the rows shown only where there is none, so averages
 and distinct counts subtotal exactly and a truncated run still totals everything. The totals are cached with the run.
 
+### Hiding zero lines
+
+`definition.hideZero` names measure columns of a report grouped by at least one dimension, such as `"hideZero": ["qty"]`.
+A line is left out when every measure it names totals zero or nothing; with two, a line stays while either is non-zero.
+The compiler writes `HAVING (sum(..)) <> 0` on the grouped query in PostgreSQL, MySQL and ClickHouse (a measure formula
+over the grouped rows: a WHERE on its last level). The engine's totals are unchanged: they total every row, hidden lines
+included, so a hidden line's zero adds nothing to a sum (another measure's total still counts it). A drill-down level
+keeps the key, a comparison's earlier rows ignore it (a hidden line is still a zero to compare with), and a dashboard's
+one-figure tile drops it. The editor saves it as it is and drops a name when its measure, or the report's last dimension,
+is removed. There is no switch for it in the editor yet: a report opts in through its definition (the API, or a deploy kit).
+
 ## The PDF export
 
 `GET /insights/reports/<id>/export.pdf` and `GET /insights/dashboards/<id>/export.pdf` (`apps/insights/pdf.py`, ReportLab,
