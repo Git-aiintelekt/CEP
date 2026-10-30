@@ -26,6 +26,10 @@ ranks and keeps the asked-for range when the date's filter was widened for the e
 
 A query dataset's date field that is the day of one of its datetime fields (DATE(m.SENT_AT) AS sent_date beside m.SENT_AT AS
 sent_at) is filtered on the datetime instead (day_fields): the same days, but a condition an index on the column can use.
+
+A definition's `hideZero` leaves out the lines where every measure it names totals zero or nothing: HAVING on the grouped
+query (the aggregate written again, PostgreSQL reads no alias there), a WHERE on the last level of a measure formula's query.
+The totals (compile_totals) never total the lines themselves, so they are the same with or without it.
 """
 import re
 from datetime import date, timedelta
@@ -394,12 +398,14 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
     if any("aggregate" in c and _analytic_field(_field_of(dataset, c["field"])) for c in definition["columns"]):
         return _compile_analytic(dataset, definition, tenant_id, zone, limit=limit, offset=offset, dialect=dialect)
     params = Params(dialect)
-    selects, groups, columns = [], [], []
+    selects, groups, columns, hidden = [], [], [], []
     for index, column in enumerate(definition["columns"]):
         field = next(f for f in dataset["fields"] if f["key"] == column["field"])
         alias = _ident(f"c{index}", dialect)
         if "aggregate" in column:
             expr = measure_expr(dataset, field, column["aggregate"], lambda f: _col(f, dialect), dialect)
+            if column["field"] in definition.get("hideZero", ()):
+                hidden.append(expr)                                 # no placeholders in a measure: written twice, bound never
         else:
             expr = _dimension_expr(field, column.get("bucket"), zone, params, definition.get("_fiscal", 1))
             if definition["grouped"]:
@@ -424,8 +430,15 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
     sql = f"SELECT {', '.join(selects)} FROM {_from(dataset, dialect)} WHERE {where}"
     if groups:
         sql += f" GROUP BY {', '.join(groups)}"
+        if hidden:
+            sql += f" HAVING {_non_zero(hidden)}"
     sql += f" ORDER BY {', '.join(order)} LIMIT {params.bind(int(limit), 'Int64')} OFFSET {params.bind(int(offset), 'Int64')}"
     return Compiled(sql, params.out(), columns)
+
+
+def _non_zero(exprs: list[str]) -> str:
+    """a line kept by hideZero: one of its measures is neither zero nor empty (NULL <> 0 is not true)"""
+    return "(" + " OR ".join(f"({expr}) <> 0" for expr in exprs) + ")"
 
 
 # ---------------------------------------------------------------------------------------------------- over the grouped rows
@@ -639,7 +652,12 @@ def _compile_analytic(dataset: dict, definition: dict, tenant_id: str, zone: str
     if not order:
         order.append("`c0` IS NULL, `c0` ASC" if dialect == "mysql" else '"c0" ASC NULLS LAST')
     sql = f"SELECT {', '.join(last)} FROM ({window_sql}) AS {q('w')}"
-    if trim is not None:
-        sql += f" WHERE {q('w')}.{q('keep_')}"
+    kept = [f"{q('w')}.{q('keep_')}"] if trim is not None else []
+    hidden = [f"{q('w')}.{q(f'r{j}' if j in analytic and analytic[j].ranked else f'c{j}')}" for j, c in enumerate(cols)
+              if "aggregate" in c and c["field"] in definition.get("hideZero", ())]
+    if hidden and dims:
+        kept.append(_non_zero(hidden))
+    if kept:
+        sql += f" WHERE {' AND '.join(kept)}"
     sql += f" ORDER BY {', '.join(order)} LIMIT {params.bind(int(limit), 'Int64')} OFFSET {params.bind(int(offset), 'Int64')}"
     return Compiled(sql, params.out(), columns)

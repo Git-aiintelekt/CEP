@@ -141,7 +141,7 @@ def drilled(dataset: dict, definition: dict, path: list[dict], keep_rest: bool =
     filters = definition.get("filters") or {"combinator": "and", "rules": []}
     filters = {**filters, "rules": [*filters.get("rules", []), *rules]} if filters.get("combinator", "and") == "and" else {"combinator": "and", "rules": [filters, *rules]}
     out = {"columns": columns, "filters": filters, "orderBy": order}
-    for key in ("limit", "derived", "top", "blend"):
+    for key in ("limit", "derived", "top", "blend", "hideZero"):     # every measure stays, so do the ones whose zero lines are hidden
         if definition.get(key):
             out[key] = definition[key]
     if view:
