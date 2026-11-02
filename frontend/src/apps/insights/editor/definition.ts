@@ -197,7 +197,18 @@ export function addField(definition: ReportDefinition, field: CatalogField): Rep
 }
 
 function removeColumn(definition: ReportDefinition, key: string): ReportDefinition {
-  return { ...definition, columns: definition.columns.filter((column) => column.field !== key), orderBy: (definition.orderBy ?? []).filter((item) => item.field !== key) }
+  return pruneHideZero({ ...definition, columns: definition.columns.filter((column) => column.field !== key), orderBy: (definition.orderBy ?? []).filter((item) => item.field !== key) })
+}
+
+/** the measures whose zero lines are hidden, kept while the report still totals them by a dimension */
+export function pruneHideZero(definition: ReportDefinition): ReportDefinition {
+  const hidden = definition.hideZero
+  if (!hidden?.length) return definition
+  const keys = new Set(measures(definition).map((column) => column.field))
+  const kept = dimensions(definition).length ? hidden.filter((key) => keys.has(key)) : []
+  if (kept.length === hidden.length) return definition
+  const { hideZero: _old, ...rest } = definition
+  return kept.length ? { ...rest, hideZero: kept } : rest
 }
 
 /** the field goes, and with it its formatting and any part of the view that named it: the spread across, the repeat by,

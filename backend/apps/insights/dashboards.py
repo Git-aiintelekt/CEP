@@ -515,6 +515,7 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
         if tile["show"] == "figure":
             shaped = {**shaped, "columns": [c for c in raw.get("columns", []) if c.get("field") == tile.get("measure") and c.get("aggregate")], "orderBy": [], "limit": 1}
             shaped.pop("view", None)
+            shaped.pop("hideZero", None)                                # one figure, the whole total: no lines to hide
         try:
             return validate(dataset, shaped, max_limit=limits["run_rows"])
         except DefinitionError as exc:

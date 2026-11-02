@@ -244,7 +244,7 @@ def change(tenant, request, dataset: dict, definition: dict, prompt: str, model_
     chosen, provider = _chosen(tenant, request, model_id, need_edit=True)
     limits = catalog.engine_of(tenant.pk)["limits"]
     zone = reports.zone_of(tenant)
-    current = {k: v for k, v in definition.items() if k in ("columns", "filters", "orderBy", "limit", "view", "derived", "top", "blend")}
+    current = {k: v for k, v in definition.items() if k in ("columns", "filters", "orderBy", "limit", "view", "derived", "top", "blend", "hideZero")}
     system = assistant.system_prompt([dataset], zone.key, timezone.now().astimezone(zone).date()) + f"""
 
 You are changing an existing report, not starting one. Keep everything the request does not mention: its columns, filters, sort,
@@ -291,6 +291,10 @@ def _changed(reply: dict, dataset: dict, current: dict, max_limit: int) -> dict:
     for key in ("derived", "top", "blend"):                          # the schema has no room for these: the current ones stay
         if current.get(key) and key not in raw:
             raw[key] = current[key]
+    columns = raw.get("columns") if isinstance(raw.get("columns"), list) else []
+    hidden = [key for key in current.get("hideZero", []) if any(isinstance(c, dict) and c.get("field") == key and c.get("aggregate") for c in columns)]
+    if hidden and "hideZero" not in raw and any(isinstance(c, dict) and not c.get("aggregate") for c in columns):
+        raw["hideZero"] = hidden                                       # zero lines stay hidden for the measures the change kept
     before = current.get("view") or {}
     for key in ("formats", "signals"):                                  # formatting and a chart's signals stay while the view does
         if before.get(key) and raw["view"].get("type") == before.get("type"):

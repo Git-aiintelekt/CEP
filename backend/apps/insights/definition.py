@@ -14,6 +14,8 @@ A column with an aggregate makes the report grouped: every column without one is
 column may carry a bucket (day, week, month, quarter, year), applied in the workspace's time zone. A measure column may
 carry `compare`: up to four time comparisons (apps/insights/compare.py), each one more result column after it. `parameters`:
 up to five questions the report asks before it runs, each answered into one filter rule (apps/insights/parameters.py).
+`hideZero`: measure columns of a grouped report; a line where every one of them totals zero (or nothing) is left out (HAVING),
+the totals stay as they are.
 """
 import hashlib
 import json
@@ -247,6 +249,21 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
     return out
 
 
+def _hide_zero(raw, out_columns: list[dict]) -> list[str]:
+    """the measures whose lines are left out when every one of them totals zero; a report with dimensions only"""
+    if raw in (None, []):
+        return []
+    if not isinstance(raw, list) or len(raw) > MAX_COLUMNS or any(not isinstance(key, str) for key in raw):
+        raise DefinitionError("hideZero", "Name the measures whose zero lines are hidden.")
+    if not any("aggregate" not in c for c in out_columns):
+        raise DefinitionError("hideZero", "Hiding zero lines needs a report grouped by at least one dimension.")
+    measures = [c["field"] for c in out_columns if "aggregate" in c]
+    for i, key in enumerate(raw):
+        if key not in measures:
+            raise DefinitionError(f"hideZero[{i}]", "Hide the zero lines of one of the report's totalled columns.")
+    return list(dict.fromkeys(raw))
+
+
 def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
     """The definition, normalised, or DefinitionError naming the part at fault."""
     if not isinstance(raw, dict):
@@ -357,10 +374,12 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
     for index, item in enumerate(out_order):
         if "." in item["field"] and not (blend and any(links.column_key(blend["dataset"], c["field"]) == item["field"] for c in blend["columns"])):
             raise DefinitionError(f"orderBy[{index}].field", "Sort by one of the report's columns.")
+    hidden = _hide_zero(raw.get("hideZero"), out_columns)
     from . import parameters as asked
     params = asked.check(dataset, raw.get("parameters"))
     return {**({"parameters": params} if params else {}), "dataset": dataset["key"], "columns": out_columns, "grouped": grouped, "filters": filters, "orderBy": out_order, **({"limit": limit} if limit else {}),
-            **({"view": view} if view else {}), **({"drillthrough": through} if through else {}), **({"derived": specs} if specs else {}), **({"top": top} if top else {}), **({"blend": blend} if blend else {})}
+            **({"view": view} if view else {}), **({"drillthrough": through} if through else {}), **({"derived": specs} if specs else {}), **({"top": top} if top else {}), **({"blend": blend} if blend else {}),
+            **({"hideZero": hidden} if hidden else {})}
 
 
 def _blended_key(raw, key) -> bool:

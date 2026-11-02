@@ -214,6 +214,8 @@ export interface ReportDefinition {
   blend?: Blend
   /** questions the report asks before it runs, each answered into one filter rule (apps/insights/parameters.py) */
   parameters?: ReportParameter[]
+  /** measures whose zero lines are left out: a line goes when every one of them totals zero or nothing */
+  hideZero?: string[]
 }
 
 export type ParameterOperator = '=' | 'in' | '>=' | '<=' | 'between' | 'last_days' | 'period'
