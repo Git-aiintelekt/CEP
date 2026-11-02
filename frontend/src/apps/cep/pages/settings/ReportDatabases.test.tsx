@@ -3,10 +3,13 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, reportDatabasesNow, reportDbPolicy, reportSourcesNow, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, me, reportDatabasesNow, reportDbPolicy, reportSourcesNow, signIn } from '@/test/mockApi'
+
+/** a workspace with Insights: its settings show only then */
+const withInsights = { ...me, components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }] }
 
 async function renderAppAt(path: string, before: () => void = () => undefined) {
-  const calls = installMockApi()
+  const calls = installMockApi({ me: withInsights as never })
   before()
   signIn(path)
   vi.resetModules()

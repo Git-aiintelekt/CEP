@@ -1,6 +1,6 @@
 # Tags
 
-**Where:** Settings → Workspace → Tags.
+**Where:** Settings → Engagement → Tags.
 
 ## What this page is for
 

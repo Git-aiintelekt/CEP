@@ -1,6 +1,6 @@
 # Plan & Usage
 
-**Where:** Settings → Workspace → Plan & Usage.
+**Where:** Settings → General → Plan & Usage.
 
 ## What this page is for
 

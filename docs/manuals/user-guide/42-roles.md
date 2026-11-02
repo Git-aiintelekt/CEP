@@ -1,6 +1,6 @@
 # Roles
 
-**Where:** Settings → Workspace → Roles.
+**Where:** Settings → General → Roles.
 
 ## What this page is for
 

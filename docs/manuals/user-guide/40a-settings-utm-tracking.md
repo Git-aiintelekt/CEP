@@ -1,6 +1,6 @@
 # UTM Tracking
 
-**Where:** Settings → Sending → UTM Tracking, and on each campaign's Content step under **Link Tracking**.
+**Where:** Settings → Engagement → UTM Tracking, and on each campaign's Content step under **Link Tracking**.
 
 ## What this page is for
 
@@ -54,7 +54,7 @@ These choices are saved on their own, as you change them.
 
 **1. Switch UTM tracking on for your workspace** (needs Sending Engines · Edit)
 
-1. Open **Settings → Sending → UTM Tracking**.
+1. Open **Settings → Engagement → UTM Tracking**.
 2. Switch on **Email Campaigns**, **Text Campaigns**, or both.
 3. Under **Your Sites**, type each domain your links lead to (for example `northwindapparel.com`) and press **Add** or Enter. Subdomains such as `shop.northwindapparel.com` are included. If you paste a full address, only its domain is kept.
 4. Leave **Links That Already Have Tags** on **Keep their tags** unless every link must carry this workspace's values.

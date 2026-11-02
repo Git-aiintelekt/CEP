@@ -1,6 +1,6 @@
 # Users
 
-**Where:** Settings → Workspace → Users.
+**Where:** Settings → General → Users.
 
 ## What this page is for
 

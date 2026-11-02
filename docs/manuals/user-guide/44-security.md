@@ -1,6 +1,6 @@
 # Security
 
-**Where:** Settings → Workspace → Security.
+**Where:** Settings → General → Security.
 
 ## What this page is for
 

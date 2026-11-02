@@ -1,69 +1,81 @@
-/** The Settings menu: its groups and pages, who sees which, and the three things the panel remembers per viewer. */
-import { Bell, Braces, CalendarRange, CheckCircle2, CircleDollarSign, ClipboardCheck, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, Sparkles, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
+/**
+ * The Settings menu: General, then a group per suite component the workspace has (docs/mockups/settings-by-component.html,
+ * option A), who sees which page, and the three things the panel remembers per viewer.
+ */
+import { Bell, Braces, CalendarRange, ChartColumn, CheckCircle2, CircleDollarSign, ClipboardCheck, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Megaphone, Plug, Receipt, Send, SlidersHorizontal, Sparkles, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
 
-import type { Feature } from '@/lib/types'
+import type { Feature, Me } from '@/lib/types'
 
 export interface SettingsPage {
   to: string
   label: string
   icon: LucideIcon
   feature?: Feature
+  /** a heading inside the group the page sits under (Sending, Audience, Connections) */
+  section?: string
 }
 
 export interface SettingsGroup {
   key: string
   label: string
   icon: LucideIcon
+  /** the suite component the group belongs to; none = General, which every workspace has */
+  component?: string
   pages: SettingsPage[]
 }
 
 export const SETTINGS_GROUPS: SettingsGroup[] = [
-  { key: 'workspace', label: 'Workspace', icon: Users, pages: [
+  { key: 'general', label: 'General', icon: SlidersHorizontal, pages: [
     { to: '/settings/setup', label: 'Set-Up', icon: ListChecks },
     { to: '/settings/users', label: 'Users', icon: Users },
     { to: '/settings/roles', label: 'Roles', icon: Layers },
-    { to: '/settings/tags', label: 'Tags', icon: Braces },
     { to: '/settings/security', label: 'Security', icon: Lock },
-    { to: '/settings/approvals', label: 'Approvals', icon: CheckCircle2 },
     { to: '/settings/ai-assistant', label: 'AI Assistant', icon: Sparkles },
+    { to: '/settings/api-keys', label: 'API Keys', icon: Key, feature: 'api_access' },
+    { to: '/settings/plan', label: 'Plan & Usage', icon: CircleDollarSign },
+  ] },
+  { key: 'engagement', label: 'Engagement', icon: Megaphone, component: 'cep', pages: [
+    { to: '/settings/delivery', label: 'Sending Engines', icon: Send, section: 'Sending' },
+    { to: '/settings/email', label: 'Email Server', icon: Mail, section: 'Sending' },
+    { to: '/settings/utm-tracking', label: 'UTM Tracking', icon: Link2, section: 'Sending' },
+    { to: '/settings/approvals', label: 'Approvals', icon: CheckCircle2, section: 'Sending' },
+    { to: '/settings/tags', label: 'Tags', icon: Braces, section: 'Sending' },
+    { to: '/settings/notifications', label: 'Notifications', icon: Bell, section: 'Sending' },
+    { to: '/settings/suppressions', label: 'Suppressions', icon: UserX, section: 'Audience' },
+    { to: '/settings/preference-center', label: 'Preference Centre', icon: SlidersHorizontal, section: 'Audience' },
+    { to: '/settings/consent', label: 'Consent Policy', icon: ClipboardCheck, section: 'Audience' },
+    { to: '/settings/integrations', label: 'Integrations', icon: Plug, section: 'Connections' },
+    { to: '/settings/pos', label: 'POS Receipts', icon: Receipt, feature: 'ereceipt', section: 'Connections' },
+    { to: '/settings/attribution', label: 'Attribution', icon: Target, section: 'Connections' },
+    { to: '/settings/events', label: 'Events', icon: Zap, feature: 'journeys', section: 'Connections' },
+  ] },
+  { key: 'insights', label: 'Insights', icon: ChartColumn, component: 'insights', pages: [
     { to: '/settings/report-databases', label: 'Report Databases', icon: Database },
     { to: '/settings/report-access', label: 'Report Access', icon: Lock },
     { to: '/settings/fiscal-year', label: 'Fiscal Year', icon: CalendarRange },
-    { to: '/settings/plan', label: 'Plan & Usage', icon: CircleDollarSign },
-  ] },
-  { key: 'sending', label: 'Sending', icon: Send, pages: [
-    { to: '/settings/delivery', label: 'Sending Engines', icon: Send },
-    { to: '/settings/email', label: 'Email Server', icon: Mail },
-    { to: '/settings/utm-tracking', label: 'UTM Tracking', icon: Link2 },
-    { to: '/settings/notifications', label: 'Notifications', icon: Bell },
-  ] },
-  { key: 'audience', label: 'Audience', icon: ShieldCheck, pages: [
-    { to: '/settings/suppressions', label: 'Suppressions', icon: UserX },
-    { to: '/settings/preference-center', label: 'Preference Centre', icon: SlidersHorizontal },
-    { to: '/settings/consent', label: 'Consent Policy', icon: ClipboardCheck },
-  ] },
-  { key: 'integrations', label: 'Integrations', icon: Plug, pages: [
-    { to: '/settings/integrations', label: 'Integrations', icon: Plug },
-    { to: '/settings/api-keys', label: 'API Keys', icon: Key, feature: 'api_access' },
-    { to: '/settings/pos', label: 'POS Receipts', icon: Receipt, feature: 'ereceipt' },
-    { to: '/settings/attribution', label: 'Attribution', icon: Target },
-    { to: '/settings/events', label: 'Events', icon: Zap, feature: 'journeys' },
   ] },
 ]
 
-/** the groups with the pages this workspace has; a group with nothing left is dropped */
-export function visibleGroups(has: (feature: Feature) => boolean): SettingsGroup[] {
-  return SETTINGS_GROUPS.map((group) => ({ ...group, pages: group.pages.filter((page) => !page.feature || has(page.feature)) })).filter((group) => group.pages.length > 0)
+/** the suite components a workspace has, from GET /me/; an older API that says nothing means Engagement alone */
+export const componentsOf = (me: Me | null | undefined): string[] =>
+  me?.components ? me.components.filter((component) => component.access !== 'NONE').map((component) => component.key) : ['cep']
+
+/** the groups with the pages this workspace has: General, and a component's group only when the workspace has the component */
+export function visibleGroups(has: (feature: Feature) => boolean, components?: string[]): SettingsGroup[] {
+  return SETTINGS_GROUPS
+    .filter((group) => !group.component || !components || components.includes(group.component))
+    .map((group) => ({ ...group, pages: group.pages.filter((page) => !page.feature || has(page.feature)) }))
+    .filter((group) => group.pages.length > 0)
 }
 
 export const pageAt = (path: string): SettingsPage | undefined => SETTINGS_GROUPS.flatMap((group) => group.pages).find((page) => page.to === path || path.startsWith(page.to + '/'))
-export const groupOf = (path: string): SettingsGroup | undefined => SETTINGS_GROUPS.find((group) => group.pages.some((page) => page.to === path))
+export const groupOf = (path: string): SettingsGroup | undefined => SETTINGS_GROUPS.find((group) => group.pages.some((page) => page.to === path || path.startsWith(page.to + '/')))
 
-/** the pages whose label (or group) contains the words typed, in menu order */
+/** the pages whose label (or group, or heading) contains the words typed, in menu order */
 export function findPages(groups: SettingsGroup[], needle: string): SettingsPage[] {
   const words = needle.trim().toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []
-  return groups.flatMap((group) => group.pages.filter((page) => words.every((word) => `${page.label} ${group.label}`.toLowerCase().includes(word))))
+  return groups.flatMap((group) => group.pages.filter((page) => words.every((word) => `${page.label} ${page.section ?? ''} ${group.label}`.toLowerCase().includes(word))))
 }
 
 // ---- what the panel remembers for this browser: the last pages visited, the groups folded, the panel folded
