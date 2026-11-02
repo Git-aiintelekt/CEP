@@ -1,6 +1,6 @@
 # Attribution
 
-**Where:** Settings → Integrations → Attribution.
+**Where:** Settings → Engagement → Attribution.
 
 ## What is attribution
 

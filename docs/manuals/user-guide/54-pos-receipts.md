@@ -1,6 +1,6 @@
 # POS Receipts
 
-**Where:** Settings → Integrations → POS Receipts.
+**Where:** Settings → Engagement → POS Receipts.
 
 ## What this page is for
 

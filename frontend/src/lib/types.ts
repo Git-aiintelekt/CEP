@@ -1058,7 +1058,7 @@ export interface ListConsentDeclaration {
   policy: { without_consent: 'HOLD_BACK' | 'REFUSE'; texts_need_date: boolean; approval_before_send: boolean }
 }
 
-/** Settings → Set-Up, and the Home card: the seven steps of a new workspace, read from the workspace, never ticked by hand */
+/** Settings → Set-Up, and the Home card: the steps of a new workspace for the components it has, read from the workspace, never ticked by hand */
 export type SetupState = 'done' | 'todo' | 'warn'
 export interface SetupStep {
   key: string
@@ -1084,6 +1084,8 @@ export interface WorkspaceSetup {
   next: string | null
   /** the Home card hidden with Hide Until Later (tenant.settings.setup.dismissed_at) */
   dismissed: boolean
+  /** the suite components whose steps are listed (cep, insights); absent from an older API = Engagement */
+  components?: string[]
 }
 
 /** Settings → Consent Policy */

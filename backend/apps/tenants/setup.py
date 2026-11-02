@@ -1,14 +1,19 @@
-"""Set Up Your Workspace: the seven steps an administrator works through after the first sign-in, each read from the
-workspace, never ticked by hand, with the page that does it. Ready = steps 1, 2, 3, 4 and 6. The Home card can be
-hidden (tenant.settings.setup.dismissed_at); the page stays under Settings → Set-Up.
+"""Set Up Your Workspace: the steps an administrator works through after the first sign-in, each read from the workspace,
+never ticked by hand, with the page that does it. Only the steps of the components the workspace has are listed: a workspace
+with Engagement and Insights has eight, one with Insights alone three. Ready = every step not marked optional. The Home card
+can be hidden (tenant.settings.setup.dismissed_at); the page stays under Settings → Set-Up.
 
+    General
     signin          the administrator has signed in (they are reading the page)
     team            at least one other active user with a role
+    Engagement
     email_engine    an active email engine whose last Check passed
     email_sender    a verified email sender on an active email engine
     text            (optional) an active text engine with a verified sender number
     lists           a production list with people (suppressions counted, not required)
     tell            (optional) a notification recipient, approvals on, or an API key
+    Insights
+    databases       a Report Database connected (optional when the workspace has Engagement, whose own data Insights reads)
 """
 from zoneinfo import ZoneInfo
 
@@ -19,13 +24,12 @@ from apps.contact_lists.models import ContactList
 from apps.delivery.models import DeliveryProvider, SenderProfile
 from apps.governance.models import ConsentSuppression
 from apps.identity.models import ApiClient, AppUser, Role, UserRole
-from apps.platform_ops import notifications, params
+from apps.platform_ops import components, notifications, params
 
 from .models import TenantSubscription
 
 KEY = "setup"
 DONE, TODO, WARN = "done", "todo", "warn"
-REQUIRED = ("signin", "team", "email_engine", "email_sender", "lists")
 TEXT_CHANNELS = ("SMS", "MMS")
 
 
@@ -83,6 +87,24 @@ def steps(tenant, user) -> list[dict]:
                          why="People are invited by email with a password link, as you were. Give a role to each; a role can be changed later.",
                          links=[_link("Invite Users", "/settings/users", primary=True), _link("Roles", "/settings/roles")]))
 
+    has = components_of(tenant)
+    if "cep" in has:
+        _engagement(out, tenant, tid, zone, on)
+    if "insights" in has:
+        out.append(_databases(tid, optional="cep" in has))
+    return out
+
+
+def components_of(tenant) -> list[str]:
+    """the suite components the workspace has; Engagement alone where the registry is not there yet"""
+    try:
+        return [c["key"] for c in components.for_tenant(tenant.pk)]
+    except Exception:                                                                               # noqa: BLE001  an older database
+        return ["cep"]
+
+
+def _engagement(out: list, tenant, tid: str, zone: str, on) -> None:
+    """Engagement's steps: the email engine and sender, a text engine (optional), suppressions and a list, who is told (optional)"""
     # ---- 3 the email engine
     engines = list(DeliveryProvider.objects.filter(tenant_id=tid, deleted_at__isnull=True, is_active=True, channel="EMAIL").order_by("-is_default", "name")
                    .values("id", "name", "provider_type", "last_checked_at", "last_check_ok", "last_check_error"))
@@ -166,21 +188,36 @@ def steps(tenant, user) -> list[dict]:
              f" · Approvals: {'on' if approvals_on else 'off'} · API keys: {keys or 'none'}" + (" (needed for e-receipts from the point of sale)" if not keys and on("ereceipt") else "") + ".")
     links = [_link("Notifications", "/settings/notifications"), _link("Approvals", "/settings/approvals")] + ([_link("API Keys", "/settings/api-keys")] if on("api_access") else [])
     out.append(_step("tell", "Decide who is told, and who approves", DONE if (emails or approvals_on or keys) else TODO, words, links=links, optional=True))
-    return out
+
+
+def _databases(tid: str, *, optional: bool) -> dict:
+    """Insights' step: a Report Database its reports read"""
+    from apps.insights import databases
+    rows = databases.connections(tid) if databases._present() else []
+    if rows:
+        names = ", ".join(row["name"] for row in rows[:3]) + (f" and {len(rows) - 3} more" if len(rows) > 3 else "")
+        return _step("databases", "Connect the database your reports read", DONE, f"{_plural(len(rows), 'database')}: {names}.",
+                     links=[_link("Report Databases", "/settings/report-databases")], optional=optional)
+    return _step("databases", "Connect the database your reports read", TODO,
+                 "No Report Database yet. Insights reads it with a read-only login and never changes it.",
+                 why="Map its tables as datasets, then build reports on them, or ask for one in plain words.",
+                 links=[_link("Connect a Database", "/settings/report-databases", primary=True)], optional=optional)
 
 
 def overview(tenant, user) -> dict:
     items = steps(tenant, user)
     by_key = {item["key"]: item for item in items}
     done = sum(1 for item in items if item["state"] == DONE)
-    ready = all(by_key[key]["state"] == DONE for key in REQUIRED)
-    nxt = next((key for key in REQUIRED if by_key[key]["state"] != DONE), None)
+    required = [item["key"] for item in items if not item["optional"]]
+    ready = all(by_key[key]["state"] == DONE for key in required)
+    nxt = next((key for key in required if by_key[key]["state"] != DONE), None)
     subscription = TenantSubscription.objects.filter(tenant_id=tenant.pk).select_related("plan").order_by("-started_at").first()
     stored = (tenant.settings or {}).get(KEY) or {}
     return {
         "workspace": {"name": tenant.name, "code": tenant.code, "plan": subscription.plan.name if subscription else None, "timezone": tenant.timezone},
         "viewer": {"first_name": (user.display_name or user.email or "").split(" ")[0]},
         "steps": items, "done": done, "total": len(items), "ready": ready, "next": nxt, "dismissed": bool(stored.get("dismissed_at")),
+        "components": components_of(tenant),
     }
 
 

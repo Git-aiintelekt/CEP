@@ -1,6 +1,6 @@
 # Sending Engines and Senders
 
-**Where:** Settings → Sending → Sending Engines.
+**Where:** Settings → Engagement → Sending Engines.
 
 ## What this page is for
 

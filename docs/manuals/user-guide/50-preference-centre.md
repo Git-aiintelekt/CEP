@@ -1,6 +1,6 @@
 # Preference Centre
 
-**Where:** Settings → Audience → Preference Centre.
+**Where:** Settings → Engagement → Preference Centre.
 
 ## What this page is for
 

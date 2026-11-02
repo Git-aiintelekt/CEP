@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, me, signIn } from '@/test/mockApi'
 
 import { findPages, readRecent, visibleGroups } from './settingsCatalogue'
 
@@ -20,21 +20,28 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+const INSIGHTS = { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }
+const both = { ...me, components: [...me.components, INSIGHTS] }
+const insightsAlone = { ...me, components: [INSIGHTS] }
+
 const menu = () => screen.getByRole('navigation', { name: 'Settings sections' })
 const links = () => within(menu()).getAllByRole('link').map((link) => link.textContent)
 
-test('the menu: every group with its pages, the current page selected, the trail above the page', async () => {
-  installMockApi()
+test('the menu: General, then a group per component the workspace has, with its pages; the current page selected, the trail above the page', async () => {
+  installMockApi({ me: both as never })
   await renderAppAt('/settings/delivery')
   await screen.findByRole('table', { name: 'Sending Engines' })
-  for (const name of ['Workspace', 'Sending', 'Audience', 'Integrations']) expect(within(menu()).getByRole('button', { name })).toBeTruthy()
-  expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Tags', 'Security', 'Approvals', 'AI Assistant', 'Report Databases', 'Report Access', 'Fiscal Year', 'Plan & Usage', 'Sending Engines', 'Email Server', 'UTM Tracking', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'API Keys', 'POS Receipts', 'Attribution', 'Events'])
+  expect(within(menu()).getAllByRole('button', { name: /^(General|Engagement|Insights)$/ }).map((button) => button.textContent)).toEqual(['General', 'Engagement', 'Insights'])
+  expect(within(menu()).getAllByRole('heading', { level: 4 }).map((heading) => heading.textContent)).toEqual(['Sending', 'Audience', 'Connections'])
+  expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Security', 'AI Assistant', 'API Keys', 'Plan & Usage',
+    'Sending Engines', 'Email Server', 'UTM Tracking', 'Approvals', 'Tags', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'POS Receipts', 'Attribution', 'Events',
+    'Report Databases', 'Report Access', 'Fiscal Year'])
   expect(within(menu()).queryByRole('region', { name: 'Recent' })).toBeNull()                            // nothing visited before this page
   const current = within(menu()).getAllByRole('link', { name: 'Sending Engines' }).at(-1)!
   expect(current.getAttribute('aria-current')).toBe('page')
   expect(current.className).toContain('bg-brand-100 text-brand-800')
   const trail = screen.getByRole('navigation', { name: 'Where you are' })
-  expect(trail.textContent).toBe('SettingsSendingSending Engines')
+  expect(trail.textContent).toBe('SettingsEngagementSending Engines')
 })
 
 test('Find a Setting narrows the menu to the matching pages, by page or group; Escape and the clear button empty it', async () => {
@@ -45,7 +52,7 @@ test('Find a Setting narrows the menu to the matching pages, by page or group; E
   const box = within(menu()).getByRole('searchbox', { name: 'Find a setting' })
   await user.type(box, 'send')
   expect(within(menu()).getByRole('list', { name: 'Matching settings' })).toBeTruthy()
-  expect(links()).toEqual(['Sending Engines', 'Email Server', 'UTM Tracking', 'Notifications'])                          // the Sending group's pages, by group name
+  expect(links()).toEqual(['Sending Engines', 'Email Server', 'UTM Tracking', 'Approvals', 'Tags', 'Notifications'])     // the pages under Sending, by heading
   await user.clear(box)
   await user.type(box, 'xyz')
   expect(within(menu()).getByText(/Nothing matches/)).toBeTruthy()
@@ -67,11 +74,12 @@ test('Recent lists the pages visited here, newest first, three at most; a group 
   expect(within(recent).getAllByRole('link').map((link) => link.textContent)).toEqual(['Security', 'Roles', 'Users'])   // the pages left, newest first; the current one is not listed
   expect(readRecent()).toEqual(['/settings/notifications', '/settings/security', '/settings/roles', '/settings/users'])
 
-  const audience = within(menu()).getByRole('button', { name: 'Audience' })
-  await user.click(audience)
-  expect(audience.getAttribute('aria-expanded')).toBe('false')
+  const engagement = within(menu()).getByRole('button', { name: 'Engagement' })
+  await user.click(engagement)
+  expect(engagement.getAttribute('aria-expanded')).toBe('false')
   expect(within(menu()).queryByRole('link', { name: 'Suppressions' })).toBeNull()
-  expect(JSON.parse(window.localStorage.getItem('cep.settings.folded')!)).toEqual(['audience'])
+  expect(JSON.parse(window.localStorage.getItem('cep.settings.folded')!)).toEqual(['engagement'])
+  await user.click(engagement)
 
   await user.click(within(menu()).getByRole('button', { name: 'Collapse the settings menu' }))
   expect(menu().getAttribute('data-settings-menu')).toBe('folded')
@@ -81,11 +89,27 @@ test('Recent lists the pages visited here, newest first, three at most; a group 
   expect(within(menu()).getByRole('searchbox', { name: 'Find a setting' })).toBeTruthy()
 })
 
-test('pages the workspace has no feature for are left out, and an empty group with them', () => {
+test('pages the workspace has no feature for are left out; the group of a component shows only when the workspace has the component', () => {
   const groups = visibleGroups((feature) => feature !== 'api_access' && feature !== 'ereceipt')
-  expect(groups.find((group) => group.key === 'integrations')!.pages.map((page) => page.label)).toEqual(['Integrations', 'Attribution', 'Events'])
+  expect(groups.find((group) => group.key === 'engagement')!.pages.filter((page) => page.section === 'Connections').map((page) => page.label)).toEqual(['Integrations', 'Attribution', 'Events'])
+  expect(groups.find((group) => group.key === 'general')!.pages.map((page) => page.label)).not.toContain('API Keys')
   const none = visibleGroups(() => false)
-  expect(none.map((group) => group.key)).toEqual(['workspace', 'sending', 'audience', 'integrations'])
+  expect(none.map((group) => group.key)).toEqual(['general', 'engagement', 'insights'])
+  expect(visibleGroups(() => true, ['insights']).map((group) => group.key)).toEqual(['general', 'insights'])
+  expect(visibleGroups(() => true, ['cep']).map((group) => group.key)).toEqual(['general', 'engagement'])
   expect(findPages(groups, 'pos')).toEqual([])
   expect(findPages(groups, 'plan usage').map((page) => page.to)).toEqual(['/settings/plan'])
+})
+
+test('a workspace with Insights alone sees General and Insights, and an Engagement page says it is not there', async () => {
+  installMockApi({ me: insightsAlone as never })
+  await renderAppAt('/settings/users')
+  await screen.findByRole('table', { name: 'Users' })
+  expect(within(menu()).getAllByRole('button', { name: /^(General|Engagement|Insights)$/ }).map((button) => button.textContent)).toEqual(['General', 'Insights'])
+  expect(within(menu()).queryByRole('link', { name: 'Sending Engines' })).toBeNull()
+  expect(within(menu()).getByRole('link', { name: 'Report Databases' })).toBeTruthy()
+  cleanup()
+  await renderAppAt('/settings/delivery')
+  expect(await screen.findByText('This workspace does not have Engagement')).toBeTruthy()
+  expect(screen.queryByRole('table', { name: 'Sending Engines' })).toBeNull()
 })

@@ -1,6 +1,6 @@
 # Suppressions
 
-**Where:** Settings → Audience → Suppressions.
+**Where:** Settings → Engagement → Suppressions.
 
 ## What this page is for
 
