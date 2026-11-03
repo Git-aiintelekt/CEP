@@ -1,6 +1,6 @@
 # Integrations
 
-**Where:** Settings → Integrations → Integrations.
+**Where:** Settings → Engagement → Integrations.
 
 ## What this page is for
 

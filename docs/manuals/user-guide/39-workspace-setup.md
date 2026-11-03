@@ -1,6 +1,6 @@
 # Setting Up a New Workspace
 
-**Where:** Settings → Workspace → Set-Up. The first sign-in of an administrator lands here while the workspace is not ready, and Home keeps a card pointing back until it is.
+**Where:** Settings → General → Set-Up. The first sign-in of an administrator lands here while the workspace is not ready, and Home keeps a card pointing back until it is.
 
 ## What this is
 
@@ -22,7 +22,9 @@ The platform team creates the workspace and sends its first administrator an ema
 3. **Sign in.** The workspace code, your email and the password. When the workspace requires multi-factor authentication, the next screen walks you through it before anything else: scan the code with an authenticator app, type the six digits, store the recovery codes.
 4. **You land on Set-Up.** An administrator whose workspace is not ready lands here instead of Home: *Welcome, {name}. Let's set up {CODE}.* with step 1 already done. Everyone else, and every later sign-in, lands on Home, where a card says how far the set-up is until the workspace is ready.
 
-### The seven steps, in order
+### The steps, in order
+
+Set-Up lists the steps of the components the workspace has: steps 1 and 2 for every workspace, 3 to 7 when it has Engagement, and **Connect the database your reports read** when it has Insights. A workspace with both sees eight steps; one with Insights alone sees three (sign in, team, database), and the database step is then required.
 
 | # | Step | What to do | Done when |
 |---|---|---|---|
@@ -34,13 +36,15 @@ The platform team creates the workspace and sends its first administrator an ema
 | 6 | Import your do-not-contact list, then your first contact list | Suppressions → Import the opt-outs from your previous system first, so no upload can reach them. Then Contact Lists → Create List → Upload a File: name it, say what it is for, match the columns, declare where the people agreed, review, import. | A production list with people. |
 | 7 | Decide who is told, and who approves (optional) | Notifications: the addresses or chat webhook that hear about failed sends. Approvals: whether a second person signs off before a production publish. API Keys: a key with `receipts:send` when the point of sale will send receipts. | A recipient, or approvals on, or a key. Optional. |
 
-**Ready** means steps 1, 2, 3, 4 and 6 are done. The Home card goes, and the page stays under Settings with the optional steps still listed.
+| 8 (Insights) | Connect the database your reports read (optional with Engagement) | Report Databases → Connect a Database: a read-only login to the database the reports read. | A Report Database is connected. |
+
+**Ready** means every step not marked optional is done: steps 1, 2, 3, 4 and 6 with Engagement; steps 1 to 3 with Insights alone. The Home card goes, and the page stays under Settings with the optional steps still listed.
 
 ### Before the first real send
 
 Worth setting while the workspace is quiet, each with its own chapter:
 
-- **Consent Policy** (Settings → Audience): what an upload does with people without a consent date, whether text lists need a text consent date, approval before a fresh list's first send, and the sentence uploaders confirm.
+- **Consent Policy** (Settings → Engagement): what an upload does with people without a consent date, whether text lists need a text consent date, approval before a fresh list's first send, and the sentence uploaders confirm.
 - **Preference Centre**: switch on when customers should choose topics; add the topics first and put `{{preference_url}}` in the templates' footer.
 - **Email Server**: your own SMTP server for password links and notifications, so they come from your domain.
 - **Tags**: the workspace's own personalization tags beyond the platform's catalogue.

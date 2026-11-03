@@ -1,6 +1,6 @@
 # Email Server
 
-**Where:** Settings → Sending → Email Server.
+**Where:** Settings → Engagement → Email Server.
 
 ## What this page is for
 

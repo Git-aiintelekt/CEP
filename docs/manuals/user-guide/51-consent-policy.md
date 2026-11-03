@@ -1,6 +1,6 @@
 # Consent Policy
 
-**Where:** Settings → Audience → Consent Policy.
+**Where:** Settings → Engagement → Consent Policy.
 
 ## What this page is for
 

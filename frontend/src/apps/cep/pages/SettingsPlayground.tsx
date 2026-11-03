@@ -253,11 +253,13 @@ function SampleReportDatabases({ map = false }: { map?: boolean }) {
 }
 
 export default function SettingsPlayground() {
+  const [params] = useSearchParams()
+  const components = params.get('components')?.split(',')                                          // ?components=insights: a workspace sold Insights alone
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <div><h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1><p className="mt-1 text-sm text-ink-800">The menu on sample data: every feature on.</p></div>
+      <div><h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1><p className="mt-1 text-sm text-ink-800">The menu on sample data: every feature on{components ? `, components ${components.join(' and ')}` : ', every component'}.</p></div>
       <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-start">
-        <SettingsMenuPanel has={() => true} base="/dev/settings" />
+        <SettingsMenuPanel has={() => true} components={components} base="/dev/settings" />
         <section aria-label="Settings page" className="min-w-0 flex-1">
           <Routes>
             <Route element={<Outlet />}>

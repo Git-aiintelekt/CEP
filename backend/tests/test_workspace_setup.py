@@ -1,4 +1,4 @@
-"""Set Up Your Workspace: the seven steps read from the workspace, ready and next, the Home-card dismissal. Rolled back.
+"""Set Up Your Workspace: the steps of the workspace's components read from it, ready and next, the Home-card dismissal. Rolled back.
 
 Converted from the verification script of the same name; every change is rolled back (tests/conftest.py)."""
 import pytest
@@ -9,6 +9,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.contact_lists.models import ContactList
 from apps.delivery.models import DeliveryProvider, SenderProfile
 from apps.identity.models import AppUser, UserRole
+from apps.platform_ops import params
 from apps.tenants import context, setup
 from apps.tenants.models import Tenant
 
@@ -16,7 +17,7 @@ pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.m
 
 
 def test_workspace_setup(check, admin_email):
-    """Set Up Your Workspace: the seven steps read from the workspace, ready and next, the Home-card dismissal. Rolled back."""
+    """Set Up Your Workspace: the steps of the workspace's components read from it, ready and next, the Home-card dismissal. Rolled back."""
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
     user = AppUser.objects.using("platform").get(email=admin_email)
@@ -32,11 +33,11 @@ def test_workspace_setup(check, admin_email):
 
             r = API.get("/api/v1/workspace/setup/")
             body = r.json() if r.status_code == 200 else {}
-            check("the overview answers 200 with the workspace, the viewer and seven steps", r.status_code == 200 and body.get("total") == 7 and len(body.get("steps", [])) == 7
+            check("the overview answers 200 with the workspace, the viewer and eight steps (Engagement and Insights)", r.status_code == 200 and body.get("total") == 8 and len(body.get("steps", [])) == 8
                   and body["workspace"]["code"] == "NWA" and bool(body["viewer"]["first_name"]), f"{r.status_code} {str(r.content)[:200]}")
             keys = [s["key"] for s in body["steps"]]
-            check("the steps in order, the optional ones marked", keys == ["signin", "team", "email_engine", "email_sender", "text", "lists", "tell"]
-                  and [s["optional"] for s in body["steps"]] == [False, False, False, False, True, False, True], str(keys))
+            check("the steps in order, the optional ones marked; with Engagement the database step is optional", keys == ["signin", "team", "email_engine", "email_sender", "text", "lists", "tell", "databases"]
+                  and [s["optional"] for s in body["steps"]] == [False, False, False, False, True, False, True, True] and body.get("components") == ["cep", "insights"], str(keys))
             check("the sign-in step is done for the person reading", body["steps"][0]["state"] == "done" and body["steps"][0]["tag"] == "Done" and body["steps"][0]["text"].startswith("Done"), body["steps"][0]["text"])
             check("every step has a label, a sentence and links with pages", all(s["label"] and s["text"] and all(l["to"].startswith("/") for l in s["links"]) for s in body["steps"]))
             done = sum(1 for s in body["steps"] if s["state"] == "done")
@@ -81,6 +82,21 @@ def test_workspace_setup(check, admin_email):
             r = API.put("/api/v1/workspace/setup/", {"dismissed": False}, content_type="application/json")
             check("PUT dismissed false shows it again", r.status_code == 200 and r.json()["dismissed"] is False and not (Tenant.objects.get(pk=T).settings.get("setup") or {}).get("dismissed_at"))
 
+            # ---- Insights alone: the General steps and the database, which is then required
+            with connections["platform"].cursor() as cursor:
+                cursor.execute("DELETE FROM tenant_component WHERE tenant_id = %s AND component_key = 'cep'", [T])
+                cursor.execute("INSERT INTO tenant_component (tenant_id, component_key, access) VALUES (%s, 'cep', 'OFF')", [T])
+            params.invalidate(T)
+            alone = API.get("/api/v1/workspace/setup/").json()
+            database = alone["steps"][-1]
+            check("Insights alone: sign-in, team and the database, nothing about sending",
+                  [s["key"] for s in alone["steps"]] == ["signin", "team", "databases"] and alone["total"] == 3 and alone["components"] == ["insights"], str([s["key"] for s in alone["steps"]]))
+            check("Insights alone: the database step is required, so ready and next follow it",
+                  database["optional"] is False and database["links"][0]["to"] == "/settings/report-databases"
+                  and (alone["ready"] == (database["state"] == "done" and alone["steps"][1]["state"] == "done"))
+                  and (alone["next"] in (None, "team", "databases")), json.dumps({k: alone[k] for k in ("ready", "next")}))
+            params.invalidate(T)
+
             # ---- not for everyone
             plain = AppUser.objects.filter(tenant_id=T, is_active=True, deleted_at__isnull=True).exclude(pk=user.pk).exclude(
                 pk__in=UserRole.objects.filter(role__tenant_id=T, role__role_permissions__permission__code="user.admin").values("user_id")).first()
@@ -94,4 +110,6 @@ def test_workspace_setup(check, admin_email):
     except RuntimeError as exc:
         if str(exc) != "rollback":
             raise
+    finally:
+        params.invalidate(T)
     check.done()

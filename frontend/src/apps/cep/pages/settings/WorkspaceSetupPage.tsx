@@ -1,6 +1,6 @@
 /**
- * Settings → Set-Up: the seven steps of a new workspace, each read from the workspace (never ticked by hand), with the page
- * that does it. The first sign-in of an administrator lands here while the workspace is not ready; the Home card leads back
+ * Settings → Set-Up: the steps of a new workspace for the components it has (two for everyone, five for Engagement, one for
+ * Insights), each read from the workspace (never ticked by hand), with the page that does it. The first sign-in of an administrator lands here while the workspace is not ready; the Home card leads back
  * until it is ready or hidden with Hide Until Later.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -35,6 +35,21 @@ function Mark({ step, number, current }: { step: SetupStep; number: number; curr
   }
   const tone = current ? 'bg-brand-600 text-on-brand' : step.state === 'warn' ? 'bg-warning-bg text-warning-text' : 'border border-line bg-fill-subtle text-ink-800'
   return <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${tone}`}>{number}</span>
+}
+
+const NUMBER_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
+
+/** [1, 2, 3, 4, 6] → "steps 1 to 4 and 6" */
+function stepNumbers(numbers: number[]): string {
+  const runs: string[] = []
+  for (let i = 0; i < numbers.length; i++) {
+    let j = i
+    while (j + 1 < numbers.length && numbers[j + 1] === numbers[j] + 1) j++
+    runs.push(j - i >= 2 ? `${numbers[i]} to ${numbers[j]}` : numbers.slice(i, j + 1).join(', '))
+    i = j
+  }
+  const words = runs.length > 1 ? `${runs.slice(0, -1).join(', ')} and ${runs.at(-1)}` : (runs[0] ?? '')
+  return `${numbers.length === 1 ? 'step' : 'steps'} ${words}`
 }
 
 function StepRow({ step, number, current }: { step: SetupStep; number: number; current: boolean }) {
@@ -75,6 +90,12 @@ export function WorkspaceSetupPage() {
   const fresh = data.done <= 1
   const facts = [`${data.workspace.name} (${data.workspace.code})`, data.workspace.plan, data.workspace.timezone].filter(Boolean).join(' · ')
   const percent = data.total ? (data.done / data.total) * 100 : 0
+  const engagement = data.steps.some((step) => step.key === 'email_engine')
+  const count = NUMBER_WORDS[data.total] ?? String(data.total)
+  const required = stepNumbers(data.steps.flatMap((step, index) => (step.optional ? [] : [index + 1])))
+  const intro = engagement ? `${count} steps, about an hour if the sending credentials are to hand. Nothing sends until step 4.` : `${count} steps: your team, then the database your reports read.`
+  const readyNext = engagement ? "Home offers Create Campaign. The optional steps can be done any time; the first campaign's Review step runs the same checks before it publishes."
+    : 'Insights → Reports offers New Report on the database you connected. The optional steps can be done any time.'
 
   return (
     <div className="space-y-5">
@@ -82,7 +103,7 @@ export function WorkspaceSetupPage() {
         <div className="min-w-0 max-w-2xl">
           <h2 className="font-display text-section-title font-semibold text-ink-900">{fresh ? `Welcome, ${data.viewer.first_name}. Let's set up ${data.workspace.code}.` : 'Set Up Your Workspace'}</h2>
           <p className="mt-0.5 text-sm text-ink-800">
-            {facts}. {fresh ? 'Seven steps, about an hour if the sending credentials are to hand. Nothing sends until step 4.' : 'Work the steps in order; each one opens the page that does it.'}
+            {facts}. {fresh ? intro : 'Work the steps in order; each one opens the page that does it.'}
           </p>
         </div>
         {!data.ready && (
@@ -108,12 +129,10 @@ export function WorkspaceSetupPage() {
       </section>
 
       {data.ready ? (
-        <Notice tone="info" layout="banner" title="Your workspace is ready">
-          Home offers Create Campaign. The optional steps can be done any time; the first campaign's Review step runs the same checks before it publishes.
-        </Notice>
+        <Notice tone="info" layout="banner" title="Your workspace is ready">{readyNext}</Notice>
       ) : (
-        <Notice tone="info" layout="banner" title="When steps 1 to 4 and 6 are done, the workspace is ready">
-          Home offers Create Campaign, and the first campaign's Review step runs the same checks before it publishes.
+        <Notice tone="info" layout="banner" title={`When ${required} are done, the workspace is ready`}>
+          {engagement ? "Home offers Create Campaign, and the first campaign's Review step runs the same checks before it publishes." : 'Insights → Reports then offers New Report on the database you connected.'}
         </Notice>
       )}
       {hide.isError && <ErrorState title={hide.variables ? 'The card was not hidden' : 'The card was not shown again'} error={hide.error} />}

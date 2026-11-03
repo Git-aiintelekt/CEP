@@ -58,9 +58,9 @@ test('the page: seven steps with their state, the next one explained with its pr
   expect(await screen.findByRole('button', { name: 'Show on Home Again' })).toBeTruthy()
   expect(calls.filter((call) => call.url.endsWith('/workspace/setup/') && call.method === 'PUT').map((call) => call.body)).toEqual([{ dismissed: true }])
 
-  // the page sits in the Settings menu's Workspace group
+  // the page sits in the Settings menu's General group
   const menu = screen.getByRole('navigation', { name: 'Settings sections' })
-  expect(within(within(menu).getByRole('region', { name: 'Workspace' })).getAllByRole('link').map((link) => link.textContent)[0]).toBe('Set-Up')
+  expect(within(within(menu).getByRole('region', { name: 'General' })).getAllByRole('link').map((link) => link.textContent)[0]).toBe('Set-Up')
 })
 
 test('a brand-new workspace greets the administrator by name; a ready one says so and keeps no Hide button', async () => {

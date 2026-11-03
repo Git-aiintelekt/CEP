@@ -1,6 +1,6 @@
 # API Keys
 
-**Where:** Settings → Integrations → API Keys.
+**Where:** Settings → General → API Keys.
 
 ## What this page is for
 

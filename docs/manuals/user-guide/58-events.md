@@ -1,6 +1,6 @@
 # Events
 
-**Where:** Settings → Integrations → Events.
+**Where:** Settings → Engagement → Events.
 
 ## What this page is for
 

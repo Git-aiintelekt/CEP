@@ -1,6 +1,7 @@
 /**
- * The Settings menu panel: Find a Setting, the pages visited most recently, then every group with its pages. A group folds and
- * stays folded; the panel folds to its icons. The current page reads as selected (Blue 100, Blue 800), as the rail does.
+ * The Settings menu panel: Find a Setting, the pages visited most recently, then General and a group per component the
+ * workspace has, each with its pages (Engagement's under Sending, Audience and Connections). A group folds and stays folded;
+ * the panel folds to its icons. The current page reads as selected (Blue 100, Blue 800), as the rail does.
  */
 import { ChevronDown, ChevronsLeft, ChevronsRight, Clock, Search, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
@@ -10,7 +11,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import type { Feature } from '@/lib/types'
 
-import { RECENT_SHOWN, findPages, pageAt, readFolded, readPanelFolded, readRecent, rememberVisit, visibleGroups, writeFolded, writePanelFolded, type SettingsPage } from './settingsCatalogue'
+import { RECENT_SHOWN, componentsOf, findPages, pageAt, readFolded, readPanelFolded, readRecent, rememberVisit, visibleGroups, writeFolded, writePanelFolded, type SettingsPage } from './settingsCatalogue'
 
 const ITEM = 'flex h-9 items-center gap-2.5 rounded-control-md px-2.5 text-sm font-medium transition-colors duration-fast ease-standard'
 const ITEM_STATE = { rest: 'text-ink-900 hover:bg-surface-hover', current: 'bg-brand-100 text-brand-800' }
@@ -31,14 +32,14 @@ function PageLink({ page, folded, base }: { page: SettingsPage; folded: boolean;
   )
 }
 
-/** on the page: the signed-in viewer's features */
+/** on the page: the signed-in viewer's features and components */
 export function SettingsMenu() {
-  const { has } = useAuth()
-  return <SettingsMenuPanel has={has} />
+  const { has, me } = useAuth()
+  return <SettingsMenuPanel has={has} components={componentsOf(me)} />
 }
 
-/** `base`: where the pages live (the dev playground mounts them under its own address) */
-export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: Feature) => boolean; base?: string }) {
+/** `base`: where the pages live (the dev playground mounts them under its own address); `components`: the workspace's, all when absent */
+export function SettingsMenuPanel({ has, components, base = '/settings' }: { has: (feature: Feature) => boolean; components?: string[]; base?: string }) {
   const { pathname } = useLocation()
   const searchId = useId()
   const [needle, setNeedle] = useState('')
@@ -48,7 +49,7 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
   const isMd = useMinWidth(BREAKPOINT.md)
   const foldedPanel = panelFolded && isMd
   const [phoneGroup, setPhoneGroup] = useState<string | null>(null)
-  const groups = visibleGroups(has)
+  const groups = visibleGroups(has, components)
 
   const settingsPath = pathname.replace(base, '/settings')
   const [recent, setRecent] = useState<string[]>(() => readRecent().filter((path) => path !== settingsPath))
@@ -127,7 +128,16 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
                       <ChevronDown size={14} strokeWidth={1.5} aria-hidden className={`transition-transform duration-fast ${open ? '' : '-rotate-90'}`} />
                     </button>
                   )}
-                {open && <div id={bodyId} className="flex flex-col gap-0.5">{group.pages.map((page) => <PageLink key={page.to} page={page} folded={foldedPanel} base={base} />)}</div>}
+                {open && (
+                  <div id={bodyId} className="flex flex-col gap-0.5">
+                    {group.pages.map((page, index) => (
+                      <div key={page.to} className="flex flex-col gap-0.5">
+                        {page.section && page.section !== group.pages[index - 1]?.section && !foldedPanel && <h4 className="px-2.5 pt-1.5 pb-0.5 text-xs font-medium text-ink-700">{page.section}</h4>}
+                        <PageLink page={page} folded={foldedPanel} base={base} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )
           })}

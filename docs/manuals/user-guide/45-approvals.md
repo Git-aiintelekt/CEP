@@ -1,6 +1,6 @@
 # Approvals
 
-**Where:** Settings → Workspace → Approvals.
+**Where:** Settings → Engagement → Approvals.
 
 ## What this page is for
 

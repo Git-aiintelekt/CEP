@@ -1,6 +1,6 @@
 # Notifications
 
-**Where:** Settings → Sending → Notifications.
+**Where:** Settings → Engagement → Notifications.
 
 ## What this page is for
 
