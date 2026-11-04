@@ -86,9 +86,9 @@ test('Dataset and Owner narrow the list and go in the address; the counts follow
 })
 
 test('?component= still opens the list on one component', async () => {
-  await renderAppAt('/insights/reports?component=sales', { before: () => insightsReportsNow.push({ ...insightsSummary, id: 'rep-sales', name: 'Takings by Store', component: { key: 'sales', name: 'Sales' } }) })
+  await renderAppAt('/insights/reports?component=insights', { before: () => insightsReportsNow.push({ ...insightsSummary, id: 'rep-sales', name: 'Takings by Store', component: { key: 'insights', name: 'Insights' } }) })
   expect(names(await table())).toEqual(['Takings by Store'])
-  expect(screen.getByRole('button', { name: 'Component: Sales' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Component: Insights' })).toBeTruthy()
 })
 
 test('newest run first by default, never run last; Name sorts A to Z, then Z to A', async () => {

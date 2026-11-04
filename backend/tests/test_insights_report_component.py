@@ -1,7 +1,7 @@
 """The component a report is listed under (docs/mockups/report-component.html, option A): Automatic (its dataset's) unless chosen
 when the report is made (New Report, a report from a query, Ask for a Report) or changed later by whoever may edit it; any
-component of the suite, read from suite_component, so one added later is offered too. The list groups and filters by it.
-Rolled back."""
+component the workspace has, in the suite's order, so one added to the workspace later is offered too (a planned or switched-off
+component is not). The list groups and filters by it. Rolled back."""
 import pytest
 from django.db import connections
 
@@ -33,28 +33,30 @@ def test_choosing_and_changing_a_reports_component(check, world):
     with connections["platform"].cursor() as cursor:
         cursor.execute("SELECT key FROM suite_component ORDER BY sort_order, name")
         suite = [row[0] for row in cursor.fetchall()]
-    check("the catalogue offers every component of the suite, in its order, read from suite_component",
-          [c["key"] for c in catalog["components"]] == suite and catalog["can_choose_component"] is True and "sales" in suite, catalog.get("components"))
+    check("the catalogue offers the components the workspace has, in the suite's order; a planned one is not offered",
+          [c["key"] for c in catalog["components"]] == ["cep", "insights"] and catalog["can_choose_component"] is True and "sales" in suite, catalog.get("components"))
 
     plain = world.api("post", "/api/v1/insights/reports/", {"name": "Component Test Automatic", "dataset": "messages", "definition": DEFINITION}).json()
     check("a report made without a choice is Automatic: no component of its own, its dataset's in the list",
           plain["component_key"] is None and plain["component_auto"] == "cep" and _listed(world)["Component Test Automatic"] == "cep", plain)
-    filed = world.api("post", "/api/v1/insights/reports/", {"name": "Component Test Sales", "dataset": "messages", "definition": DEFINITION, "component": "sales"})
+    filed = world.api("post", "/api/v1/insights/reports/", {"name": "Component Test Sales", "dataset": "messages", "definition": DEFINITION, "component": "insights"})
     report = filed.json()
-    check("a report made with a component is listed under it", filed.status_code == 201 and report["component_key"] == "sales"
-          and _listed(world)["Component Test Sales"] == "sales", str(filed.content[:300]))
-    check("the list filters by the report's own component", "Component Test Sales" in _listed(world, "?component=sales")
+    check("a report made with a component is listed under it", filed.status_code == 201 and report["component_key"] == "insights"
+          and _listed(world)["Component Test Sales"] == "insights", str(filed.content[:300]))
+    check("the list filters by the report's own component", "Component Test Sales" in _listed(world, "?component=insights")
           and "Component Test Sales" not in _listed(world, "?component=cep") and "Component Test Automatic" in _listed(world, "?component=cep"))
+    planned = world.api("post", "/api/v1/insights/reports/", {"name": "Component Test Planned", "dataset": "messages", "definition": DEFINITION, "component": "sales"})
+    check("a planned component the workspace does not have is refused", planned.status_code == 400 and "component" in planned.json().get("errors", {}), str(planned.content[:200]))
 
-    moved = world.api("put", f"/api/v1/insights/reports/{report['id']}/", {"row_version": report["row_version"], "component": "inv"}).json()
-    check("whoever may edit it changes it, without a new version", moved["component_key"] == "inv" and moved["version"] == report["version"]
-          and _listed(world)["Component Test Sales"] == "inv", moved)
+    moved = world.api("put", f"/api/v1/insights/reports/{report['id']}/", {"row_version": report["row_version"], "component": "cep"}).json()
+    check("whoever may edit it changes it, without a new version", moved["component_key"] == "cep" and moved["version"] == report["version"]
+          and _listed(world)["Component Test Sales"] == "cep", moved)
     back = world.api("put", f"/api/v1/insights/reports/{report['id']}/", {"row_version": moved["row_version"], "component": None}).json()
     check("and back to Automatic", back["component_key"] is None and _listed(world)["Component Test Sales"] == "cep", back)
     renamed = world.api("put", f"/api/v1/insights/reports/{report['id']}/", {"row_version": back["row_version"], "name": "Component Test Renamed"})
     check("a change that does not name the component keeps it", renamed.status_code == 200 and renamed.json()["component_key"] is None)
     wrong = world.api("post", "/api/v1/insights/reports/", {"name": "Component Test Wrong", "dataset": "messages", "definition": DEFINITION, "component": "nowhere"})
-    check("a component the suite does not have is refused", wrong.status_code == 400 and "component" in wrong.json().get("errors", {}), str(wrong.content[:200]))
+    check("a component the workspace does not have is refused", wrong.status_code == 400 and "component" in wrong.json().get("errors", {}), str(wrong.content[:200]))
     check.done()
 
 
@@ -67,10 +69,10 @@ def test_ask_for_a_report_files_the_draft(check, world, monkeypatch):
     assistant._TABLE_SEEN = False
     monkeypatch.setattr(assistant, "call_model", lambda *args, **kwargs: (DRAFT, {"in": 10, "out": 5}))
     monkeypatch.setattr(assistant.billing, "plan_for", lambda tenant_id: {"name": "Growth", "max_ai_prompts": 50})
-    asked = world.api("post", "/api/v1/insights/assistant/ask/", {"prompt": "Sent by campaign", "model": "anthropic:claude-sonnet-5-5", "component": "crm"}).json()
-    check("the draft carries the component chosen with the prompt", asked.get("kind") == "draft" and asked.get("component") == "crm", asked)
+    asked = world.api("post", "/api/v1/insights/assistant/ask/", {"prompt": "Sent by campaign", "model": "anthropic:claude-sonnet-5-5", "component": "insights"}).json()
+    check("the draft carries the component chosen with the prompt", asked.get("kind") == "draft" and asked.get("component") == "insights", asked)
     opened = world.api("post", f"/api/v1/insights/assistant/{asked['id']}/open/", {})
-    check("Open in Editor files the report under it", opened.status_code == 201 and opened.json()["component_key"] == "crm", str(opened.content[:300]))
+    check("Open in Editor files the report under it", opened.status_code == 201 and opened.json()["component_key"] == "insights", str(opened.content[:300]))
     wrong = world.api("post", "/api/v1/insights/assistant/ask/", {"prompt": "Sent by campaign", "model": "anthropic:claude-sonnet-5-5", "component": "nowhere"})
     check("an unknown component is refused before the model is asked", wrong.status_code == 400, str(wrong.content[:200]))
     check.done()
