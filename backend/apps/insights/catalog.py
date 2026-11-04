@@ -151,7 +151,11 @@ def for_tenant(tenant_id, can_see_pii: bool = False) -> list[dict]:
     from apps.insights import uploads
     has = set(components_of(tenant_id))
     platform = links.attach([_visible(d, can_see_pii) for d in _load(engine["dialect"]) if d["component"]["key"] in has], links.load())     # the platform's datasets carry their links
-    out = [*platform, *[_visible(d, can_see_pii) for d in databases.custom_datasets(tenant_id)], *[_visible(d, can_see_pii) for d in uploads.custom_datasets(tenant_id)]]
+    home = home_component(tenant_id)
+    own = [_visible(d, can_see_pii) for d in [*databases.custom_datasets(tenant_id), *uploads.custom_datasets(tenant_id)]]
+    # the workspace's own data filed under a component it no longer has (mapped while it had Engagement) is listed under its home
+    own = [d if d["component"]["key"] in has else {**d, "component": {"key": home, "name": component_name(home)}} for d in own]
+    out = [*platform, *own]
     from apps.insights import dataset_formulas
     out = dataset_formulas.attach(out, tenant_id, can_see_pii)          # each dataset's shared formulas among its fields
     if _fiscal_start(tenant_id) != 1:                                  # a fiscal year that is not the calendar's: its quarters and years to group by

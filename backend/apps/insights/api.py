@@ -16,6 +16,8 @@
 report.view: see and run; report.edit: create and change what one may edit; report.admin: change and delete any,
 and build on PII fields (a reader without the right gets them masked). The workspace needs the Insights component (an entitlement check, like the shell's).
 """
+import re
+
 from django.core.cache import cache
 from django.http import StreamingHttpResponse
 from django.utils import timezone
@@ -99,8 +101,22 @@ def own_component_present() -> bool:
 
 
 def suite_components() -> list[dict]:
-    """every component of the suite, in its order: what a report may be listed under (a component added later is offered too)"""
-    return _q("SELECT key, name FROM suite_component ORDER BY sort_order, name")
+    """the suite's components the workspace has, in the suite's order: what a report may be listed under (one added to the
+    workspace later is offered too)"""
+    has = catalog.components_of(context.require().tenant_id)
+    return [c for c in _q("SELECT key, name FROM suite_component ORDER BY sort_order, name") if c["key"] in has]
+
+
+def _has_sql() -> str:
+    """the workspace's components as an SQL array literal (suite keys are lower-case words)"""
+    keys = [key for key in catalog.components_of(context.require().tenant_id) if re.fullmatch(r"[a-z0-9_]+", key)]
+    quoted = ", ".join(f"'{key}'" for key in keys)
+    return f"ARRAY[{quoted}]::text[]"
+
+
+def _kept_sql(column: str) -> str:
+    """a component a report or dataset was filed under, while the workspace has it (else NULL: it falls to the next choice)"""
+    return f"CASE WHEN {column} = ANY({_has_sql()}) THEN {column} END"
 
 
 def _home_sql() -> str:
@@ -122,18 +138,20 @@ def component_of(value) -> str | None:
 
 
 def _component_sql() -> str:
-    """the component a report is listed under: its own, else its dataset's (d: report_dataset, x: report_dataset_custom)"""
-    return f"COALESCE({'r.component_key, ' if own_component_present() else ''}d.component_key, x.component_key, {_home_sql()})"
+    """the component a report is listed under: its own, else its dataset's (d: report_dataset, x: report_dataset_custom), else
+    the workspace's home; a component the workspace does not have is passed over"""
+    own = f"{_kept_sql('r.component_key')}, " if own_component_present() else ""
+    return f"COALESCE({own}d.component_key, {_kept_sql('x.component_key')}, {_home_sql()})"
 
 
 def _report_row(report_id, request) -> dict:
     where, args = _visible_sql(request)
     edit, edit_args = access.shared_edit_sql("report", "r", str(request.user.pk))
     shared = access.shared_any_sql("report", "r")
-    own = "r.component_key" if own_component_present() else "NULL::text"
+    own = _kept_sql("r.component_key") if own_component_present() else "NULL::text"
     rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, r.view_type, r.definition, r.visibility, r.version, r.row_version,
                          r.owner_user_id::text, u.display_name AS owner_name, r.folder_id::text, r.last_run_at, r.created_at, r.updated_at,
-                         {own} AS own_component, COALESCE(d.component_key, x.component_key, {_home_sql()}) AS auto_component,
+                         {own} AS own_component, COALESCE(d.component_key, {_kept_sql('x.component_key')}, {_home_sql()}) AS auto_component,
                          {edit} AS shared_edit, {shared} AS shared
                     FROM report r LEFT JOIN app_user u ON u.id = r.owner_user_id
                     LEFT JOIN report_dataset d ON d.key = r.dataset_key LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id

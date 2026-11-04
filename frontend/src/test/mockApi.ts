@@ -47,9 +47,8 @@ export const platformVisits = [
 ]
 
 /** Insights (apps/insights): the catalogue, a saved report and a run's result the tests see */
-/** the suite's components (suite_component): what a report may be listed under */
-export const suiteComponents = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }, { key: 'crm', name: 'CRM' }, { key: 'sales', name: 'Sales' },
-  { key: 'pur', name: 'Purchasing' }, { key: 'inv', name: 'Inventory' }, { key: 'pim', name: 'PIM' }]
+/** the components the workspace has, in the suite's order: what a report may be listed under */
+export const suiteComponents = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }]
 export const insightsCatalog = {
   components: suiteComponents, can_choose_component: true,
   engine: { engine: 'postgresql', status: 'ACTIVE', freshness_sla: 'LIVE', limits: { statement_timeout_ms: 15000, preview_rows: 200, run_rows: 5000, export_rows: 100000, concurrent: 4 } },
