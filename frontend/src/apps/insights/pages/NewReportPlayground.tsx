@@ -61,7 +61,7 @@ function installSampleConnections() {
 }
 
 /** the suite's components, as the catalogue gives them */
-const SUITE = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }, { key: 'crm', name: 'CRM' }, { key: 'sales', name: 'Sales' }, { key: 'pur', name: 'Purchasing' }, { key: 'inv', name: 'Inventory' }, { key: 'pim', name: 'PIM' }]
+const SUITE = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }]
 
 export default function NewReportPlayground() {
   installSampleConnections()

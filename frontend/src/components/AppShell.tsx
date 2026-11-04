@@ -71,13 +71,14 @@ function VisitBanner({ workspace, home }: { workspace: string; home: string }) {
   )
 }
 
-const SHORTCUTS: { keys: string; does: string }[] = [
+/** `engagement`: the shortcut opens an Engagement page, so a workspace without Engagement has no such shortcut */
+const SHORTCUTS: { keys: string; does: string; engagement?: true }[] = [
   { keys: '/', does: 'Search' },
-  { keys: 'n', does: 'Create a campaign' },
-  { keys: 'g then c', does: 'Go to Campaigns' },
-  { keys: 'g then t', does: 'Go to Templates' },
-  { keys: 'g then l', does: 'Go to Contact lists' },
-  { keys: 'g then h', does: 'Go to Home' },
+  { keys: 'n', does: 'Create a campaign', engagement: true },
+  { keys: 'g then c', does: 'Go to Campaigns', engagement: true },
+  { keys: 'g then t', does: 'Go to Templates', engagement: true },
+  { keys: 'g then l', does: 'Go to Contact lists', engagement: true },
+  { keys: 'g then h', does: 'Go to Home', engagement: true },
   { keys: '?', does: 'Show these shortcuts' },
   { keys: 'Esc', does: 'Close a menu or a pop-up' },
 ]
@@ -91,7 +92,7 @@ function typingIn(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable || Boolean(element.closest('[role="dialog"]'))
 }
 
-function ShortcutsHelp({ onClose }: { onClose: () => void }) {
+function ShortcutsHelp({ onClose, engagement }: { onClose: () => void; engagement: boolean }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -105,7 +106,7 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-800 hover:bg-fill-subtle"><X size={16} strokeWidth={1.5} aria-hidden /></button>
         </div>
         <dl className="divide-y divide-line-subtle text-sm">
-          {SHORTCUTS.map((item) => (
+          {SHORTCUTS.filter((item) => engagement || !item.engagement).map((item) => (
             <div key={item.keys} className="flex items-center justify-between gap-4 py-2">
               <dt className="text-ink-800">{item.does}</dt>
               <dd className="cep-num shrink-0 rounded-sm border border-line bg-surface-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-900">{item.keys}</dd>
@@ -160,7 +161,8 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
   const navigate = useNavigate()
   const searchRef = useRef<HTMLInputElement>(null)
   const [helpOpen, setHelpOpen] = useState(false)
-  const canCreate = can('campaign.edit')
+  const engagement = entitled(me).some((component) => component.key === 'cep')
+  const canCreate = engagement && can('campaign.edit')
 
   // the shortcuts: single keys, never while typing, never with a modifier held
   useEffect(() => {
@@ -170,7 +172,7 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
       if (pendingGo !== null) {
         window.clearTimeout(pendingGo)
         pendingGo = null
-        const to = GO[event.key]
+        const to = engagement ? GO[event.key] : undefined
         if (to) { event.preventDefault(); navigate(to); return }
       }
       if (event.key === '/') { event.preventDefault(); searchRef.current?.focus(); searchRef.current?.select() }
@@ -180,7 +182,7 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
     }
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('keydown', onKey); if (pendingGo !== null) window.clearTimeout(pendingGo) }
-  }, [navigate, canCreate])
+  }, [navigate, canCreate, engagement])
 
   useEffect(() => {
     if (!overlay) return
@@ -251,7 +253,7 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
           </main>
         )}
       </div>
-      {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}
+      {helpOpen && <ShortcutsHelp engagement={engagement} onClose={() => setHelpOpen(false)} />}
     </div>
   )
 }

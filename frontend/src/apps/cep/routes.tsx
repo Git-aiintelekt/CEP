@@ -19,6 +19,7 @@ import { UploadsPage } from './features/contact-lists/UploadsPage'
 import { CustomerPage } from './features/customers/CustomerPage'
 import { CustomersPage } from './features/customers/CustomersPage'
 import { LandingAfterSignIn } from './features/home/LandingAfterSignIn'
+import { NeedsEngagement } from './NeedsEngagement'
 import { JourneyDetailsPage } from './features/journeys/JourneyDetailsPage'
 import { JourneysPage } from './features/journeys/JourneysPage'
 import { ReportsPage } from './features/reports/ReportsPage'
@@ -71,28 +72,32 @@ export default function CepRoutes() {
   return (
     <Routes>
       {/* full-screen: outside the app shell */}
-      <Route path="templates/:id/message" element={<EditorScope><MessageEditorPage /></EditorScope>} />
-      <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
-      <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
-      <Route path="journeys/:id/build" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the builder" />}><JourneyBuildPage /></Suspense></EditorScope>} />
-      <Route path="journeys/:id/test-publish" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading Test Publish" />}><JourneyTestPublishPage /></Suspense></EditorScope>} />
+      <Route element={<NeedsEngagement fullScreen />}>
+        <Route path="templates/:id/message" element={<EditorScope><MessageEditorPage /></EditorScope>} />
+        <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
+        <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
+        <Route path="journeys/:id/build" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the builder" />}><JourneyBuildPage /></Suspense></EditorScope>} />
+        <Route path="journeys/:id/test-publish" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading Test Publish" />}><JourneyTestPublishPage /></Suspense></EditorScope>} />
+      </Route>
       <Route element={<AppShell />}>
         <Route index element={<LandingAfterSignIn />} />
         <Route path="cep/*" element={<ComponentAlias />} />
-        <Route path="campaigns" element={<CampaignListPage />} />
-        <Route path="campaigns/new" element={<CampaignListPage creating />} />
-        <Route path="campaigns/:id" element={<CampaignDetailPage />} />
-        <Route path="campaigns/:id/edit" element={<CampaignWizardPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="contact-lists" element={<ContactListsPage />} />
-        <Route path="contact-lists/uploads" element={<UploadsPage />} />
-        <Route path="contact-lists/:id" element={<ContactListDetailPage />} />
-        <Route path="customers" element={<CustomersPage />} />
-        <Route path="customers/:partyId" element={<CustomerPage />} />
-        <Route path="templates" element={<TemplatesPage />} />
-        <Route path="templates/new" element={<TemplateFormPage />} />
-        <Route path="journeys" element={<JourneysPage />} />
-        <Route path="journeys/:id" element={<JourneyDetailsPage />} />
+        <Route element={<NeedsEngagement />}>
+          <Route path="campaigns" element={<CampaignListPage />} />
+          <Route path="campaigns/new" element={<CampaignListPage creating />} />
+          <Route path="campaigns/:id" element={<CampaignDetailPage />} />
+          <Route path="campaigns/:id/edit" element={<CampaignWizardPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="contact-lists" element={<ContactListsPage />} />
+          <Route path="contact-lists/uploads" element={<UploadsPage />} />
+          <Route path="contact-lists/:id" element={<ContactListDetailPage />} />
+          <Route path="customers" element={<CustomersPage />} />
+          <Route path="customers/:partyId" element={<CustomerPage />} />
+          <Route path="templates" element={<TemplatesPage />} />
+          <Route path="templates/new" element={<TemplateFormPage />} />
+          <Route path="journeys" element={<JourneysPage />} />
+          <Route path="journeys/:id" element={<JourneyDetailsPage />} />
+        </Route>
         <Route path="account/security" element={<AccountSecurityPage />} />
         <Route path="settings" element={<SettingsLayout />}>
           <Route index element={<Navigate to="users" replace />} />

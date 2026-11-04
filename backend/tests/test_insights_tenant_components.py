@@ -1,11 +1,12 @@
 """Insights shows what the workspace's components fit: the platform's datasets of a component it does not have are not in the
-catalogue, a report on one is not listed, its own data is filed under Engagement when it has it and Insights otherwise, and the
+catalogue, a report on one is not listed, its own data is filed under Engagement when it has it and Insights otherwise (data
+filed under Engagement while it had it moves to Insights with it), a report's own component is one the workspace has, and the
 base packs offered are those its components fit, the ones chosen at onboarding marked. Rolled back."""
 import pytest
 from django.conf import settings
 from django.db import connections
 
-from apps.insights import catalog, uploads
+from apps.insights import catalog, databases, uploads
 from apps.insights.base_packs import PACKS, fitting, needs
 from apps.platform_ops import params
 
@@ -63,4 +64,31 @@ def test_insights_follows_the_workspaces_components(check, world):
     finally:
         _engagement(tenant_id, on=True)
     check("with Engagement back, the report is listed again", "Component Scope Sends" in listed())
+    check.done()
+
+
+def test_data_filed_under_engagement_moves_to_insights_without_it(check, world, monkeypatch):
+    tenant_id = _tenant_of(world)
+    mapped = {"key": "cus_component_probe", "label": "Store Sales Probe", "description": None, "component": {"key": "cep", "name": "Engagement"},
+              "primary_key": None, "time_field": None, "freshness": "LIVE", "fields": [], "external": True}
+    monkeypatch.setattr(databases, "custom_datasets", lambda tid: [dict(mapped)])
+    filed = lambda: {d["key"]: d["component"]["key"] for d in world.api("get", "/api/v1/insights/catalog/").json()["datasets"]}.get("cus_component_probe")     # noqa: E731
+    offered = lambda: [c["key"] for c in world.api("get", "/api/v1/insights/catalog/").json()["components"]]      # noqa: E731
+    made = world.api("post", "/api/v1/insights/reports/", {"name": "Component Filed Probe", "dataset": "messages", "definition": DEFINITION, "component": "cep"})
+    check("a report filed under Engagement while the workspace has it", made.status_code == 201 and made.json()["component_key"] == "cep", made.content[:200])
+    with connections["default"].cursor() as cursor:                    # as if it were on the mapped dataset: a report on Messages leaves with Engagement
+        cursor.execute("UPDATE report SET dataset_key = 'cus_component_probe' WHERE id = %s", [made.json()["id"]])
+    listed = lambda: {r["name"]: r["component"]["key"] for r in world.api("get", "/api/v1/insights/reports/").json()["reports"]}.get("Component Filed Probe")     # noqa: E731
+    check("with Engagement, the mapped dataset and the report stay under Engagement, and both components are offered",
+          filed() == "cep" and listed() == "cep" and offered() == ["cep", "insights"], (filed(), listed(), offered()))
+    try:
+        _engagement(tenant_id, on=False)
+        check("without Engagement, the dataset mapped under it is listed under Insights", filed() == "insights", filed())
+        check("... the report filed under Engagement is still listed, under Insights", listed() == "insights", listed())
+        check("... and Engagement is no longer offered as a report's component", offered() == ["insights"], offered())
+        refused = world.api("post", "/api/v1/insights/reports/", {"name": "Component Refused Probe", "dataset": "cus_component_probe", "definition": {"columns": []}, "component": "cep"})
+        check("... nor accepted", refused.status_code == 400, refused.content[:200])
+    finally:
+        _engagement(tenant_id, on=True)
+    check("with Engagement back, they return under it", filed() == "cep" and listed() == "cep", (filed(), listed()))
     check.done()

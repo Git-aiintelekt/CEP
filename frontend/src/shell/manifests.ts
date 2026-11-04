@@ -24,6 +24,12 @@ export function entitled(me: Me | null): EntitledComponent[] {
   })
 }
 
+/** whether the workspace has a component (an older API that says nothing means Engagement alone) */
+export const hasComponent = (me: Me | null, key: string): boolean => entitled(me).some((component) => component.key === key)
+
+/** the first component's home: where "/" takes someone whose workspace has no Engagement */
+export const firstHome = (me: Me | null): string | null => entitled(me)[0]?.home ?? null
+
 /** the component whose menu owns a path; Engagement owns everything it has no better owner for */
 export function componentAt(pathname: string, components: EntitledComponent[]): EntitledComponent | null {
   const owner = components.find((component) => component.menu.some((item) => item.to !== '/' && (pathname === item.to || pathname.startsWith(`${item.to}/`))))
