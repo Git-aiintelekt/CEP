@@ -23,6 +23,7 @@ const CHANNELS = [
   { value: 'E_RECEIPT', label: 'E-Receipt', hint: 'Transactional receipt email. Opens the receipt editor.' },
   { value: 'SMS', label: 'SMS', hint: 'Text message. Opens the message editor with live part counting.' },
   { value: 'MMS', label: 'MMS', hint: 'Picture message: text plus one image. Opens the message editor.' },
+  { value: 'WHATSAPP', label: 'WhatsApp', hint: 'A template Meta reviews before it sends. Opens the WhatsApp editor.' },
 ]
 
 /** What the create button promises, by the editor the new template opens in. */
@@ -30,6 +31,7 @@ const CREATE_LABEL: Record<ReturnType<typeof editorRouteFor>, string> = {
   design: 'Create and Open the Designer',
   receipt: 'Create and Open the Receipt Editor',
   message: 'Create and Write the Message',
+  whatsapp: 'Create and Write the WhatsApp Template',
 }
 
 const TEMPLATE_FIELDS = ['name', 'channel', 'description', 'starter']

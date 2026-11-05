@@ -34,9 +34,12 @@ class RunNotStarted(Exception):
     pass
 
 
+PHONE_CHANNELS = ("SMS", "MMS", "WHATSAPP")
+
+
 def family(campaign) -> str:
-    """EMAIL or SMS. A campaign's channel decides; MULTI follows its template."""
-    if campaign.channel in ("SMS", "MMS"):
+    """EMAIL or SMS (every phone channel: texts and WhatsApp share sms_execution). A campaign's channel decides; MULTI follows its template."""
+    if campaign.channel in PHONE_CHANNELS:
         return "SMS"
     if campaign.channel == "MULTI" and campaign.template_id and campaign.template.channel in ("SMS", "MMS"):
         return "SMS"
@@ -44,8 +47,10 @@ def family(campaign) -> str:
 
 
 def text_channel(campaign, template=None) -> str:
-    """SMS or MMS for a text run: the template says whether there is a picture (`template`: the run's own, a drip message's)."""
+    """SMS, MMS or WHATSAPP for a phone run: the template says whether there is a picture (`template`: the run's own, a drip message's)."""
     template = template if template is not None else (campaign.template if campaign.template_id else None)
+    if campaign.channel == "WHATSAPP" or (template is not None and template.channel == "WHATSAPP"):
+        return "WHATSAPP"
     return "MMS" if (template is not None and template.channel == "MMS") or campaign.channel == "MMS" else "SMS"
 
 
@@ -136,6 +141,11 @@ def start(tenant_id, run_id) -> dict:
         if kind == "SMS" and channel == "MMS" and template is not None:
             from apps.templates import design
             media_url = design.message_media_url(template)
+        whatsapp_problem = None
+        if channel == "WHATSAPP" and template is not None:
+            from apps.templates import whatsapp
+            whatsapp_problem = next(iter(whatsapp.blockers(template).values()), None)
+            media_url = whatsapp.header_link(template)
         tenant_zone = campaign.tenant.timezone
 
     if campaign.status in ("PAUSED", "ARCHIVED"):            # stays SCHEDULED: it starts once the campaign is resumed
@@ -159,13 +169,17 @@ def start(tenant_id, run_id) -> dict:
         problem = f"{run_content.step_label(step)} has no saved content." if step is not None else "The template has no saved content."
     elif kind == "SMS" and not (sender.sender_id or "").strip():
         problem = "The sender has no number or short code to text from."
+    elif channel == "WHATSAPP" and whatsapp_problem:
+        problem = f"The WhatsApp template cannot be sent: {whatsapp_problem[:1].lower() + whatsapp_problem[1:]}"
     else:
         try:
             adapter = registry.for_provider(sender.delivery_provider)       # configuration and credential problems surface before anyone is queued
             batch_size = adapter.max_batch
-            if adapter.channel != kind:
-                problem = (f"The sender's engine ({sender.delivery_provider.name}) carries {'email' if adapter.channel == 'EMAIL' else 'text messages'}, "
-                           f"and this is {'a text' if kind == 'SMS' else 'an email'} campaign. Choose a sender of the right kind.")
+            carries = {"EMAIL": "email", "SMS": "text messages", "WHATSAPP": "WhatsApp messages"}
+            wanted = "WHATSAPP" if channel == "WHATSAPP" else "SMS" if kind == "SMS" else "EMAIL"
+            if adapter.channel != wanted:
+                problem = (f"The sender's engine ({sender.delivery_provider.name}) carries {carries.get(adapter.channel, adapter.channel)}, "
+                           f"and this is {'a WhatsApp' if wanted == 'WHATSAPP' else 'a text' if kind == 'SMS' else 'an email'} campaign. Choose a sender of the right kind.")
             elif kind == "SMS" and channel == "MMS":
                 if not getattr(adapter, "supports_mms", False):
                     problem = f"{sender.delivery_provider.name} cannot send picture messages (MMS)."

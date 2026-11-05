@@ -29,6 +29,7 @@ class Campaign(models.Model):
         EMAIL = 'EMAIL', 'Email'
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
         MULTI = 'MULTI', 'Multi'
 
     class Status(models.TextChoices):

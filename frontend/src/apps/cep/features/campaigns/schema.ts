@@ -22,7 +22,7 @@ export const campaignSchema = z
     code: z.string().trim().refine((value) => value === '' || CODE_PATTERN.test(value.toUpperCase()), '3 to 40 characters: capital letters, digits, hyphen or underscore.'),
     description: z.string().max(2000, 'Use 2,000 characters or fewer.'),
     campaign_type: z.enum(['REGULAR_MARKETING', 'DRIP', 'E_RECEIPT', 'OTHER']),
-    channel: z.enum(['EMAIL', 'SMS', 'MMS', 'MULTI']),
+    channel: z.enum(['EMAIL', 'SMS', 'MMS', 'MULTI', 'WHATSAPP']),
     solicitation_type: z.enum(['MARKETING', 'TRANSACTIONAL', 'SERVICE', 'LEGAL']),
     owner_user: z.string(),
     tags: z.array(z.string().regex(TAG_PATTERN, 'A tag is up to 40 letters, digits and spaces.')).max(20, 'Up to 20 tags.'),
@@ -159,7 +159,7 @@ const amount = (value: string) => (value.trim() === '' ? null : value.trim())
 export function toInput(values: CampaignFormValues, rowVersion?: number): CampaignInput {
   const receipt = values.campaign_type === 'E_RECEIPT'
   const drip = values.campaign_type === 'DRIP'
-  const texts = values.channel === 'SMS' || values.channel === 'MMS'
+  const texts = values.channel === 'SMS' || values.channel === 'MMS' || values.channel === 'WHATSAPP'
   const sendType = receipt ? 'IMMEDIATE' : values.send_type
   const recurring: RecurringConfig | null =
     sendType === 'RECURRING'

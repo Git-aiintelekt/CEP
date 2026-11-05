@@ -281,6 +281,9 @@ def content_problem(template, solicitation_type: str) -> str | None:
         return "Marketing text messages must say how to opt out, for example: Reply STOP to unsubscribe."
     if template.channel == "MMS" and design.message_blockers(template).get("media_asset"):
         return "This MMS template has no picture."
+    if template.channel == "WHATSAPP":
+        from apps.templates import whatsapp
+        return next(iter(whatsapp.blockers(template).values()), None)
     return None
 
 
@@ -600,13 +603,18 @@ def metrics(campaign) -> dict:
     if cached is not None:
         return cached
     tenant, pk = str(campaign.tenant_id), str(campaign.pk)
-    table, address = ("sms_execution", "phone_number") if campaign.channel in ("SMS", "MMS") else ("mailer_execution", "email_address")
+    table, address = ("sms_execution", "phone_number") if campaign.channel in ("SMS", "MMS", "WHATSAPP") else ("mailer_execution", "email_address")
     with _conn().cursor() as cursor:
         cursor.execute(f"""SELECT CASE WHEN x.not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE x.status END, count(*) FROM {table} x JOIN campaign_run r ON r.id = x.campaign_run_id
                             WHERE x.tenant_id = %s AND x.campaign_id = %s AND NOT r.test_mode GROUP BY 1""", [tenant, pk])
         by = dict(cursor.fetchall())
         cursor.execute("""SELECT count(*) FROM consent_record WHERE tenant_id = %s AND campaign_id = %s AND action = 'OPT_OUT'""", [tenant, pk])
         unsubscribed = cursor.fetchone()[0]
+        read = 0
+        if campaign.channel == "WHATSAPP":                  # Meta reports reads: a WhatsApp message's "opened"
+            cursor.execute("""SELECT count(*) FROM sms_execution x JOIN campaign_run r ON r.id = x.campaign_run_id
+                               WHERE x.tenant_id = %s AND x.campaign_id = %s AND NOT r.test_mode AND x.read_at IS NOT NULL""", [tenant, pk])
+            read = cursor.fetchone()[0]
         breakdown = []
         if table == "mailer_execution":
             cursor.execute("""SELECT lower(split_part(x.email_address::text, '@', 2)), count(*) FILTER (WHERE x.status NOT IN ('QUEUED', 'FAILED')),
@@ -619,7 +627,7 @@ def metrics(campaign) -> dict:
     texts = table == "sms_execution"
     sent = sum(int(v) for k, v in by.items() if k not in ("QUEUED", "FAILED", "NOT_SENT"))
     delivered = got("DELIVERED", "RESPONDED", "OPTED_OUT") if texts else got("DELIVERED", "OPENED", "CLICKED")
-    numbers = {"queued": got("QUEUED"), "sent": sent, "failed": got("FAILED"), "not_sent": got("NOT_SENT"), "delivered": delivered, "opened": got("OPENED", "CLICKED"), "clicked": got("CLICKED"),
+    numbers = {"queued": got("QUEUED"), "sent": sent, "failed": got("FAILED"), "not_sent": got("NOT_SENT"), "delivered": delivered, "opened": read or got("OPENED", "CLICKED"), "clicked": got("CLICKED"),
                "bounced": got("BOUNCED"), "complained": got("COMPLAINED"), "unsubscribed": max(unsubscribed, got("OPTED_OUT")), "replied": got("RESPONDED", "OPTED_OUT")}
     actual = campaign.campaign_actuals.order_by("-computed_at").first()
     target = campaign.campaign_targets.filter(deleted_at__isnull=True).order_by("-created_at").first()
@@ -636,7 +644,8 @@ def metrics(campaign) -> dict:
                                             progress("Conversions", getattr(target, "target_conversions", None), conversions),
                                             progress("Revenue", getattr(target, "target_revenue", None), revenue)) if item],
               "breakdown": {"by": "carrier" if texts else "domain", "rows": breakdown,
-                            "note": "Carrier figures arrive with the text aggregator's delivery receipts." if texts else None},
+                            "note": None if not texts else "Meta reports delivered, read and failed for each message." if campaign.channel == "WHATSAPP"
+                            else "Carrier figures arrive with the text aggregator's delivery receipts."},
               "runs": CampaignRun.objects.filter(campaign=campaign, test_mode=False).count(), "test_runs": CampaignRun.objects.filter(campaign=campaign, test_mode=True).count()}
     cache.set(cache_key, result, RESULTS_CACHE_TTL)
     return result
@@ -653,8 +662,8 @@ def timeseries(campaign, bucket: str = "hour") -> dict:
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
-    table = "sms_execution" if campaign.channel in ("SMS", "MMS") else "mailer_execution"
-    opened = "NULL::timestamptz" if table == "sms_execution" else "x.opened_at"
+    table = "sms_execution" if campaign.channel in ("SMS", "MMS", "WHATSAPP") else "mailer_execution"
+    opened = "x.read_at" if campaign.channel == "WHATSAPP" else "NULL::timestamptz" if table == "sms_execution" else "x.opened_at"
     clicked = "NULL::timestamptz" if table == "sms_execution" else "x.clicked_at"
     with _conn().cursor() as cursor:
         cursor.execute(f"""SELECT t.bucket, sum(t.sent), sum(t.delivered), sum(t.opened), sum(t.clicked) FROM (

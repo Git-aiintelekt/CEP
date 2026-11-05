@@ -125,6 +125,8 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"provider_type": "No adapter is installed for this provider type."}) from None
         if not cls.manageable and self.instance is None:
             raise serializers.ValidationError({"provider_type": "This provider is switched on from Settings -> Email server."})
+        if cls.channel == "WHATSAPP" and self.instance is None and not params.enabled(context.require().tenant_id, "whatsapp"):
+            raise serializers.ValidationError({"provider_type": "WhatsApp is not part of this workspace. Ask the platform team to switch it on."})
         config = {**(getattr(self.instance, "config", None) or {}), **(attrs.get("config") or {})}
         config = {k: (v.strip() if isinstance(v, str) else v) for k, v in config.items() if k in {f.key for f in cls.config_fields if not f.secret}}
         has_secret = bool(attrs.get("secret") or attrs.get("secret_ref") or getattr(self.instance, "secret_enc", None) or getattr(self.instance, "secret_ref", None))
@@ -157,7 +159,9 @@ class DeliveryProviderViewSet(viewsets.ModelViewSet):
     @extend_schema(responses={200: None})
     @action(detail=False, methods=["get"])
     def catalogue(self, request, version=None):
-        return Response(registry.catalogue())
+        """Every engine type this workspace may add: WhatsApp only once the platform team has switched WhatsApp on for it."""
+        whatsapp = params.enabled(context.require().tenant_id, "whatsapp")
+        return Response([item for item in registry.catalogue() if item["channel"] != "WHATSAPP" or whatsapp])
 
     def _save(self, serializer, **extra):
         secret = serializer.validated_data.pop("secret", "")
@@ -245,7 +249,13 @@ class SenderProfileWriteSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         provider = attrs.get("delivery_provider") or getattr(self.instance, "delivery_provider", None)
         current = lambda name: attrs.get(name, getattr(self.instance, name, None))         # noqa: E731
-        if provider is not None and registry.adapter_class(provider.provider_type).channel == "SMS":
+        carries = registry.adapter_class(provider.provider_type).channel if provider is not None else None
+        if carries == "WHATSAPP":
+            sender_id = re.sub(r"[\s()-]", "", current("sender_id") or "")
+            if not E164.match(sender_id):
+                raise serializers.ValidationError({"sender_id": "Enter the WhatsApp number with country code, as Meta shows it: +6568124400."})
+            attrs.update(sender_id=sender_id, from_address=None, reply_to_address=None)
+        elif carries == "SMS":
             sender_id = (current("sender_id") or "").strip()
             if not SENDER_ID.match(sender_id):
                 raise serializers.ValidationError({"sender_id": "Enter the number texts come from: a long number (+14045550100), a short code (55123) or an alphanumeric sender (up to 11 characters)."})
@@ -317,6 +327,8 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
     def verify(self, request, pk=None, version=None):
         """Sends a real message from this address through its provider. Accepted by the provider = verified for publishing."""
         sender = self.get_object()
+        if sender.channel == "WHATSAPP":
+            return Response(self._verify_whatsapp(sender))
         texts = registry.adapter_class(sender.delivery_provider.provider_type).channel == "SMS"
         to = str(request.data.get("to") or ("" if texts else getattr(request.user, "email", "")) or "").strip()
         if texts and not E164.match(to):
@@ -337,6 +349,19 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
             ok, detail = False, str(exc)
         SenderProfile.objects.filter(pk=sender.pk).update(verification_status="VERIFIED" if ok else "FAILED")
         return Response({"ok": ok, "detail": detail or None, "to": to, "verification_status": "VERIFIED" if ok else "FAILED"})
+
+    @staticmethod
+    def _verify_whatsapp(sender) -> dict:
+        """WhatsApp sends nothing free-form to prove a number: Meta's own answer about the engine's number is the proof,
+        and it must be this sender's number."""
+        from apps.delivery import health
+        result = health.run_check(sender.delivery_provider)
+        shown = re.sub(r"\D", "", str((sender.delivery_provider.config or {}).get("wa_display_number") or ""))
+        ok = bool(result["ok"]) and shown == re.sub(r"\D", "", sender.sender_id or "")
+        detail = result["detail"] if not result["ok"] else None if ok else (
+            f"Meta says the engine's number is {sender.delivery_provider.config.get('wa_display_number') or 'unknown'}, not {sender.sender_id}.")
+        SenderProfile.objects.filter(pk=sender.pk).update(verification_status="VERIFIED" if ok else "FAILED")
+        return {"ok": ok, "detail": detail, "to": None, "verification_status": "VERIFIED" if ok else "FAILED"}
 
 
 

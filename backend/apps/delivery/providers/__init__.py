@@ -7,4 +7,4 @@
 See docs/DELIVERY_PROVIDERS.md for how to add one.
 """
 from .base import (TRAFFIC_BULK, TRAFFIC_TRANSACTIONAL, Attachment, ConfigField, DeliveryEvent, EmailMessage, EmailProvider, EventType, InboundMessage, Outcome, ProviderError,  # noqa: F401
-                   SendResult, SmsMessage, SmsProvider)
+                   SendResult, SmsMessage, SmsProvider, WhatsAppMessage, WhatsAppProvider)

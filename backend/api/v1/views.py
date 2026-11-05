@@ -162,6 +162,11 @@ class CampaignViewSet(BaseTenantViewSet):
                 missing["template"] = "Marketing text messages must say how to opt out, for example: Reply STOP to unsubscribe."
             elif campaign.template.channel == "MMS" and design.message_blockers(campaign.template).get("media_asset"):
                 missing["template"] = "This MMS template has no picture."
+            elif campaign.template.channel == "WHATSAPP":
+                from apps.templates import whatsapp
+                blocked = next(iter(whatsapp.blockers(campaign.template).values()), None)
+                if blocked:
+                    missing["template"] = blocked
         if missing:
             raise ValidationError(missing)
         billing.assert_can_send(campaign.tenant_id)          # 409 when a hard-capped plan has used its messages this month
@@ -209,7 +214,7 @@ class TemplateViewSet(BaseTenantViewSet):
     queryset = TemplateMaster.objects.annotate(latest_version=Max("rendered_template_contents__version_number"), drip_step_id=Subquery(_in_drip.values("id")[:1]),
                                                used_by_id=Subquery(_used.values("id")[:1]), used_by_name=Subquery(_used.values("name")[:1]),
                                                used_by_status=Subquery(_used.values("status")[:1]), used_at=Subquery(_used.values("created_at")[:1]),
-                                               campaign_count=Count("campaigns", filter=Q(campaigns__deleted_at__isnull=True), distinct=True))
+                                               campaign_count=Count("campaigns", filter=Q(campaigns__deleted_at__isnull=True), distinct=True)).select_related("whatsapp")
     serializer_class = s.TemplateSerializer
     permission_code = "template.edit"
     filterset_fields = ["channel", "status"]
@@ -309,6 +314,51 @@ class TemplateViewSet(BaseTenantViewSet):
         user = request.user
         saved = design.save_message(template, None if hasattr(user, "has_scope") else user.id, **body.validated_data)
         return Response(saved, status=201)
+
+    @extend_schema(methods=["GET"], responses=s.WhatsAppTemplateSerializer)
+    @extend_schema(methods=["POST"], request=s.WhatsAppSaveSerializer, responses={201: s.WhatsAppTemplateSerializer})
+    @action(detail=True, methods=["get", "post"])
+    def whatsapp(self, request, pk=None, version=None):
+        """A WhatsApp template's parts and Meta's review (GET); POST saves a new version. One written here can change until it is
+        submitted; one made in WhatsApp Manager only takes which tag fills each of its numbers."""
+        from apps.templates import whatsapp
+        template = self.get_object()
+        if template.channel != "WHATSAPP":
+            raise Conflict("The WhatsApp editor is for WhatsApp templates.")
+        if request.method == "GET":
+            return Response(whatsapp.payload(template))
+        body = s.WhatsAppSaveSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        user = request.user
+        return Response(whatsapp.save(template, None if hasattr(user, "has_scope") else user.id, data=body.validated_data), status=201)
+
+    @extend_schema(request=None, responses=s.WhatsAppTemplateSerializer)
+    @action(detail=True, methods=["post"], url_path="whatsapp/submit")
+    def whatsapp_submit(self, request, pk=None, version=None):
+        """Sends the template to Meta for review: PENDING until Meta's callback (or a Sync) says APPROVED or REJECTED."""
+        from apps.templates import whatsapp
+        template = self.get_object()
+        if template.channel != "WHATSAPP":
+            raise Conflict("Only a WhatsApp template goes to Meta.")
+        drip.guard_template(template, "edit")
+        return Response(whatsapp.submit(template, None if hasattr(request.user, "has_scope") else request.user.id))
+
+    @extend_schema(request=inline_serializer("WhatsAppSync", {"engine": serializers.UUIDField()}),
+                   responses=inline_serializer("WhatsAppSynced", {"found": serializers.IntegerField(), "added": serializers.IntegerField(),
+                                                                  "updated": serializers.IntegerField()}))
+    @action(detail=False, methods=["post"], url_path="whatsapp-sync")
+    def whatsapp_sync(self, request, version=None):
+        """Every template of a WhatsApp number's business account: new ones (made in WhatsApp Manager) appear, known ones take Meta's status."""
+        from apps.delivery.models import DeliveryProvider
+        from apps.delivery.providers import ProviderError
+        from apps.templates import whatsapp
+        engine = DeliveryProvider.objects.filter(pk=request.data.get("engine"), channel="WHATSAPP", deleted_at__isnull=True).first()
+        if engine is None:
+            raise ValidationError({"engine": "Choose one of this workspace's WhatsApp numbers."})
+        try:
+            return Response(whatsapp.sync(engine, None if hasattr(request.user, "has_scope") else request.user.id))
+        except ProviderError as exc:
+            raise ValidationError({"engine": str(exc)}) from None
 
     @extend_schema(request=s.TemplateCloneSerializer, responses={201: s.TemplateSerializer})
     @action(detail=True, methods=["post"])

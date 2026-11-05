@@ -165,6 +165,12 @@ def apply_sms(tenant_id, event: DeliveryEvent) -> str:
             cursor.execute("UPDATE sms_execution SET status_reason = %s WHERE tenant_id = %s AND id = %s AND created_at = %s",
                            [("Deferred: " + event.reason)[:200], str(tenant_id), execution_id, created_at])
             return "applied"
+        if kind is EventType.OPENED:                        # WhatsApp: read. A read message was delivered, even when Meta's "delivered" comes later
+            cursor.execute("""UPDATE sms_execution SET read_at = COALESCE(read_at, %s), delivered_at = COALESCE(delivered_at, %s),
+                                     status = CASE WHEN status = 'SUBMITTED' THEN 'DELIVERED' ELSE status END
+                               WHERE tenant_id = %s AND id = %s AND created_at = %s AND status NOT IN ('FAILED', 'QUEUED')""",
+                           [when, when, str(tenant_id), execution_id, created_at])
+            return "applied" if cursor.rowcount else "ignored"
     return "ignored"
 
 

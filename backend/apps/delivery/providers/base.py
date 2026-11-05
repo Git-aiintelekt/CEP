@@ -67,6 +67,23 @@ class SmsMessage:
         return bool(self.media_url)
 
 
+@dataclass
+class WhatsAppMessage:
+    """A WhatsApp template message: Meta sends the approved template `template_name` in `language` with these values."""
+    to_number: str                                              # E.164: +6591234471
+    template_name: str
+    language: str
+    body_values: list[str] = field(default_factory=list)       # {{1}}, {{2}} ... of the body, in order
+    header_type: str = "NONE"                                   # NONE | TEXT | IMAGE | DOCUMENT | VIDEO
+    header_link: str | None = None                              # the picture or document of a media header (a public address)
+    header_filename: str = ""                                   # what a document header is called on the phone
+    text: str = ""                                              # what the person sees, for the record
+    from_sender: str = ""                                       # the workspace's WhatsApp number, for the record
+    idempotency_key: str = ""
+    tag: str = ""
+    metadata: dict[str, str] = field(default_factory=dict)
+
+
 class Outcome(str, Enum):
     ACCEPTED = "ACCEPTED"      # the provider took the message: mailer_execution -> SUBMITTED
     REJECTED = "REJECTED"      # permanent, this message only (bad address, suppressed at the provider): -> FAILED, never retried
@@ -271,4 +288,23 @@ class SmsProvider(EmailProvider):
         return guarded_send_many(self, messages, related_ref)
 
     def parse_inbound(self, payload) -> list[InboundMessage]:
+        return []
+
+
+class WhatsAppProvider(SmsProvider):
+    """WhatsApp through a business messaging API. Same life cycle as a text engine; `send` takes a WhatsAppMessage, and the
+    callbacks also carry the review of templates (`parse_account_updates`). Failures never block the number for texts."""
+    channel = "WHATSAPP"
+    supports_mms = False
+
+    @abstractmethod
+    def send(self, message: WhatsAppMessage) -> SendResult:  # type: ignore[override]
+        """Hand one template message to the API. REJECTED / RETRY for a per-message problem, ProviderError when nothing can be sent."""
+
+    def subscribe_challenge(self, query: dict, token: str) -> str | None:
+        """The answer to the API's subscription handshake (GET on the callback address), or None to refuse it."""
+        return None
+
+    def parse_account_updates(self, payload) -> list[dict]:
+        """Template reviews and quality changes in a callback: [{"kind": "template_status" | "template_quality" | "number_quality", ...}]."""
         return []

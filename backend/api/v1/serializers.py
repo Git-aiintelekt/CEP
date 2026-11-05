@@ -41,7 +41,8 @@ class SenderProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SenderProfile
-        fields = ("id", "display_name", "channel", "from_address", "reply_to_address", "sender_id", "verification_status", "is_default", "provider_type", "provider_name")
+        fields = ("id", "display_name", "channel", "from_address", "reply_to_address", "sender_id", "verification_status", "is_default", "provider_type", "provider_name",
+                  "delivery_provider")
         read_only_fields = fields
 
 
@@ -53,8 +54,8 @@ class AttachedContactListSerializer(serializers.ModelSerializer):
 
 
 CAMPAIGN_CODE_RE = re.compile(r"^[A-Z0-9][A-Z0-9_-]{2,39}$")            # == ck_campaign_code_format
-TEMPLATE_CHANNELS = {"EMAIL": {"EMAIL", "E_RECEIPT"}, "SMS": {"SMS"}, "MMS": {"MMS"}, "MULTI": {"EMAIL", "E_RECEIPT", "SMS", "MMS"}}
-SENDER_CHANNELS = {"EMAIL": {"EMAIL"}, "SMS": {"SMS"}, "MMS": {"MMS", "SMS"}, "MULTI": {"EMAIL", "SMS", "MMS"}}
+TEMPLATE_CHANNELS = {"EMAIL": {"EMAIL", "E_RECEIPT"}, "SMS": {"SMS"}, "MMS": {"MMS"}, "MULTI": {"EMAIL", "E_RECEIPT", "SMS", "MMS"}, "WHATSAPP": {"WHATSAPP"}}
+SENDER_CHANNELS = {"EMAIL": {"EMAIL"}, "SMS": {"SMS"}, "MMS": {"MMS", "SMS"}, "MULTI": {"EMAIL", "SMS", "MMS"}, "WHATSAPP": {"WHATSAPP"}}
 WITH_LISTS = ("campaign_runs", "contact_list_campaigns__contact_list")
 
 
@@ -128,6 +129,8 @@ class CampaignSerializer(TenantModelSerializer):
         channel, ctype = current("channel"), current("campaign_type")
         template, sender = current("template"), current("sender_profile")
 
+        if channel == "WHATSAPP" and ctype in ("DRIP", "E_RECEIPT"):
+            errors["channel"] = "WhatsApp is sent by regular marketing and other one-off campaigns; drips and e-receipts do not send it yet."
         if ctype == "E_RECEIPT":
             if channel != "EMAIL":
                 errors["channel"] = "E-receipt campaigns are sent by email."
@@ -248,6 +251,20 @@ class TemplateSerializer(TenantModelSerializer):
 
     def get_campaign_count(self, template) -> int:
         return int(getattr(template, "campaign_count", 0) or 0)
+
+    whatsapp = serializers.SerializerMethodField(help_text="WhatsApp templates: Meta's name, language, category and where its review stands; null for other channels.")
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_whatsapp(self, template):
+        if template.channel != "WHATSAPP":
+            return None
+        from apps.templates.models import WhatsAppTemplate
+        try:
+            row = template.whatsapp
+        except WhatsAppTemplate.DoesNotExist:
+            return {"meta_status": "DRAFT", "meta_name": "", "language": "en", "category": "MARKETING", "origin": "CEP", "meta_reason": None, "engine": None, "meta_quality": None}
+        return {"meta_status": row.meta_status, "meta_name": row.meta_name, "language": row.language, "category": row.category, "origin": row.origin,
+                "meta_reason": row.meta_reason, "engine": str(row.delivery_provider_id) if row.delivery_provider_id else None, "meta_quality": row.meta_quality}
     starter = serializers.CharField(write_only=True, required=False, allow_blank=True,
                                     help_text="on create: key from /template-starters/; its content becomes version 1")
 
@@ -372,6 +389,40 @@ class MessageSaveSerializer(serializers.Serializer):
     subject_line = serializers.CharField(max_length=80, allow_blank=True, default="", help_text="MMS only")
     media_asset = serializers.UUIDField(allow_null=True, default=None, help_text="MMS only: id of an uploaded image")
     base_version = serializers.IntegerField(min_value=0, help_text="version the editor loaded; a newer stored version answers 409")
+
+
+class WhatsAppSaveSerializer(serializers.Serializer):
+    engine = serializers.UUIDField(allow_null=True, required=False, help_text="the WhatsApp number (engine) it is for")
+    meta_name = serializers.CharField(max_length=512, required=False, allow_blank=True, help_text="Meta's name: back_in_stock")
+    language = serializers.CharField(max_length=15, required=False, default="en")
+    category = serializers.ChoiceField(choices=["MARKETING", "UTILITY"], required=False, default="MARKETING")
+    header_type = serializers.ChoiceField(choices=["NONE", "TEXT", "IMAGE", "DOCUMENT", "VIDEO"], required=False, default="NONE")
+    header_text = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    header_media = serializers.UUIDField(allow_null=True, required=False, default=None)
+    body = serializers.CharField(trim_whitespace=False, allow_blank=True, required=False, default="", help_text="with {{tags}}")
+    footer_text = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    buttons = serializers.ListField(child=serializers.DictField(), required=False, default=list)
+    samples = serializers.DictField(child=serializers.CharField(allow_blank=True), required=False, default=dict, help_text="tag -> the value Meta reviews it with")
+    fallbacks = serializers.DictField(child=serializers.CharField(allow_blank=True), required=False, default=dict, help_text="tag (or {{n}} of a synced one) -> sent when empty")
+    variable_tags = serializers.ListField(child=serializers.CharField(allow_blank=True), required=False, default=list,
+                                          help_text="a template made in WhatsApp Manager: the tag of {{1}}, {{2}} ...")
+    base_version = serializers.IntegerField(min_value=0, required=False, default=0)
+
+
+class WhatsAppTemplateSerializer(serializers.Serializer):
+    """What GET /templates/<id>/whatsapp/ answers (documentation only)."""
+    template = serializers.UUIDField()
+    meta_name = serializers.CharField()
+    language = serializers.CharField()
+    category = serializers.CharField()
+    header_type = serializers.CharField()
+    body = serializers.CharField(help_text="with {{tags}}")
+    meta_body = serializers.CharField(help_text="what Meta has: {{1}}, {{2}}")
+    variables = serializers.ListField(child=serializers.DictField())
+    meta_status = serializers.ChoiceField(choices=["DRAFT", "PENDING", "APPROVED", "REJECTED", "PAUSED", "DISABLED"])
+    meta_reason = serializers.CharField(allow_null=True)
+    editable = serializers.BooleanField()
+    findings = serializers.DictField()
 
 
 class MessageFindingsSerializer(serializers.Serializer):
