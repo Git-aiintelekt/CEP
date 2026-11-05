@@ -116,6 +116,9 @@ function Recipients({ campaign, zone, live }: { campaign: Campaign; zone: string
     { key: 'reason', header: 'Reason', render: (row) => <span className="block max-w-xs truncate text-ink-700" title={row.status_reason ?? undefined}>{row.status_reason ?? (row.bounce_type ? `${titleize(row.bounce_type)} bounce` : '')}</span>, phoneOptional: true },
     { key: 'sent', header: 'Sent', render: (row) => <span className="cep-num whitespace-nowrap">{dateTimeInZone(row.submitted_at, zone)}</span>, phoneOptional: true },
     { key: 'delivered', header: 'Delivered', render: (row) => <span className="cep-num whitespace-nowrap">{dateTimeInZone(row.delivered_at, zone)}</span>, phoneOptional: true },
+    ...(campaign.channel === 'WHATSAPP' ? [
+      { key: 'read', header: 'Read', render: (row: RunRecipient) => <span className="cep-num whitespace-nowrap">{dateTimeInZone(row.opened_at, zone)}</span>, phoneOptional: true },
+    ] : []),
     ...(texts ? [] : [
       { key: 'opened', header: 'Opened', render: (row: RunRecipient) => <span className="cep-num whitespace-nowrap">{dateTimeInZone(row.opened_at, zone)}</span>, phoneOptional: true },
       { key: 'clicked', header: 'Clicked', render: (row: RunRecipient) => <span className="cep-num whitespace-nowrap">{dateTimeInZone(row.clicked_at, zone)}</span>, phoneOptional: true },

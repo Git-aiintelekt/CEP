@@ -15,6 +15,7 @@ export const CHANNELS = [
   { value: 'EMAIL', label: 'Email', hint: 'Designed in the visual builder or the code editor.' },
   { value: 'SMS', label: 'SMS', hint: 'Plain text with personalization tags.' },
   { value: 'MMS', label: 'MMS', hint: 'SMS plus media and images.' },
+  { value: 'WHATSAPP', label: 'WhatsApp', hint: 'A template Meta approved, with personalization tags.' },
   { value: 'MULTI', label: 'Multiple Channels', hint: 'One campaign, more than one channel.' },
 ] as const
 
@@ -45,8 +46,8 @@ export const STATUS_FILTERS = [
 ]
 
 /** which template / sender channels fit a campaign channel (same table as the API) */
-export const TEMPLATE_FIT: Record<string, string[]> = { EMAIL: ['EMAIL', 'E_RECEIPT'], SMS: ['SMS'], MMS: ['MMS'], MULTI: ['EMAIL', 'E_RECEIPT', 'SMS', 'MMS'] }
-export const SENDER_FIT: Record<string, string[]> = { EMAIL: ['EMAIL'], SMS: ['SMS'], MMS: ['MMS', 'SMS'], MULTI: ['EMAIL', 'SMS', 'MMS'] }
+export const TEMPLATE_FIT: Record<string, string[]> = { EMAIL: ['EMAIL', 'E_RECEIPT'], SMS: ['SMS'], MMS: ['MMS'], MULTI: ['EMAIL', 'E_RECEIPT', 'SMS', 'MMS'], WHATSAPP: ['WHATSAPP'] }
+export const SENDER_FIT: Record<string, string[]> = { EMAIL: ['EMAIL'], SMS: ['SMS'], MMS: ['MMS', 'SMS'], MULTI: ['EMAIL', 'SMS', 'MMS'], WHATSAPP: ['WHATSAPP'] }
 
 export const typeLabel = (value: string) => CAMPAIGN_TYPES.find((item) => item.value === value)?.label ?? value
 /** the list page's narrower wording: "Regular" for Regular Marketing; the wizard and campaign page keep typeLabel */
@@ -76,7 +77,8 @@ export function tabOfStep(step: FlowStep, campaign: Pick<Campaign, 'actions' | '
   return step === 'targets' && hasResults(campaign) ? 'performance' : 'overview'
 }
 
-export const isText = (campaign: Pick<Campaign, 'channel'>) => campaign.channel === 'SMS' || campaign.channel === 'MMS'
+/** a message to a phone number: texts and WhatsApp (both report replies and STOPs, not opens and bounces) */
+export const isText = (campaign: Pick<Campaign, 'channel'>) => campaign.channel === 'SMS' || campaign.channel === 'MMS' || campaign.channel === 'WHATSAPP'
 export const hasAction = (campaign: Pick<Campaign, 'actions'>, action: Campaign['actions'][number]) => campaign.actions.includes(action)
 /** results exist: the API allows them, or a production run has started. The Performance tab and Overview's Metrics card both follow this */
 export const hasResults = (campaign: Pick<Campaign, 'actions' | 'runs'>) => hasAction(campaign, 'results') || campaign.runs.some((run) => !run.test_mode && Boolean(run.started_at))

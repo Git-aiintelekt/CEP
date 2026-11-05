@@ -121,7 +121,7 @@ export function StepTargets() {
   const { register, watch, formState: { errors } } = useFormContext<CampaignFormValues>()
   const targets = watch('targets')
   const channel = watch('channel')
-  const texts = ['SMS', 'MMS'].includes(channel)
+  const texts = ['SMS', 'MMS', 'WHATSAPP'].includes(channel)
   const receipt = watch('campaign_type') === 'E_RECEIPT'
   const estimate = useAudienceEstimate(receipt ? [] : watch('contact_lists'), watch('excluded_lists'), channel, watch('solicitation_type'))
   const recipients = estimate.data ? estimate.data.estimated_recipients : null

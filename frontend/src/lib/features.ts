@@ -1,7 +1,7 @@
 import type { Feature } from '@/lib/types'
 
 /** Which workspace feature switch a channel depends on (mirrors CHANNEL_FEATURE in the API). */
-export const CHANNEL_FEATURE: Record<string, Feature> = { EMAIL: 'email', SMS: 'sms', MMS: 'mms', E_RECEIPT: 'ereceipt' }
+export const CHANNEL_FEATURE: Record<string, Feature> = { EMAIL: 'email', SMS: 'sms', MMS: 'mms', E_RECEIPT: 'ereceipt', WHATSAPP: 'whatsapp' }
 
 /** Channels the workspace may use; `keep` stays listed even when switched off, so an existing record still shows its value. */
 export function channelAllowed(has: (feature: Feature) => boolean, channel: string, keep?: string): boolean {

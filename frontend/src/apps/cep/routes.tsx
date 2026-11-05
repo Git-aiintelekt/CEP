@@ -25,6 +25,7 @@ import { JourneysPage } from './features/journeys/JourneysPage'
 import { ReportsPage } from './features/reports/ReportsPage'
 import { AccountSecurityPage } from './pages/AccountSecurityPage'
 import { MessageEditorPage } from './pages/MessageEditorPage'
+import { WhatsAppEditorPage } from './pages/WhatsAppEditorPage'
 import { TemplateFormPage } from './pages/TemplateFormPage'
 import { TemplatesPage } from './pages/TemplatesPage'
 import { ApiKeysPage } from './pages/settings/ApiKeysPage'
@@ -74,6 +75,7 @@ export default function CepRoutes() {
       {/* full-screen: outside the app shell */}
       <Route element={<NeedsEngagement fullScreen />}>
         <Route path="templates/:id/message" element={<EditorScope><MessageEditorPage /></EditorScope>} />
+        <Route path="templates/:id/whatsapp" element={<EditorScope><WhatsAppEditorPage /></EditorScope>} />
         <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
         <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
         <Route path="journeys/:id/build" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the builder" />}><JourneyBuildPage /></Suspense></EditorScope>} />

@@ -148,6 +148,9 @@
   --color-channel-receipt-tint: #fdf1e1;
   --color-channel-receipt-halo: #fefaf5;
   --color-channel-receipt-icon: #b3621b;
+  --color-channel-whatsapp-tint: #ddf3ef;
+  --color-channel-whatsapp-halo: #f5fbfa;
+  --color-channel-whatsapp-icon: #0f766e;
 
   /* ---- wordmark ---- */
   --color-wordmark-teal: #418eae;
@@ -435,6 +438,9 @@
   --color-channel-receipt-tint: #fdf1e1;
   --color-channel-receipt-halo: #fefaf5;
   --color-channel-receipt-icon: #b3621b;
+  --color-channel-whatsapp-tint: #ddf3ef;
+  --color-channel-whatsapp-halo: #f5fbfa;
+  --color-channel-whatsapp-icon: #0f766e;
   --color-chart-1: #3863db;
   --color-chart-2: #a8488f;
   --color-chart-3: #418eae;
@@ -561,6 +567,9 @@
   --color-channel-receipt-tint: #8a421d;
   --color-channel-receipt-halo: #3f1f0e;
   --color-channel-receipt-icon: #f5b98a;
+  --color-channel-whatsapp-tint: #11524c;
+  --color-channel-whatsapp-halo: #0b2b28;
+  --color-channel-whatsapp-icon: #8fe0d3;
   --color-chart-1: #5a80e6;
   --color-chart-2: #c266aa;
   --color-chart-3: #4f9dbe;

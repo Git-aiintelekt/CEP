@@ -2,8 +2,8 @@
  * "Your Templates": channel tabs, status, search, grid or list, with the C360 presets after the workspace's own. A drip's
  * message templates sit together by name, say which message they are, and carry Locked while the drip is live.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { EllipsisVertical, Eye, LayoutGrid, List, Lock, type LucideIcon } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { EllipsisVertical, Eye, LayoutGrid, List, Lock, RefreshCw, type LucideIcon } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -21,7 +21,8 @@ import { api, ApiError } from '@/lib/api'
 import { editorPathFor, editorRouteFor } from '@/lib/editorRoute'
 import { formatRelative, titleize } from '@/lib/format'
 import { saveFailure } from '@/lib/saveFeedback'
-import type { Preset, Template } from '@/lib/types'
+import type { Preset, SenderProfile, Template } from '@/lib/types'
+import { META_STATUS } from '@/apps/cep/features/messaging/whatsappStatus'
 import { useCursorList } from '@/lib/useCursorList'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
 
@@ -34,6 +35,13 @@ import { groupDripTemplates, isUsed, lastUsedText } from './lastUsed'
 import { StatusTag } from './StatusTag'
 
 type View = 'grid' | 'list'
+
+/** a WhatsApp template's review at Meta, beside its status */
+function MetaTag({ template }: { template: Template }) {
+  if (!template.whatsapp) return null
+  const look = META_STATUS[template.whatsapp.meta_status]
+  return <Tag tone={look.tone}>{look.label}</Tag>
+}
 type Item = PreviewItem
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'ARCHIVED']
@@ -119,6 +127,27 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
       toast.success('Template deleted', `“${template.name}” is gone from the library.`)
     },
   })
+  // Sync from Meta: every WhatsApp number's templates, made here or in WhatsApp Manager, with Meta's status
+  const senders = useQuery({ queryKey: ['sender-profiles', 'options'], queryFn: ({ signal }) => api.get<SenderProfile[]>('/sender-profiles/', undefined, signal),
+    enabled: canEdit && tab === 'WHATSAPP', retry: false })
+  const engines = [...new Set((senders.data ?? []).filter((item) => item.channel === 'WHATSAPP' && item.delivery_provider).map((item) => item.delivery_provider as string))]
+  const sync = useMutation({
+    mutationFn: async () => {
+      let added = 0
+      let updated = 0
+      for (const engine of engines) {
+        const result = await api.post<{ found: number; added: number; updated: number }>('/templates/whatsapp-sync/', { engine })
+        added += result.added
+        updated += result.updated
+      }
+      return { added, updated }
+    },
+    onSuccess: ({ added, updated }) => {
+      refresh()
+      toast.success('Synced from Meta', `${added} new from WhatsApp Manager, ${updated} brought up to date.`)
+    },
+    onError: (error) => toast.failure(error, 'The templates were not synced'),
+  })
   const actions: TemplateActions | undefined = canEdit ? { onRename: (template) => { rename.reset(); setRenaming(template) }, onDuplicate: duplicate.mutate, onDelete: setDeleting } : undefined
 
   // presets follow the workspace's own templates, so they sit on the last page; they have no status to filter by
@@ -158,7 +187,10 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
         </FilterChip>
         {(search || status) && <ClearFiltersLink onClick={() => { setSearch(''); setStatus('') }} />}
         {list.isFetching && !list.isPending && <Spinner size="sm" />}
-        <div className="ml-auto flex overflow-hidden rounded-lg border border-line">
+        {canEdit && tab === 'WHATSAPP' && engines.length > 0 && (
+          <Button variant="secondary" size="sm" className="ml-auto" iconStart={RefreshCw} loading={sync.isPending} onClick={() => sync.mutate()}>Sync from Meta</Button>
+        )}
+        <div className={`${canEdit && tab === 'WHATSAPP' && engines.length > 0 ? '' : 'ml-auto '}flex overflow-hidden rounded-lg border border-line`}>
           <ViewButton icon={LayoutGrid} label="Grid View" pressed={view === 'grid'} onClick={() => setView('grid')} />
           <ViewButton icon={List} label="List View" pressed={view === 'list'} onClick={() => setView('list')} />
         </div>
@@ -347,7 +379,7 @@ function TemplateGrid({ items, canEdit, onPreview, actions }: ItemsProps) {
           const body = (
             <>
               <ItemTile item={item} />
-              <CardBody name={template.name} meta={`Edited ${formatRelative(template.updated_at)}`} usage={lastUsedText(template)} tags={<><StatusTag status={template.status} /><Tag>{lookOf(template.channel).label}</Tag>{template.used_in_drip?.locked && <LockedTag />}</>} />
+              <CardBody name={template.name} meta={`Edited ${formatRelative(template.updated_at)}`} usage={lastUsedText(template)} tags={<><StatusTag status={template.status} /><Tag>{lookOf(template.channel).label}</Tag><MetaTag template={template} />{template.used_in_drip?.locked && <LockedTag />}</>} />
             </>
           )
           return (
@@ -444,7 +476,7 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
                     </span>
                   </td>
                   <td className={CELL}><Tag>{lookOf(template.channel).label}</Tag></td>
-                  <td className={CELL}><span className="inline-flex flex-wrap items-center gap-1.5"><StatusTag status={template.status} />{template.used_in_drip?.locked && <LockedTag />}</span></td>
+                  <td className={CELL}><span className="inline-flex flex-wrap items-center gap-1.5"><StatusTag status={template.status} /><MetaTag template={template} />{template.used_in_drip?.locked && <LockedTag />}</span></td>
                   <td className={`${CELL} whitespace-nowrap text-ink-800`}>Edited {formatRelative(template.updated_at)}</td>
                   <td className={`${CELL} max-w-[240px] truncate text-ink-800`} title={lastUsedText(template)}>{isUsed(template) ? lastUsedText(template) : <span className="text-ink-300">Not used yet</span>}</td>
                   <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
