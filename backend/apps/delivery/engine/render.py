@@ -171,6 +171,13 @@ class Renderer:
             return "{{" + key + "}}"
         return codes.REGION_RE.sub(swap, self.html)
 
+    def values(self, keys: list[str], *, customer: dict, member: dict, system: dict) -> list[str]:
+        """Each tag's value for one recipient, as render() would put it in a text: a WhatsApp template is sent as its values."""
+        self.used = {}
+        today = timezone.localdate()
+        system = {"current_year": str(today.year), "today": today.isoformat(), "campaign_name": self.campaign.name, **system}
+        return [self._value(key, customer, member, system) if key else "" for key in keys]
+
     def render(self, *, customer: dict, member: dict, system: dict, sources: dict | None = None, html_blocks: dict | None = None, subject: str | None = None) -> dict:
         """-> {'subject', 'preheader', 'html', 'text', 'codes_left_out'} for one recipient. `system` holds the per-message values
         (unsubscribe_url ...), `sources` the data of tags resolved from RECEIPT / STORE, `html_blocks` ready-made HTML

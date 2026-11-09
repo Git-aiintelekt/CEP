@@ -92,7 +92,7 @@ export function StarterGallery({ channel, value, onChange, bare = false }: Start
     queryFn: ({ signal }) => api.get<Page<PersonalizationTag>>('/personalization-tags/', { page_size: 200 }, signal),
   })
   const catalogue = tags.data?.results ?? []
-  const isMessage = channel === 'SMS' || channel === 'MMS'
+  const isMessage = channel === 'SMS' || channel === 'MMS' || channel === 'WHATSAPP'
   // each is kept with the channel it was chosen for, so a channel change starts it over without an effect
   const [chosen, setChosen] = useState<{ channel: string; category: string } | null>(null)
   const category = chosen?.channel === channel ? chosen.category : ALL_CATEGORIES

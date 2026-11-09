@@ -278,13 +278,13 @@ class CampaignSerializer(s.CampaignSerializer):
             topic = attrs["topic"]
             if str(topic.tenant_id) != context.require().tenant_id or topic.deleted_at is not None:
                 errors["topic"] = "Choose one of this workspace's topics."
-            elif current("channel") in ("SMS", "MMS") and "SMS" not in topic.channels or current("channel") == "EMAIL" and "EMAIL" not in topic.channels:
-                errors["topic"] = f"“{topic.name}” is not offered for {'texts' if current('channel') in ('SMS', 'MMS') else 'email'}."
+            elif current("channel") in ("SMS", "MMS", "WHATSAPP") and "SMS" not in topic.channels or current("channel") == "EMAIL" and "EMAIL" not in topic.channels:
+                errors["topic"] = f"“{topic.name}” is not offered for {'texts' if current('channel') in ('SMS', 'MMS', 'WHATSAPP') else 'email'}."
         for name in ("subject_line", "preheader"):                      # blank = the template's
             if name in attrs:
                 attrs[name] = " ".join((attrs[name] or "").split()) or None
-                if attrs[name] and current("channel") in ("SMS", "MMS"):
-                    errors[name] = "A text message has no subject line or preheader."
+                if attrs[name] and current("channel") in ("SMS", "MMS", "WHATSAPP"):
+                    errors[name] = "A text or WhatsApp message has no subject line or preheader."
         if current("campaign_type") == "DRIP":                        # a drip's messages carry these; empty values (the form saving everything) are fine
             sent = [name for name in ("subject_line", "preheader") if attrs.get(name)] + (["ab_config"] if (attrs.get("ab_config") or {}).get("enabled") else [])
             for name in [name for name in sent if self.instance is None or attrs[name] != getattr(self.instance, name)]:     # one saved before B2 may be sent back as it is

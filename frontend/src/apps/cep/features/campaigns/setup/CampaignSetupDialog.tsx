@@ -7,7 +7,7 @@
  */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, FileText, Image, Layers, Lock, Mail, Megaphone, MessageSquare, ReceiptText, Repeat } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Image, Layers, Lock, Mail, Megaphone, MessageCircle, MessageSquare, ReceiptText, Repeat } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Controller, useForm, type FieldErrors, type FieldPath } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
@@ -48,6 +48,7 @@ const CHANNELS: { value: Channel; title: string; text: string; icon: ReactNode }
   { value: 'EMAIL', title: 'Email', text: 'Designed email with images and links', icon: <Mail {...ICON} /> },
   { value: 'SMS', title: 'SMS', text: 'Text up to 160 characters', icon: <MessageSquare {...ICON} /> },
   { value: 'MMS', title: 'MMS', text: 'Text with an image', icon: <Image {...ICON} /> },
+  { value: 'WHATSAPP', title: 'WhatsApp', text: 'A template Meta approved', icon: <MessageCircle {...ICON} /> },
   { value: 'MULTI', title: 'Multiple Channels', text: 'One campaign, more than one channel', icon: <Layers {...ICON} /> },
 ]
 /** what the message is for, until someone chooses otherwise */
@@ -109,6 +110,7 @@ interface CampaignSetupDialogProps {
 const FIXED_NOTE = 'The type and channel are fixed once you choose the content.'
 const DRIP_HINT = 'Use a drip when everyone on a list gets the same messages on the same schedule. Use a journey when messages depend on what each customer does.'
 const DRIP_ONE_CHANNEL = 'A drip uses one channel. Use a journey to mix channels.'
+const DRIP_NO_WHATSAPP = 'A drip does not send WhatsApp yet: use a Regular Marketing campaign.'
 
 export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, initialErrors, onCreateJourney }: CampaignSetupDialogProps) {
   const editing = Boolean(campaign)
@@ -320,15 +322,15 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
 
                 <div data-field="channel">
                   {locked ? <LockedChoice label="Channel" choice={channelChoice} /> : (
-                    <ChoiceGroup label="Channel" required strong error={errors.channel?.message} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4"
+                    <ChoiceGroup label="Channel" required strong error={errors.channel?.message} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
                       hint={receipt ? 'An email receipt, or a text receipt for registers that ask for SMS.' : editing ? undefined : (
                         <span className="flex items-center gap-1.5"><Lock size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />{FIXED_NOTE}</span>
                       )}>
                       {CHANNELS.filter((item) => channelAllowed(has, item.value, channel) && (!receipt || item.value === 'EMAIL' || item.value === 'SMS')).map((item) => {
-                        const offForDrip = drip && item.value === 'MULTI'
+                        const offForDrip = drip && (item.value === 'MULTI' || item.value === 'WHATSAPP')
                         return (
                           <ChoiceCard key={item.value} tile selected={channel === item.value} title={item.title} text={offForDrip ? 'Not available for a drip' : item.text} icon={item.icon}
-                            unavailable={offForDrip ? DRIP_ONE_CHANNEL : undefined}
+                            unavailable={offForDrip ? (item.value === 'WHATSAPP' ? DRIP_NO_WHATSAPP : DRIP_ONE_CHANNEL) : undefined}
                             onSelect={() => setValue('channel', item.value, { shouldDirty: true, shouldValidate: Boolean(errors.channel) })} />
                         )
                       })}

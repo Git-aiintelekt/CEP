@@ -21,11 +21,13 @@ class DeliveryProvider(models.Model):
         SMTP = 'SMTP', 'SMTP (workspace mail server)'
         SENDGRID = 'SENDGRID', 'SendGrid'
         SANDBOX_SMS = 'SANDBOX_SMS', 'Sandbox texts (sends nothing)'
+        WHATSAPP_META = 'WHATSAPP_META', 'WhatsApp (Meta)'
 
     class Channel(models.TextChoices):
         EMAIL = 'EMAIL', 'Email'
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
@@ -87,6 +89,7 @@ class SenderProfile(models.Model):
         EMAIL = 'EMAIL', 'Email'
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
 
     class VerificationStatus(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
@@ -178,6 +181,7 @@ class SmsExecution(models.Model):
     class MessageType(models.TextChoices):
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
 
     class Status(models.TextChoices):
         QUEUED = 'QUEUED', 'Queued'
@@ -215,6 +219,7 @@ class SmsExecution(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
     responded_at = models.DateTimeField(null=True, blank=True)
+    read_at = models.DateTimeField(null=True, blank=True)  # WhatsApp only: when Meta reported the person read it
     failed_at = models.DateTimeField(null=True, blank=True)
     send_after = models.DateTimeField(null=True, blank=True)  # the recipient's local send time (patch 0023)
     created_at = models.DateTimeField(db_default=Now())
@@ -271,6 +276,7 @@ class DeadLetterMessage(models.Model):
         EMAIL = 'EMAIL', 'Email'
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
 
     class Status(models.TextChoices):
         OPEN = 'OPEN', 'Open'

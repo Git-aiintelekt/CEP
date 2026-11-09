@@ -247,6 +247,9 @@ def clone_template(source: TemplateMaster, user_id, *, name: str | None = None) 
     TemplateMediaAsset.objects.bulk_create([
         TemplateMediaAsset(template=copy, media_asset_id=link.media_asset_id, tenant_id=copy.tenant_id)
         for link in TemplateMediaAsset.objects.filter(template=source)])
+    if source.channel == "WHATSAPP":
+        from . import whatsapp
+        whatsapp.clone(source, copy)
     return copy
 
 
@@ -260,6 +263,9 @@ def activation_blockers(template: TemplateMaster) -> dict:
     """What stops a DRAFT template from becoming ACTIVE (usable by published campaigns)."""
     number = latest_version(template)
     content = RenderedTemplateContent.objects.filter(template=template, version_number=number).first()
+    if template.channel == "WHATSAPP":
+        from . import whatsapp
+        return whatsapp.blockers(template)
     if template.channel not in DESIGNER_CHANNELS:
         return message_blockers(template)
     if content is None or not (content.html_content or "").strip():

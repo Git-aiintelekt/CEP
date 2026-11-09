@@ -89,6 +89,21 @@ A rate is judged only from 50 messages or calls in its window, so a few test sen
 | Callback Address to Send | Optional. Paste this engine's own callback address (Copy Webhook URL). | Digivize is asked to post delivery results there with every send. |
 | Webhook Secret | Optional. The secret given to Digivize for the callback. | Results are then verified; empty, the address's own token is the check. |
 
+**WhatsApp (Meta)**
+
+Offered once the platform team has switched WhatsApp on for the workspace. Each workspace uses its own Meta business account.
+
+| Field | What it is | What it changes |
+|---|---|---|
+| WhatsApp Business Account ID | Meta Business Settings → Accounts → WhatsApp Accounts, or WhatsApp Manager → Account Tools. | Where templates are submitted and synced. |
+| Phone Number ID | WhatsApp Manager → Phone Numbers: the ID of the number, not the number itself. | The number every message is sent from. |
+| Access Token | A permanent system-user token (Meta Business Settings → System Users) with whatsapp_business_messaging and whatsapp_business_management. Write-only. | Used on every send, Check, Submit and Sync; a refused token stops the run. |
+| App Secret | Optional. Your Meta app's secret (App Settings → Basic). Write-only. | Callbacks are then checked against Meta's signature as well as the address's own token. |
+| App ID | Optional. | Needed only to submit a template with a picture or document header: Meta reviews it with a sample file. |
+| Graph API Version | Optional. Empty means the version CEP was built for. | Which version of Meta's API is called. |
+
+After saving, paste the engine's callback address (Copy Webhook URL) and its verify token (Copy Verify Token) into Meta → WhatsApp → Configuration → Webhook, and subscribe to **messages** and **message_template_status_update**. Check reads the number from Meta: its display number, name, quality rating and how many people it may message a day. A WhatsApp sender is the number with its country code; Verify asks Meta whether the engine's number is that one, since WhatsApp sends no free-form test message.
+
 **Sandbox (sends nothing)**
 
 | Field | What it is | What it changes |

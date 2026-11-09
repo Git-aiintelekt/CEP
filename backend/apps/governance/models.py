@@ -171,6 +171,7 @@ class ConsentSuppression(models.Model):
         EMAIL = 'EMAIL', 'Email'
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
 
     class ConsentStatus(models.TextChoices):
         OPTED_IN = 'OPTED_IN', 'Opted In'
@@ -234,6 +235,7 @@ class ConsentRecord(models.Model):
         EMAIL = 'EMAIL', 'Email'
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
 
     class Action(models.TextChoices):
         OPT_IN = 'OPT_IN', 'Opt In'

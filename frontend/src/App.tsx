@@ -30,6 +30,7 @@ const InsightsRoutes = lazy(() => import('@/apps/insights/routes'))
 const EmbedPage = lazy(() => import('@/apps/insights/pages/EmbedPage'))
 const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/DesignerPlayground')) : null
 const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/MessagePlayground')) : null
+const WhatsAppPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/WhatsAppPlayground')) : null
 const ReceiptPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ReceiptPlayground')) : null
 const DevFields = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/DevFields')) : null
 const ToastPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ToastPlayground')) : null
@@ -79,6 +80,9 @@ export default function App() {
             )}
             {MessagePlayground && (
               <Route path="/dev/message" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the editor" />}><MessagePlayground /></Suspense></EditorScope>} />
+            )}
+            {WhatsAppPlayground && (
+              <Route path="/dev/whatsapp" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the editor" />}><WhatsAppPlayground /></Suspense></EditorScope>} />
             )}
             {ReceiptPlayground && (
               <Route path="/dev/receipt" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the editor" />}><ReceiptPlayground /></Suspense></EditorScope>} />

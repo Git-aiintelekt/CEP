@@ -77,5 +77,5 @@ _loaded = False
 def _load() -> None:
     global _loaded
     if not _loaded:
-        from . import digivize, postal, sandbox_sms, sendgrid, smtp  # noqa: F401  (importing registers them)
+        from . import digivize, postal, sandbox_sms, sendgrid, smtp, whatsapp_meta  # noqa: F401  (importing registers them)
         _loaded = True

@@ -15,6 +15,10 @@ Rules, in order (first match is the recorded suppression_reason):
 
 A GLOBAL policy counts every message the person received (email and text); a CHANNEL policy counts texts only.
 
+WhatsApp (channel WHATSAPP) follows the same rules with its own consent: an opt-out or opt-in on WHATSAPP only, consent
+needed for every WhatsApp message (Meta's rule, not only for marketing), and a number blocked by a text STOP still receives
+WhatsApp, since the STOP was about texts.
+
 A later drip message (`base_list_id`) takes its people from the first message's Campaign List instead of the contact
 lists, all of them whatever their outcome there; every rule above then applies again at its own send.
 """
@@ -71,12 +75,13 @@ WITH picked AS ({picked}
                 WHEN r.known IS NULL THEN 'UNKNOWN_PARTY'
                 WHEN r.numbers = 0 THEN 'NO_PHONE'
                 WHEN r.phone IS NULL THEN 'INVALID_NUMBER'
-                WHEN cps.blocked THEN 'BLOCKED_NUMBER'
+                WHEN cps.blocked AND NOT (%(channel)s = 'WHATSAPP' AND cps.block_source = 'SMS_STOP') THEN 'BLOCKED_NUMBER'
                 WHEN cps.is_valid = FALSE THEN 'INVALID_NUMBER'
-                WHEN EXISTS (SELECT 1 FROM consent_suppression o WHERE o.tenant_id = %(tenant)s AND o.party_id = r.party_id AND o.channel IN ('SMS', 'MMS')
+                WHEN EXISTS (SELECT 1 FROM consent_suppression o WHERE o.tenant_id = %(tenant)s AND o.party_id = r.party_id
+                                AND o.channel = ANY(CASE WHEN %(channel)s = 'WHATSAPP' THEN ARRAY['WHATSAPP'] ELSE ARRAY['SMS', 'MMS'] END)
                                 AND o.consent_status = 'OPTED_OUT') THEN 'UNSUBSCRIBED'
                 WHEN %(marketing)s AND cs.suppressed THEN 'SUPPRESSED'
-                WHEN %(marketing)s AND COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT'
+                WHEN (%(marketing)s OR %(channel)s = 'WHATSAPP') AND COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT'
                 WHEN %(topic)s::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM party_topic_preference tp WHERE tp.tenant_id = %(tenant)s AND tp.party_id = r.party_id
                                                              AND tp.topic_id = %(topic)s::uuid AND tp.opted_out) THEN 'TOPIC_OPTED_OUT'
                 WHEN k.policy_id IS NOT NULL THEN 'FREQUENCY_CAP'
@@ -84,7 +89,8 @@ WITH picked AS ({picked}
       FROM resolved r
       JOIN capped k ON k.party_id = r.party_id
       LEFT JOIN LATERAL (SELECT x.consent_status, x.suppressed FROM consent_suppression x
-                          WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id AND x.channel IN (%(channel)s, 'SMS')
+                          WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id
+                            AND x.channel = ANY(CASE WHEN %(channel)s = 'WHATSAPP' THEN ARRAY['WHATSAPP'] ELSE ARRAY[%(channel)s, 'SMS'] END)
                           ORDER BY (x.channel = %(channel)s) DESC LIMIT 1) cs ON TRUE
       LEFT JOIN contact_point_status cps ON cps.tenant_id = %(tenant)s AND cps.contact_point_type = 'PHONE' AND cps.contact_value = r.phone
 ), ranked AS (
@@ -123,11 +129,11 @@ SELECT m.tenant_id, %(campaign)s, %(run)s, m.id, m.party_id, {PRIMARY_PHONE}, %(
 
 
 def build(*, tenant_id, campaign, run, campaign_list, content, provider, sender, channel: str, media_url: str | None, base_list_id=None) -> dict:
-    """Fills the campaign list and queues one sms_execution per eligible member. `channel` is SMS or MMS. `base_list_id`: as in
+    """Fills the campaign list and queues one sms_execution per eligible member. `channel` is SMS, MMS or WHATSAPP. `base_list_id`: as in
     audience.build, the people of that Campaign List instead of the contact lists' members."""
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": campaign.solicitation_type == "MARKETING",
             "caps": campaign.solicitation_type == "MARKETING" and bool(getattr(campaign, "respect_governance", True)),
-            "channel": channel, "content": str(content.pk), "version": content.version_number, "media": media_url if channel == "MMS" else None,
+            "channel": channel, "content": str(content.pk), "version": content.version_number, "media": media_url if channel in ("MMS", "WHATSAPP") else None,
             "sender": (sender.sender_id or "")[:30] or None, "provider_code": provider.provider_type, "provider": str(provider.pk),
             "topic": preferences.topic_filter(campaign), "base": str(base_list_id) if base_list_id else None}
     with session.connection().cursor() as cursor:

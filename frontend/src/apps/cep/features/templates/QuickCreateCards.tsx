@@ -8,6 +8,7 @@ const DESCRIPTION: Record<TemplateChannel, string> = {
   SMS: 'Short text, 160 characters',
   // the mockup says "or video": MMS takes JPEG, PNG and GIF only
   MMS: 'Text with image',
+  WHATSAPP: 'Template Meta approves',
   E_RECEIPT: 'Transactional receipt layout',
 }
 

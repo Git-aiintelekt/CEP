@@ -8,6 +8,9 @@
 A STOP belongs to the NUMBER, not only to the person: the number is blocked even when nobody in customer_master owns it,
 so another record carrying the same number is not texted either. Confirmation and help texts are the aggregator's job in
 most programmes (carriers require them on the short code itself); the platform records and enforces.
+
+On WhatsApp (channel WHATSAPP) the same words, typed or a quick-reply button ("Stop Offers"), act on WhatsApp only: the
+person is opted out of WhatsApp, and the number is not blocked, since texts to it are a separate consent.
 """
 import json
 import re
@@ -44,8 +47,11 @@ def candidates(number: str) -> list[str]:
     return [n for n in found if E164.match(n)]
 
 
-def handle(tenant_id, provider_type: str, message: InboundMessage) -> str:
-    """-> 'OPT_OUT' | 'OPT_IN' | 'HELP' | 'NONE' | 'duplicate' | 'invalid'. Runs inside the caller's tenant transaction."""
+def handle(tenant_id, provider_type: str, message: InboundMessage, channel: str = "SMS") -> str:
+    """-> 'OPT_OUT' | 'OPT_IN' | 'HELP' | 'NONE' | 'duplicate' | 'invalid'. Runs inside the caller's tenant transaction.
+    `channel`: SMS for a text engine (SMS and MMS), WHATSAPP for a WhatsApp one."""
+    whatsapp = channel == "WHATSAPP"
+    types = ["WHATSAPP"] if whatsapp else ["SMS", "MMS"]
     numbers = candidates(message.from_number)
     if not numbers:
         return "invalid"
@@ -54,7 +60,8 @@ def handle(tenant_id, provider_type: str, message: InboundMessage) -> str:
     with session.connection().cursor() as cursor:
         # the message they are answering: the last text sent to that number (it also tells us who they are)
         cursor.execute("""SELECT id, party_id, phone_number, campaign_id, campaign_run_id, status, created_at FROM sms_execution
-                           WHERE tenant_id = %s AND phone_number = ANY(%s) AND status <> 'QUEUED' ORDER BY created_at DESC LIMIT 1""", [str(tenant_id), numbers])
+                           WHERE tenant_id = %s AND phone_number = ANY(%s) AND message_type = ANY(%s) AND status <> 'QUEUED' ORDER BY created_at DESC LIMIT 1""",
+                       [str(tenant_id), numbers, types])
         last = cursor.fetchone()
         number = last[2] if last else numbers[-1]
         party_id = last[1] if last else None
@@ -77,19 +84,19 @@ def handle(tenant_id, provider_type: str, message: InboundMessage) -> str:
         if last and last[5] not in ("OPTED_OUT", "FAILED"):
             cursor.execute("UPDATE sms_execution SET status = %s, responded_at = %s WHERE tenant_id = %s AND id = %s AND created_at = %s",
                            ["OPTED_OUT" if action == "OPT_OUT" else "RESPONDED", when, str(tenant_id), last[0], last[6]])
-        if action == "OPT_OUT":
+        if action == "OPT_OUT" and not whatsapp:
             events.block_number(cursor, tenant_id, number, party_id, reason="MANUAL", source="SMS_STOP", detail=f"Replied {keyword}", when=when)
-        elif action == "OPT_IN":
+        elif action == "OPT_IN" and not whatsapp:
             cursor.execute("""UPDATE contact_point_status SET blocked = FALSE, unblocked_at = %s
                                WHERE tenant_id = %s AND contact_point_type = 'PHONE' AND contact_value = %s AND blocked AND block_source = 'SMS_STOP'""",
                            [timezone.now(), str(tenant_id), number])
 
     if party_id and action in ("OPT_OUT", "OPT_IN"):
         evidence = {"from": number, "text": (message.text or "")[:200], "provider": provider_type, "provider_message_id": message.provider_message_id}
-        for channel in ("SMS", "MMS"):
+        for code in types:
             if action == "OPT_OUT":
                 unsubscribe.opt_out(tenant_id=tenant_id, party_id=party_id, campaign_id=last[3] if last else None, run_id=last[4] if last else None, method="SMS_STOP",
-                                    evidence=evidence, execution_id=last[0] if last else None, channel=channel)
+                                    evidence=evidence, execution_id=last[0] if last else None, channel=code)
             else:
-                unsubscribe.opt_in(tenant_id=tenant_id, party_id=party_id, channel=channel, evidence=evidence, execution_id=last[0] if last else None)
+                unsubscribe.opt_in(tenant_id=tenant_id, party_id=party_id, channel=code, evidence=evidence, execution_id=last[0] if last else None)
     return action

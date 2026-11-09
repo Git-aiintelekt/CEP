@@ -10,6 +10,7 @@ export const HELP_CHAPTERS = {
   campaigns: { title: 'Campaigns', load: () => import('../../../../../docs/manuals/user-guide/30-campaigns.md?raw').then((module) => module.default) },
   'campaign-setup': { title: 'Campaign Set-Up', load: () => import('../../../../../docs/manuals/user-guide/32-campaign-setup.md?raw').then((module) => module.default) },
   templates: { title: 'Templates and Content', load: () => import('../../../../../docs/manuals/user-guide/34-templates.md?raw').then((module) => module.default) },
+  whatsapp: { title: 'WhatsApp Templates', load: () => import('../../../../../docs/manuals/user-guide/35-whatsapp.md?raw').then((module) => module.default) },
   'email-designer': { title: 'The Email Designer', load: () => import('../../../../../docs/manuals/user-guide/36-email-designer.md?raw').then((module) => module.default) },
   journeys: { title: 'Journeys', load: () => import('../../../../../docs/manuals/user-guide/57-journeys.md?raw').then((module) => module.default) },
   insights: { title: 'Insights: Reports, Dashboards and Scheduled Delivery', load: () => import('../../../../../docs/manuals/user-guide/59-insights.md?raw').then((module) => module.default) },

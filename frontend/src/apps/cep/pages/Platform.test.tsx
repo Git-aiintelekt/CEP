@@ -122,7 +122,7 @@ test('a support session forgets any earlier refresh token, shows who is acting a
 })
 
 test('features switched off for the workspace disappear from navigation, settings and channel choices', async () => {
-  installMockApi({ me: { industry: 'FINANCIAL_SERVICES', features: { journeys: false, mms: false, ereceipt: false, api_access: false } } })
+  installMockApi({ me: { industry: 'FINANCIAL_SERVICES', features: { journeys: false, mms: false, ereceipt: false, api_access: false, whatsapp: false } } })
   await renderAppAt('/templates/new')
 
   const channel = (await screen.findByRole('combobox', { name: 'Channel' })) as HTMLSelectElement

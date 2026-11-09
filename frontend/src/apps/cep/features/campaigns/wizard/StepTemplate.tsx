@@ -9,6 +9,8 @@ import { useAuth } from '@/auth/AuthContext'
 import { Field, Select } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { META_STATUS } from '@/apps/cep/features/messaging/whatsappStatus'
+import { lookOf } from '@/apps/cep/features/templates/channels'
 import { api } from '@/lib/api'
 import { editorRouteFor } from '@/lib/editorRoute'
 import { formatDate } from '@/lib/format'
@@ -23,7 +25,7 @@ import { LinkTrackingCard } from './LinkTrackingCard'
 import { SubjectPreheaderCard } from './SubjectPreheaderCard'
 
 
-const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design: 'Designer', receipt: 'Receipt Editor', message: 'Message Editor' }
+const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design: 'Designer', receipt: 'Receipt Editor', message: 'Message Editor', whatsapp: 'WhatsApp Editor' }
 
 export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const { can } = useAuth()
@@ -57,7 +59,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const wrongChannel = picked && !fit.includes(picked.channel)
   const senderOptions = (senders.data ?? []).filter((item) => (SENDER_FIT[channel] ?? []).includes(item.channel))
   const pickedSender = (senders.data ?? []).find((item) => item.id === sender)
-  const senderChannel = channel === 'EMAIL' ? 'EMAIL' : channel === 'SMS' || channel === 'MMS' ? 'SMS' : null
+  const senderChannel = channel === 'EMAIL' ? 'EMAIL' : channel === 'SMS' || channel === 'MMS' ? 'SMS' : channel === 'WHATSAPP' ? 'WHATSAPP' : null
   const channelName = isReceipt ? 'e-receipt' : channel
   const topicChannel = channel === 'EMAIL' ? 'EMAIL' : 'SMS'
   const topicOptions = (topics.data?.enabled ? topics.data.results : []).filter((item) => item.channels.includes(topicChannel))
@@ -95,7 +97,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
                   <button key={item.id} type="button" role="radio" aria-checked={chosen === item.id} onClick={() => setValue('template', chosen === item.id ? '' : item.id, { shouldDirty: true, shouldValidate: true })}
                     className={`flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors ${chosen === item.id ? 'border-link bg-callout-bg' : 'border-line bg-surface hover:bg-surface-hover'}`}>
                     <span className="w-full truncate text-sm font-semibold text-ink-900">{item.name}</span>
-                    <span className="flex flex-wrap items-center gap-1.5"><Tag>{item.channel}</Tag><StatusBadge status={item.status} /></span>
+                    <span className="flex flex-wrap items-center gap-1.5"><Tag>{lookOf(item.channel).label}</Tag><StatusBadge status={item.status} />{item.whatsapp && <Tag tone={META_STATUS[item.whatsapp.meta_status].tone}>{META_STATUS[item.whatsapp.meta_status].label}</Tag>}</span>
                     <span className="text-xs text-ink-800">Edited {formatDate(item.updated_at)}{item.latest_version ? ` · version ${item.latest_version}` : ''}</span>
                   </button>
                 ))}

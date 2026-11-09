@@ -13,7 +13,7 @@ from django.contrib.postgres.fields import ArrayField
 
 
 def _default_personalization_tag_applies_to_channels():
-    return ['EMAIL', 'E_RECEIPT', 'SMS', 'MMS']
+    return ['EMAIL', 'E_RECEIPT', 'SMS', 'MMS', 'WHATSAPP']
 
 
 class TemplateMaster(models.Model):
@@ -23,6 +23,7 @@ class TemplateMaster(models.Model):
         E_RECEIPT = 'E_RECEIPT', 'E Receipt'
         SMS = 'SMS', 'SMS'
         MMS = 'MMS', 'MMS'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
 
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', 'Draft'
@@ -50,6 +51,58 @@ class TemplateMaster(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+
+class WhatsAppTemplate(models.Model):
+    """Meta's parts of a WHATSAPP template and where Meta's review stands. The body is in Meta's form ({{1}}, {{2}});
+    `variables` says which tag fills each number, the sample Meta reviews it with, and what to send when the tag is empty."""
+    class Category(models.TextChoices):
+        MARKETING = 'MARKETING', 'Marketing'
+        UTILITY = 'UTILITY', 'Utility'
+        AUTHENTICATION = 'AUTHENTICATION', 'Authentication'
+
+    class HeaderType(models.TextChoices):
+        NONE = 'NONE', 'None'
+        TEXT = 'TEXT', 'Text'
+        IMAGE = 'IMAGE', 'Image'
+        DOCUMENT = 'DOCUMENT', 'Document'
+        VIDEO = 'VIDEO', 'Video'
+
+    class MetaStatus(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        PENDING = 'PENDING', 'In Review'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        PAUSED = 'PAUSED', 'Paused by Meta'
+        DISABLED = 'DISABLED', 'Disabled by Meta'
+
+    template = models.OneToOneField('templates.TemplateMaster', on_delete=models.CASCADE, db_column='template_id', primary_key=True, related_name='whatsapp')
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    delivery_provider = models.ForeignKey('delivery.DeliveryProvider', on_delete=models.PROTECT, db_column='delivery_provider_id', related_name='+', null=True, blank=True)
+    meta_name = models.CharField(max_length=512)
+    language = models.CharField(max_length=15, default='en')
+    category = models.CharField(max_length=20, default='MARKETING', choices=Category.choices)
+    header_type = models.CharField(max_length=10, default='NONE', choices=HeaderType.choices)
+    header_text = models.CharField(max_length=60, null=True, blank=True)
+    header_media_asset = models.ForeignKey('media.MediaAsset', on_delete=models.SET_NULL, db_column='header_media_asset_id', related_name='+', null=True, blank=True)
+    body = models.TextField(default='')
+    footer_text = models.CharField(max_length=60, null=True, blank=True)
+    buttons = models.JSONField(default=list)
+    variables = models.JSONField(default=list)
+    origin = models.CharField(max_length=10, default='CEP')  # CEP, META
+    meta_template_id = models.CharField(max_length=40, null=True, blank=True)
+    meta_status = models.CharField(max_length=20, default='DRAFT', choices=MetaStatus.choices)
+    meta_reason = models.TextField(null=True, blank=True)
+    meta_quality = models.CharField(max_length=20, null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    synced_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'whatsapp_template'
 
 
 class TemplateDesignState(models.Model):

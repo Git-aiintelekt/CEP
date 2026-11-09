@@ -25,6 +25,7 @@ const CHANNELS = [
   { value: 'E_RECEIPT', label: 'E-Receipt', hint: 'Transactional receipt email. Opens the receipt editor.' },
   { value: 'SMS', label: 'SMS', hint: 'Text message. Opens the message editor with live part counting.' },
   { value: 'MMS', label: 'MMS', hint: 'Picture message: text plus one image. Opens the message editor.' },
+  { value: 'WHATSAPP', label: 'WhatsApp', hint: 'A template Meta reviews before it sends. Opens the WhatsApp editor.' },
 ]
 
 /** the fields step 1 owns: an API error on one of them sends the person back there */

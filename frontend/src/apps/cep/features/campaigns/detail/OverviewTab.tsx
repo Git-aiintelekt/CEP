@@ -53,6 +53,7 @@ function MetricsCard({ campaign, zone, live }: { campaign: Campaign; zone: strin
           <Metric label="Delivery Rate" value={rates ? `${rates.delivery}%` : '–'} note={counts ? `${formatNumber(counts.delivered)} of ${formatNumber(counts.sent)} delivered` : undefined} />
           {texts ? (
             <>
+              {campaign.channel === 'WHATSAPP' && <Metric label="Read" value={counts ? formatNumber(counts.opened) : '–'} note={rates ? `${rates.open}% of delivered` : undefined} />}
               <Metric label="Replies" value={counts ? formatNumber(counts.replied) : '–'} note={counts ? `from ${formatNumber(counts.delivered)} delivered` : undefined} />
               <Metric label="Opted Out (STOP)" value={counts ? formatNumber(counts.unsubscribed) : '–'} note={rates ? `${rates.unsubscribe}% of delivered` : undefined} />
             </>

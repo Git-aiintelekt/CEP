@@ -22,6 +22,19 @@ import type { DeliveryProvider, DeliverySender, ProviderType } from '@/lib/types
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 const PROVIDERS = ['delivery', 'providers']
+const CHANNEL_WORD: Record<string, string> = { EMAIL: 'Email', SMS: 'Texts', MMS: 'Texts', WHATSAPP: 'WhatsApp' }
+const channelWord = (channel?: string) => CHANNEL_WORD[channel ?? ''] ?? 'Email'
+const QUALITY: Record<string, string> = { GREEN: 'High', YELLOW: 'Medium', RED: 'Low', UNKNOWN: 'Not Rated Yet' }
+
+/** the callback address's own token: Meta's verify token (the last part of the address) */
+const verifyToken = (url: string) => url.replace(/\/+$/, '').split('/').pop() ?? ''
+
+/** what Meta said about a WhatsApp engine's number at its last check */
+function whatsAppFacts(config: Record<string, string>): string {
+  const limit = Number(config.wa_limit)
+  return [config.wa_display_number, config.wa_verified_name, config.wa_quality ? `Quality ${QUALITY[config.wa_quality] ?? config.wa_quality}` : '',
+    limit ? `${formatNumber(limit)} people a day` : ''].filter(Boolean).join(' · ')
+}
 const SENDERS = ['delivery', 'senders']
 
 // ---------------------------------------------------------------------------------------------------- provider form
@@ -66,7 +79,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
         <div className="grid gap-4 lg:grid-cols-2">
           <Field label="Engine" required error={errors.provider_type} hint={spec?.description} help="The type is fixed once saved. It decides the fields below, whether delivery results come back, and the channel of the engine's senders. Your own mail server is switched on from Settings → Email Server, not here.">
             {(ids) => <Select {...ids} value={type} disabled={Boolean(provider)} onChange={(event) => { setType(event.target.value); setConfig({}) }}>
-              {(provider ? catalogue : creatable).map((item) => <option key={item.provider_type} value={item.provider_type}>{item.channel === 'SMS' ? 'Texts' : 'Email'} · {item.label}</option>)}
+              {(provider ? catalogue : creatable).map((item) => <option key={item.provider_type} value={item.provider_type}>{channelWord(item.channel)} · {item.label}</option>)}
             </Select>}
           </Field>
           <Field label="Name" required error={errors.name} hint="How it appears in this workspace, e.g. SendGrid (marketing) or Texts (short code 55123)." help="A label for this workspace only. It appears on every sender that sends through the engine and on the Set-Up page.">
@@ -77,7 +90,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
           const second = field.secret && field.credential === 'transactional_secret'
           const stored = second ? Boolean(provider?.has_transactional_secret) && !dropTransactional : Boolean(provider?.has_secret)
           const error = errors[field.secret ? (second ? 'transactional_secret' : 'secret') : `config.${field.key}`] ?? errors[field.key]
-          const hint = field.secret && stored ? (second ? 'A transactional key is stored. Leave this empty to keep it.' : 'A credential is stored. Leave this empty to keep it.') : field.help
+          const hint = field.secret && stored ? (second ? (field.key === 'app_secret' ? `${field.label} is stored. Leave this empty to keep it.` : 'A transactional key is stored. Leave this empty to keep it.') : 'A credential is stored. Leave this empty to keep it.') : field.help
           return (
             <Field key={field.key} label={field.label} required={field.required && !(field.secret && stored)} error={error} hint={hint}>
               {(ids) => second
@@ -98,7 +111,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
             {(ids) => <TextInput {...ids} type="number" min={1} value={rate} onChange={(event) => setRate(event.target.value)} />}
           </Field>
           <div className="space-y-2 self-end pb-1 text-sm text-ink-900">
-            <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default Engine for {spec?.channel === 'SMS' ? 'Texts' : 'Email'}</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default Engine for {channelWord(spec?.channel)}</label>
             <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /> In Use</label>
           </div>
         </div>
@@ -118,7 +131,9 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
   const [from, setFrom] = useState(sender?.from_address ?? '')
   const [senderId, setSenderId] = useState(sender?.sender_id ?? '')
   const [replyTo, setReplyTo] = useState(sender?.reply_to_address ?? '')
-  const texts = usable.find((item) => item.id === provider)?.channel === 'SMS'
+  const carries = usable.find((item) => item.id === provider)?.channel
+  const whatsapp = carries === 'WHATSAPP'
+  const texts = carries === 'SMS' || whatsapp
   const [isDefault, setIsDefault] = useState(sender?.is_default ?? false)
   const save = useMutation({
     mutationFn: () => {
@@ -147,10 +162,14 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
             {usable.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>}
         </Field>
-        <Field label={texts ? 'Name' : 'From Name'} required error={errors.display_name} hint={texts ? 'How this sender is listed in campaigns, e.g. Northwind texts.' : 'What people see in their inbox, e.g. Northwind Rewards.'}>
+        <Field label={texts ? 'Name' : 'From Name'} required error={errors.display_name} hint={whatsapp ? 'How this number is listed in campaigns, e.g. City HT WhatsApp. People see the display name Meta approved.' : texts ? 'How this sender is listed in campaigns, e.g. Northwind texts.' : 'What people see in their inbox, e.g. Northwind Rewards.'}>
           {(ids) => <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} />}
         </Field>
-        {texts ? (
+        {whatsapp ? (
+          <Field label="WhatsApp Number" required error={errors.sender_id} hint="The engine's number with country code, as Meta shows it, e.g. +65 6812 4400." help="The number WhatsApp messages come from. Verify asks Meta whether the engine's number is this one; WhatsApp sends no test message to prove it.">
+            {(ids) => <TextInput {...ids} value={senderId} onChange={(event) => setSenderId(event.target.value)} autoComplete="off" placeholder="+6568124400" />}
+          </Field>
+        ) : texts ? (
           <Field label="Sender Number" required error={errors.sender_id} hint="The number texts come from: a short code (55123), a long number with country code (+14045550100) or an alphanumeric sender (up to 11 characters). It must be registered with your aggregator." help="The number every text comes from. Replies and STOP messages come back to it: a STOP opts the number out of every kind of campaign and blocks it until a START.">
             {(ids) => <TextInput {...ids} value={senderId} onChange={(event) => setSenderId(event.target.value)} autoComplete="off" />}
           </Field>
@@ -162,7 +181,7 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
             {(ids) => <TextInput {...ids} type="email" value={replyTo} onChange={(event) => setReplyTo(event.target.value)} autoComplete="off" />}
           </Field>
         </>)}
-        <label className="flex items-center gap-2 text-sm text-ink-900"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default Sender for {texts ? 'Texts' : 'Email'}</label>
+        <label className="flex items-center gap-2 text-sm text-ink-900"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default Sender for {channelWord(carries)}</label>
       </form>
     </Modal>
   )
@@ -208,7 +227,7 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
     mutationFn: ({ sender, to }: { sender: DeliverySender; to: string }) => api.post<{ ok: boolean; detail: string | null; to: string }>(`/delivery-senders/${sender.id}/verify/`, { to }),
     onSuccess: (result, { sender }) => {
       const from = sender.from_address ?? sender.sender_id
-      setNotice({ ok: result.ok, text: result.ok ? `A verification message from ${from} was accepted and sent to ${result.to}.` : `${from}: ${result.detail}` })
+      setNotice({ ok: result.ok, text: !result.ok ? `${from}: ${result.detail}` : sender.channel === 'WHATSAPP' ? `Meta confirms ${from} is the engine's number.` : `A verification message from ${from} was accepted and sent to ${result.to}.` })
       void refresh()
     },
   })
@@ -224,6 +243,7 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
   const healthRow = healthOf ? rows.find((row) => row.id === healthOf) : undefined
   function startVerify(sender: DeliverySender) {
     if (sender.channel === 'EMAIL') return verify.mutate({ sender, to: me?.principal.email ?? '' })
+    if (sender.channel === 'WHATSAPP') return verify.mutate({ sender, to: '' })
     const to = window.prompt('Send the verification text to which mobile number? Include the country code, e.g. +14045550100')
     if (to?.trim()) verify.mutate({ sender, to: to.trim() })
   }
@@ -237,8 +257,9 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
 
   const providerColumns: Column<DeliveryProvider>[] = [
     { key: 'name', header: 'Provider', render: (row) => (
-      <div><p className="font-medium text-ink-900">{row.name}<span className="ml-2"><Tag>{row.channel === 'SMS' ? 'Texts' : 'Email'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
-        <p className="text-xs text-ink-800">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}{row.has_transactional_secret ? ' · separate key for receipts' : ''}</p></div>) },
+      <div><p className="font-medium text-ink-900">{row.name}<span className="ml-2"><Tag>{channelWord(row.channel)}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
+        <p className="text-xs text-ink-800">{row.channel === 'WHATSAPP' ? (whatsAppFacts(row.config) || 'Check the engine to read the number from Meta')
+          : `${labels[row.provider_type]?.label ?? row.provider_type}${row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}${row.has_transactional_secret ? ' · separate key for receipts' : ''}`}</p></div>) },
     { key: 'health', header: 'Health', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched Off" />
       : row.health ? <HealthCell health={row.health} onOpen={() => setHealthOf(row.id)} />
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check Failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not Checked Yet" /> },
@@ -247,12 +268,16 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
           <span className="flex flex-wrap gap-x-3">
             <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title={row.webhook_url}
               onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy Webhook URL'}</button>
+            {row.channel === 'WHATSAPP' && <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title="Meta asks for it with the callback URL"
+              onClick={() => void navigator.clipboard?.writeText(verifyToken(row.webhook_url as string)).then(() => setCopied(`${row.id}:token`), () => undefined)}>{copied === `${row.id}:token` ? 'Copied' : 'Copy Verify Token'}</button>}
             {allowed && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={rotate.isPending}
               onClick={() => window.confirm(`Rotate the callback address of ${row.name}? The current address stops working at once; callbacks resume when the new one is registered with the engine.`) && rotate.mutate(row)}>Rotate Address</button>}
           </span>
           {row.last_callback_at
             ? <span className="cep-num text-xs text-ink-800">Last received {formatDateTime(row.last_callback_at)} · {formatNumber(row.callbacks_24h ?? 0)} in 24 h</span>
-            : <span className="text-xs font-medium text-warning-text">No callback has ever arrived. Register the address with the engine so deliveries, bounces, opens and clicks come back.</span>}
+            : <span className="text-xs font-medium text-warning-text">{row.channel === 'WHATSAPP'
+                ? 'No callback has ever arrived. In Meta, under WhatsApp → Configuration, paste the URL and the verify token, and subscribe to messages and message_template_status_update.'
+                : 'No callback has ever arrived. Register the address with the engine so deliveries, bounces, opens and clicks come back.'}</span>}
         </span>
       : <span className="text-xs text-ink-800">No callbacks</span> },
     { key: 'actions', header: '', align: 'right', render: (row) => (
@@ -267,7 +292,7 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
   const domainChanges = new Map((sendingDomains.data?.domains ?? []).map((row) => [row.domain, row.result?.changes ?? 0]))
   const senderColumns: Column<DeliverySender>[] = [
     { key: 'name', header: 'Sender', render: (row) => (
-      <div><p className="font-medium text-ink-900">{row.display_name}<span className="ml-2"><Tag>{row.channel === 'EMAIL' ? 'Email' : 'Texts'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
+      <div><p className="font-medium text-ink-900">{row.display_name}<span className="ml-2"><Tag>{channelWord(row.channel)}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
         <p className="text-xs text-ink-800">{row.from_address ?? row.sender_id}</p>
         {row.channel === 'EMAIL' && (domainChanges.get(domainOf(row.from_address)) ?? 0) > 0 && (
           <p className="mt-1 text-xs font-medium text-warning-text">Its domain needs {domainChanges.get(domainOf(row.from_address))} DNS change{domainChanges.get(domainOf(row.from_address)) === 1 ? '' : 's'} · <a href="#sending-domains" className="text-brand-800 hover:underline">See Sending Domains</a></p>
@@ -292,7 +317,7 @@ export function DeliveryPage({ canEdit }: { canEdit?: boolean } = {}) {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <span className="flex items-center gap-1.5"><h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending Engines</h2><PageHelp chapter="settings-sending-engines" /></span>
-            <p className="text-sm text-ink-800">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back. C360 checks each engine every 10 minutes and tells the platform team when one stops answering, stops calling back or starts bouncing.</p>
+            <p className="text-sm text-ink-800">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, a text aggregator for SMS and MMS, and Meta's WhatsApp Business API for WhatsApp. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back. C360 checks each engine every 10 minutes and tells the platform team when one stops answering, stops calling back or starts bouncing.</p>
           </div>
           <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add Engine</button>
         </div>

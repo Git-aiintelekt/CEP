@@ -236,6 +236,19 @@ STARTERS = [
     {"key": "mms_lookbook", "name": "MMS lookbook", "channel": "MMS", "category": "Promotion",
      "description": "Picture message announcing a new collection. Add your picture before activating.", "subject_line": "New season",
      "sms_body": "Your Brand: {{first_name}}, the new season lookbook is here. See it all at {{shop_url}} Reply STOP to opt out."},
+    # WhatsApp starters use only {{first_name}}, which every workspace has, and are written to pass Meta's review
+    {"key": "wa_offer", "name": "WhatsApp offer", "channel": "WHATSAPP", "category": "Promotion",
+     "description": "A weekend offer to show at the till, with a Stop Offers button.",
+     "sms_body": "Hi {{first_name}}, this weekend only: 20% off everything in store. Show this message at the till to get it.",
+     "whatsapp": {"category": "MARKETING", "footer_text": "Reply STOP to opt out", "buttons": [{"type": "QUICK_REPLY", "text": "Stop Offers"}]}},
+    {"key": "wa_back_in_stock", "name": "WhatsApp back in stock", "channel": "WHATSAPP", "category": "Promotion",
+     "description": "Tells someone the item they asked about is back, and held for them.",
+     "sms_body": "Good news, {{first_name}}: the item you asked about is back in store. We will hold one for you until Sunday.",
+     "whatsapp": {"category": "MARKETING", "footer_text": "Reply STOP to opt out", "buttons": [{"type": "QUICK_REPLY", "text": "Stop Offers"}]}},
+    {"key": "wa_thank_you", "name": "WhatsApp purchase thank-you", "channel": "WHATSAPP", "category": "Utility",
+     "description": "After a purchase: thanks and the points added. Meta reviews it as a Utility message.",
+     "sms_body": "Hi {{first_name}}, thank you for shopping with us today. The points for this purchase are now on your account.",
+     "whatsapp": {"category": "UTILITY", "footer_text": "", "buttons": []}},
 ]
 BY_KEY = {starter["key"]: starter for starter in STARTERS}
 
@@ -315,8 +328,25 @@ def apply(template, user_id, key: str) -> dict:
     if starter["channel"] != template.channel:
         raise ValidationError({"starter": f"The {starter['name']} starter is for {starter['channel']} templates."})
     ensure_tags(template.tenant_id, user_id)
+    if "whatsapp" in starter:
+        return _apply_whatsapp(template, user_id, starter)
     if "mjml" in starter:
         return design.save_design(template, user_id, editor_state={"kind": "starter", "starter": key}, mjml_source=starter["mjml"],
                                   subject_line=starter.get("subject_line", ""), preheader=starter.get("preheader", ""), base_version=0)
     return design.save_message(template, user_id, sms_body=starter["sms_body"], subject_line=starter.get("subject_line", ""),
                                media_asset=None, base_version=0)
+
+
+def _apply_whatsapp(template, user_id, starter: dict) -> dict:
+    """Version 1 of a WhatsApp template from a starter: Meta's name from the template's, the only WhatsApp number when there is one."""
+    import re
+    from apps.delivery.models import DeliveryProvider
+    from . import whatsapp
+    engines = list(DeliveryProvider.objects.filter(channel="WHATSAPP", deleted_at__isnull=True).values_list("id", flat=True)[:2])
+    tags = {tag.tag_key.strip("{} "): tag for tag in PersonalizationTag.objects.filter(is_active=True, deleted_at__isnull=True)}
+    used = whatsapp.to_meta(starter["sms_body"])[1]
+    name = re.sub(r"[^a-z0-9]+", "_", template.name.lower()).strip("_")[:500] or starter["key"]
+    return whatsapp.save(template, user_id, data={
+        "engine": engines[0] if len(engines) == 1 else None, "meta_name": name, "language": "en", "header_type": "NONE", "body": starter["sms_body"],
+        "samples": {key: (tags[key].sample_value if key in tags else "") or "Mei Ling" for key in used},
+        "fallbacks": {key: (tags[key].default_value if key in tags else "") or "" for key in used}, "base_version": 0, **starter["whatsapp"]})

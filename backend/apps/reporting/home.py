@@ -21,7 +21,7 @@ from apps.campaigns.models import Campaign, CampaignRun
 from apps.journeys.models import Journey
 from apps.reporting import reports
 
-FAMILY = {"EMAIL": "EMAIL", "SMS": "SMS", "MMS": "SMS"}
+FAMILY = {"EMAIL": "EMAIL", "SMS": "SMS", "MMS": "SMS", "WHATSAPP": "SMS"}
 DELIVERED = {"EMAIL": "('DELIVERED', 'OPENED', 'CLICKED')", "SMS": "('DELIVERED', 'RESPONDED', 'OPTED_OUT')"}
 WEEKLY_OVER_DAYS = 31
 TOP_CAMPAIGNS = 5

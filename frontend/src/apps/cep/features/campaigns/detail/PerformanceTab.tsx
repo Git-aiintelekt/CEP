@@ -49,6 +49,7 @@ function ResultsCard({ campaign, zone, metrics }: { campaign: Campaign; zone: st
           <Metric label="Delivered" value={formatNumber(counts.delivered)} note={`${rate(rates.delivery)} of sent`} />
           {texts ? (
             <>
+              {campaign.channel === 'WHATSAPP' && <Metric label="Read" value={formatNumber(counts.opened)} note={`${rate(rates.open)} of delivered`} />}
               <Metric label="Replies" value={formatNumber(counts.replied)} />
               <Metric label="Opted Out (STOP)" value={formatNumber(counts.unsubscribed)} note={`${rate(rates.unsubscribe)} of delivered`} />
             </>

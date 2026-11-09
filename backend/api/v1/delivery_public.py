@@ -28,7 +28,7 @@ log = logging.getLogger("cep.delivery")
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def delivery_webhook(request, tenant_code, provider_id, token, version=None):
     from apps.integrations.bridge.logbook import Stopwatch
     watch = Stopwatch()
@@ -40,9 +40,15 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
                     request.META.get("HTTP_CF_CONNECTING_IP") or request.META.get("REMOTE_ADDR"), request.META.get("HTTP_USER_AGENT", "")[:80])
         return JsonResponse({"title": "Not found", "status": 404}, status=404)
     try:
-        adapter = registry.adapter_class(provider.provider_type)(config=provider.config or {}, secret=None, provider_id=str(provider.pk), tenant_id=tenant_id)
+        cls = registry.adapter_class(provider.provider_type)
+        # a second credential that signs callbacks (WhatsApp's app secret) is read for the check; the sending credential never is
+        adapter = cls(config=provider.config or {}, secret=None, provider_id=str(provider.pk), tenant_id=tenant_id,
+                      transactional_secret=registry.resolve_transactional_secret(provider) if cls.channel == "WHATSAPP" else None)
     except ProviderError:
         return JsonResponse({"title": "Not found", "status": 404}, status=404)
+    if request.method == "GET":                             # Meta's subscription handshake: echo the challenge when the verify token is this address's token
+        challenge = adapter.subscribe_challenge(request.GET, token) if hasattr(adapter, "subscribe_challenge") else None
+        return HttpResponse(challenge, content_type="text/plain") if challenge else JsonResponse({"title": "Not found", "status": 404}, status=404)
     body = request.body
     if not adapter.verify_webhook({k.lower(): v for k, v in request.headers.items()}, body):
         log.warning("webhook signature refused for provider %s", provider_id)
@@ -60,14 +66,23 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
 def process_events(tenant_id, provider, adapter, payload, *, replay: bool = False):
     """Applies every event of a callback body; returns (outcome counts, the parsed events). A replay (Settings → Integrations,
     "Replay Callback") applies an event the provider already delivered, so it skips the duplicate check."""
-    texts = adapter.channel == "SMS"
+    texts = adapter.channel in ("SMS", "WHATSAPP")
     outcome = {"received": 0, "applied": 0, "ignored": 0, "unmatched": 0, "failed": 0, "duplicate": 0}
+    if adapter.channel == "WHATSAPP":                       # Meta's review of templates, and the number's quality
+        from apps.templates import whatsapp
+        for update in adapter.parse_account_updates(payload):
+            try:
+                with session.tx():
+                    outcome[whatsapp.apply_update(tenant_id, provider, update)] += 1
+            except Exception:                               # noqa: BLE001
+                log.exception("WhatsApp account update could not be applied")
+                outcome["failed"] += 1
     if texts:                                               # what people texted back: STOP / START / HELP and free replies
         outcome["inbound"] = 0
         for message in adapter.parse_inbound(payload):
             try:
                 with session.tx():
-                    inbound.handle(tenant_id, provider.provider_type, message)
+                    inbound.handle(tenant_id, provider.provider_type, message, channel=adapter.channel)
                 outcome["inbound"] += 1
             except Exception:                               # noqa: BLE001
                 log.exception("inbound text from %s could not be handled", message.from_number)

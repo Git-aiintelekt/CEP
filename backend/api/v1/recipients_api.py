@@ -30,7 +30,7 @@ SHOWN_STATUS = "CASE WHEN x.not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE x.s
 EMAIL_COLUMNS = """x.id, x.party_id, x.email_address AS address, x.status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, x.variant_key, x.bounce_type,
                    x.created_at, x.submitted_at, x.delivered_at, x.opened_at, x.clicked_at, x.bounced_at, x.complained_at, NULL::timestamptz AS failed_at, x.send_after"""
 SMS_COLUMNS = """x.id, x.party_id, x.phone_number AS address, x.status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, NULL::varchar AS variant_key, NULL::varchar AS bounce_type,
-                 x.created_at, x.submitted_at, x.delivered_at, NULL::timestamptz AS opened_at, NULL::timestamptz AS clicked_at, NULL::timestamptz AS bounced_at, NULL::timestamptz AS complained_at,
+                 x.created_at, x.submitted_at, x.delivered_at, x.read_at AS opened_at, NULL::timestamptz AS clicked_at, NULL::timestamptz AS bounced_at, NULL::timestamptz AS complained_at,
                  x.failed_at, x.send_after"""
 FIELDS = ("id", "party_id", "address", "status", "status_reason", "not_sent_reason", "provider_message_id", "attempts", "variant_key", "bounce_type", "created_at", "submitted_at", "delivered_at",
           "opened_at", "clicked_at", "bounced_at", "complained_at", "failed_at", "send_after", "first_name", "last_name")
@@ -184,7 +184,7 @@ def timeline(run, row: dict) -> dict:
     with session.connection().cursor() as cursor:
         for column in ("created_at", "submitted_at", "delivered_at", "opened_at", "clicked_at", "bounced_at", "complained_at", "failed_at"):
             if row.get(column):
-                events.append({"at": row[column], "kind": "cep", "what": {"created_at": "Queued", "submitted_at": "Handed to the engine", "delivered_at": "Delivered", "opened_at": "First open",
+                events.append({"at": row[column], "kind": "cep", "what": {"created_at": "Queued", "submitted_at": "Handed to the engine", "delivered_at": "Delivered", "opened_at": "Read" if run.campaign.channel == "WHATSAPP" else "First open",
                                                                           "clicked_at": "First click", "bounced_at": "Bounced", "complained_at": "Marked as spam", "failed_at": "Failed"}[column],
                                "detail": row["status_reason"] if column in ("failed_at", "bounced_at") else None})
         if kind == "EMAIL":

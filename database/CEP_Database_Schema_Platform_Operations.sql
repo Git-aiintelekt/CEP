@@ -408,7 +408,7 @@ GRANT ALL ON mail_server TO cep_admin;
 -- a tenant's mail server can be a campaign delivery provider: delivery_provider.provider_type = 'SMTP',
 -- config = {"mail_server_id": ...}; the credentials stay in mail_server (encrypted), never in secret_ref
 ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
-ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP'));
+ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS', 'WHATSAPP_META'));   -- the full list: the layer runs again with every patch, after later engine types exist
 
 -- -------------------------------------------------------------------------------------
 -- 9. CAMPAIGN SEND ENGINE AND DELIVERY PROVIDER ADAPTERS
@@ -429,10 +429,10 @@ COMMENT ON COLUMN delivery_provider.transactional_secret_enc IS 'Credential for 
 
 ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
 ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type
-    CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID'));
+    CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS', 'WHATSAPP_META'));   -- the full list: the layer runs again with every patch, after later engine types exist
 ALTER TABLE delivery_webhook_event DROP CONSTRAINT IF EXISTS ck_delivery_webhook_event_provider;
 ALTER TABLE delivery_webhook_event ADD CONSTRAINT ck_delivery_webhook_event_provider
-    CHECK (provider IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID'));
+    CHECK (provider IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS', 'WHATSAPP_META'));   -- the full list: the layer runs again with every patch, after later engine types exist
 
 -- why a list member was left out of a run (NO_EMAIL, NO_CONSENT, UNSUBSCRIBED, BLOCKED_ADDRESS, FREQUENCY_CAP, DUPLICATE_ADDRESS ...)
 ALTER TABLE campaign_list_member ADD COLUMN IF NOT EXISTS suppression_reason VARCHAR(40);
@@ -462,10 +462,10 @@ CREATE INDEX IF NOT EXISTS ix_sms_execution_phone ON sms_execution(tenant_id, ph
 
 ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
 ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type
-    CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS'));
+    CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS', 'WHATSAPP_META'));   -- the full list: the layer runs again with every patch, after later engine types exist
 ALTER TABLE delivery_webhook_event DROP CONSTRAINT IF EXISTS ck_delivery_webhook_event_provider;
 ALTER TABLE delivery_webhook_event ADD CONSTRAINT ck_delivery_webhook_event_provider
-    CHECK (provider IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS'));
+    CHECK (provider IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS', 'WHATSAPP_META'));   -- the full list: the layer runs again with every patch, after later engine types exist
 
 -- What people text back: STOP / START / HELP keywords and free replies. Kept as received; `action` is what the platform did.
 CREATE TABLE IF NOT EXISTS sms_inbound_message (
@@ -3139,6 +3139,79 @@ BEGIN
 END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON report_benchmark TO cep_app;
 GRANT ALL ON report_benchmark TO cep_admin;
+
+-- ---- WhatsApp (patch 0082): a third phone channel, sent through Meta's WhatsApp Business API with the workspace's own Meta
+-- account (apps/delivery/providers/whatsapp_meta.py). A WhatsApp message is an sms_execution row of message_type WHATSAPP, so
+-- audience, frequency caps, the Recipients tab and engine health work as they do for texts. A business may start a WhatsApp
+-- conversation only with a template Meta approved: whatsapp_template holds Meta's parts of a WHATSAPP template_master and
+-- where Meta's review stands; its body is versioned in rendered_template_content like a text's.
+ALTER TABLE template_master DROP CONSTRAINT IF EXISTS ck_template_master_channel;
+ALTER TABLE template_master ADD CONSTRAINT ck_template_master_channel CHECK (channel IN ('EMAIL', 'E_RECEIPT', 'SMS', 'MMS', 'WHATSAPP'));
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_channel;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_channel CHECK (channel IN ('EMAIL', 'SMS', 'MMS', 'MULTI', 'WHATSAPP'));
+ALTER TABLE consent_suppression DROP CONSTRAINT IF EXISTS ck_consent_suppression_channel;
+ALTER TABLE consent_suppression ADD CONSTRAINT ck_consent_suppression_channel CHECK (channel IN ('EMAIL', 'SMS', 'MMS', 'WHATSAPP'));
+ALTER TABLE consent_record DROP CONSTRAINT IF EXISTS ck_consent_record_channel;
+ALTER TABLE consent_record ADD CONSTRAINT ck_consent_record_channel CHECK (channel IN ('EMAIL', 'SMS', 'MMS', 'WHATSAPP'));
+ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_channel;
+ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_channel CHECK (channel IN ('EMAIL', 'SMS', 'MMS', 'WHATSAPP'));
+ALTER TABLE sender_profile DROP CONSTRAINT IF EXISTS ck_sender_profile_channel;
+ALTER TABLE sender_profile ADD CONSTRAINT ck_sender_profile_channel CHECK (channel IN ('EMAIL', 'SMS', 'MMS', 'WHATSAPP'));
+ALTER TABLE dead_letter_message DROP CONSTRAINT IF EXISTS ck_dead_letter_message_channel;
+ALTER TABLE dead_letter_message ADD CONSTRAINT ck_dead_letter_message_channel CHECK (channel IN ('EMAIL', 'SMS', 'MMS', 'WHATSAPP'));
+ALTER TABLE personalization_tag DROP CONSTRAINT IF EXISTS ck_tag_channels_known;
+ALTER TABLE personalization_tag ADD CONSTRAINT ck_tag_channels_known CHECK (applies_to_channels <@ ARRAY['EMAIL', 'E_RECEIPT', 'SMS', 'MMS', 'WHATSAPP']::text[]);
+ALTER TABLE sms_execution DROP CONSTRAINT IF EXISTS ck_sms_execution_message_type;
+ALTER TABLE sms_execution ADD CONSTRAINT ck_sms_execution_message_type CHECK (message_type IN ('SMS', 'MMS', 'WHATSAPP'));
+ALTER TABLE sms_execution DROP CONSTRAINT IF EXISTS ck_sms_media_only_mms;
+ALTER TABLE sms_execution ADD CONSTRAINT ck_sms_media_only_mms CHECK (message_type IN ('MMS', 'WHATSAPP') OR media_url IS NULL);   -- a WhatsApp header's picture or document
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;                              -- WhatsApp only: Meta reports when the person read it
+
+CREATE TABLE IF NOT EXISTS whatsapp_template (
+    template_id           UUID PRIMARY KEY REFERENCES template_master(id) ON DELETE CASCADE,
+    tenant_id             UUID NOT NULL REFERENCES tenant(id),
+    delivery_provider_id  UUID REFERENCES delivery_provider(id),          -- the WhatsApp engine (Meta business account) it is submitted to
+    meta_name             VARCHAR(512) NOT NULL,                          -- Meta's name: lower-case letters, digits and underscores
+    language              VARCHAR(15) NOT NULL DEFAULT 'en',              -- Meta's language code: en, en_US, ms, id, zh_CN ...
+    category              VARCHAR(20) NOT NULL DEFAULT 'MARKETING',
+    header_type           VARCHAR(10) NOT NULL DEFAULT 'NONE',
+    header_text           VARCHAR(60),
+    header_media_asset_id UUID REFERENCES media_asset(id) ON DELETE SET NULL,
+    body                  TEXT NOT NULL DEFAULT '',                       -- in Meta's form: {{1}}, {{2}} where the tags go
+    footer_text           VARCHAR(60),
+    buttons               JSONB NOT NULL DEFAULT '[]',                    -- [{"type": "URL" | "QUICK_REPLY" | "PHONE_NUMBER", "text", "url" | "phone"}]
+    variables             JSONB NOT NULL DEFAULT '[]',                    -- one per {{n}}: {"tag": "first_name", "sample": "Mei Ling", "fallback": "there"}
+    origin                VARCHAR(10) NOT NULL DEFAULT 'CEP',             -- CEP: written here; META: made in WhatsApp Manager and synced
+    meta_template_id      VARCHAR(40),
+    meta_status           VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    meta_reason           TEXT,                                           -- why Meta rejected or paused it, in its words
+    meta_quality          VARCHAR(20),                                    -- GREEN, YELLOW, RED, UNKNOWN
+    submitted_at          TIMESTAMPTZ,
+    decided_at            TIMESTAMPTZ,
+    synced_at             TIMESTAMPTZ,
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version           INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_whatsapp_template_category CHECK (category IN ('MARKETING', 'UTILITY', 'AUTHENTICATION')),
+    CONSTRAINT ck_whatsapp_template_header CHECK (header_type IN ('NONE', 'TEXT', 'IMAGE', 'DOCUMENT', 'VIDEO')),
+    CONSTRAINT ck_whatsapp_template_origin CHECK (origin IN ('CEP', 'META')),
+    CONSTRAINT ck_whatsapp_template_status CHECK (meta_status IN ('DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'PAUSED', 'DISABLED'))
+);
+ALTER TABLE whatsapp_template DROP CONSTRAINT IF EXISTS ck_whatsapp_template_name;      -- a regular expression repeats at most 255 times: the length is the column's
+ALTER TABLE whatsapp_template ADD CONSTRAINT ck_whatsapp_template_name CHECK (meta_name ~ '^[a-z0-9_]+$');
+CREATE UNIQUE INDEX IF NOT EXISTS ux_whatsapp_template_meta ON whatsapp_template(tenant_id, delivery_provider_id, meta_name, language);
+CREATE INDEX IF NOT EXISTS ix_whatsapp_template_meta_id ON whatsapp_template(tenant_id, meta_template_id);
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['whatsapp_template'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON whatsapp_template TO cep_app;
+GRANT ALL ON whatsapp_template TO cep_admin;
 
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample

@@ -54,6 +54,15 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How to
   - What happens behind the scenes
   - Things to know
+- WhatsApp Templates
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - Set it up from start to finish
+  - Test it
+  - What happens behind the scenes
+  - When something goes wrong
+  - Things to know
 - The Email Designer
   - What this page is for
   - Who can use it
@@ -219,6 +228,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - What happens behind the scenes
   - Things to know
 - Insights: Reports, Dashboards and Scheduled Delivery
+  - Terms and What They Mean
   - Step by step: the AI features
   - Step by step: measures, comparisons, charts, formatting, sharing and slicers
   - What Insights is for
@@ -878,6 +888,166 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 
 ---
 
+# WhatsApp Templates
+
+**Where:** Templates → the WhatsApp tab; a WhatsApp template opens in the WhatsApp editor. The number itself is connected under Settings → Delivery. Your administrator has the same steps with screenshots in the Word guide *CEP WhatsApp Set-Up Guide*.
+
+## What this page is for
+
+WhatsApp lets a business start a conversation only with a template Meta has approved. A WhatsApp template is written here with the workspace's tags, sent to Meta for review with **Submit to Meta**, and sent by campaigns once Meta approves it. Templates made directly in Meta's WhatsApp Manager appear here too, through **Sync from Meta**. Every workspace uses its own Meta business account: CEP never sends through a shared one.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permissions | `provider.edit` to connect the number (Settings → Delivery); `template.edit` to write, submit, sync and activate templates; the usual campaign permissions to send. |
+| Feature | **whatsapp** (WhatsApp messages), switched on for the workspace by the platform team. Off by default. |
+| Outside CEP | A Meta business portfolio, a Meta app with the WhatsApp product, a WhatsApp business account with a phone number, a payment method on that account, and a system-user access token. Section *Set it up from start to finish* lists each one. |
+
+## The fields and controls
+
+### The WhatsApp editor
+
+| Field | What it is | What it changes |
+|---|---|---|
+| WhatsApp Number | The connected number (engine) the template is for. | The Meta business account that reviews and sends it. |
+| Name at Meta | Lower-case letters, digits and underscores, for example `back_in_stock`. | How Meta knows the template. Fixed once Meta has it. |
+| Category | Marketing, or Utility for an update the person expects (a receipt, an order). | Meta charges by category, and moves anything promotional to Marketing. |
+| Language | The language the words are in. | A template has one language; another language is another template. |
+| Header | None, Text (up to 60 characters, the same for everyone), a Picture (JPEG or PNG up to 5 MB) or a Document (PDF). | Shown above the message. Meta reviews a picture or document header with the file you give it, and sends that file with every message. |
+| Body | The message, up to 1,024 characters, with tags such as `{{first_name}}`. | What people read. Meta gets it with numbered variables (`{{1}}`, `{{2}}`) in the order the tags first appear. |
+| Samples for Meta's Review | A sample value for every tag in the body. | Meta reviews the message with them. |
+| If Empty | What to send when a person has no value for a tag. | Meta refuses a message with an empty value: without a fallback (or the tag's own default), that person's message fails. |
+| Footer | A small grey line, up to 60 characters, for example *Reply STOP to opt out*. | Shown under the message. |
+| Buttons | Up to 10: Link (at most 2), Quick Reply, Phone Number (at most 1). | A quick reply that starts with *Stop* opts the person out of WhatsApp when tapped. |
+| Save | A new version, still a draft. | Nothing goes to Meta yet. |
+| Submit to Meta | Sends the saved version for review. | The template is In Review; the status updates by itself when Meta decides, usually within minutes, at most 24 hours. |
+| Copy to Change | A draft copy, under a name of its own. | A template in review or approved does not change: Meta sends exactly what it approved. The copy is reviewed again. |
+| Activate | Makes an approved template usable by campaigns. | A template written here becomes active by itself when Meta approves it. |
+
+### Where Meta's review stands
+
+| Status | What it means |
+|---|---|
+| Not Submitted | Written here, not yet with Meta. |
+| In Review | Meta is reviewing it. |
+| Approved | Campaigns can send it. |
+| Rejected | Meta's reason is shown; change it and submit it again. |
+| Paused by Meta | Meta paused it for low quality (many people blocked or reported it). Campaigns cannot send it until Meta lifts the pause. |
+| Disabled by Meta | Meta switched it off; copy it to make a new version. |
+
+### A template made in WhatsApp Manager
+
+Sync from Meta brings in every template of the number's business account. One made in WhatsApp Manager keeps Meta's words: the editor shows them with Meta's numbers and asks which tag fills each number, and what to send when it is empty. It can be used once every number has a tag.
+
+## Set it up from start to finish
+
+The example throughout is a retailer, *City HT*, in Singapore, with the WhatsApp number +65 6812 4400. Every ID and value below is a made-up example: use your own.
+
+### Step 1: at Meta (the workspace's own accounts)
+
+1. **Business portfolio.** At business.facebook.com, create or choose the business portfolio (for example *City HT Pte Ltd*) and complete Meta's business verification (Settings → Security Centre). Unverified businesses can message far fewer people a day.
+2. **App.** At developers.facebook.com → My Apps → Create App, create a *Business* app (for example *City HT Messaging*) connected to that portfolio, and add the **WhatsApp** product to it. Meta creates a WhatsApp business account and a test number with it.
+3. **Phone number.** In WhatsApp Manager → Phone Numbers, add the real number (+65 6812 4400), verify it by SMS or voice call, and set the display name (*City HT*). Meta approves the display name. The number must not be in use on the WhatsApp or WhatsApp Business app.
+4. **Payment method.** In WhatsApp Manager → Billing (or Business Settings → Payments), add the card or credit line Meta charges per delivered message.
+5. **System user and token.** In Business Settings → Users → System Users, add a system user (role Admin), assign it the app and the WhatsApp account with full control, then **Generate New Token**: choose the app, expiry *Never*, and the permissions `whatsapp_business_messaging` and `whatsapp_business_management`. Copy the token: Meta shows it once.
+6. **Collect five values.** WhatsApp Business Account ID (for example `104883925517204`) and Phone Number ID (for example `118204576330981`) from WhatsApp Manager or the app's WhatsApp → API Setup page; the App ID and App Secret from the app's App Settings → Basic; and the token from step 5.
+
+> The temporary token on the API Setup page lasts 24 hours: never use it in CEP.
+
+### Step 2: in the back office (platform team)
+
+1. Back office → Tenants → open the workspace (for example *City HT*).
+2. Under **Industry and Features**, set **WhatsApp messages** to *On*, and save.
+3. Within a minute the workspace offers the WhatsApp engine, the WhatsApp tab in Templates and the WhatsApp channel in campaigns.
+
+### Step 3: connect the number (Settings → Delivery)
+
+1. **Add Engine** → Engine *WhatsApp · WhatsApp (Meta)*. Name: *City HT WhatsApp*. WhatsApp Business Account ID, Phone Number ID, Access Token and App Secret from step 1; App ID if templates will have a picture or document header. Leave Graph API Version empty. **Add Engine**.
+2. In the engine's row, **Copy Webhook URL** and **Copy Verify Token**.
+3. In the Meta app: WhatsApp → Configuration → Webhook → **Edit**. Paste the callback URL (for example `https://cepdev.aiintelekt.com/api/v1/webhooks/delivery/CITYHT/7f3c…/a1b2…/`) and the verify token, and **Verify and Save**. Meta calls the address once and CEP answers; a refusal here means the token or the address was not copied whole.
+4. Under Webhook fields, **Subscribe** to `messages` and `message_template_status_update` (and, if you want them, `message_template_quality_update` and `phone_number_quality_update`).
+5. Back in CEP, press **Check** on the engine. The row then reads, for example, *+65 6812 4400 · City HT · Quality High · 1,000 people a day*.
+6. **Add Sender**: Sends Through *City HT WhatsApp*, Name *City HT WhatsApp*, WhatsApp Number *+65 6812 4400*. Then **Verify**: CEP asks Meta whether the engine's number is this one, and the sender shows *Verified*.
+
+### Step 4: record WhatsApp consent
+
+WhatsApp is sent only to people with a WhatsApp opt-in, for every kind of campaign; consent to texts does not count. A list upload records it from a *WhatsApp consent date* column, for example:
+
+| email | first_name | mobile | whatsapp_consent_date |
+|---|---|---|---|
+| mei.ling@example.com | Mei Ling | +6591234471 | 2026-10-01 |
+| arif.rahman@example.com | Arif | +60124481902 | 2026-10-03 |
+
+Numbers need their country code. A date in the future, or one not recognised, records no consent.
+
+### Step 5: write a template and have Meta approve it
+
+1. Templates → **WhatsApp** card (or the WhatsApp tab → New Template). Name it *Weekend Offer*; start from **WhatsApp offer** or from blank.
+2. In the editor: WhatsApp Number *+6568124400 · City HT*; Name at Meta `weekend_offer`; Category *Marketing*; Language *English*; Header *None*.
+3. Body, for example: *Hi {{first_name}}, this weekend only: 20% off everything in store. Show this message at the till to get it.*
+4. Samples: `first_name` → *Mei Ling*. If Empty: `first_name` → *there*.
+5. Footer *Reply STOP to opt out*; Buttons: Quick Reply *Stop Offers*.
+6. **Save**, then **Submit to Meta**. The status is *In Review*; when Meta decides, it becomes *Approved* (and the template Active) or *Rejected* with Meta's reason.
+
+### Step 6: send a campaign
+
+1. Campaigns → Create Campaign: type *Regular Marketing*, channel **WhatsApp**.
+2. Content: choose *Weekend Offer* (it shows *Approved*); Sender *City HT WhatsApp*.
+3. Audience: the list from step 4.
+4. **Test Publish** to your own WhatsApp number: the approved template arrives with the samples Meta reviewed.
+5. **Publish**. Meta's reports fill the campaign's Recipients tab (Delivered, Read, Failed with Meta's reason) and its results (Read beside Delivered).
+
+## Test it
+
+Run these in order on a new set-up; each says what to look for.
+
+| # | Test | Do | Expect |
+|---|---|---|---|
+| 1 | The connection | Settings → Delivery → **Check** on the engine. | The number, name, quality and daily limit appear in the engine's row. A refusal names Meta's reason (most often the token). |
+| 2 | The callback address | Meta's **Verify and Save** in step 3. | Meta accepts it. In CEP the engine's Callbacks column shows a callback once Meta sends its first event. |
+| 3 | Sync | Templates → WhatsApp → **Sync from Meta**. | Meta's sample template `hello_world` (on a new account) and any template made in WhatsApp Manager appear, with Meta's status. |
+| 4 | A review round trip | Write a short Utility template and **Submit to Meta**. | *In Review*, then *Approved* within minutes, with no action in CEP: Meta's callback arrives. If it stays *In Review* for an hour, test 2 is not done. |
+| 5 | A refusal before Meta | Make the body end with a tag, for example *Your store is {{preferred_store}}*. | The editor says Meta would refuse it, and Save stays off. |
+| 6 | A test send | A WhatsApp campaign → **Test Publish** to your own number. | The message arrives on your phone. |
+| 7 | Consent | Publish to a small list: one person with WhatsApp consent, one with text consent only. | The first gets it; the second is left out as *No Consent*. |
+| 8 | Read | Open the message on the phone. | The campaign's Recipients tab shows the time it was read. |
+| 9 | Stop | Tap **Stop Offers** in the message. | The person is opted out of WhatsApp (Recipients: *Opted Out*); their text consent is unchanged. |
+| 10 | A number that cannot receive | Add a person whose number is not on WhatsApp. | *Failed: Not a WhatsApp number, or it cannot receive this message (Meta 131026)*. |
+
+## What happens behind the scenes
+
+- A WhatsApp message goes to people with a WhatsApp opt-in only, for every kind of campaign: Meta's rule. Consent to texts is not consent to WhatsApp.
+- A text STOP does not stop WhatsApp, and a WhatsApp STOP (typed, or a Stop quick reply) stops WhatsApp only.
+- Meta reports Sent, Delivered, Read and Failed for each message; the campaign's Recipients tab shows Read, and its results count reads.
+- Each person's values fill the approved template; the record of what they got is the template's words with their values.
+- Callbacks are checked with the App Secret (Meta's signature) as well as the address's own token, and the same callback delivered twice is applied once.
+
+## When something goes wrong
+
+| What you see | Why | What to do |
+|---|---|---|
+| Check: *Meta refused the access token* (Meta 190) | The token expired, was revoked, or is the 24-hour one. | Generate a system-user token with expiry Never (step 1.5) and paste it under Edit. |
+| Meta's Verify and Save fails | The callback URL or verify token was not copied whole, or WhatsApp is not on for the workspace. | Copy both again from the engine's row. |
+| Templates stay *In Review*; nothing on Recipients | Meta is not calling back: webhook fields not subscribed, or the app is not subscribed to the WhatsApp account. | Subscribe `messages` and `message_template_status_update`; if the account was not created by the app, subscribe the app to the account in Meta (subscribed apps). |
+| Meta says it sends callbacks, but the engine's Callbacks column never shows one | CEP refuses them: the App Secret in CEP is not this app's, so Meta's signature does not match. | Paste the right App Secret under Edit, or leave it empty to rely on the address's own token. |
+| *Failed … (Meta 131026)* | The number is not on WhatsApp, or cannot receive it. | Nothing to fix in CEP; the person can be reached by another channel. |
+| *Failed … (Meta 131049)* | Meta held a marketing message back: the person has had their share for now. | Counted as failed; try again another day. |
+| *Failed … (Meta 131042)* | Meta could not charge the account. | Fix the payment method in WhatsApp Manager. |
+| The run fails: *Meta has no approved template of this name and language* | The template was deleted or renamed in WhatsApp Manager. | Sync from Meta, then choose an approved template. |
+| *No value for {{tag}} and the template has no fallback* | That person has no value for the tag. | Give the tag an If Empty value and save (a written template needs a copy, reviewed again). |
+| Everyone is *No Consent* | Nobody has a WhatsApp opt-in yet. | Record consent (step 4). |
+
+## Things to know
+
+- Meta rejects a body that starts or ends with a tag, or that has two tags side by side; the editor says so before you submit.
+- Links in a WhatsApp message are not tagged with UTM parameters: Meta sends exactly the words and links it approved.
+- A new number may start conversations with only a few hundred people a day until it has a sending history; Settings → Delivery shows the number's daily limit and quality.
+- Marketing campaigns keep the workspace's quiet hours for texts.
+- Not yet built: drip campaigns and journeys on WhatsApp, POS e-receipts on WhatsApp, a reply inbox, Meta's charge per campaign.
+
+---
+
 # The Email Designer
 
 **Where:** Templates → an email template, or New Template → Email. Full screen, with Back to Templates at the top left and the help icon beside the template's name.
@@ -1114,7 +1284,7 @@ Each example is a complete recipe. Names, colours and addresses are placeholders
 
 # Setting Up a New Workspace
 
-**Where:** Settings → Workspace → Set-Up. The first sign-in of an administrator lands here while the workspace is not ready, and Home keeps a card pointing back until it is.
+**Where:** Settings → General → Set-Up. The first sign-in of an administrator lands here while the workspace is not ready, and Home keeps a card pointing back until it is.
 
 ## What this is
 
@@ -1136,7 +1306,9 @@ The platform team creates the workspace and sends its first administrator an ema
 3. **Sign in.** The workspace code, your email and the password. When the workspace requires multi-factor authentication, the next screen walks you through it before anything else: scan the code with an authenticator app, type the six digits, store the recovery codes.
 4. **You land on Set-Up.** An administrator whose workspace is not ready lands here instead of Home: *Welcome, {name}. Let's set up {CODE}.* with step 1 already done. Everyone else, and every later sign-in, lands on Home, where a card says how far the set-up is until the workspace is ready.
 
-### The seven steps, in order
+### The steps, in order
+
+Set-Up lists the steps of the components the workspace has: steps 1 and 2 for every workspace, 3 to 7 when it has Engagement, and **Connect the database your reports read** when it has Insights. A workspace with both sees eight steps; one with Insights alone sees three (sign in, team, database), and the database step is then required.
 
 | # | Step | What to do | Done when |
 |---|---|---|---|
@@ -1148,13 +1320,15 @@ The platform team creates the workspace and sends its first administrator an ema
 | 6 | Import your do-not-contact list, then your first contact list | Suppressions → Import the opt-outs from your previous system first, so no upload can reach them. Then Contact Lists → Create List → Upload a File: name it, say what it is for, match the columns, declare where the people agreed, review, import. | A production list with people. |
 | 7 | Decide who is told, and who approves (optional) | Notifications: the addresses or chat webhook that hear about failed sends. Approvals: whether a second person signs off before a production publish. API Keys: a key with `receipts:send` when the point of sale will send receipts. | A recipient, or approvals on, or a key. Optional. |
 
-**Ready** means steps 1, 2, 3, 4 and 6 are done. The Home card goes, and the page stays under Settings with the optional steps still listed.
+| 8 (Insights) | Connect the database your reports read (optional with Engagement) | Report Databases → Connect a Database: a read-only login to the database the reports read. | A Report Database is connected. |
+
+**Ready** means every step not marked optional is done: steps 1, 2, 3, 4 and 6 with Engagement; steps 1 to 3 with Insights alone. The Home card goes, and the page stays under Settings with the optional steps still listed.
 
 ### Before the first real send
 
 Worth setting while the workspace is quiet, each with its own chapter:
 
-- **Consent Policy** (Settings → Audience): what an upload does with people without a consent date, whether text lists need a text consent date, approval before a fresh list's first send, and the sentence uploaders confirm.
+- **Consent Policy** (Settings → Engagement): what an upload does with people without a consent date, whether text lists need a text consent date, approval before a fresh list's first send, and the sentence uploaders confirm.
 - **Preference Centre**: switch on when customers should choose topics; add the topics first and put `{{preference_url}}` in the templates' footer.
 - **Email Server**: your own SMTP server for password links and notifications, so they come from your domain.
 - **Tags**: the workspace's own personalization tags beyond the platform's catalogue.
@@ -1191,7 +1365,7 @@ Every load reads the users and roles, the engines and their last check, the send
 
 # Sending Engines and Senders
 
-**Where:** Settings → Sending → Sending Engines.
+**Where:** Settings → Engagement → Sending Engines.
 
 ## What this page is for
 
@@ -1279,6 +1453,21 @@ A rate is judged only from 50 messages or calls in its window, so a few test sen
 | Message Type | `marketing` (the default) or `transactional`. | Digivize applies its own rules per type; a marketing text without a STOP line is refused by Digivize. |
 | Callback Address to Send | Optional. Paste this engine's own callback address (Copy Webhook URL). | Digivize is asked to post delivery results there with every send. |
 | Webhook Secret | Optional. The secret given to Digivize for the callback. | Results are then verified; empty, the address's own token is the check. |
+
+**WhatsApp (Meta)**
+
+Offered once the platform team has switched WhatsApp on for the workspace. Each workspace uses its own Meta business account.
+
+| Field | What it is | What it changes |
+|---|---|---|
+| WhatsApp Business Account ID | Meta Business Settings → Accounts → WhatsApp Accounts, or WhatsApp Manager → Account Tools. | Where templates are submitted and synced. |
+| Phone Number ID | WhatsApp Manager → Phone Numbers: the ID of the number, not the number itself. | The number every message is sent from. |
+| Access Token | A permanent system-user token (Meta Business Settings → System Users) with whatsapp_business_messaging and whatsapp_business_management. Write-only. | Used on every send, Check, Submit and Sync; a refused token stops the run. |
+| App Secret | Optional. Your Meta app's secret (App Settings → Basic). Write-only. | Callbacks are then checked against Meta's signature as well as the address's own token. |
+| App ID | Optional. | Needed only to submit a template with a picture or document header: Meta reviews it with a sample file. |
+| Graph API Version | Optional. Empty means the version CEP was built for. | Which version of Meta's API is called. |
+
+After saving, paste the engine's callback address (Copy Webhook URL) and its verify token (Copy Verify Token) into Meta → WhatsApp → Configuration → Webhook, and subscribe to **messages** and **message_template_status_update**. Check reads the number from Meta: its display number, name, quality rating and how many people it may message a day. A WhatsApp sender is the number with its country code; Verify asks Meta whether the engine's number is that one, since WhatsApp sends no free-form test message.
 
 **Sandbox (sends nothing)**
 
@@ -1382,7 +1571,7 @@ The campaign's **Recipients** tab shows each message's story, and **Check with t
 
 # UTM Tracking
 
-**Where:** Settings → Sending → UTM Tracking, and on each campaign's Content step under **Link Tracking**.
+**Where:** Settings → Engagement → UTM Tracking, and on each campaign's Content step under **Link Tracking**.
 
 ## What this page is for
 
@@ -1436,7 +1625,7 @@ These choices are saved on their own, as you change them.
 
 **1. Switch UTM tracking on for your workspace** (needs Sending Engines · Edit)
 
-1. Open **Settings → Sending → UTM Tracking**.
+1. Open **Settings → Engagement → UTM Tracking**.
 2. Switch on **Email Campaigns**, **Text Campaigns**, or both.
 3. Under **Your Sites**, type each domain your links lead to (for example `northwindapparel.com`) and press **Add** or Enter. Subdomains such as `shop.northwindapparel.com` are included. If you paste a full address, only its domain is kept.
 4. Leave **Links That Already Have Tags** on **Keep their tags** unless every link must carry this workspace's values.
@@ -1519,7 +1708,7 @@ To stop tagging everywhere, switch off the channel on Settings → UTM Tracking 
 
 # Users
 
-**Where:** Settings → Workspace → Users.
+**Where:** Settings → General → Users.
 
 ## What this page is for
 
@@ -1574,7 +1763,7 @@ Who can sign in to the workspace, with which roles. People are invited by email 
 
 # Roles
 
-**Where:** Settings → Workspace → Roles.
+**Where:** Settings → General → Roles.
 
 ## What this page is for
 
@@ -1630,7 +1819,7 @@ Every API request checks the permission the endpoint needs against the union of 
 
 # Tags
 
-**Where:** Settings → Workspace → Tags.
+**Where:** Settings → Engagement → Tags.
 
 ## What this page is for
 
@@ -1684,7 +1873,7 @@ At send time the engine fills each tag from its source: the workspace's catalogu
 
 # Security
 
-**Where:** Settings → Workspace → Security.
+**Where:** Settings → General → Security.
 
 ## What this page is for
 
@@ -1750,7 +1939,7 @@ The issuer's configuration is fetched when you save, so a wrong address is refus
 
 # Approvals
 
-**Where:** Settings → Workspace → Approvals.
+**Where:** Settings → Engagement → Approvals.
 
 ## What this page is for
 
@@ -1789,7 +1978,7 @@ Asking emails every approver; the decision goes back to the person who asked. An
 
 # Plan & Usage
 
-**Where:** Settings → Workspace → Plan & Usage.
+**Where:** Settings → General → Plan & Usage.
 
 ## What this page is for
 
@@ -1833,7 +2022,7 @@ Usage is rolled up hourly from the sends, the contacts and the files; the meters
 
 # Email Server
 
-**Where:** Settings → Sending → Email Server.
+**Where:** Settings → Engagement → Email Server.
 
 ## What this page is for
 
@@ -1876,7 +2065,7 @@ Each message opens one connection to the server; a batch of campaign mail reuses
 
 # Notifications
 
-**Where:** Settings → Sending → Notifications.
+**Where:** Settings → Engagement → Notifications.
 
 ## What this page is for
 
@@ -1929,7 +2118,7 @@ Notifications are prepared inside the work they report on and sent after it, so 
 
 # Suppressions
 
-**Where:** Settings → Audience → Suppressions.
+**Where:** Settings → Engagement → Suppressions.
 
 ## What this page is for
 
@@ -1975,7 +2164,7 @@ The list reads two records: what happened to an address or number (a hard bounce
 
 # Preference Centre
 
-**Where:** Settings → Audience → Preference Centre.
+**Where:** Settings → Engagement → Preference Centre.
 
 ## What this page is for
 
@@ -2017,7 +2206,7 @@ The link carries a signed token naming the workspace, the person and the send; t
 
 # Consent Policy
 
-**Where:** Settings → Audience → Consent Policy.
+**Where:** Settings → Engagement → Consent Policy.
 
 ## What this page is for
 
@@ -2058,7 +2247,7 @@ The declaration (basis, where it was collected, who attested, when) is recorded 
 
 # Integrations
 
-**Where:** Settings → Integrations → Integrations.
+**Where:** Settings → Engagement → Integrations.
 
 ## What this page is for
 
@@ -2113,7 +2302,7 @@ Each call is paced by a per-minute limit (an API key's own, the plan's inbound l
 
 # API Keys
 
-**Where:** Settings → Integrations → API Keys.
+**Where:** Settings → General → API Keys.
 
 ## What this page is for
 
@@ -2162,7 +2351,7 @@ Only a hash of the key is stored; the prefix identifies it in the log. Each key 
 
 # POS Receipts
 
-**Where:** Settings → Integrations → POS Receipts.
+**Where:** Settings → Engagement → POS Receipts.
 
 ## What this page is for
 
@@ -2271,7 +2460,7 @@ The code is time-based (TOTP); the secret is stored encrypted. A recovery code w
 
 # Attribution
 
-**Where:** Settings → Integrations → Attribution.
+**Where:** Settings → Engagement → Attribution.
 
 ## What is attribution
 
@@ -2642,7 +2831,7 @@ Only customers in the customer records enter, since a message to someone unknown
 
 # Events
 
-**Where:** Settings → Integrations → Events.
+**Where:** Settings → Engagement → Events.
 
 ## What this page is for
 
@@ -2703,6 +2892,109 @@ The enrol job reads events every minute. An event counts for a journey that was 
 # Insights: Reports, Dashboards and Scheduled Delivery
 
 **Where:** Insights, in the app launcher (the grid icon at the top left), and the Insights item in Engagement's menu, which opens the same reports.
+
+## Terms and What They Mean
+
+The words Insights uses, in plain terms, with an example of each. The steps for each feature follow in this chapter.
+
+**Building a report**
+
+| Term | What it means | Example |
+|---|---|---|
+| Dataset | The table of data a report is built on, one row per thing recorded. | Messages: one row per email or text a campaign sent. |
+| Dimension | A field you group by: a word, a code or a date. | Channel, Campaign, Sent by Month. |
+| Measure | A number that adds up, with how it is totalled: Sum, Count, Distinct Count, Average, Min or Max. | Sent Count, Amount. |
+| Calculated Measure | A measure made from others, worked out on the totals of each row, never as an average of averages. | Open Rate is Opened ÷ Delivered. |
+| Field Wells | The editor where you drag fields into Rows, Columns, Values and Filters. | Channel into Rows, Sent Count into Values. |
+| Steps | The other editor: the same report written as numbered steps (Data, Filter, Summarize, Group By, Sort and Limit). | For people who prefer reading the question top to bottom. |
+| Report Filters | Questions a report asks above its rows before it runs. Every report asks Campaign, Channel and Period first. | Campaign: the latest campaign unless you pick another. |
+| Period | The span of dates a report or dashboard reads, such as Last 7 Days, Last Quarter or 90 Days. | Postal keeps about two months of mail, so email dashboards use 90 Days. |
+| Latest | A filter default that takes the value of the newest row, such as the campaign sent most recently. | Campaign KPIs opens on the latest campaign. |
+| Folder | A shelf for a workspace's reports. | Email Campaign Reports holds the 16 base reports. |
+| Version | Every saved state of a report or dashboard, with who and when; any one can be restored. | Versions → Restore puts last week's report back. |
+
+**Analysing**
+
+| Term | What it means | Example |
+|---|---|---|
+| Comparison | A column beside a measure that compares it over time or with a whole: Previous Period, Change, Last Year, Running Total, % of Total, Year to Date, Moving Average, Rank, % of Target. | Sent Count with Change vs Previous Month. |
+| Forecast | A dashed line carrying a chart's trend three periods on. A straight-line trend, not a promise. | Monthly sends, three months ahead. |
+| Flag Anomalies | Rings the points on a chart that sit far off its trend. | A week when sends dropped sharply. |
+| Custom Field | A field you add to one report: groups of values, number bands, if-then labels or a formula. | Regions made of states; Basket Size: Large or Small. |
+| Formula (Each Row) | A custom field worked out for every row of the data. | [Revenue] - [Cost]. |
+| Measure Formula | A custom field that adds up the rows of each group, like a calculated measure you write yourself. | Click to Open: DIVIDE(SUM([Clicked]), SUM([Opened])) * 100. |
+| Shared Formula | A formula saved on a dataset so every report on it uses the same definition. | Delivery Rate on Email Messages. |
+| Certified | A shared formula a report administrator has vouched for; only they can change it. | The tick beside Delivery Rate. |
+| Top N | Keeps the largest values and folds the rest into Others. | Top 5 campaigns by opens, the rest as Others. |
+| Drill Down | Clicking a value in a chart, pivot or hierarchy to see the level under it. | Click 2026 to see its quarters, then a quarter to see its months. |
+| Drill-Through | Right-clicking a value to open a detail report filtered to it. | Right-click a campaign → Campaign Detail for that campaign. |
+| Detail Report | A report others can open from a value of a field it takes. | Customer Detail, opened from a campaign. |
+| Tooltip Report | A report that appears as a small card when you rest the pointer on a value of a chart. | Hover a campaign's bar to see its detail. |
+| Linked Measures | Measures from a second dataset shown in the same report, matched on what both share (such as Campaign, Channel and the date), without writing a join. | Each campaign's sends from Messages beside its revenue from Attributed Orders. |
+| Key Influencers | Finds which groups push a rate or an average up (Raises It) or pull it down (Lowers It), with how far and over how many rows. It points to where to look; it does not prove a cause. | "When Channel is SMS" lowers Open Rate. |
+| Decomposition Tree | Breaks one total down step by step, a field at a time, so you see where it comes from. High Value and Low Value let AI choose the next field. | Revenue → by Channel → Online by Store → one store by campaign. |
+
+**Showing the numbers**
+
+| Term | What it means | Example |
+|---|---|---|
+| View | How a report shows: Grid, Chart, Hierarchy or Pivot. Switching keeps the fields. | The same report as a table or as bars. |
+| Hierarchy | Groups that fold over the next level, each with its subtotal. | Region, then State, then Store. |
+| Pivot | One dimension spread across as columns, a total on both edges. **All Values** shows every measure side by side (a matrix); **Trend Column** adds a small line per row. | Campaigns down, months across. |
+| Combo | A chart of bars and lines together; a line in another format reads on a scale on the right. | Sent Count as bars, Open Rate as a line. |
+| Small Multiples | The same chart repeated once per value of a field, on one scale. Called **Repeat By** in the chart. | One chart per channel. |
+| Map | A chart that shades US states or countries by a value. | Contacts by state. |
+| KPI Card and Gauge | One figure against a target: a card with the share of target, or an arc. | Journey conversion against a target of 30%. |
+| Conditional Formatting | Colours on the numbers: a colour scale, data bars, or rules shown as Good, Warning or Bad. Under **Format Values**. | Click to Open under 10% in red. |
+
+**Dashboards**
+
+| Term | What it means | Example |
+|---|---|---|
+| Dashboard | A page of tiles, every tile a saved report, all on one period. | Management Dashboard. |
+| Tile | One report on a dashboard, in one of its views, or as one figure. | Emails Sent as a large number. |
+| Compare With Previous Period | Adds the change against the period before to every figure. | Emails Sent, with its change on the 90 days before. |
+| Slicer | A filter chip on a dashboard that narrows every tile whose data has that field. | Pick a campaign; every tile shows that campaign. |
+| Cross-Filter | Clicking a bar, slice or cell narrows the other tiles to that value. | Click Gmail in Providers. |
+| Saved View | A dashboard's period, slicers, page and drills kept under a name, without changing the dashboard. | "Black Friday week". |
+| Free Canvas | A dashboard layout where tiles are dragged and resized freely. | A board view with a large chart and small figures. |
+| Written Summary | A tile in which AI writes a few sentences on a report's numbers for the period. | A few lines on the period's sends and deliveries. |
+
+**Where the data comes from**
+
+| Term | What it means | Example |
+|---|---|---|
+| Base Reports | Ready-made packs of datasets, formulas, reports and dashboards from the platform, added as the workspace's own copies. | Email Campaign Reports: 16 reports and 2 dashboards. |
+| Report Databases | The workspace's own MySQL, PostgreSQL or ClickHouse databases, connected read-only. | A MySQL database holding the mail server's tables. |
+| Map a Dataset | Turns a table of a connected database into a dataset, with labels and personal fields marked. | A stores table, mapped with Store Name and Region. |
+| Query Window | Where you write one SELECT against a connected database, run it, and keep it as a dataset. | Emails by status per day. |
+| Uploaded Files | CSV or Excel files brought in as datasets. **Replace File** refreshes them. | A store's POS sales export. |
+| Kept Results | A report on a connected database is kept for 15 minutes, so opening it again is instant; **Refresh** runs it now. | "Kept from 10:42". |
+| Freshness | How current the data is: **Live data**, or **Data as of the last quarter hour** on the analytics engine. | The line under a report's title says which. |
+| Fiscal Year | The month a workspace's financial year starts, for fiscal quarters, fiscal years and year to date. | Starts in April: FY2027 Q1. |
+
+**AI**
+
+| Term | What it means | Example |
+|---|---|---|
+| Ask for a Report | Describe a report in your own words, with a spec or a sketch if you like; AI drafts it on your data and you open it in the editor. | "Delivery rate by email provider for the latest campaign, as a bar chart." |
+| Run Details | The steps Ask for a Report takes, ticked as they finish. | Reading your documents, drafting, checking the draft. |
+| Explain | A few sentences on what a report's numbers say. Personal data is never sent. | Explain on Campaign KPIs. |
+| Change With a Prompt | Changes a report in the editor from a sentence; Undo puts it back. | "By provider only, as a bar chart." |
+
+**Sharing and control**
+
+| Term | What it means | Example |
+|---|---|---|
+| Share | Who may open a report or dashboard: everyone in the workspace, or chosen people and roles with Can View or Can Edit. | Share with the Marketing role, Can View. |
+| Embed Link | A secret link that shows a report or dashboard read-only on another site, without signing in. **Revoke** stops it. | A dashboard on the company intranet. |
+| Schedule | Emails a report or dashboard as a file on a timetable. Needs the workspace's mail server. | Every Monday at 8:00, as Excel. |
+| Alert | Emails you when a value crosses a threshold. | When Delivery Rate falls below 90%. |
+| Report Access | Rules that limit which rows a person or role sees, in every report, export and delivery. | A store manager sees only their store. |
+| Personal Data (PII) | Fields that identify a person, such as an email address; masked for anyone without the right. | Recipient in Customer Detail. |
+| Show the SQL | The statement the engine runs for a report, with the row rules in it. Nothing runs from it. | More Actions → Show the SQL. |
+| Run Log | Every run, export and delivery of the last 7 or 30 days, with who, the outcome and the time. For report administrators. | Why a schedule failed on Monday. |
+| Usage | Which reports and dashboards people open, and which nobody opens. | Reports Nobody Opened, to tidy away. |
 
 ## Step by step: the AI features
 
@@ -2791,7 +3083,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Share a report or a dashboard**
 
-1. Open it and press **Share** (the owner, or a report administrator).
+1. Open it, open **More actions** (the three dots) and choose **Share** (the owner, or a report administrator).
 2. Choose who can open it: **You and the people and roles below**, or **Everyone in the workspace**.
 3. Find a person or a role and add them. Give each **Can View** or **Can Edit**; Can Edit lets someone who builds reports change it. A role reaches everyone holding it.
 4. Press **Save**. The list shows a private report as shared.
@@ -2825,7 +3117,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Add slicers to a dashboard** (its owner or a report administrator)
 
-1. Open the dashboard and press **Edit**.
+1. Open the dashboard, open **More actions** (the three dots) and choose **Edit**.
 2. Under the period, press **Add Slicer** and choose a dimension, such as Channel or Store. The list shows the dimensions of the tiles' datasets, up to six.
 3. Remove one with its cross, then press **Done**.
 
@@ -2893,11 +3185,27 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. The dialog shows the statement the engine runs for you, with the values written in, and the linked dataset's statement when the report has one. Your row access rules are in it.
 3. **Copy** puts a statement on the clipboard. Nothing runs from this dialog.
 
-**Explain This Report, with AI**
+**Explain: What This Means, free, and What the Rows Show, with AI**
 
-1. Open a report and press **Explain**. The button is there when the platform allows it and the workspace's **Explain This Report** switch is on (Settings → AI Assistant).
-2. A panel above the rows says what they show in a few sentences, with the main points and what the rows cannot tell. The model reads the report's name, its columns and up to 100 of the rows you see; masked personal data is left out.
-3. Each explanation counts as one prompt. Check the figures before you act on them.
+1. Open a report, open **More actions** (the three dots) and choose **Explain**. A panel opens above the rows on **What This Means**: a verdict (On Track, Watch, Act or No Benchmark), up to four figures against their targets, **Why** with a link to the report each reason came from, and **Do Next**, at most three actions with a button each. It is written by set rules from the engine's own figures: it uses no AI, counts no prompt, shows at once and reads the same each time, so it is there in every workspace.
+2. On an Email Campaign report (Base Reports), it reads the campaign's delivery, hard bounces, opens and clicks, the most common failure reply, the links clicked and the five campaigns sent before it. **Export the Addresses** downloads the hard-failed recipients of the same campaign as a CSV (masked unless you may see personal data). On any other report, it judges the report's totals against the benchmarks set for its measures and names its largest and smallest group.
+3. **Copy as Email** puts the brief on the clipboard as plain text.
+4. **What the Rows Show** is the AI's few sentences on the rows, with the main points and what the rows cannot tell. The tab is there when the platform allows it and the workspace's **Explain This Report** switch is on (Settings → AI Assistant). The model reads the report's name, its columns and up to 100 of the rows you see; masked personal data is left out. It is asked only when you open the tab, and counts as one prompt. Check the figures before you act on them.
+
+**How What This Means stays accurate**
+
+- **A verdict only when the figures are sure of it.** For a rate made of a count and a base (Delivered of Sent), the engine works out its 95% range (the Wilson interval). When the whole range sits in one band, the verdict is plain (On Target); when it crosses a band's edge, it says **Likely** (Likely On Target). Under 30 in the base it says **Too Few to Judge**.
+- **Estimates are named.** Machine opens (Apple Mail Privacy Protection, scanners) are recognised from the email client, so People Who Opened is marked **≈** and estimated.
+- **Comparisons say what they compared.** "Earlier" is the campaigns sent before this one, pooled; the line at the bottom says how many and their dates. A later campaign is never used.
+- **Facts, not causes.** Each reason states a figure and links to the report it came from; none says one thing caused another.
+
+**Benchmarks**
+
+1. Open **Benchmarks** in the Insights menu. Everyone sees them; a report or user administrator changes them.
+2. **Add a Benchmark**: the dataset, the measure, whether higher or lower is better, **Good** and **Act**. Between them is Watch. Higher is better: Good at or above Good, Act below Act. Lower is better: the same the other way.
+3. For a rate, choose **Made Of: Count** and **Made Of: Base** (such as Delivered and Sent): then its 95% range is worked out, as above.
+4. After adding the Email Campaign Reports, **Add the Email Campaign Defaults** sets four at once: Delivery Rate (Good 95%, Act under 90%), Bounce Rate (Good 2% or less, Act over 5%), Click-Through Rate (Good 1.5%, Act under 0.5%) and Unsubscribe Rate (Good 0.3% or less, Act over 0.5%). Change them to your own.
+5. Without a benchmark, What This Means states the figures and says it cannot judge them, with **Set a Benchmark**.
 
 **Change a report with a prompt, with AI**
 
@@ -2913,7 +3221,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Embed a report or a dashboard on another site**
 
-1. Open it. For a report, choose **More actions → Embed on Another Site**; for a dashboard, press **Embed** (its owner, or a report administrator).
+1. Open it and choose **More actions → Embed on Another Site** (its owner, or a report administrator).
 2. Add a label for where it goes, choose when it expires, and press **Make a Link**.
 3. Copy the **Address**, or the **Code to paste into a page** (an iframe). The link is shown only once.
 4. Anyone with the link sees the item read-only, without signing in, as you see it: your row access rules apply and personal data is always masked. **Revoke** stops a link at once.
@@ -3016,7 +3324,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Get an email when a value crosses a threshold (Alerts)**
 
-1. Open the report and press **Alerts**.
+1. Open the report, open **More actions** and choose **Alerts**.
 2. Under **New Alert**, choose the value (**When**), the **Condition** (falls below, is at or below, rises above, is at or above) and the **Threshold**. For a percentage, 90 means 90%.
 3. Choose **Check**: Every Day at a time, or Every Hour. Add the addresses to email (people without the right to build reports alert themselves only), and an optional name. Press **Set Alert**.
 4. The value is the report's value over its own filters. When it crosses the threshold you get one email; you are emailed again only after it goes back and crosses again.
@@ -3024,14 +3332,14 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Comment on a report or a dashboard, and pin a note to a value**
 
-1. Open the report or dashboard and press **Comments**. Write in the box at the bottom and press **Add Comment**.
+1. Open the report or dashboard, open **More actions** and choose **Comments**. Write in the box at the bottom and press **Add Comment**.
 2. To pin a note to a value, right-click it on a chart or a table and choose **Comment on This Value**. The chart then marks that value, and hovering it shows the note.
 3. On a dashboard, a tile's speech-bubble icon opens comments on that tile, with the count beside it.
 4. **Resolve** puts a thread among the resolved; **Open again** brings it back. You change or delete your own comments; the owner and report administrators delete any.
 
 **Export to PowerPoint**
 
-1. For a report, open **More actions** (the three dots) and choose **Export PowerPoint**. For a dashboard, press **Export PowerPoint**.
+1. Open the report or dashboard, open **More actions** (the three dots) and choose **Export PowerPoint**.
 2. The deck has a cover, then a slide per tile (or for the report's view): bars, lines, areas, stacks, pies and funnels as charts you can edit in PowerPoint, figures as large numbers, text and summaries as words, other views as tables.
 3. A schedule can send PowerPoint too: choose it under **Send as**.
 
@@ -3174,6 +3482,19 @@ Insights → Reports lists every report you can open, grouped by its component (
 4. The preview runs as you build, up to the preview cap. The line above it says how many rows, how long, and how fresh the data is.
 5. **Save** writes a new version. Cancel drops the changes.
 
+### Base Reports: ready-made reports from the platform
+
+**Add Base Reports** on Insights → Reports offers the platform's ready-made **packs**: datasets, shared formulas, reports and dashboards that work together. You see the packs your workspace's components fit; one the platform team chose for you when the workspace was set up is marked **Chosen at Onboarding**. A pack is added as this workspace's own copies, filed in a folder named after it; you may change them like any report, and a later version of the pack never changes them. Adding a pack needs report administration.
+
+The first pack is **Email Campaign Reports**, the reports of CmpReport on the mail server's own tables: Campaign KPIs, Campaign Send Status, Delivery Outcomes, Failure and Bounce Reasons, Provider Performance, Retry Analysis, Contact-List Quality, Link Clicks, Opens by Device and Client, Opens over Time, Customer Detail, Unsubscribes, Campaign Comparison and the best and worst campaigns, with a **Management Dashboard** (every campaign in the period) and a **Campaign Performance** dashboard (one campaign, the latest unless you pick another).
+
+1. Press **Add Base Reports**, then **See What's in It** to read a pack's contents, and **Add to** your workspace. A pack that needs a database you have not connected says so, with a link to Report Databases.
+2. **Your data**: pick the **Connection** that holds the mail server's tables. The databases on it holding every table the pack reads are listed with their messages and campaign emails; those with campaign mail are ticked. **Campaign Names** offers the tables that hold a campaign's name beside its id; without one, a campaign is named from its subject and first send. **Leave Out** drops campaigns whose name contains any of the words (test sends, client lists). **Unsubscribe Link Contains** tells a click on the unsubscribe link from a click on the content.
+3. **Check** runs each dataset once and says how many campaigns were sent in the last 90 days. **Add Reports** then makes everything in one go: if any part does not fit, nothing is added and the message names the part.
+4. The last step lists what was made; **Open Campaign Performance** opens the dashboard.
+
+A campaign email is one whose mail-server tag carries a campaign id; e-receipts, which carry one too, are left out. The mail server keeps about two months of mail, so older campaigns drop out of the reports as their mail is removed.
+
 ### Ask for a Report, with AI
 
 When an AI provider with a key is switched on (the platform's, or your workspace's own) and your workspace allows AI (Settings → AI Assistant), people who can build reports see **AI Reports** in the Insights menu, above Reports. Its page holds the prompt box, **Run Details** below it and **Prompt History** below that.
@@ -3220,12 +3541,15 @@ Opening a report runs it and shows the saved view. Above the rows: the view swit
 - **Kept results and Refresh:** a report on one of your Report Databases is kept for 15 minutes (other reports for a minute), so opening it again, or a dashboard with it, is instant. The line under the title then says **kept from 10:42**. **Refresh** runs it again now.
 - **Why some reports take longer:** a report on your own database runs there, live. One that adds up a whole month of a large table (millions of rows) can take half a minute; one that lists the newest rows, or one campaign's day, is quick. A date filter on a day worked out from a date and time (such as DATE(SENT_AT)) is run on the date and time itself, so the database's index can help.
 
-| Button | What it does |
+Component and Folder sit beside the title; every other action is in the **More actions** menu (the three dots), so the whole list fits on any screen. The menu is grouped: Explain and Edit; Share, Comments, Alerts, Schedule and Versions; the exports and Print-Ready PDF; Show the SQL and Embed on Another Site; Delete last.
+
+| Action | What it does |
 |---|---|
 | Component | Lists the report under another component of the suite, or Automatic (its data's); it moves at once (owner or administrator). |
 | Folder | Files the report in a folder, or in a new one (owner or administrator). |
 | Versions | Every saved version with who, when and the note. **Open** shows one as it was, read-only, with Back to Current. **Restore** makes it the current version again, as a new version; nothing is lost. |
 | Schedule | Emails the report on a schedule (below). |
+| Explain | What This Means (free, by rules) and, where the AI is on, What the Rows Show (above). |
 | Edit | The editor (owner or administrator). |
 | Export CSV, Export Excel, Export PDF | The report as a file: CSV the rows; Excel the view with its totals first and the rows after, with number formats; PDF the view styled for paper. |
 | Delete | Removes the report and its versions (owner or administrator). |
@@ -3241,11 +3565,12 @@ A dashboard is a page of tiles, each tile a saved report in one of its views or 
 - **Slicers**: in the editor, **Add Slicer** picks a dimension the tiles' datasets share (Channel, Store, Campaign…), up to six. Viewing, each slicer is a chip under the period; open it, tick values and **Apply**, and every tile whose data has that field runs narrowed to them. A tile without the field says **Not sliced by** it. **Clear** takes the values off.
 - **Cross-filtering**: click a bar, a slice of a pie, a stage of a funnel or a cell in a grid tile, and the other tiles narrow to that value. When the field is not one of the dashboard's slicers, a chip appears for it with a cross to take it off. Clicking the same value again clears it.
 - Viewing a dashboard, you can switch the period, the comparison and the slicers for a look without saving; nothing of a selection is saved, and a PDF or a scheduled delivery is the dashboard as saved.
+- A dashboard's actions are in **More actions** (the three dots), as a report's are: Edit; Share, Comments and Schedule; Export PDF and Export PowerPoint; Embed on Another Site; Delete last.
 - **Export PDF** gives the dashboard with its tiles on its saved period; **Schedule** emails it as PDF.
 
 ## Scheduled delivery
 
-Press **Schedule** on a report or a dashboard:
+Choose **Schedule** in **More actions** on a report or a dashboard:
 
 | Field | Meaning |
 |---|---|

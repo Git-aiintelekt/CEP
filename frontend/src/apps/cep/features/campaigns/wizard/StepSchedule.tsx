@@ -46,7 +46,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
   const scheduledAt = watch('scheduled_at')
   const recurring = watch('recurring')
   const marketing = watch('solicitation_type') === 'MARKETING'
-  const texts = ['SMS', 'MMS'].includes(watch('channel'))
+  const texts = ['SMS', 'MMS', 'WHATSAPP'].includes(watch('channel'))
   const touch = { shouldDirty: true, shouldValidate: true }
 
   if (type === 'E_RECEIPT') {

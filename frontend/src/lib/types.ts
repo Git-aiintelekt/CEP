@@ -78,7 +78,7 @@ export interface SuiteComponent {
 
 export type Feature =
   | 'email' | 'sms' | 'mms' | 'ereceipt' | 'journeys' | 'ab_testing' | 'loyalty' | 'api_access' | 'webhooks' | 'sso' | 'custom_domain' | 'scoring'
-  | 'dynamic_codes'
+  | 'dynamic_codes' | 'whatsapp'
 
 /** POST /auth/token/ answers tokens, or asks for the second factor */
 export interface LoginResult extends Partial<TokenPair> {
@@ -173,8 +173,8 @@ export interface ProviderType {
   supports_webhooks: boolean
   /** false: created by another screen (SMTP follows Settings -> Email server) */
   manageable: boolean
-  /** EMAIL, or SMS for text engines (they carry MMS too when supports_mms) */
-  channel?: 'EMAIL' | 'SMS'
+  /** EMAIL, SMS for text engines (they carry MMS too when supports_mms), or WHATSAPP */
+  channel?: 'EMAIL' | 'SMS' | 'WHATSAPP'
   supports_mms?: boolean
   /** a secret field's `credential` says which of the engine's credentials it is: the main one, or the second one for transactional traffic */
   fields: { key: string; label: string; required: boolean; secret: boolean; help: string; placeholder: string; kind: 'text' | 'url' | 'textarea'; credential?: 'secret' | 'transactional_secret' | null }[]
@@ -422,7 +422,7 @@ interface Audited {
   row_version: number
 }
 
-export type Channel = 'EMAIL' | 'SMS' | 'MMS' | 'E_RECEIPT' | string
+export type Channel = 'EMAIL' | 'SMS' | 'MMS' | 'E_RECEIPT' | 'WHATSAPP' | string
 
 export interface CampaignRun extends Audited {
   campaign: string
@@ -919,15 +919,17 @@ export interface CampaignInput {
 export interface SenderProfile {
   id: string
   display_name: string
-  channel: 'EMAIL' | 'SMS' | 'MMS'
+  channel: 'EMAIL' | 'SMS' | 'MMS' | 'WHATSAPP'
   from_address: string | null
   reply_to_address: string | null
   sender_id: string | null
   verification_status: 'PENDING' | 'VERIFIED' | 'FAILED'
   is_default: boolean
-  /** POSTAL, DIGIVIZE, OTHER_ESP, OTHER_SMS or SMTP (the workspace's own mail server) */
+  /** POSTAL, DIGIVIZE, OTHER_ESP, OTHER_SMS, SMTP (the workspace's own mail server) or WHATSAPP_META */
   provider_type?: string
   provider_name?: string
+  /** the engine it sends through */
+  delivery_provider?: string
 }
 
 export type ListSource = 'UPLOAD' | 'BI' | 'CLONE'
@@ -1204,6 +1206,65 @@ export interface Template extends Audited {
   campaign_count?: number
   /** the drip message using it, or null; locked: the drip is live, so the template can't be changed */
   used_in_drip?: { campaign_id: string; campaign_name: string; position: number; count: number; locked: boolean } | null
+  /** WhatsApp templates: Meta's name and where its review stands; null for other channels */
+  whatsapp?: WhatsAppSummary | null
+}
+
+export type WhatsAppStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAUSED' | 'DISABLED'
+export type WhatsAppCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+
+export interface WhatsAppSummary {
+  meta_status: WhatsAppStatus
+  meta_name: string
+  language: string
+  category: WhatsAppCategory
+  /** CEP: written here; META: made in WhatsApp Manager and synced */
+  origin: 'CEP' | 'META'
+  meta_reason: string | null
+  meta_quality: string | null
+  engine: string | null
+}
+
+export interface WhatsAppButton {
+  type: 'URL' | 'QUICK_REPLY' | 'PHONE_NUMBER'
+  text: string
+  url?: string
+  phone?: string
+}
+
+/** One of Meta's numbered variables: the tag that fills it, the sample Meta reviews it with, what is sent when the tag is empty */
+export interface WhatsAppVariable {
+  tag: string
+  sample: string
+  fallback: string
+}
+
+/** GET /templates/{id}/whatsapp/ */
+export interface WhatsAppTemplate extends WhatsAppSummary {
+  template: string
+  name: string
+  status: string
+  version_number: number
+  engine_name: string | null
+  header_type: 'NONE' | 'TEXT' | 'IMAGE' | 'DOCUMENT' | 'VIDEO'
+  header_text: string
+  header_media: { id: string; url: string | null; file_name: string; mime_type: string; byte_size: number } | null
+  /** with {{tags}} */
+  body: string
+  /** what Meta has: {{1}}, {{2}} */
+  meta_body: string
+  footer_text: string
+  buttons: WhatsAppButton[]
+  variables: WhatsAppVariable[]
+  meta_template_id: string | null
+  submitted_at: string | null
+  decided_at: string | null
+  synced_at: string | null
+  /** false once it is with Meta (in review or approved), and always for one made in WhatsApp Manager */
+  editable: boolean
+  row_version: number
+  findings: { characters: number; max_characters: number; tags_used: string[]; unknown_tags: string[]; starts_or_ends_with_tag: boolean; adjacent_tags: boolean;
+              too_many_tags: boolean; missing_opt_out: boolean }
 }
 
 /** GET /template-starters/ : the gallery offered when creating a template */

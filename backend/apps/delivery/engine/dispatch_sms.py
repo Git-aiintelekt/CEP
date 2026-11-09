@@ -1,8 +1,12 @@
-"""Sends one batch of queued text executions (SMS or MMS) through the run's aggregator adapter. The text twin of dispatch.py:
+"""Sends one batch of queued phone executions (SMS, MMS or WhatsApp) through the run's engine adapter. The text twin of dispatch.py:
 claim (QUEUED -> SUBMITTED, committed) -> render -> provider.send -> record (committed), so nothing is ever texted twice.
 
 What is recorded per message, because texts are regulated: the exact text sent, its number of parts (what the carrier bills),
 the values merged in for this person, the sender number, and the aggregator's answer.
+
+A WhatsApp message is the approved template and this person's values for its numbers, each a tag's value or the template's
+fallback when the tag is empty; the record is the template's words with those values. Links are never tagged: Meta sends
+exactly the words it approved.
 """
 import json
 import logging
@@ -15,7 +19,7 @@ from apps.customers.models import CustomerMaster
 from apps.templates import design
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
-from ..providers import Outcome, ProviderError, SmsMessage, registry
+from ..providers import Outcome, ProviderError, SmsMessage, WhatsAppMessage, registry
 from . import content as run_content, linktags, session
 from .dispatch import MAX_ATTEMPTS, RetryBatch, _as_dict
 from .render import Renderer
@@ -30,7 +34,12 @@ def _load(tenant_id, run_id):
         _, content, _ = run_content.of_run(run)                 # a drip message's text is its own template's body
         tags = list(PersonalizationTag.objects.filter(tenant_id=tenant_id, is_active=True, deleted_at__isnull=True))
         tenant_code = campaign.tenant.code
-    return run, campaign, content, tags, tenant_code
+        template = run.drip_step.template if run.drip_step_id else campaign.template
+        whatsapp = None
+        if template is not None and template.channel == "WHATSAPP":
+            from apps.templates.models import WhatsAppTemplate
+            whatsapp = WhatsAppTemplate.objects.select_related("header_media_asset").filter(template=template).first()
+    return run, campaign, content, tags, tenant_code, whatsapp
 
 
 def text_content(content) -> SimpleNamespace:
@@ -73,13 +82,15 @@ def _dead_letter(tenant_id, run_id, claimed, reason) -> None:
 
 def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
     """Must be called inside session.tenant_scope(tenant_id). Raises RetryBatch when some messages should be tried again."""
-    run, campaign, content, tags, tenant_code = _load(tenant_id, run_id)
+    run, campaign, content, tags, tenant_code, whatsapp = _load(tenant_id, run_id)
     if run.status not in ("SENDING", "PREPARING"):
         return {"skipped": len(execution_ids), "reason": f"run is {run.status}"}
     provider_row = campaign.sender_profile.delivery_provider
     renderer = Renderer(campaign=campaign, run=run, content=text_content(content), tags=tags)
     with session.tx():
         tagger = linktags.Tagger(campaign, "SMS", session.connection().alias, renderer)
+    if whatsapp is not None:
+        tagger.on = False                                   # Meta sends the approved words: a changed link would not match them
     counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0, "parts": 0}
     retry_ids, retry_reason = [], ""
 
@@ -105,7 +116,18 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                     with session.connection().cursor() as cursor:
                         cursor.execute("SELECT custom_value_pairs FROM campaign_list_member WHERE tenant_id = %s AND id = %s", [str(tenant_id), member_id])
                         found = cursor.fetchone()
-                rendered = renderer.render(customer=customer, member={"custom_value_pairs": _as_dict(found[0]) if found else {}}, system={"phone": phone})
+                member = {"custom_value_pairs": _as_dict(found[0]) if found else {}}
+                if message_type == "WHATSAPP":
+                    message, problem = whatsapp_message(whatsapp, renderer, customer=customer, member=member, phone=phone, from_sender=from_sender or "",
+                                                        media_url=media_url, idempotency_key=idempotency_key, tag=campaign.code or "",
+                                                        metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)})
+                    if problem:
+                        _record(tenant_id, execution_id, member_id, status="FAILED", text=message.text or None, used=renderer.used, reason=problem)
+                        counts["failed"] += 1
+                        continue
+                    prepared.append((execution_id, member_id, claimed, message.text, {"segments": None}, message))
+                    continue
+                rendered = renderer.render(customer=customer, member=member, system={"phone": phone})
                 text = rendered["text"].strip()
                 if tagger.on:
                     with session.tx():
@@ -144,7 +166,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 _record(tenant_id, execution_id, member_id, status="SUBMITTED", message_id=result.provider_message_id, text=text, segments=metrics["segments"],
                         used=renderer.used, answer=answer)
                 counts["submitted"] += 1
-                counts["parts"] += metrics["segments"]
+                counts["parts"] += metrics["segments"] or 0
             elif result.outcome is Outcome.REJECTED:
                 _record(tenant_id, execution_id, member_id, status="FAILED", reason=result.reason, text=text, segments=metrics["segments"], used=renderer.used, answer=answer)
                 counts["failed"] += 1
@@ -162,6 +184,25 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
     if retry_ids:
         raise RetryBatch(retry_ids, retry_reason)
     return counts
+
+
+def whatsapp_message(row, renderer, *, customer: dict, member: dict, phone: str, from_sender: str, media_url: str | None, idempotency_key: str, tag: str,
+                     metadata: dict | None = None) -> tuple[WhatsAppMessage, str | None]:
+    """-> (the message, why it cannot go). Each of Meta's numbers gets its tag's value, or the template's fallback."""
+    from apps.templates import whatsapp
+    variables = row.variables or []
+    found = renderer.values([v.get("tag") or "" for v in variables], customer=customer, member=member, system={"phone": phone})
+    values = [" ".join((value or variables[i].get("fallback") or "").split()) for i, value in enumerate(found)]   # Meta refuses line breaks and tabs in a value
+    message = WhatsAppMessage(to_number=phone, template_name=row.meta_name, language=row.language, body_values=values, header_type=row.header_type,
+                              header_link=media_url if row.header_type in ("IMAGE", "DOCUMENT", "VIDEO") else None,
+                              header_filename=row.header_media_asset.file_name if row.header_media_asset_id else "",
+                              text=whatsapp.filled(row.body, values), from_sender=from_sender, idempotency_key=idempotency_key, tag=tag, metadata=metadata or {})
+    empty = [variables[i].get("tag") or str(i + 1) for i, value in enumerate(values) if not value]
+    if empty:
+        return message, f"No value for {', '.join('{{' + key + '}}' for key in empty)} and the template has no fallback for it"
+    if row.header_type in ("IMAGE", "DOCUMENT", "VIDEO") and not media_url:
+        return message, "The template's header file has no public address"
+    return message, None
 
 
 def fail_queued(tenant_id, run_id, reason: str, execution_ids: list[int] | None = None) -> int:
@@ -183,6 +224,8 @@ def send_test(tenant_id, campaign, to: list[str], *, step=None, prefix: str = "[
         provider_row = sender.delivery_provider
         media = design.message_media_url(template) if template.channel == "MMS" else None
     samples = {tag.tag_key.strip("{} "): tag.sample_value for tag in tags if tag.sample_value}
+    if template.channel == "WHATSAPP":
+        return _send_whatsapp_test(template, campaign, sender, provider_row, to, step=step)
     renderer = Renderer(campaign=campaign, run=None, content=text_content(content), tags=[])
     rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={})
     rendered["text"] = linktags.Tagger(campaign, "SMS", session.connection().alias, renderer).sms(rendered["text"])
@@ -194,4 +237,27 @@ def send_test(tenant_id, campaign, to: list[str], *, step=None, prefix: str = "[
                                               idempotency_key=f"test:{campaign.pk}:{getattr(step, 'pk', '')}:{timezone.now().timestamp():.0f}", tag="test"))
             results.append({"to": number, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id,
                             **({"text": text, "media_url": media} if step is not None else {})})
+    return results
+
+
+def _send_whatsapp_test(template, campaign, sender, provider_row, to: list[str], *, step=None) -> list[dict]:
+    """The approved template with the samples Meta reviewed it with. WhatsApp sends no "[TEST]" mark: Meta sends only its approved words."""
+    from apps.templates import whatsapp
+    with session.tx():
+        row = whatsapp.row_of(template)
+        problem = next(iter(whatsapp.blockers(template).values()), None)
+        link = whatsapp.header_link(template)
+    if problem:
+        return [{"to": number, "ok": False, "detail": problem} for number in to]
+    values = [v.get("sample") or v.get("fallback") or "" for v in row.variables or []]
+    results = []
+    with registry.for_provider(provider_row) as provider:
+        for number in to:
+            message = WhatsAppMessage(to_number=number, template_name=row.meta_name, language=row.language, body_values=values, header_type=row.header_type,
+                                      header_link=link, header_filename=row.header_media_asset.file_name if row.header_media_asset_id else "",
+                                      text=whatsapp.filled(row.body, values), from_sender=sender.sender_id or "", tag="test",
+                                      idempotency_key=f"test:{campaign.pk}:{getattr(step, 'pk', '')}:{timezone.now().timestamp():.0f}")
+            result = provider.send(message)
+            results.append({"to": number, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id,
+                            **({"text": message.text, "media_url": link} if step is not None else {})})
     return results

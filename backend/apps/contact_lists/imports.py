@@ -59,6 +59,8 @@ PROPERTIES = {
                      ("consentdate", "optindate", "optin", "consent", "subscribedat", "subscribedate", "optindatetime", "emailconsentdate", "emailconsent", "emailoptin", "emailoptindate")),
     "sms_consent_date": ("Text consent date", False, "Recorded as a text (SMS) opt-in for people C360 has no consent answer for. It never overrides a STOP.",
                          ("textconsentdate", "smsconsentdate", "textconsent", "smsconsent", "smsoptin", "textoptin", "smsoptindate", "textoptindate", "mobileconsent", "mobileoptin", "mobileconsentdate")),
+    "whatsapp_consent_date": ("WhatsApp consent date", False, "Recorded as a WhatsApp opt-in for people C360 has no WhatsApp consent answer for. WhatsApp needs its own opt-in; it never overrides an opt-out.",
+                              ("whatsappconsentdate", "whatsappconsent", "whatsappoptin", "whatsappoptindate", "waconsentdate", "waconsent", "waoptin")),
 }
 # the column an upload must have, by what the list is for
 REQUIRED = {"EMAIL": ("email",), "SMS": ("mobile",), "BOTH": ("email", "mobile")}
@@ -342,7 +344,7 @@ def _expressions(mapping: dict, channel: str = "EMAIL") -> tuple[dict, dict]:
                                     WHEN length({digits}) = 10 THEN '+1' || {digits}
                                     WHEN length({digits}) = 11 AND {digits} LIKE '1%%' THEN '+' || {digits}
                                     ELSE NULL END"""
-    for key in ("last_order_date", "consent_date", "sms_consent_date"):
+    for key in ("last_order_date", "consent_date", "sms_consent_date", "whatsapp_consent_date"):
         value[f"{key}_ok"] = f"({value[key]} IS NOT NULL AND pg_input_is_valid({value[key]}, 'date'))"
     value["timezone_ok"] = f"({value['timezone']} IS NOT NULL AND {value['timezone']} IN (SELECT name FROM pg_timezone_names))"
     params["email_re"] = EMAIL_RE
@@ -604,7 +606,7 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                 ORDER BY r.matched_party_id, r.row_number
                                ON CONFLICT (tenant_id, contact_list_id, party_id) DO NOTHING""", params)
             added += cursor.rowcount
-            for consent_column, consent_channel in (("consent_date", "EMAIL"), ("sms_consent_date", "SMS")):
+            for consent_column, consent_channel in (("consent_date", "EMAIL"), ("sms_consent_date", "SMS"), ("whatsapp_consent_date", "WHATSAPP")):
                 if consent_column not in record.column_mapping:
                     continue
                 cursor.execute(f"""WITH given AS (
