@@ -300,7 +300,7 @@ def default_targets() -> list[tuple[str, str, str | None]]:
     """The API's health address, the app's first page and the back-office sign-in, from the installation's public addresses."""
     from apps.platform_ops import params
     api = params.public_api_url()
-    app = settings.FRONTEND_URL.rstrip("/")
+    app = params.frontend_url()
     admin = settings.PLATFORM_ADMIN_URL.rstrip("/")
     return [(name, url, text) for name, url, text in (("API health", f"{api}/healthz", None), ("App", f"{app}/", 'id="root"'),
                                                        ("Back-office sign-in", f"{admin}/admin/login/", None)) if url.startswith("http")]

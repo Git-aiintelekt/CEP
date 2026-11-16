@@ -74,6 +74,7 @@ export default function App() {
             <Route path="/set-password" element={<SetPasswordPage />} />
             <Route path="/sso/complete" element={<TokenLandingPage kind="sso" />} />
             <Route path="/support-session" element={<TokenLandingPage kind="support" />} />
+            <Route path="/launch" element={<TokenLandingPage kind="launch" />} />
             <Route path="/embed/:code/:secret" element={<Suspense fallback={<FullPageSpinner label="Loading" />}><EmbedPage /></Suspense>} />
             {DesignerPlayground && (
               <Route path="/dev/designer" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the designer" />}><DesignerPlayground /></Suspense></EditorScope>} />

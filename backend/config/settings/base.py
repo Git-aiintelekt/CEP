@@ -83,7 +83,7 @@ DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 DATABASES["platform"] = env.db("PLATFORM_DATABASE_URL", default=env("DATABASE_URL", default="postgres://cep:cep@127.0.0.1:5432/cep_pool"))
 PLATFORM_ALIAS = "platform"
 PLATFORM_PATH_PREFIXES = ("/admin/",)
-FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")      # where one-time password links point
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")      # bootstrap only: the platform.frontend_url parameter wins
 API_PUBLIC_URL = env("API_PUBLIC_URL", default="http://localhost:8000")
 CEP_RELEASE = env("CEP_RELEASE", default="")                                 # shown on each recorded error; empty = the git commit at start-up   # the address an identity provider redirects back to
 PLATFORM_ADMIN_URL = env("PLATFORM_ADMIN_URL", default=API_PUBLIC_URL)    # linked from alert emails
@@ -117,7 +117,7 @@ CLICKHOUSE_DATABASE = env("CLICKHOUSE_DATABASE", default="cep_reporting")
 DATABASE_ROUTERS = ["apps.tenants.router.TenantRouter"]
 CONTROL_PLANE_ALIAS = "default"
 CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config",
-                        "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "platform_visit", "tenant_identity_provider",
+                        "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "platform_visit", "tenant_identity_provider", "tenant_ofbiz_link",
                         "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag",
                         "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "security_check", "security_finding", "tenant_quota_grant",
                         "suite_component", "plan_component", "tenant_component",

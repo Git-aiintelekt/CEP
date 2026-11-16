@@ -22,7 +22,7 @@ from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from . import crypto
+from . import crypto, params
 
 log = logging.getLogger("cep.mail")
 P = settings.PLATFORM_ALIAS
@@ -102,7 +102,7 @@ def send(template: str, to: list[str] | str, context: dict, *, subject: str, ten
     recipients = [to] if isinstance(to, str) else [address for address in to if address]
     if not recipients:
         return False
-    context = {"product": settings.EMAIL_PRODUCT_NAME, "frontend_url": settings.FRONTEND_URL.rstrip("/"), **context}
+    context = {"product": settings.EMAIL_PRODUCT_NAME, "frontend_url": params.frontend_url(), **context}
     text = render_to_string(f"email/{template}.txt", context)
     html = render_to_string(f"email/{template}.html", context)
     try:

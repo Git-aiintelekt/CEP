@@ -89,7 +89,8 @@ class CepJWTAuthentication(JWTAuthentication):
          sign-in security, and stops working the moment it is ended or expires;
        * a visit (claim `visit`, Switch Workspace): a platform administrator in another workspace as themselves, read through the
          platform connection (the workspace's row-level security hides them), only in that workspace and while the visit is open;
-       * a user who must enrol MFA first (claim `mfa_setup`) reaches only the enrolment endpoints and /me."""
+       * a user who must enrol MFA first (claim `mfa_setup`) reaches only the enrolment endpoints and /me;
+       * a session opened from OFBiz (claim `ofbiz`) ends when the user signs out of OFBiz."""
 
     def get_user(self, validated_token):
         if validated_token.get("visit"):
@@ -136,6 +137,10 @@ class CepJWTAuthentication(JWTAuthentication):
                 raise exceptions.AuthenticationFailed("This visit has ended. Go back to your workspace and switch again.")
             request._request.platform_visit = visit
             visits.touch(visit_id, request.method not in SAFE)
+
+        from apps.platform_ops import ofbiz
+        if ofbiz.signed_out(token):
+            raise ofbiz.signed_out_error()
 
         if token.get("mfa_setup") and not user.mfa_enabled and not any(path.startswith(prefix) for prefix in MFA_SETUP_ALLOWED):
             raise exceptions.PermissionDenied("Set up multi-factor authentication first: your workspace requires it.")

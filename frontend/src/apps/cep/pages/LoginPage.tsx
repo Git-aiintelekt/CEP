@@ -195,6 +195,9 @@ export function LoginPage() {
           {signedOutReason === 'expired' && !error && (
             <AuthNotice>Your session ended. Sign in again to carry on. Changes on the page you were on that were not saved are not kept.</AuthNotice>
           )}
+          {signedOutReason === 'ofbiz-signed-out' && !error && (
+            <AuthNotice>You signed out of OFBiz. Open CEP again from OFBiz to continue.</AuthNotice>
+          )}
           {signedOutReason === 'unknown-workspace' && !error && (
             <AuthNotice>Workspace not found. Check the workspace code and log in again.</AuthNotice>
           )}

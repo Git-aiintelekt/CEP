@@ -58,7 +58,7 @@ def admin_view(model_admin, request, object_id):
     link = None
     if request.method == "POST" and form.is_valid():
         session, token = open_session(request.user, target, form.cleaned_data["reason"], form.cleaned_data["access_mode"], request.META.get("REMOTE_ADDR"))
-        link = settings.FRONTEND_URL.rstrip("/") + "/support-session#" + urlencode({"token": token, "tenant": target.tenant.code})
+        link = params.frontend_url() + "/support-session#" + urlencode({"token": token, "tenant": target.tenant.code})
         messages.success(request, f"Support session opened until {session.expires_at:%H:%M} UTC. It is recorded and visible to the tenant.")
     context = {**model_admin.admin_site.each_context(request), "title": f"Sign in as {target.display_name}", "target": target, "form": form, "link": link,
                "minutes": int(params.get("security.support_access_minutes", 30)), "opts": model_admin.model._meta}

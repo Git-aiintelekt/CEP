@@ -4,7 +4,6 @@ The holder comes from the legal.copyright_holder parameter (the same one the app
 app's Terms of Use page at FRONTEND_URL, so staff read the same text the workspaces see.
 """
 from django import template
-from django.conf import settings
 from django.utils import timezone
 
 from apps.platform_ops import params
@@ -16,4 +15,4 @@ DEFAULT_HOLDER = "Transaction Tree"
 @register.simple_tag
 def cep_legal() -> dict:
     return {"holder": str(params.get("legal.copyright_holder", DEFAULT_HOLDER)), "year": timezone.now().year,
-            "terms_url": settings.FRONTEND_URL.rstrip("/") + "/terms"}
+            "terms_url": params.frontend_url() + "/terms"}

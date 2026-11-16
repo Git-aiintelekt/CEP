@@ -61,6 +61,27 @@ test('tokens placed in the link itself are not taken', async () => {
   expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 })
 
+test('Open CEP in OFBiz: the code is exchanged without a binding and the session is marked as opened from OFBiz', async () => {
+  const calls = installMockApi()
+  await renderAt('/launch#code=ofbiz-code-1&tenant=NWA')
+
+  await waitFor(() => expect(window.location.pathname).toBe('/campaigns'))
+  expect(window.localStorage.getItem('cep.access.NWA')).toBe('access-1')
+  expect(window.sessionStorage.getItem('cep.ofbizLaunch.NWA')).toBe('Y')
+  expect(window.location.hash).toBe('')
+  expect(calls.find((call) => call.url.includes('/auth/sso/ofbiz/exchange/'))?.body).toEqual({ code: 'ofbiz-code-1' })
+})
+
+test('a used or expired OFBiz link signs nobody in and points back to OFBiz', async () => {
+  installMockApi()
+  await renderAt('/launch#code=used-code&tenant=NWA')
+
+  expect(await screen.findByText('Links from OFBiz work once and only for a minute. Open CEP again from OFBiz.')).toBeTruthy()
+  expect(screen.queryByRole('link', { name: 'Go to Sign In' })).toBeNull()
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
+  expect(window.sessionStorage.getItem('cep.ofbizLaunch.NWA')).toBeNull()
+})
+
 test('the login page keeps a binding in the tab and sends it with the sign-in', async () => {
   installMockApi({ authOptions: { sso_enabled: true, sso_name: 'Microsoft' } })
   await renderAt('/login')

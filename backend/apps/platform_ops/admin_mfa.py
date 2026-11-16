@@ -44,7 +44,7 @@ def setup_view(request):
         return redirect("/admin/login/")
     if not enrolment_required(request.user):
         return redirect("/admin/")
-    app_url = settings.FRONTEND_URL.rstrip("/") + "/account/security"
+    app_url = params.frontend_url() + "/account/security"
     return render(request, "admin/mfa_setup.html", {**admin.site.each_context(request), "title": "Set Up Two-Step Verification", "app_url": app_url})
 
 

@@ -66,6 +66,20 @@ test('a tab signed in to a workspace the API does not know goes back to the logi
   expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 })
 
+test('a session opened from OFBiz ends when the user signs out of OFBiz, and the login page says so', async () => {
+  installMockApi()
+  window.sessionStorage.setItem('cep.ofbizLaunch.NWA', 'Y')
+  const mocked = globalThis.fetch
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) =>
+    String(input).includes('/auth/options/') ? mocked(input, init) : Promise.resolve(problem(401, { title: 'Ofbiz Signed Out' })))
+  await renderAppAt('/campaigns')
+
+  expect(await screen.findByText('You signed out of OFBiz. Open CEP again from OFBiz to continue.')).toBeTruthy()
+  expect(window.location.pathname).toBe('/login')
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
+  expect(window.sessionStorage.getItem('cep.ofbizLaunch.NWA')).toBeNull()
+})
+
 test('a workspace with single sign-on shows its button; when it is required the password form is tucked away for administrators', async () => {
   installMockApi({ authOptions: { sso_enabled: true, sso_enforced: true, sso_name: 'Okta' } })
   const user = userEvent.setup()

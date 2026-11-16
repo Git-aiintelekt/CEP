@@ -24,6 +24,8 @@ interface AuthValue {
 
 const AuthContext = createContext<AuthValue | null>(null)
 
+const OFBIZ_RECHECK_MS = 60_000
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [hasToken, setHasToken] = useState(session.hasToken)
@@ -56,6 +58,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener(UNAUTHORIZED_EVENT, ended)
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, ended)
   }, [logout])
+
+  // A session opened from OFBiz ends when the user signs out of OFBiz: re-check when the tab comes back and every minute,
+  // so an idle tab closes too. The API's 401 ("Ofbiz Signed Out") raises the event above; any other failure is ignored here.
+  const signedInUser = hasToken ? meQuery.data : undefined
+  useEffect(() => {
+    if (!signedInUser || !session.openedFromOfbiz) return
+    const check = () => {
+      if (document.visibilityState === 'visible') api.get<Me>('/me/').catch(() => undefined)
+    }
+    const timer = window.setInterval(check, OFBIZ_RECHECK_MS)
+    window.addEventListener('focus', check)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', check)
+    }
+  }, [signedInUser])
 
   const signedIn = useCallback(() => {
     queryClient.clear()

@@ -1157,6 +1157,10 @@ export function installMockApi(options: MockOptions = {}) {
       return ['sso-code-1', 'sso-code-outside'].includes(String(body?.code)) && body?.binding === 'tab-binding-1' ? json({ access: 'access-1', refresh: 'refresh-1', next })
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'This sign-in link was not started in this browser, or it has expired.' }, 401)
     }
+    if (path.endsWith('/auth/sso/ofbiz/exchange/')) {
+      return body?.code === 'ofbiz-code-1' ? json({ access: 'access-1', refresh: 'refresh-1', next: '/campaigns' })
+        : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'This link was already used or has expired.' }, 401)
+    }
     if (path.endsWith('/auth/token/revoke/')) return json(null, 204)
     if (path.endsWith('/auth/token/') && method === 'POST') {
       if (body?.password === 'needs-a-code') return json({ mfa_required: true, mfa_token: 'mfa-token-1' })

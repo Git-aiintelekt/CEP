@@ -187,6 +187,20 @@ CREATE TABLE IF NOT EXISTS tenant_identity_provider (
 );
 COMMENT ON TABLE tenant_identity_provider IS 'A tenant''s OpenID Connect identity provider (Entra ID, Okta, Google Workspace, ...): one per tenant';
 
+CREATE TABLE IF NOT EXISTS tenant_ofbiz_link (
+    tenant_id           UUID PRIMARY KEY REFERENCES tenant(id),
+    secret_enc          TEXT NOT NULL,                                   -- shared with OFBiz TenantProperties cep.sso.secret; may be inserted as
+                                                                         -- plain text, the application encrypts it the first time it reads it
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_tenant_ofbiz_secret CHECK (length(secret_enc) >= 32)
+);
+COMMENT ON TABLE tenant_ofbiz_link IS '"Open CEP" from OFBiz iCRM: the HS256 secret OFBiz signs its launch and logout tokens with, one per tenant. No row, or is_active false = switched off';
+
 -- -------------------------------------------------------------------------------------
 -- 6. GLOBAL PARAMETERS AND INDUSTRY PROFILES
 -- -------------------------------------------------------------------------------------
@@ -238,6 +252,7 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('messaging.max_upload_mb',           '5',      'INTEGER', 'Messaging',  'Largest image upload, in MB'),
     ('legal.copyright_holder',           '"Transaction Tree"', 'STRING', 'Legal', 'Whose copyright the footer of every page carries, after the current year'),
     ('legal.terms_of_use',               $terms$"## 1. What CEP is\n\nCEP is a customer engagement platform for email, text and e-receipt messaging, provided to your organisation under its subscription agreement. These terms apply to everyone who signs in to a CEP workspace.\n\n## 2. Your account\n\nYour account is personal. Keep your password and your authenticator to yourself, sign out on shared computers, and tell your workspace administrator at once if you believe someone else has used your account. Your organisation decides who may sign in and what each person may do.\n\n## 3. Acceptable use\n\nSend only to people who have agreed to hear from your organisation, honour every unsubscribe and STOP request, and follow the laws that apply to marketing messages where your recipients are. Do not upload content you have no right to use, and do not use CEP to send anything unlawful, misleading or harmful.\n\n## 4. Customer data\n\nThe customer records, lists and messages in a workspace belong to the organisation that owns the workspace. The platform processes them only to provide the service, keeps them in the workspace's own database, and never sells them. Consent records, suppressions and the trail of what was sent are kept so that the organisation can show where every address came from.\n\n## 5. Availability\n\nThe platform aims to be available at all times but is provided as it is. Planned maintenance is announced in advance where possible. Message delivery depends on the sending engines and the recipients' providers, which the platform does not control.\n\n## 6. Liability\n\nTo the extent the law allows, the platform provider is not liable for indirect or consequential loss arising from the use of CEP, including loss of revenue from messages that were delayed, held back or not delivered. Nothing in these terms limits liability that cannot be limited by law.\n\n## 7. Changes to these terms\n\nThese terms may change. The date at the top of this page says when they last changed; continuing to use CEP after a change means accepting it.\n\n## 8. Contact\n\nQuestions about these terms go to your workspace administrator, who can raise them with the platform team."$terms$, 'STRING', 'Legal', 'The Terms of Use page linked from the sign-in page and every footer, in Markdown (headings with ##, paragraphs, lists)'),
+    ('platform.frontend_url',             '""',     'STRING',  'Platform',   'Public https address people open the CEP app at, no trailing slash (e.g. https://cep.example.com). Links in emails and the single sign-on landing pages (OFBiz "Open CEP" included) are built from it. Empty = the FRONTEND_URL environment variable.'),
     ('platform.api_public_url',           '""',     'STRING',  'Platform',   'Public https address of this installation, no trailing slash (e.g. https://cep.example.com). The webhook callback addresses given to delivery providers, the unsubscribe link in marketing emails and the single sign-on redirect are built from it. Empty = the API_PUBLIC_URL environment variable.')
 ON CONFLICT (key) DO NOTHING;
 
@@ -260,7 +275,7 @@ ON CONFLICT (code) DO NOTHING;
 DO $$
 DECLARE t TEXT;
 BEGIN
-    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider'] LOOP
+    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider', 'tenant_ofbiz_link'] LOOP
         EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_touch ON %I', t, t);
         EXECUTE format('CREATE TRIGGER trg_%s_touch BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION fn_touch_row()', t, t);
         EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_audit ON %I', t, t);
@@ -270,7 +285,7 @@ BEGIN
         EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_touch ON %I', t, t);
         EXECUTE format('CREATE TRIGGER trg_%s_touch BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION fn_touch_updated_at()', t, t);
     END LOOP;
-    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider', 'support_access_log', 'tenant_operation'] LOOP
+    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider', 'tenant_ofbiz_link', 'support_access_log', 'tenant_operation'] LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
         EXECUTE format('DROP POLICY IF EXISTS rls_%s_tenant ON %I', t, t);
@@ -323,7 +338,7 @@ END $$;
 REVOKE INSERT, UPDATE, DELETE ON platform_setting, industry_profile FROM cep_app;
 GRANT SELECT ON platform_setting, industry_profile TO cep_app;
 REVOKE ALL ON tenant_operation, job_run, platform_alert FROM cep_app;
-GRANT ALL ON tenant_invoice, tenant_operation, job_run, platform_alert, support_access_log, tenant_identity_provider, platform_setting, industry_profile TO cep_admin;
+GRANT ALL ON tenant_invoice, tenant_operation, job_run, platform_alert, support_access_log, tenant_identity_provider, tenant_ofbiz_link, platform_setting, industry_profile TO cep_admin;
 -- invoices are produced by the platform, read by the tenant
 REVOKE INSERT, UPDATE, DELETE ON tenant_invoice FROM cep_app;
 -- the tenant reads its support access log; only the platform writes it

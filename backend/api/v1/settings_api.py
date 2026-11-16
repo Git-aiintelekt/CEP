@@ -177,7 +177,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         emailed = False
         if request.data.get("send"):                        # {"send": true}: email it; the administrator never has to handle the link
             emailed = mail.is_configured(request.tenant["id"]) & mail.send("password_link", user.email, tenant_id=request.tenant["id"], subject=f"Choose your password for {request.tenant['code']}", context={
-                "name": user.display_name, "workspace": request.tenant["code"], "link": settings.FRONTEND_URL.rstrip("/") + path, "hours": hours,
+                "name": user.display_name, "workspace": request.tenant["code"], "link": params.frontend_url() + path, "hours": hours,
                 "invited": not user.password, "invited_by": getattr(request.user, "display_name", "An administrator")})
         return Response({"path": path, "expires_in_hours": hours, "emailed": emailed, "email_configured": mail.is_configured(request.tenant["id"]), "email": user.email})
 

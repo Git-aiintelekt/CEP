@@ -216,6 +216,25 @@ class TenantIdentityProvider(models.Model):
         return f"{self.display_name} ({self.issuer})"
 
 
+class TenantOfbizLink(models.Model):
+    """A tenant's "Open CEP" link from OFBiz iCRM: the secret OFBiz signs its tokens with"""
+    tenant = models.OneToOneField('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+', primary_key=True)
+    secret_enc = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'tenant_ofbiz_link'
+
+    def __str__(self):
+        return f"OFBiz link of {self.tenant_id}"
+
+
 class PlatformSetting(models.Model):
     """Global parameter of the installation (never a secret)"""
     class ValueType(models.TextChoices):

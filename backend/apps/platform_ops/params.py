@@ -67,6 +67,12 @@ def public_api_url() -> str:
     return str(get("platform.api_public_url", settings.API_PUBLIC_URL)).rstrip("/")
 
 
+def frontend_url() -> str:
+    """The address people open the CEP app at: links in emails and the sign-in landing pages are built from it. The
+    `platform.frontend_url` parameter wins; empty, the FRONTEND_URL environment variable applies (a fresh installation)."""
+    return str(get("platform.frontend_url", settings.FRONTEND_URL)).rstrip("/")
+
+
 def invalidate(tenant_id=None) -> None:
     cache.delete("cep:params")
     if tenant_id:
