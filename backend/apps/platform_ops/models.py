@@ -217,7 +217,7 @@ class TenantIdentityProvider(models.Model):
 
 
 class TenantOfbizLink(models.Model):
-    """A tenant's "Open CEP" link from OFBiz iCRM: the secret OFBiz signs its tokens with"""
+    """A tenant's "Open CEP" link from OFBiz iCRM: secret_enc holds {"site_key", "api_key", "time_zone"} for its getSSOToken tokens"""
     tenant = models.OneToOneField('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+', primary_key=True)
     secret_enc = models.TextField()
     is_active = models.BooleanField(default=True)

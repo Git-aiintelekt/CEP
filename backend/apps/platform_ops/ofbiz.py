@@ -1,9 +1,15 @@
 """Single sign-on and single logout from OFBiz iCRM ("Open CEP" under Campaign).
 
-OFBiz signs short HS256 tokens with the secret it shares with CEP (OFBiz TenantProperties `cep.sso.secret`; in CEP the
-workspace's tenant_ofbiz_link row), issuer "ofbiz-icrm", valid 60 seconds, each `jti` usable once:
+OFBiz sends the token of iCRM's UtilCommon.getSSOToken, for both the launch and the logout: a Multipass token (token-app.jar,
+see .multipass) sealed with TenantProperties `security` `common.site.key` and `common.api.key`. In CEP the workspace's
+tenant_ofbiz_link row holds {"site_key", "api_key", "time_zone"}: the same two keys and the iCRM server's time zone.
 
-  secret_for(...) -> the workspace's secret, or None when "Open CEP" is off for it
+getSSOToken's fields: user_login_id (-> claim sub), email, expires ("yyyy-MM-dd HH:mm" in iCRM time, common.token.expiry.min,
+default 5 minutes), version, tenant_id (common.site.tenantId: not checked, since the keys already tie the token to this
+workspace). It has no jti or audience: the link works until it expires, and the same token serves launch and logout.
+Optional fields, checked when present: aud, exp, jti, party_id, next.
+
+  link_for(...)   -> the workspace's keys and iCRM time zone, or None when "Open CEP" is off for it
 
   verify(...)     -> the token's claims, or OfbizError with a sentence for the login page
   find_user(...)  -> the active CEP user of this workspace with the token's email (never created here)
@@ -15,21 +21,25 @@ workspace's tenant_ofbiz_link row), issuer "ofbiz-icrm", valid 60 seconds, each 
 A session opened from OFBiz carries the claim `ofbiz` (the launch time), lives at most SESSION from the launch, and skips
 CEP's MFA: OFBiz has already signed the user in. The cache must be the shared Redis cache, so every worker sees a logout.
 """
+import json
+import logging
 import secrets
 import time
 from datetime import timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import jwt
 from django.conf import settings
 from django.core.cache import cache
 from rest_framework.exceptions import AuthenticationFailed
 
 from . import crypto
+from .multipass import decoded_json, is_valid_token
 
-ISSUER = "ofbiz-icrm"
+log = logging.getLogger(__name__)
+
 LAUNCH_AUDIENCE = "cep"
 LOGOUT_AUDIENCE = "cep-logout"
-REQUIRED_CLAIMS = ["exp", "iat", "jti", "sub", "party_id", "email", "tenant"]
+REQUIRED_FIELDS = ["user_login_id", "email"]
 LEEWAY = 30
 JTI_TTL = 120
 HANDOFF_TTL = 120
@@ -55,8 +65,8 @@ def signed_out_error() -> OfbizSignedOut:
     return OfbizSignedOut("You signed out of OFBiz. Open CEP again from OFBiz.")
 
 
-def secret_for(tenant_id) -> str | None:
-    """The seed puts the secret in as plain text (SQL cannot encrypt with the application key): encrypt it on first read."""
+def _stored_keys(tenant_id) -> str | None:
+    """The seed puts the keys in as plain text (SQL cannot encrypt with the application key): encrypt them on first read."""
     from .models import TenantOfbizLink
     link = TenantOfbizLink.objects.filter(tenant_id=tenant_id, is_active=True).first()
     if link is None or not link.secret_enc:
@@ -68,23 +78,36 @@ def secret_for(tenant_id) -> str | None:
     return crypto.decrypt(link.secret_enc)
 
 
-def verify(token: str, audience: str, tenant: dict) -> dict:
-    """`tenant` is request.tenant: its id finds the secret, its code must be the token's `tenant`."""
-    secret = secret_for(tenant["id"])
-    if not secret:
-        raise OfbizError("Signing in from OFBiz is not set up. Ask your administrator.")
-    tenant_code = tenant["code"]
+def link_for(tenant_id) -> dict | None:
+    stored = _stored_keys(tenant_id)
+    if not stored:
+        return None
     try:
-        claims = jwt.decode(token, secret, algorithms=["HS256"], audience=audience, issuer=ISSUER, leeway=LEEWAY,
-                            options={"require": REQUIRED_CLAIMS})
-    except jwt.PyJWTError:
-        raise OfbizError(INVALID_LINK) from None
-    if str(claims["tenant"]).strip().upper() != tenant_code.upper():
+        link = json.loads(stored)
+        site_key, api_key, time_zone = (str(link[name]).strip() for name in ("site_key", "api_key", "time_zone"))
+        ZoneInfo(time_zone)
+    except (ValueError, TypeError, KeyError, ZoneInfoNotFoundError):
+        log.warning("tenant_ofbiz_link of %s does not hold {\"site_key\", \"api_key\", \"time_zone\"}: run database/ofbiz_sso_seed.sql",
+                    tenant_id)
+        return None
+    if not (site_key and api_key):
+        return None
+    return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone}
+
+
+def verify(token: str, audience: str, tenant: dict) -> dict:
+    """`tenant` is request.tenant: its id finds the keys."""
+    link = link_for(tenant["id"])
+    if not link:
+        raise OfbizError("Signing in from OFBiz is not set up. Ask your administrator.")
+    data = decoded_json(link["site_key"], link["api_key"], token)
+    if (not data or any(data.get(field) in (None, "") for field in REQUIRED_FIELDS) or data.get("aud", audience) != audience
+            or not is_valid_token(data, leeway=LEEWAY, time_zone=link["time_zone"])):
         raise OfbizError(INVALID_LINK)
-    if not cache.add(f"cep:ofbiz:jti:{claims['jti']}", 1, JTI_TTL):
+    if data.get("jti") and not cache.add(f"cep:ofbiz:jti:{data['jti']}", 1, JTI_TTL):
         raise OfbizError(USED_LINK)
-    claims["email"] = str(claims["email"]).strip().lower()
-    return claims
+    return {**data, "sub": str(data["user_login_id"]), "tenant": tenant["code"], "party_id": str(data.get("party_id") or ""),
+            "email": str(data["email"]).strip().lower()}
 
 
 def find_user(email: str, tenant_id):

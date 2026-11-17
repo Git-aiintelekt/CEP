@@ -4,11 +4,11 @@ Rolled back."""
 import json
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
-import jwt
 import pytest
 from django.core.cache import cache
 from django.db import connections
@@ -18,12 +18,15 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from api.v1 import auth_api
 from apps.identity.models import AppUser
 from apps.platform_ops import crypto, ofbiz
+from apps.platform_ops.multipass import MultipassTokenEncode
 from apps.platform_ops.models import TenantOfbizLink
 from apps.tenants import context
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
 
-SECRET = "test-ofbiz-secret-0123456789-abcdefghijklmnop"
+KEYS = {"site_key": "test-site-key-0123456789", "api_key": "test-api-key-abcdefghij"}
+ICRM_TIME_ZONE = "Asia/Kolkata"
+STORED_KEYS = json.dumps({**KEYS, "time_zone": ICRM_TIME_ZONE})
 
 
 def _admin(admin_email):
@@ -34,18 +37,21 @@ def _admin(admin_email):
         context.reset_platform(tok)
 
 
-def _link(tenant, secret=SECRET, *, active=True):
-    """The workspace's tenant_ofbiz_link row, as the seed writes it: the secret in plain text."""
+def _link(tenant, stored=STORED_KEYS, *, active=True):
+    """The workspace's tenant_ofbiz_link row, as the seed writes it: the keys in plain text."""
     with connections["default"].cursor() as cursor:                  # row-level security, within the test's transaction
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])
-    TenantOfbizLink.objects.using("default").update_or_create(tenant_id=tenant.id, defaults={"secret_enc": secret, "is_active": active})
+    TenantOfbizLink.objects.using("default").update_or_create(tenant_id=tenant.id, defaults={"secret_enc": stored, "is_active": active})
 
 
-def _ofbiz_token(email, tenant, *, audience="cep", secret=SECRET, **overrides):
-    now = int(time.time())
-    claims = {"iss": "ofbiz-icrm", "aud": audience, "iat": now, "exp": now + 60, "jti": uuid.uuid4().hex, "sub": "sharmila",
-              "party_id": "10001", "email": email, "tenant": tenant, "next": "/campaigns", **overrides}
-    return jwt.encode(claims, secret, algorithm="HS256")
+def _expires(minutes, zone=ICRM_TIME_ZONE):
+    return (datetime.now(ZoneInfo(zone)) + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M")
+
+
+def _ofbiz_token(email, tenant="default", *, keys=KEYS, minutes=5, **overrides):
+    """What iCRM's UtilCommon.getSSOToken sends, for launch and logout alike: expiry in iCRM's time zone, no jti, no audience."""
+    data = {"user_login_id": "sharmila", "version": "1.0", "tenant_id": tenant, "expires": _expires(minutes), "email": email, **overrides}
+    return MultipassTokenEncode(keys["site_key"], keys["api_key"]).encode(data)
 
 
 def _fragment(response):
@@ -80,9 +86,9 @@ def test_ofbiz_launch_and_logout(check, admin_email):
     check("a good OFBiz link lands on /launch with a one-time code", landed.status_code == 302 and "/launch#" in landed["Location"]
           and fragment.get("tenant") == [code] and fragment.get("code"), landed.get("Location"))
     stored = TenantOfbizLink.objects.using("default").get(tenant_id=admin.tenant.id).secret_enc
-    check("a secret seeded as plain text is encrypted on first use", stored.startswith(ofbiz.SEALED_PREFIX) and crypto.decrypt(stored) == SECRET)
+    check("keys seeded as plain text are encrypted on first use", stored.startswith(ofbiz.SEALED_PREFIX) and crypto.decrypt(stored) == STORED_KEYS)
     reused = _fragment(launch(token))
-    check("the same OFBiz link a second time is refused", "already used" in (reused.get("sso_error") or [""])[0], reused)
+    check("getSSOToken has no jti: the same link works again until it expires", "/launch#" in landed["Location"] and reused.get("code"), reused)
 
     tokens = exchange(fragment["code"][0])
     check("the code gives the tokens and Campaigns", tokens.status_code == 200 and tokens.json().get("next") == "/campaigns", tokens.content[:200])
@@ -106,10 +112,9 @@ def test_ofbiz_launch_and_logout(check, admin_email):
     password = auth_api.issue_tokens(admin)
     check("OpenID Connect and password sessions carry no OFBiz claim", "ofbiz" not in AccessToken(password["access"]).payload)
 
-    check("a logout token that is not OFBiz's is refused", logout(_ofbiz_token(admin.email, code, audience="cep-logout", secret="wrong" * 10)).status_code == 401)
-    check("a launch token is not a logout token", logout(_ofbiz_token(admin.email, code)).status_code == 401)
-    check("a logout for nobody still answers 204", logout(_ofbiz_token("nobody@example.invalid", code, audience="cep-logout")).status_code == 204)
-    signed_out = logout(_ofbiz_token(admin.email, code, audience="cep-logout"))
+    check("a logout token that is not OFBiz's is refused", logout(_ofbiz_token(admin.email, code, keys={**KEYS, "api_key": "wrong"})).status_code == 401)
+    check("a logout for nobody still answers 204", logout(_ofbiz_token("nobody@example.invalid", code)).status_code == 204)
+    signed_out = logout(_ofbiz_token(admin.email, code))
     check("OFBiz's logout is accepted", signed_out.status_code == 204, signed_out.content[:200])
 
     ended = me(pair["access"])
@@ -135,12 +140,20 @@ def test_ofbiz_launch_refusals(check, admin_email):
         response = client.get("/api/v1/auth/sso/ofbiz/", {"tenant": tenant, "token": token})
         return response.status_code == 302 and "/login#" in response["Location"] and (_fragment(response).get("sso_error") or [""])[0]
 
-    check("a token signed with another secret", "invalid or has expired" in error(_ofbiz_token(admin.email, code, secret="x" * 40)))
-    check("an expired token", "invalid or has expired" in error(_ofbiz_token(admin.email, code, iat=int(time.time()) - 600, exp=int(time.time()) - 300)))
-    check("a token for another workspace", "invalid or has expired" in error(_ofbiz_token(admin.email, "OTHER")))
-    check("a logout token used as a launch", "invalid or has expired" in error(_ofbiz_token(admin.email, code, audience="cep-logout")))
+    check("a token sealed with other keys", "invalid or has expired" in error(_ofbiz_token(admin.email, code, keys={**KEYS, "site_key": "x" * 20})))
+    check("a damaged token", "invalid or has expired" in error(_ofbiz_token(admin.email, code)[:-6]))
+    check("an expired token", "invalid or has expired" in error(_ofbiz_token(admin.email, code, minutes=-5)))
+    check("expiry is read in iCRM's time zone, not CEP's", "invalid or has expired" in error(_ofbiz_token(admin.email, code, expires=_expires(5, "UTC"))))
+    check("a logout token used as a launch", "invalid or has expired" in error(_ofbiz_token(admin.email, code, aud="cep-logout")))
     check("no token", "invalid or has expired" in error(""))
+    check("a token without an email", "invalid or has expired" in error(_ofbiz_token(admin.email, code, email="")))
+    once = _ofbiz_token(admin.email, code, jti=str(uuid.uuid4()))
+    check("a token that carries a jti works once", "sso_error" not in (error(once) or "") and "already used" in error(once))
     check("an email with no CEP account", "No active CEP account" in error(_ofbiz_token("nobody@example.invalid", code)))
+    _link(admin.tenant, "a-secret-from-before-the-multipass-tokens-0123456789")
+    check("a stored value that is not the keys and time zone", "not set up" in error(_ofbiz_token(admin.email, code)))
+    _link(admin.tenant, json.dumps(KEYS))
+    check("keys without the iCRM time zone", "not set up" in error(_ofbiz_token(admin.email, code)))
     _link(admin.tenant, active=False)
     check("switched off for the workspace", "not set up" in error(_ofbiz_token(admin.email, code)))
     TenantOfbizLink.objects.using("default").filter(tenant_id=admin.tenant.id).delete()
