@@ -8,11 +8,14 @@ getSSOToken's fields: user_login_id (-> claim sub), email, expires ("yyyy-MM-dd 
 default 5 minutes), version, tenant_id (common.site.tenantId: not checked, since the keys already tie the token to this
 workspace). It has no jti or audience: the link works until it expires, and the same token serves launch and logout.
 Optional fields, checked when present: aud, exp, jti, party_id, next.
+"Open CEP" sends getCepSSOToken's token: the same, plus cep_role (the user's iCRM CEP security group: WORKSPACE_ADMIN,
+CAMPAIGN_MANAGER or ANALYST) and display_name. iCRM owns the login and the role; CEP keeps only the email, name and role.
 
   link_for(...)   -> the workspace's keys and iCRM time zone, or None when "Open CEP" is off for it
 
   verify(...)     -> the token's claims, or OfbizError with a sentence for the login page
-  find_user(...)  -> the active CEP user of this workspace with the token's email (never created here)
+  find_user(...)  -> the active CEP user of this workspace with the token's email (logout: never created)
+  provision(...)  -> launch: that user, created on the first visit (no password), with exactly the role iCRM sent
   hand_off(...)   -> a one-time code the /launch page exchanges for the tokens with take(...); no browser binding, since
                      the sign-in starts in OFBiz, not in a CEP tab
   sign_out(...)   -> the user signed out of OFBiz: every CEP session opened from OFBiz before now ends
@@ -45,10 +48,13 @@ JTI_TTL = 120
 HANDOFF_TTL = 120
 SESSION = timedelta(hours=8)
 DEFAULT_NEXT = "/campaigns"
+# cep_role -> CEP role name; the workspace's tenant_ofbiz_link may override it with "roles": {code: role name}
+DEFAULT_ROLES = {"WORKSPACE_ADMIN": "Workspace Admin", "CAMPAIGN_MANAGER": "Campaign Manager", "ANALYST": "Analyst"}
 SEALED_PREFIX = "gAAAAA"                                    # every Fernet token starts so; a secret seeded by SQL does not
 
 INVALID_LINK = "This link is invalid or has expired. Open CEP again from OFBiz."
 USED_LINK = "This link was already used. Open CEP again from OFBiz."
+NO_ROLE = "You don't have a CEP role in iCRM. Ask your administrator to give you one, then open CEP again."
 
 
 class OfbizError(Exception):
@@ -90,9 +96,11 @@ def link_for(tenant_id) -> dict | None:
         log.warning("tenant_ofbiz_link of %s does not hold {\"site_key\", \"api_key\", \"time_zone\"}: run database/ofbiz_sso_seed.sql",
                     tenant_id)
         return None
-    if not (site_key and api_key):
+    roles = link.get("roles") or DEFAULT_ROLES
+    if not (site_key and api_key) or not isinstance(roles, dict):
         return None
-    return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone}
+    return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone,
+            "roles": {str(code).strip().upper(): str(name).strip() for code, name in roles.items()}}
 
 
 def verify(token: str, audience: str, tenant: dict) -> dict:
@@ -107,12 +115,45 @@ def verify(token: str, audience: str, tenant: dict) -> dict:
     if data.get("jti") and not cache.add(f"cep:ofbiz:jti:{data['jti']}", 1, JTI_TTL):
         raise OfbizError(USED_LINK)
     return {**data, "sub": str(data["user_login_id"]), "tenant": tenant["code"], "party_id": str(data.get("party_id") or ""),
-            "email": str(data["email"]).strip().lower()}
+            "email": str(data["email"]).strip().lower(), "cep_role": str(data.get("cep_role") or "").strip().upper(),
+            "display_name": " ".join(str(data.get("display_name") or "").split()), "roles": link["roles"]}
 
 
 def find_user(email: str, tenant_id):
     from apps.identity.models import AppUser
     return AppUser.objects.filter(tenant_id=tenant_id, email__iexact=email, is_active=True, deleted_at__isnull=True).first()
+
+
+def provision(claims: dict, tenant_id):
+    """Launch only, inside the request's tenant transaction (row-level security). iCRM decides who may use CEP and as what:
+    no role, no entry; the user is created on the first visit and their roles are set to the one iCRM sent every time."""
+    from django.db import IntegrityError, transaction
+
+    from apps.identity.models import AppUser, Role, UserRole
+    if not claims["cep_role"]:
+        raise OfbizError(NO_ROLE)
+    role_name = claims["roles"].get(claims["cep_role"])
+    role = Role.objects.filter(tenant_id=tenant_id, name__iexact=role_name or "", deleted_at__isnull=True).first()
+    if role is None:
+        log.warning("OFBiz sign-in: CEP role %r (%s) does not exist in workspace %s", role_name, claims["cep_role"], tenant_id)
+        raise OfbizError(f"Your iCRM role {claims['cep_role']} has no matching role in this CEP workspace. Ask your administrator.")
+
+    user = AppUser.objects.filter(tenant_id=tenant_id, email__iexact=claims["email"]).first()      # a deleted one too: it stays out
+    if user is None:
+        name = claims["display_name"] or claims["email"].split("@")[0]
+        try:
+            with transaction.atomic():                     # savepoint: the email may belong to another workspace, hidden by RLS
+                user = AppUser.objects.create(tenant_id=tenant_id, email=claims["email"], display_name=name[:200],
+                                              auth_provider="LOCAL", password=None, is_active=True)
+        except IntegrityError:
+            raise OfbizError(f"{claims['email']} is already used in another CEP workspace. Ask your administrator.") from None
+        log.info("OFBiz sign-in: created CEP user %s for OFBiz login %s", user.pk, claims["sub"])
+    if not user.is_active or user.deleted_at is not None:
+        raise OfbizError("Your CEP account is deactivated. Ask your administrator.")
+
+    UserRole.objects.filter(user=user).exclude(role=role).delete()
+    UserRole.objects.get_or_create(user=user, role=role)
+    return user
 
 
 def safe_next(next_path) -> str:

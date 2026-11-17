@@ -1,5 +1,6 @@
 """Single sign-on and single logout from OFBiz: "Open CEP" signs the user in without MFA for at most 8 hours, each OFBiz
 token works once and only for its own workspace, and signing out of OFBiz ends the sessions opened from it (and only those).
+iCRM owns the login and the role: the first launch creates the CEP user (no password), every launch sets their role.
 Rolled back."""
 import json
 import time
@@ -16,7 +17,7 @@ from django.test import Client
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from api.v1 import auth_api
-from apps.identity.models import AppUser
+from apps.identity.models import AppUser, Role, UserRole
 from apps.platform_ops import crypto, ofbiz
 from apps.platform_ops.multipass import MultipassTokenEncode
 from apps.platform_ops.models import TenantOfbizLink
@@ -26,7 +27,8 @@ pytestmark = pytest.mark.django_db(databases=["default", "platform"])
 
 KEYS = {"site_key": "test-site-key-0123456789", "api_key": "test-api-key-abcdefghij"}
 ICRM_TIME_ZONE = "Asia/Kolkata"
-STORED_KEYS = json.dumps({**KEYS, "time_zone": ICRM_TIME_ZONE})
+ROLES = {"ANALYST": "OFBiz Test Analyst", "CAMPAIGN_MANAGER": "OFBiz Test Manager"}
+STORED_KEYS = json.dumps({**KEYS, "time_zone": ICRM_TIME_ZONE, "roles": ROLES})
 
 
 def _admin(admin_email):
@@ -38,9 +40,11 @@ def _admin(admin_email):
 
 
 def _link(tenant, stored=STORED_KEYS, *, active=True):
-    """The workspace's tenant_ofbiz_link row, as the seed writes it: the keys in plain text."""
+    """The workspace's tenant_ofbiz_link row, as the seed writes it: the keys in plain text; and the roles it maps to."""
     with connections["default"].cursor() as cursor:                  # row-level security, within the test's transaction
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])
+    for name in ROLES.values():
+        Role.objects.using("default").get_or_create(tenant_id=tenant.id, name=name)
     TenantOfbizLink.objects.using("default").update_or_create(tenant_id=tenant.id, defaults={"secret_enc": stored, "is_active": active})
 
 
@@ -49,8 +53,10 @@ def _expires(minutes, zone=ICRM_TIME_ZONE):
 
 
 def _ofbiz_token(email, tenant="default", *, keys=KEYS, minutes=5, **overrides):
-    """What iCRM's UtilCommon.getSSOToken sends, for launch and logout alike: expiry in iCRM's time zone, no jti, no audience."""
-    data = {"user_login_id": "sharmila", "version": "1.0", "tenant_id": tenant, "expires": _expires(minutes), "email": email, **overrides}
+    """What iCRM's UtilCommon.getCepSSOToken sends (getSSOToken plus cep_role and display_name): expiry in iCRM's time zone,
+    no jti, no audience. The logout sends the same."""
+    data = {"user_login_id": "sharmila", "version": "1.0", "tenant_id": tenant, "expires": _expires(minutes), "email": email,
+            "cep_role": "ANALYST", "display_name": "Sharmila K", **overrides}
     return MultipassTokenEncode(keys["site_key"], keys["api_key"]).encode(data)
 
 
@@ -149,7 +155,8 @@ def test_ofbiz_launch_refusals(check, admin_email):
     check("a token without an email", "invalid or has expired" in error(_ofbiz_token(admin.email, code, email="")))
     once = _ofbiz_token(admin.email, code, jti=str(uuid.uuid4()))
     check("a token that carries a jti works once", "sso_error" not in (error(once) or "") and "already used" in error(once))
-    check("an email with no CEP account", "No active CEP account" in error(_ofbiz_token("nobody@example.invalid", code)))
+    check("a token without a CEP role", "don't have a CEP role" in error(_ofbiz_token(admin.email, code, cep_role="")))
+    check("a CEP role the workspace does not have", "no matching role" in error(_ofbiz_token(admin.email, code, cep_role="OWNER")))
     _link(admin.tenant, "a-secret-from-before-the-multipass-tokens-0123456789")
     check("a stored value that is not the keys and time zone", "not set up" in error(_ofbiz_token(admin.email, code)))
     _link(admin.tenant, json.dumps(KEYS))
@@ -159,4 +166,62 @@ def test_ofbiz_launch_refusals(check, admin_email):
     TenantOfbizLink.objects.using("default").filter(tenant_id=admin.tenant.id).delete()
     check("not set up without a row", "not set up" in error(_ofbiz_token(admin.email, code)))
     check("a next that leaves the site falls back to Campaigns", ofbiz.safe_next("//evil.example") == "/campaigns" and ofbiz.safe_next("/journeys") == "/journeys")
+    check.done()
+
+
+def _platform_user(email):
+    tok = context.set_platform(True)
+    try:
+        user = AppUser.objects.filter(email__iexact=email).first()
+        roles = sorted(UserRole.objects.filter(user=user).values_list("role__name", flat=True)) if user else []
+        return user, roles
+    finally:
+        context.reset_platform(tok)
+
+
+def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
+    cache.clear()
+    admin = _admin(admin_email)
+    _link(admin.tenant)
+    code = admin.tenant.code
+    client = Client()
+    email = f"icrm-{uuid.uuid4().hex[:8]}@example.invalid"
+
+    def launch(token):
+        return client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": token})
+
+    def error(token):
+        response = launch(token)
+        return "/login#" in response["Location"] and (_fragment(response).get("sso_error") or [""])[0]
+
+    check("an iCRM user with no CEP role is refused and not created", "don't have a CEP role" in error(_ofbiz_token(email, code, cep_role=""))
+          and _platform_user(email)[0] is None)
+
+    first = launch(_ofbiz_token(email.upper(), code, display_name="  New   Person "))
+    check("the first Open CEP of an iCRM user signs them in", first.status_code == 302 and "/launch#" in first["Location"], first.get("Location"))
+    user, roles = _platform_user(email)
+    check("the CEP user is created with the email and name only", user is not None and user.email == email and user.display_name == "New Person"
+          and user.tenant_id == admin.tenant.id and user.is_active, user and (user.email, user.display_name))
+    check("CEP keeps no password for them", user is not None and not user.password and not user.has_usable_password())
+    check("with the role iCRM sent", roles == [ROLES["ANALYST"]], roles)
+
+    again = launch(_ofbiz_token(email, code, cep_role="campaign_manager"))
+    user_again, roles = _platform_user(email)
+    check("the next Open CEP signs in the same user", "/launch#" in again["Location"] and user_again.pk == user.pk)
+    check("and replaces the role with iCRM's current one", roles == [ROLES["CAMPAIGN_MANAGER"]], roles)
+
+    check("a refused role leaves the user's role as it was", "no matching role" in error(_ofbiz_token(email, code, cep_role="OWNER"))
+          and _platform_user(email)[1] == [ROLES["CAMPAIGN_MANAGER"]])
+
+    tok = context.set_platform(True)
+    try:
+        AppUser.objects.filter(pk=user.pk).update(is_active=False)
+    finally:
+        context.reset_platform(tok)
+    check("a user deactivated in CEP stays out", "deactivated" in error(_ofbiz_token(email, code)))
+
+    stranger = f"icrm-{uuid.uuid4().hex[:8]}@example.invalid"
+    signed_out = client.post(f"/api/v1/auth/sso/ofbiz/logout/?tenant={code}", json.dumps({"token": _ofbiz_token(stranger, code)}),
+                             content_type="application/json")
+    check("an iCRM logout never creates a user", signed_out.status_code == 204 and _platform_user(stranger)[0] is None)
     check.done()

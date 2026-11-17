@@ -250,15 +250,14 @@ class OfbizLaunchView(PublicAuthView):
         tenant = request.tenant
         try:
             claims = ofbiz.verify(request.query_params.get("token") or "", ofbiz.LAUNCH_AUDIENCE, tenant)
-            user = ofbiz.find_user(claims["email"], tenant["id"])
-            if user is None:
-                raise ofbiz.OfbizError(f"No active CEP account in this workspace uses {claims['email']}. Ask your administrator.")
+            user = ofbiz.provision(claims, tenant["id"])
         except ofbiz.OfbizError as exc:
             return _frontend("/login", sso_error=str(exc))
         # OFBiz owns the sign-in, second factor included: CEP does not ask for MFA here
         tokens = issue_tokens(user, claims={"ofbiz": ofbiz.launch_time()}, refresh_lifetime=ofbiz.SESSION)
         code = ofbiz.hand_off(tokens, tenant["code"], claims.get("next"))
-        log.info("OFBiz sign-in: user %s, OFBiz login %s, party %s, workspace %s", user.pk, claims["sub"], claims["party_id"], tenant["code"])
+        log.info("OFBiz sign-in: user %s, OFBiz login %s, party %s, role %s, workspace %s", user.pk, claims["sub"], claims["party_id"],
+                 claims["cep_role"], tenant["code"])
         return _frontend("/launch", code=code, tenant=tenant["code"])
 
 
