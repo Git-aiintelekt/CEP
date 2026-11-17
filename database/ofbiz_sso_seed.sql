@@ -5,7 +5,9 @@
 --      workspace     the CEP workspace code: iCRM's cep.tenant.code (NWA)
 --      site_key      exactly iCRM TenantProperties security / common.site.key, character for character
 --      api_key       exactly iCRM TenantProperties security / common.api.key, character for character
---      time_zone     the iCRM server's time zone (IANA name, such as Asia/Kolkata): getSSOToken writes its expiry in it
+--      time_zone     the iCRM server's time zone (IANA name): getSSOToken writes its expiry in it. Run `date` on the iCRM
+--                    server: EST/EDT (staging, EST5EDT) is America/New_York, IST is Asia/Kolkata. A wrong zone makes
+--                    every link look expired.
 --      frontend_url  the address people open CEP at, https, no trailing slash. Also iCRM's cep.url.
 -- 2. Run as the database owner:  psql -X -1 -v ON_ERROR_STOP=1 -f database/ofbiz_sso_seed.sql
 -- 3. Do not commit this file with real keys in it.
@@ -19,7 +21,7 @@ DECLARE
     workspace    CONSTANT TEXT := 'NWA';
     site_key     CONSTANT TEXT := 'PASTE-common.site.key';
     api_key      CONSTANT TEXT := 'PASTE-common.api.key';
-    time_zone    CONSTANT TEXT := 'Asia/Kolkata';
+    time_zone    CONSTANT TEXT := 'America/New_York';
     frontend_url CONSTANT TEXT := 'https://cepdev.aiintelekt.com';
     v_tenant     UUID;
 BEGIN
