@@ -33,7 +33,7 @@ def test_workspace_setup(check, admin_email):
 
             r = API.get("/api/v1/workspace/setup/")
             body = r.json() if r.status_code == 200 else {}
-            check("the overview answers 200 with the workspace, the viewer and eight steps (Engagement and Insights)", r.status_code == 200 and body.get("total") == 8 and len(body.get("steps", [])) == 8
+            check("the overview answers 200 with the workspace, the viewer and nine steps (Engagement and Insights)", r.status_code == 200 and body.get("total") == 9 and len(body.get("steps", [])) == 9
                   and body["workspace"]["code"] == "NWA" and bool(body["viewer"]["first_name"]), f"{r.status_code} {str(r.content)[:200]}")
             keys = [s["key"] for s in body["steps"]]
             check("the steps in order, the optional ones marked; with Engagement the database step is optional", keys == ["signin", "team", "email_engine", "email_sender", "warmup", "text", "lists", "tell", "databases"]
