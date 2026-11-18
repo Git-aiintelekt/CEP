@@ -30,8 +30,8 @@ def test_creates_the_platform_workspace_and_its_administrator(check):
         check("the workspace was onboarded: its Workspace Admin holds every permission", granted == Permission.objects.using(P).count() and granted >= 16,
               f"{granted} of {Permission.objects.using(P).count()}")
         plan = TenantSubscription.objects.using(P).get(tenant=tenant).plan
-        insights = SubscriptionPlan.objects.using(P).filter(code="INSIGHTS").exists()
-        check("on the Insights plan where the database has it (patch 0072)", plan.code == "INSIGHTS" or not insights, plan.code)
+        enterprise = SubscriptionPlan.objects.using(P).filter(code="ENTERPRISE").exists()
+        check("on the Enterprise plan, so it has Engagement and Insights", plan.code == "ENTERPRISE" or not enterprise, plan.code)
 
     with mock.patch("apps.identity.management.commands.create_platform_admin.getpass", side_effect=["Tidal-Harbour-Lantern-42", "Tidal-Harbour-Lantern-42"]):
         call_command("create_platform_admin", EMAIL)
