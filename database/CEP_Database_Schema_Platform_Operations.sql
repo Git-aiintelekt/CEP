@@ -3213,7 +3213,7 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON whatsapp_template TO cep_app;
 GRANT ALL ON whatsapp_template TO cep_admin;
 
--- ---- Delivery warm-up (patch 0083): a new sending IP or domain earns the inboxes' trust by sending a little more each day.
+-- ---- Delivery warm-up (patch 0084): a new sending IP or domain earns the inboxes' trust by sending a little more each day.
 -- A workspace has at most one open warm-up (WARMING or PAUSED). Its plan is a schedule of hourly limits by warm-up age (day 0 to
 -- 41), cut off where the workspace plan's contacts fit in one day; a DAILY plan sends only inside its window. Each plan day
 -- has its own lists and template (delivery_warmup_day). Every hour CEP picks the next people of the day's lists, round after

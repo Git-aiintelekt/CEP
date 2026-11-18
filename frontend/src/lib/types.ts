@@ -3041,7 +3041,7 @@ export interface WarmUp {
 }
 
 export interface WarmUpOverview {
-  /** false until patch 0083 is on this workspace's database */
+  /** false until patch 0084 is on this workspace's database */
   present: boolean
   contacts_target: number | null
   plan_name: string | null

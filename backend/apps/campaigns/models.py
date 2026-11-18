@@ -24,7 +24,7 @@ class Campaign(models.Model):
         DRIP = 'DRIP', 'Drip'
         JOURNEY = 'JOURNEY', 'Journey'
         OTHER = 'OTHER', 'Other'
-        WARM_UP = 'WARM_UP', 'Warm-Up'  # sent by the Delivery Warm-Up (patch 0083), never edited by hand
+        WARM_UP = 'WARM_UP', 'Warm-Up'  # sent by the Delivery Warm-Up (patch 0084), never edited by hand
 
     class Channel(models.TextChoices):
         EMAIL = 'EMAIL', 'Email'

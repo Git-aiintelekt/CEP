@@ -53,7 +53,7 @@ class WarmupError(ValueError):
 
 
 def present() -> bool:
-    """Patch 0083 is on this workspace's database."""
+    """Patch 0084 is on this workspace's database."""
     alias = session.connection().alias
     if alias in _present:
         return True
@@ -275,7 +275,7 @@ def start(tenant_id, user_id, data: dict) -> dict:
         raise WarmupError("The sending window must end after it starts, on the same day.")
     with session.tx(), session.connection().cursor() as cursor:
         if not present():
-            raise WarmupError("Delivery Warm-Up needs patch 0083 on this workspace's database.")
+            raise WarmupError("Delivery Warm-Up needs patch 0084 on this workspace's database.")
         if holding(cursor, tenant_id) is not None:
             raise WarmupError("A warm-up is already running. Stop it before starting another.")
         cursor.execute("""SELECT s.id FROM sender_profile s JOIN delivery_provider p ON p.id = s.delivery_provider_id

@@ -70,7 +70,7 @@ export function DeliveryWarmUpPage() {
         </p>
       </div>
       {!data.present ? (
-        <Notice tone="warning">Delivery Warm-Up needs patch 0083 on this workspace's database. Ask your platform team.</Notice>
+        <Notice tone="warning">Delivery Warm-Up needs patch 0084 on this workspace's database. Ask your platform team.</Notice>
       ) : warmUp && (isOpen(warmUp) || !starting) ? (
         <Running overview={data} warmUp={warmUp} canEdit={canEdit} onStartAgain={() => setStarting(true)} />
       ) : (
