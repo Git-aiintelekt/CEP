@@ -99,6 +99,7 @@ RUNNABLE = {"rollup-usage": rollup_usage, "generate-invoices": generate_invoices
             "check-sending-domains": check_sending_domains,
             "attribute-orders": attribute_orders, "check-engine-health": check_engine_health, "check-engines-daily": check_engines_daily,
             "decide-ab-winners": lambda: __import__("workers.campaign", fromlist=["decide_ab_winners"]).decide_ab_winners(),
+            "run-delivery-warm-ups": lambda: __import__("workers.campaign", fromlist=["run_warm_ups"]).run_warm_ups(),
             "send-weekly-reports": lambda: __import__("workers.reports", fromlist=["send_weekly_reports"]).send_weekly_reports(),
             "deliver-report-schedules": lambda: __import__("workers.insights_delivery", fromlist=["deliver_report_schedules"]).deliver_report_schedules(),
             "check-report-alerts": lambda: __import__("workers.insights_alerts", fromlist=["check_report_alerts"]).check_report_alerts(),

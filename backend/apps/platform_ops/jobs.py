@@ -36,6 +36,7 @@ JOBS = {
     "check-engine-health": ("Checks every sending engine's callbacks, refused calls, speed, bounces and receipts (Engine Health)", 30 * 60),
     "check-engines-daily": ("Runs every active sending engine's Check: key and address, nothing sent", 26 * 3600),
     "decide-ab-winners": ("Chooses the subject-line winner of runs whose decision time has come", 10 * 60),
+    "run-delivery-warm-ups": ("Delivery Warm-Up: judges each day at midnight, picks the hour's warm-up sends, lets email out within the hourly limit", 10 * 60),
     "send-weekly-reports": ("Emails the weekly report to workspaces that asked for one", 3 * 3600),
     "probe-uptime": ("Calls the uptime targets and alerts when one goes down or comes back", 10 * 60),
     "check-security": ("Looks up this server's packages in OSV.dev and checks its settings and headers (back-office Security)", 49 * 3600),

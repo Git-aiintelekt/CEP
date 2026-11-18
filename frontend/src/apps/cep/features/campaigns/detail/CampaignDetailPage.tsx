@@ -4,11 +4,12 @@
  * The API says what is allowed (campaign.actions); permissions decide who may ask.
  */
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, Clock, Copy, EllipsisVertical, ExternalLink, Hand, Workflow } from 'lucide-react'
+import { ChevronLeft, Clock, Copy, EllipsisVertical, ExternalLink, Hand, Thermometer, Workflow } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { CategoryTag } from '@/components/CategoryTag'
 import { Button, IconButton } from '@/components/Button'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
@@ -33,7 +34,7 @@ import { isDripSeries } from '../dripLines'
 import { CONFIRM, useCampaignAction, type StatusAction } from '../useCampaignAction'
 import { CampaignSetupDialog } from '../setup/CampaignSetupDialog'
 import { setupHref, setupProgressText, stepsFor } from '../setupFlow'
-import { campaignHome, channelLabel, EDIT_PLACE_OF_TAB, hasAction, hasResults, latestFailedRun, typeLabel } from '../vocabulary'
+import { campaignHome, channelLabel, EDIT_PLACE_OF_TAB, hasAction, hasResults, isWarmUp, latestFailedRun, typeLabel } from '../vocabulary'
 import { dateTimeInZone } from '../zone'
 import { dripStepsQuery } from '../dripSteps'
 import { pausedLine } from './dripDetail'
@@ -128,6 +129,7 @@ export function CampaignDetailPage() {
   const zone = data.send_timezone || me?.tenant.timezone || 'UTC'
   const live = data.runs.some((run) => ['PREPARING', 'SENDING'].includes(run.status))
   const journey = data.is_journey_generated
+  const warmUp = isWarmUp(data)
   const rights = { edit: can('campaign.edit'), publish: can('campaign.publish') }
   const { main, clone, menu } = campaignPageActions(data, rights, EDIT_PLACE_OF_TAB[tab])
   const editable = rights.edit && !journey && hasAction(data, 'edit')
@@ -174,7 +176,7 @@ export function CampaignDetailPage() {
             <StatusBadge status={data.display_status} label={data.display_status_label} />
             <Tag icon={channelIconOf(data.channel)}>{channelLabel(data.channel)}</Tag>
             <Tag>{typeLabel(data.campaign_type)}</Tag>
-            {journey ? <Tag icon={Workflow}>Journey</Tag> : <Tag icon={Hand}>Manual</Tag>}
+            {journey ? <Tag icon={Workflow}>Journey</Tag> : warmUp ? <CategoryTag category="warmup" /> : <Tag icon={Hand}>Manual</Tag>}
             {data.code && <CopyId code={data.code} look="chip" />}
           </div>
           {data.description && <p className="max-w-2xl text-sm text-ink-800">{data.description}</p>}
@@ -200,6 +202,12 @@ export function CampaignDetailPage() {
       </header>
 
       <div className="mt-5 flex flex-col gap-3 empty:hidden">
+        {warmUp && (
+          <Notice layout="banner" icon={Thermometer} iconTile title={data.warm_up ? `Sent by the Delivery Warm-Up: day ${data.warm_up.day} of ${data.warm_up.days_total}` : 'Sent by the Delivery Warm-Up'}
+            action={can('provider.edit') && <Link to="/settings/delivery-warmup" className={buttonSecondary}>Open Delivery Warm-Up</Link>}>
+            <p>Its lists and template are set on the warm-up, day by day, and its messages go out within the warm-up's hourly limit after your own campaigns.</p>
+          </Notice>
+        )}
         {publishedDrip && dripSteps.data && (
           <DripBanners campaign={data} steps={dripSteps.data} zone={zone} canPublish={rights.publish} canCancel={canCancelSchedule} busy={act.isPending}
             onCancelSchedule={() => run('cancel-schedule')} onRetry={setRetrying}
