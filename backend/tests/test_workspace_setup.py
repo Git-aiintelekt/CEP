@@ -36,8 +36,8 @@ def test_workspace_setup(check, admin_email):
             check("the overview answers 200 with the workspace, the viewer and eight steps (Engagement and Insights)", r.status_code == 200 and body.get("total") == 8 and len(body.get("steps", [])) == 8
                   and body["workspace"]["code"] == "NWA" and bool(body["viewer"]["first_name"]), f"{r.status_code} {str(r.content)[:200]}")
             keys = [s["key"] for s in body["steps"]]
-            check("the steps in order, the optional ones marked; with Engagement the database step is optional", keys == ["signin", "team", "email_engine", "email_sender", "text", "lists", "tell", "databases"]
-                  and [s["optional"] for s in body["steps"]] == [False, False, False, False, True, False, True, True] and body.get("components") == ["cep", "insights"], str(keys))
+            check("the steps in order, the optional ones marked; with Engagement the database step is optional", keys == ["signin", "team", "email_engine", "email_sender", "warmup", "text", "lists", "tell", "databases"]
+                  and [s["optional"] for s in body["steps"]] == [False, False, False, False, True, True, False, True, True] and body.get("components") == ["cep", "insights"], str(keys))
             check("the sign-in step is done for the person reading", body["steps"][0]["state"] == "done" and body["steps"][0]["tag"] == "Done" and body["steps"][0]["text"].startswith("Done"), body["steps"][0]["text"])
             check("every step has a label, a sentence and links with pages", all(s["label"] and s["text"] and all(l["to"].startswith("/") for l in s["links"]) for s in body["steps"]))
             done = sum(1 for s in body["steps"] if s["state"] == "done")

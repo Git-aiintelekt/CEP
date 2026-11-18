@@ -42,7 +42,7 @@ export function CalendarDayModal({ day, zone, spans, canEdit, onClose }: { day: 
               {send && <span className="cep-num truncate text-xs text-ink-800">{[send.name, `${whenInZone(send.at, zone)?.time ?? ''} ${zoneShort(zone)}`].filter(Boolean).join(' · ')}</span>}
             </span>
             <span className="flex shrink-0 items-center gap-2">
-              {span.is_journey_generated && <CategoryTag category="journey" />}
+              {span.is_journey_generated && <CategoryTag category="journey" />}{span.campaign_type === 'WARM_UP' && <CategoryTag category="warmup" />}
               {send ? <StatusBadge status={sendState(send).status} label={sendState(send).label} /> : <StatusBadge status={barStatus(span)} label={onHold(span) ? 'On Hold' : undefined} />}
             </span>
           </li>

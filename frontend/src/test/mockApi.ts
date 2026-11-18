@@ -10,6 +10,8 @@ import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
+import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
+import type { WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -846,6 +848,8 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** GET /warmup/; default: no warm-up yet, a Growth plan of 25,000 contacts */
+  warmup?: WarmUpOverview
   /** GET /workspace/utm/; default: both channels off, the recommended values */
   utm?: Partial<UtmSettings>
   /** POST /utm/preview/ links; default: a hero image, a shop button, Instagram and the unsubscribe link */
@@ -1031,6 +1035,7 @@ export function installMockApi(options: MockOptions = {}) {
   const consentPolicyNow = { ...consentPolicy }
   const attributionNow: AttributionSettings = JSON.parse(JSON.stringify(attributionSettings))
   let setupNow: WorkspaceSetup = { ...SAMPLE_SETUP_READY, ...options.setup }
+  let warmupNow: WarmUpOverview = structuredClone(options.warmup ?? NO_WARM_UP)
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
   let journeyNow: Journey = makeJourney(options.journey)
@@ -1214,6 +1219,25 @@ export function installMockApi(options: MockOptions = {}) {
         .map((item) => options.engineHealth ? { ...item, health: engineHealth[item.id] ?? null } : item))
     }
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
+    if (path.endsWith('/warmup/plans/')) return json(SAMPLE_WARM_UP_PLANS)
+    if (path.endsWith('/warmup/') && method === 'POST') { warmupNow = structuredClone(SAMPLE_WARM_UP); return json(warmupNow, 201) }
+    if (path.endsWith('/warmup/') && method === 'PATCH' && warmupNow.warmup) { warmupNow = { ...warmupNow, warmup: { ...warmupNow.warmup, ...(body as Partial<WarmUp>) } }; return json(warmupNow) }
+    if (path.endsWith('/warmup/days/') && method === 'POST' && warmupNow.warmup) {
+      const change = body as { from_day: number; to_day: number; template_id?: string; hourly_limit?: number }
+      const template = templatesNow.find((item) => item.id === change.template_id)
+      warmupNow = { ...warmupNow, days: warmupNow.days.map((item) => item.day < change.from_day || item.day > change.to_day ? item
+        : { ...item, ...(template ? { template: { id: template.id, name: template.name } } : {}), ...(change.hourly_limit ? { hourly_limit: change.hourly_limit, daily_limit: change.hourly_limit * 13 } : {}) }) }
+      return json(warmupNow)
+    }
+    if (path.endsWith('/warmup/actions/') && method === 'POST' && warmupNow.warmup) {
+      const action = (body as { action: string }).action
+      const now = warmupNow.warmup
+      const next = action === 'approve' ? { current_day: now.offered_day ?? now.current_day, offered_day: null } : action === 'stay' ? { offered_day: null }
+        : action === 'pause' ? { status: 'PAUSED' as const } : action === 'resume' ? { status: 'WARMING' as const } : action === 'stop' ? { status: 'STOPPED' as const, offered_day: null } : {}
+      warmupNow = { ...warmupNow, warmup: { ...now, ...next } }
+      return json(warmupNow)
+    }
+    if (path.endsWith('/warmup/')) return json(warmupNow)
     if (path.endsWith('/workspace/utm/') && method === 'PUT') {
       const next = body as unknown as UtmSettings
       if ((next.email || next.sms) && next.domains.length === 0) return json({ type: 'about:blank', title: 'Invalid', status: 400, errors: { domains: ['Add at least one of your sites: only links to them are tagged.'] } }, 400)

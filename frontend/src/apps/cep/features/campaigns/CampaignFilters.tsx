@@ -18,7 +18,7 @@ import { CAMPAIGN_TYPES, channelLabel, STATUS_FILTERS, typeShortLabel } from './
 
 type Choice = { value: string; label: string }
 
-const TRIGGERS: Choice[] = [{ value: '', label: 'Any' }, { value: 'journey', label: 'Journey' }, { value: 'manual', label: 'Manual' }]
+const TRIGGERS: Choice[] = [{ value: '', label: 'Any' }, { value: 'journey', label: 'Journey' }, { value: 'warm_up', label: 'Warm-Up' }, { value: 'manual', label: 'Manual' }]
 const CHANNEL_CHOICES: Choice[] = ['EMAIL', 'SMS', 'MMS'].map((value) => ({ value, label: channelLabel(value) }))
 const TYPE_CHOICES: Choice[] = CAMPAIGN_TYPES.map((item) => ({ value: item.value, label: typeShortLabel(item.value) }))
 

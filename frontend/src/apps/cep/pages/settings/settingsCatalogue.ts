@@ -2,7 +2,7 @@
  * The Settings menu: General, then a group per suite component the workspace has (docs/mockups/settings-by-component.html,
  * option A), who sees which page, and the three things the panel remembers per viewer.
  */
-import { Bell, Braces, CalendarRange, ChartColumn, CheckCircle2, CircleDollarSign, ClipboardCheck, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Megaphone, Plug, Receipt, Send, SlidersHorizontal, Sparkles, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
+import { Bell, Braces, CalendarRange, ChartColumn, CheckCircle2, CircleDollarSign, ClipboardCheck, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Megaphone, Plug, Receipt, Send, SlidersHorizontal, Sparkles, Target, Thermometer, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
 
 import type { Feature, Me } from '@/lib/types'
 
@@ -36,6 +36,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   ] },
   { key: 'engagement', label: 'Engagement', icon: Megaphone, component: 'cep', pages: [
     { to: '/settings/delivery', label: 'Sending Engines', icon: Send, section: 'Sending' },
+    { to: '/settings/delivery-warmup', label: 'Delivery Warm-Up', icon: Thermometer, section: 'Sending' },
     { to: '/settings/email', label: 'Email Server', icon: Mail, section: 'Sending' },
     { to: '/settings/utm-tracking', label: 'UTM Tracking', icon: Link2, section: 'Sending' },
     { to: '/settings/approvals', label: 'Approvals', icon: CheckCircle2, section: 'Sending' },

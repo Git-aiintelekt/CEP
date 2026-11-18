@@ -3213,6 +3213,114 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON whatsapp_template TO cep_app;
 GRANT ALL ON whatsapp_template TO cep_admin;
 
+-- ---- Delivery warm-up (patch 0083): a new sending IP or domain earns the inboxes' trust by sending a little more each day.
+-- A workspace has at most one open warm-up (WARMING or PAUSED). Its plan is a schedule of hourly limits by warm-up age (day 0 to
+-- 41), cut off where the workspace plan's contacts fit in one day; a DAILY plan sends only inside its window. Each plan day
+-- has its own lists and template (delivery_warmup_day). Every hour CEP picks the next people of the day's lists, round after
+-- round, each with a template they have not had (delivery_warmup_send), and sends them as a WARM_UP campaign per day and
+-- template (delivery_warmup_campaign). Every marketing email of the workspace is held while the warm-up is open
+-- (mailer_execution.send_after = 'infinity') and released a few at a time within the hour's limit, its own campaigns first
+-- (apps/delivery/warmup.py).
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_campaign_type;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_campaign_type CHECK (campaign_type IN ('REGULAR_MARKETING', 'E_RECEIPT', 'DRIP', 'JOURNEY', 'OTHER', 'WARM_UP'));
+
+CREATE TABLE IF NOT EXISTS delivery_warmup (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    sender_profile_id   UUID NOT NULL REFERENCES sender_profile(id),
+    ip_mode             VARCHAR(10) NOT NULL DEFAULT 'DEDICATED',     -- DEDICATED starts at age 0; SHARED (a warm pool: only the domain is new) at age 7
+    plan_kind           VARCHAR(10) NOT NULL DEFAULT 'DAILY',         -- HOURLY: the hour's limit round the clock; DAILY: only from window_start to window_end
+    window_start        TIME NOT NULL DEFAULT '08:00',
+    window_end          TIME NOT NULL DEFAULT '21:00',
+    advance_mode        VARCHAR(10) NOT NULL DEFAULT 'AUTO',          -- AUTO: the next day after a healthy one; APPROVE: someone approves it
+    status              VARCHAR(10) NOT NULL DEFAULT 'WARMING',       -- WARMING, PAUSED (warm-up sends stop, the limit stays), WARM (finished), STOPPED
+    status_note         TEXT,
+    current_day         INTEGER NOT NULL DEFAULT 1,                   -- the plan day in force (1-based)
+    day_started_on      DATE NOT NULL,                                -- the workspace's local date the current day began
+    offered_day         INTEGER,                                      -- APPROVE: the day waiting for approval
+    failed_streak       INTEGER NOT NULL DEFAULT 0,                   -- days in a row over a health limit
+    round               INTEGER NOT NULL DEFAULT 1,                   -- the pass through the lists: everyone once per round
+    contacts_target     INTEGER,                                      -- the workspace plan's contacts the plan was sized to; NULL = the whole schedule
+    extra_template_ids  UUID[] NOT NULL DEFAULT '{}',                 -- more templates for people who have had every day's template
+    last_hour_planned   TIMESTAMPTZ,                                  -- the hour whose warm-up sends were picked last
+    started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    started_by          UUID REFERENCES app_user(id),
+    paused_at           TIMESTAMPTZ,
+    finished_at         TIMESTAMPTZ,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by          UUID REFERENCES app_user(id),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_delivery_warmup_ip_mode CHECK (ip_mode IN ('DEDICATED', 'SHARED')),
+    CONSTRAINT ck_delivery_warmup_plan_kind CHECK (plan_kind IN ('HOURLY', 'DAILY')),
+    CONSTRAINT ck_delivery_warmup_advance CHECK (advance_mode IN ('AUTO', 'APPROVE')),
+    CONSTRAINT ck_delivery_warmup_status CHECK (status IN ('WARMING', 'PAUSED', 'WARM', 'STOPPED')),
+    CONSTRAINT ck_delivery_warmup_window CHECK (window_end > window_start)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_delivery_warmup_open ON delivery_warmup(tenant_id) WHERE status IN ('WARMING', 'PAUSED');
+
+CREATE TABLE IF NOT EXISTS delivery_warmup_day (
+    warmup_id           UUID NOT NULL REFERENCES delivery_warmup(id) ON DELETE CASCADE,
+    day_no              INTEGER NOT NULL,                             -- 1-based plan day
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    schedule_age        INTEGER NOT NULL,                             -- the schedule's warm-up age (0-41) its limit comes from
+    hourly_limit        INTEGER NOT NULL,
+    list_ids            UUID[] NOT NULL DEFAULT '{}',
+    template_id         UUID REFERENCES template_master(id),
+    started_on          DATE,                                         -- the local dates it was in force
+    closed_on           DATE,
+    sent                INTEGER,                                      -- the workspace's marketing email on its last date, judged at midnight
+    bounced             INTEGER,
+    complained          INTEGER,
+    outcome             VARCHAR(10),                                  -- DONE (healthy), HELD (over a limit), QUIET (nothing sent)
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by          UUID REFERENCES app_user(id),
+    PRIMARY KEY (warmup_id, day_no),
+    CONSTRAINT ck_delivery_warmup_day_limit CHECK (hourly_limit > 0),
+    CONSTRAINT ck_delivery_warmup_day_outcome CHECK (outcome IS NULL OR outcome IN ('DONE', 'HELD', 'QUIET'))
+);
+
+CREATE TABLE IF NOT EXISTS delivery_warmup_send (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    warmup_id           UUID NOT NULL REFERENCES delivery_warmup(id) ON DELETE CASCADE,
+    party_id            VARCHAR(60) NOT NULL,
+    round               INTEGER NOT NULL,
+    day_no              INTEGER NOT NULL,
+    sent_on             DATE NOT NULL,                                -- local date
+    template_id         UUID REFERENCES template_master(id),          -- NULL: they had every template, nothing was sent
+    campaign_id         UUID REFERENCES campaign(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_delivery_warmup_send_round ON delivery_warmup_send(warmup_id, round, party_id);
+CREATE INDEX IF NOT EXISTS ix_delivery_warmup_send_party ON delivery_warmup_send(warmup_id, party_id);
+CREATE INDEX IF NOT EXISTS ix_delivery_warmup_send_day ON delivery_warmup_send(warmup_id, sent_on);
+
+CREATE TABLE IF NOT EXISTS delivery_warmup_campaign (
+    campaign_id         UUID PRIMARY KEY REFERENCES campaign(id),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    warmup_id           UUID NOT NULL REFERENCES delivery_warmup(id) ON DELETE CASCADE,
+    day_no              INTEGER NOT NULL,
+    sent_on             DATE NOT NULL,
+    template_id         UUID NOT NULL REFERENCES template_master(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_delivery_warmup_campaign ON delivery_warmup_campaign(warmup_id, day_no, sent_on, template_id);
+
+-- the marketing email the warm-up holds back until its hour: one look per minute, per workspace
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_warmup_held ON mailer_execution(tenant_id, created_at) WHERE status = 'QUEUED' AND send_after = 'infinity';
+
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['delivery_warmup', 'delivery_warmup_day', 'delivery_warmup_send', 'delivery_warmup_campaign'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON delivery_warmup, delivery_warmup_day, delivery_warmup_send, delivery_warmup_campaign TO cep_app;
+GRANT ALL ON delivery_warmup, delivery_warmup_day, delivery_warmup_send, delivery_warmup_campaign TO cep_admin;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

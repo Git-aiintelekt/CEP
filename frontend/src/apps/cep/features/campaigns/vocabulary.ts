@@ -49,12 +49,18 @@ export const STATUS_FILTERS = [
 export const TEMPLATE_FIT: Record<string, string[]> = { EMAIL: ['EMAIL', 'E_RECEIPT'], SMS: ['SMS'], MMS: ['MMS'], MULTI: ['EMAIL', 'E_RECEIPT', 'SMS', 'MMS'], WHATSAPP: ['WHATSAPP'] }
 export const SENDER_FIT: Record<string, string[]> = { EMAIL: ['EMAIL'], SMS: ['SMS'], MMS: ['MMS', 'SMS'], MULTI: ['EMAIL', 'SMS', 'MMS'], WHATSAPP: ['WHATSAPP'] }
 
-export const typeLabel = (value: string) => CAMPAIGN_TYPES.find((item) => item.value === value)?.label ?? value
+/** types CEP makes on its own, never offered when creating a campaign */
+const MADE_BY_CEP: Record<string, string> = { JOURNEY: 'Journey', WARM_UP: 'Warm-Up' }
+
+export const typeLabel = (value: string) => CAMPAIGN_TYPES.find((item) => item.value === value)?.label ?? MADE_BY_CEP[value] ?? value
 /** the list page's narrower wording: "Regular" for Regular Marketing; the wizard and campaign page keep typeLabel */
 export const typeShortLabel = (value: string) => {
   const type = CAMPAIGN_TYPES.find((item) => item.value === value)
-  return type ? ('short' in type ? type.short : type.label) : value
+  return type ? ('short' in type ? type.short : type.label) : (MADE_BY_CEP[value] ?? value)
 }
+
+/** sent by the Delivery Warm-Up: read-only here, changed under Settings → Delivery Warm-Up */
+export const isWarmUp = (campaign: Pick<Campaign, 'campaign_type'>) => campaign.campaign_type === 'WARM_UP'
 export const channelLabel = (value: string) => CHANNELS.find((item) => item.value === value)?.label ?? value
 export const sendTypeLabel = (value: string) => SEND_TYPES.find((item) => item.value === value)?.label ?? value
 

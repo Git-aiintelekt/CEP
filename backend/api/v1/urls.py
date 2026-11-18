@@ -24,7 +24,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
+from . import (attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
 
@@ -80,6 +80,10 @@ urlpatterns = [
     path("utm/preview/", utm_api.UtmPreviewView.as_view(), name="utm-preview"),
     path("campaigns/<uuid:pk>/link-tracking/", utm_api.CampaignLinkTrackingView.as_view(), name="campaign-link-tracking"),
     path("l/<str:tenant_code>/<str:token>/", utm_api.short_link, name="short-link"),
+    path("warmup/", warmup_api.WarmupView.as_view(), name="warmup"),
+    path("warmup/plans/", warmup_api.WarmupPlansView.as_view(), name="warmup-plans"),
+    path("warmup/days/", warmup_api.WarmupDaysView.as_view(), name="warmup-days"),
+    path("warmup/actions/", warmup_api.WarmupActionsView.as_view(), name="warmup-actions"),
     path("sending-domains/", delivery_api.SendingDomainsView.as_view(), name="sending-domains"),
     path("sending-domains/check/", delivery_api.SendingDomainsCheckView.as_view(), name="sending-domains-check"),
     path("sending-domains/selector/", delivery_api.SendingDomainSelectorView.as_view(), name="sending-domains-selector"),

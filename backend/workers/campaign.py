@@ -4,6 +4,7 @@
     start_run           builds the audience and fans the executions out to workers.email.send_batch
     finalize_run        closes the run once nothing is queued
     plan_recurring_runs beat, every 5 minutes: the next occurrence of each recurring campaign, until its end
+    run_warm_ups        beat, every minute: Delivery Warm-Up (apps/delivery/warmup.py)
 """
 import logging
 
@@ -58,6 +59,14 @@ def decide_ab_winners() -> dict:
             log.exception("subject-line winner not decided for run %s", run_id)
             failed += 1
     return {"decided": decided, "failed": failed}
+
+
+@shared_task(name="workers.campaign.run_warm_ups")
+@jobs.monitored("run-delivery-warm-ups")
+def run_warm_ups() -> dict:
+    """Delivery Warm-Up, every minute: the day judged at midnight, the hour's warm-up sends picked, email let out within the hourly limit."""
+    from apps.delivery import warmup
+    return warmup.run_all()
 
 
 @shared_task(name="workers.campaign.refresh_audience_lists")
