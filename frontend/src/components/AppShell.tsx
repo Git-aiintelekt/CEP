@@ -5,6 +5,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { LegalFooter } from '@/components/LegalFooter'
+import { UpgradeNotice } from '@/components/UpgradeNotice'
 import { UploadsIndicator } from '@/apps/cep/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
@@ -243,6 +244,8 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
       <div className={`flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
         {visit && <VisitBanner workspace={me?.workspace?.name ?? me?.tenant.code ?? 'this workspace'} home={visit.home} />}
+        {/* every workspace, Platform included: a scheduled upgrade, the pause while it runs, Reload after */}
+        <UpgradeNotice />
         {/* same side padding as the top bar's search and account, and no width cap, so content lines up with them */}
         {workspace ? (
           <main className="flex h-[calc(100dvh-3.5rem)] w-full min-w-0 flex-col overflow-hidden bg-surface"><Outlet /></main>
