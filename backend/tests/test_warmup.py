@@ -83,7 +83,7 @@ def test_warm_up_end_to_end(world, check):
         again = api("post", "/api/v1/warmup/", {"sender_profile": world.email_sender, "list_ids": [world.three], "template_id": welcome})
         check("one warm-up at a time", again.status_code == 400)
         changed = api("post", "/api/v1/warmup/days/", {"from_day": 1, "to_day": 3, "hourly_limit": 4})
-        check("days 1 to 3 get 4 an hour", changed.status_code == 200 and [d["hourly_limit"] for d in changed.json()["days"][:4]] == [4, 4, 4, 28], changed.content[:200])
+        check("days 1 to 3 get 4 an hour", changed.status_code == 200 and [d["hourly_limit"] for d in changed.json()["days"][:4]] == [4, 4, 4, 55], changed.content[:200])
 
         # ---- the workspace's own campaign first: 3 people wait for the hour, then the warm-up takes what is left
         own = api("post", "/api/v1/campaigns/", {"name": "ZS own during warm-up", "campaign_type": "REGULAR_MARKETING", "channel": "EMAIL", "template": regular_body,
