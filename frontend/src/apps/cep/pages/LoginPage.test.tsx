@@ -144,3 +144,34 @@ test('once the endpoint exists the reset link is confirmed as sent', async () =>
   await user.click(screen.getByRole('button', { name: 'Resend Link' }))
   expect(await screen.findByText(/Link resent at/)).toBeTruthy()
 })
+
+test('on a workspace’s own domain the server names the workspace: the field goes, and sign-in goes to that workspace', async () => {
+  const calls = installMockApi({ addressWorkspace: 'ACME' })
+  const user = await renderApp()
+
+  await vi.waitFor(() => expect(screen.queryByLabelText('Workspace')).toBeNull())
+  await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
+  await user.type(screen.getByLabelText('Password'), 'correct-horse')
+  await user.click(screen.getByRole('button', { name: 'Log In' }))
+
+  await vi.waitFor(() => expect(calls.some((call) => call.url.endsWith('/auth/token/'))).toBe(true))
+  const signIn = calls.find((call) => call.url.endsWith('/auth/token/'))
+  expect(signIn?.headers['X-Tenant']).toBe('ACME')
+  const asked = calls.find((call) => call.url.endsWith('/auth/options/'))
+  expect(asked?.headers['X-Tenant']).toBeUndefined()
+})
+
+test('a first label that names no workspace (the installation’s own address) asks for the workspace after all', async () => {
+  const calls = installMockApi({ unknownWorkspace: 'cep' })
+  window.history.pushState({}, '', '/login')
+  vi.resetModules()
+  vi.doMock('@/lib/config', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/config')>()), tenantFromHost: () => 'cep' }))
+  try {
+    const { default: App } = await import('@/App').then(cepReady)
+    render(<App />)
+    expect(await screen.findByLabelText('Workspace')).toBeTruthy()
+    expect(calls.filter((call) => call.url.endsWith('/auth/options/')).map((call) => call.headers['X-Tenant'] ?? null)).toEqual(expect.arrayContaining([null, 'cep']))
+  } finally {
+    vi.doUnmock('@/lib/config')
+  }
+})

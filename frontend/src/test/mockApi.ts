@@ -960,6 +960,10 @@ interface MockOptions {
   onForgotPassword?: (call: Call) => Response | null
   /** GET /auth/options/ ; default: no single sign-on */
   authOptions?: Partial<AuthOptions>
+  /** GET /auth/options/ without X-Tenant: the workspace this address belongs to (its own domain); default none */
+  addressWorkspace?: string
+  /** GET /auth/options/ answers 404 Unknown tenant for this code */
+  unknownWorkspace?: string
   /** GET /auth/mfa/ starts from this */
   mfaEnabled?: boolean
   /** answer for PUT /workspace/security/ ; default merges the body into the stored settings */
@@ -1152,7 +1156,12 @@ export function installMockApi(options: MockOptions = {}) {
     if (tools) return tools
     if (path.endsWith('/legal/')) return json({ copyright_holder: 'Transaction Tree', year: 2026, terms: { title: 'Terms of Use', updated_at: '2026-10-09T10:00:00Z',
       body: '## 1. What C360 is\n\nCEP is a customer engagement platform.\n\n## 2. Your account\n\nYour account is personal.\n\n## 8. Contact\n\nAsk your workspace administrator.' } })
-    if (path.endsWith('/auth/options/')) return json({ workspace: headers['X-Tenant'], sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
+    if (path.endsWith('/auth/options/')) {
+      // no X-Tenant: the server resolves the address (a workspace's sub-domain or own domain); jsdom's localhost is none unless a test says so
+      const workspace = headers['X-Tenant'] || options.addressWorkspace
+      if (!workspace || workspace === options.unknownWorkspace) return json({ type: 'about:blank', title: 'Unknown tenant', status: 404 }, 404)
+      return json({ workspace, sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
+    }
     if (path.endsWith('/auth/mfa/verify/')) {
       return body?.mfa_token === 'mfa-token-1' && body?.code === MFA_CODE ? json({ access: 'access-1', refresh: 'refresh-1' })
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'That code is not right. Codes change every 30 seconds; a recovery code works once.' }, 401)
