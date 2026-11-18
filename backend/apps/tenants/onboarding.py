@@ -60,7 +60,7 @@ class WorkspaceForm(forms.Form):
                            help_text="Short, upper case, fixed once created. The API's X-Tenant header, the callback addresses and the partition names carry it.")
     subdomain = forms.CharField(label="Subdomain", max_length=63, required=False, widget=UnfoldAdminTextInputWidget, help_text="Host-based sign-in: <subdomain>.your-domain. Optional.")
     custom_app_domain = forms.CharField(label="Custom App Domain", max_length=253, required=False, widget=UnfoldAdminTextInputWidget,
-                                        help_text="Optional. Needs the DNS record and a certificate; the subdomain works meanwhile.")
+                                        help_text="Optional, e.g. engage.acme.com: the sign-in page then knows the workspace. Needs a DNS record to this server, the name in its certificate, nginx server_name and ALLOWED_HOSTS; the subdomain works meanwhile.")
     timezone = forms.ChoiceField(label="Time Zone", choices=[(zone, zone) for zone in COMMON_ZONES], initial="UTC", widget=UnfoldAdminSelectWidget,
                                  help_text="Schedules, quiet hours for texts and the reports read in this zone. Any IANA zone can be typed on the tenant's page afterwards.")
     region = forms.CharField(label="Region", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. us-east. Optional.")

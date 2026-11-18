@@ -309,6 +309,7 @@ details.cep-more[open] > summary::after { content: ' ▴'; }
 .cep-button-quiet { background: var(--cep-surface); color: var(--cep-accent); border-color: var(--cep-accent); }
 .cep-button-quiet:hover { background: var(--cep-accent-soft); color: var(--cep-accent-text); border-color: var(--cep-accent-text); }
 .cep-narrow { max-width: 28rem; }
+.cep-steps { list-style: decimal; padding-left: 1.25rem; }
 /* danger outline: red text on white; red only marks the destructive action */
 .cep-button-danger { background: var(--cep-surface); color: var(--cep-bad-text); border-color: var(--cep-bad); }
 .cep-button-danger:hover { background: var(--cep-bad-soft); }

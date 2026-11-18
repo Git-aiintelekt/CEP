@@ -61,7 +61,9 @@ export function LoginPage() {
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
-  const hostTenant = tenantFromHost()
+  // the first label of the address is only a guess (acme.cep.example.com); the server has the last word below
+  const [guess] = useState(() => tenantFromHost())
+  const [hostTenant, setHostTenant] = useState<string | null>(guess)
   const [step, setStep] = useState<Step>('signin')
   // read once and cleared: a refresh of this same page must not keep repeating a notice about a sign-out that already happened
   const [signedOutReason] = useState(() => {
@@ -85,6 +87,27 @@ export function LoginPage() {
   const [usePassword, setUsePassword] = useState(false)
   const [mfaToken, setMfaToken] = useState<string | null>(null)
   const [ssoBinding] = useState(newSsoBinding)
+
+  // Which workspace this address belongs to, as the server sees it: a workspace's own domain (engage.acme.com) or its
+  // sub-domain. A first label that names no workspace (the installation's own address, cep.example.com) is no workspace,
+  // so the Workspace field is asked for after all.
+  useEffect(() => {
+    const controller = new AbortController()
+    void (async () => {
+      const byAddress = await api.authOptions(null, controller.signal)
+      if (controller.signal.aborted) return
+      if (byAddress) {
+        setHostTenant(byAddress.workspace)
+        setTenant(byAddress.workspace)
+        return
+      }
+      if (guess && !(await api.authOptions(guess, controller.signal)) && !controller.signal.aborted) {
+        setHostTenant(null)
+        setTenant(rememberedTenant)
+      }
+    })()
+    return () => controller.abort()
+  }, [guess, rememberedTenant])
 
   // what this workspace offers (single sign-on); asked once the code stops changing
   useEffect(() => {

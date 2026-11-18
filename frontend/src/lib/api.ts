@@ -307,10 +307,12 @@ export const api = {
     session.setTokens(await request<TokenPair>('/auth/mfa/verify/', { method: 'POST', body: { mfa_token: mfaToken, code }, auth: false }))
   },
 
-  /** What the login page may offer for a workspace (single sign-on); null when the workspace is unknown. */
-  async authOptions(tenant: string, signal?: AbortSignal): Promise<AuthOptions | null> {
+  /** What the login page may offer for a workspace (single sign-on); null when the workspace is unknown. With no
+   * workspace, the server names the one the address belongs to (its sub-domain or its own domain), if any. */
+  async authOptions(tenant: string | null, signal?: AbortSignal): Promise<AuthOptions | null> {
     try {
-      const response = await fetch(buildUrl('/auth/options/'), { headers: { Accept: 'application/json', 'X-Tenant': tenant }, signal })
+      const headers: Record<string, string> = { Accept: 'application/json', ...(tenant ? { 'X-Tenant': tenant } : {}) }
+      const response = await fetch(buildUrl('/auth/options/'), { headers, signal })
       return response.ok ? ((await response.json()) as AuthOptions) : null
     } catch {
       return null

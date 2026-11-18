@@ -6,7 +6,8 @@ const RESERVED_SUBDOMAINS = new Set([
   ...String(import.meta.env.VITE_RESERVED_SUBDOMAINS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
 ])
 
-/** Tenant from `<tenant>.cep.example.com`; null on an IP, a reserved subdomain or a bare host, so the login page asks for the workspace and VITE_DEFAULT_TENANT fills it in. */
+/** Tenant from `<tenant>.cep.example.com`; null on an IP, a reserved subdomain or a bare host, so the login page asks for the workspace and VITE_DEFAULT_TENANT fills it in.
+ * Only a guess: the login page asks the server which workspace the address belongs to (a workspace's own domain names none here). */
 export function tenantFromHost(hostname: string = window.location.hostname, reserved: ReadonlySet<string> = RESERVED_SUBDOMAINS): string | null {
   const parts = hostname.toLowerCase().split('.')
   const isIp = /^\d+(\.\d+){3}$/.test(hostname)
