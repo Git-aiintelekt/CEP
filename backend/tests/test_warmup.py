@@ -56,7 +56,7 @@ def test_warm_up_end_to_end(world, check):
 
     def warm_up_campaigns():
         return sql("""SELECT l.day_no, c.id::text, c.name, c.campaign_type FROM delivery_warmup_campaign l JOIN campaign c ON c.id = l.campaign_id
-                       ORDER BY c.created_at""", fetch=True)
+                       ORDER BY l.day_no, c.name""", fetch=True)        # by day: inside the test's one transaction every created_at is the same
 
     def next_day():
         """Midnight passes: what went out today counts as yesterday's."""
@@ -108,8 +108,8 @@ def test_warm_up_end_to_end(world, check):
         state = overview()
         check("midnight: day 1 judged healthy (4 sent), day 2 in force", moved["day"]["outcome"] == "DONE" and state["warmup"]["current_day"] == 2
               and state["days"][0]["state"] == "DONE" and state["days"][0]["health"]["sent"] == 4, (moved, state["warmup"]["current_day"]))
-        made = warm_up_campaigns()
-        send_all(made[-1][1])
+        for _, cid, _, _ in warm_up_campaigns():
+            send_all(cid)
         sent = [p["to"] for p in world.posted if p["subject"] == "Welcome"]
         check("day 2 continues down the list: the two people the round had not reached, then the next round begins with the first",
               sorted(sent[1:]) == ["zs-p02@zs.example", "zs-p03@zs.example"], sent)
