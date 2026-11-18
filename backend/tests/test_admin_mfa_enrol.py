@@ -71,6 +71,9 @@ def test_sign_out_on_the_two_step_pages_signs_out(check):
             office.force_login(AppUser.objects.using(P).get(pk=staff.pk))
             with _required(True):
                 body = office.get(page).content.decode()
+                check(f"{page}: drawn on the sign-in page's layout, without the back-office's menu or search",
+                      " login " in body.split("<body", 1)[1].split(">", 1)[0] + " " and "nav-sidebar" not in body and "Search apps" not in body)
+                check(f"{page}: it names the account whose password was accepted", f"Password accepted for <strong" in body and staff.email in body)
                 check(f"{page}: Sign Out is a form that posts, not a link Django answers with 405",
                       '<form method="post" action="/admin/logout/">' in body and 'href="/admin/logout/"' not in body)
                 out = office.post("/admin/logout/")
