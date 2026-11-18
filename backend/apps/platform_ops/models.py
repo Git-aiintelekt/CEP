@@ -241,7 +241,12 @@ class PlatformSetting(models.Model):
         ordering = ('category', 'key')
 
     def __str__(self):
-        return self.key
+        """'security.password_link_hours' -> 'Password Link Hours': the change page's title; the key itself shows on the page"""
+        words = self.key.rsplit(".", 1)[-1].split("_")
+        return " ".join(word.upper() if word in ACRONYMS else word.capitalize() for word in words if word)
+
+
+ACRONYMS = {"ai", "api", "cdn", "dns", "id", "ip", "mfa", "sms", "sso", "smtp", "url", "utm", "pos", "mb", "gb", "ttl", "jwt", "otp"}
 
 
 class IndustryProfile(models.Model):
