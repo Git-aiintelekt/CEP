@@ -2,13 +2,14 @@
 
 OFBiz sends the token of iCRM's UtilCommon.getSSOToken, for both the launch and the logout: a Multipass token (token-app.jar,
 see .multipass) sealed with TenantProperties `security` `common.site.key` and `common.api.key`. In CEP the workspace's
-tenant_ofbiz_link row holds {"site_key", "api_key", "time_zone"}: the same two keys and the iCRM server's time zone.
+tenant row holds them in settings["ofbiz_sso"] = {"is_active", "secret_enc"}: secret_enc is {"site_key", "api_key",
+"time_zone", "roles"} (the same two keys, the iCRM server's time zone, and the role names), encrypted by the application.
 
 getSSOToken's fields: user_login_id (-> claim sub), email, expires ("yyyy-MM-dd HH:mm" in iCRM time, common.token.expiry.min,
 default 5 minutes), version, tenant_id (common.site.tenantId: not checked, since the keys already tie the token to this
 workspace). It has no jti or audience: the link works until it expires, and the same token serves launch and logout.
 Optional fields, checked when present: aud, exp, jti, party_id, next.
-"Open CEP" sends getCepSSOToken's token: the same, plus cep_role (the user's iCRM CEP security group: WORKSPACE_ADMIN,
+"Open CEP" sends getCepSSOToken's token: the same, plus cep_role (the user's iCRM CEP security group: MARKETING_ADMIN,
 CAMPAIGN_MANAGER or ANALYST) and display_name. iCRM owns the login and the role; CEP keeps only the email, name and role.
 
   link_for(...)   -> the workspace's keys and iCRM time zone, or None when "Open CEP" is off for it
@@ -32,6 +33,7 @@ from datetime import timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
+from django.db import connections, router
 from django.core.cache import cache
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -48,8 +50,9 @@ JTI_TTL = 120
 HANDOFF_TTL = 120
 SESSION = timedelta(hours=8)
 DEFAULT_NEXT = "/campaigns"
-# cep_role -> CEP role name; the workspace's tenant_ofbiz_link may override it with "roles": {code: role name}
-DEFAULT_ROLES = {"WORKSPACE_ADMIN": "Workspace Admin", "CAMPAIGN_MANAGER": "Campaign Manager", "ANALYST": "Analyst"}
+# cep_role -> CEP role name; the workspace's "roles": {code: role name} adds to it or renames
+SETTINGS_KEY = "ofbiz_sso"
+DEFAULT_ROLES = {"MARKETING_ADMIN": "Marketing Admin", "CAMPAIGN_MANAGER": "Campaign Manager", "ANALYST": "Analyst"}
 SEALED_PREFIX = "gAAAAA"                                    # every Fernet token starts so; a secret seeded by SQL does not
 
 INVALID_LINK = "This link is invalid or has expired. Open CEP again from OFBiz."
@@ -73,15 +76,20 @@ def signed_out_error() -> OfbizSignedOut:
 
 def _stored_keys(tenant_id) -> str | None:
     """The seed puts the keys in as plain text (SQL cannot encrypt with the application key): encrypt them on first read."""
-    from .models import TenantOfbizLink
-    link = TenantOfbizLink.objects.filter(tenant_id=tenant_id, is_active=True).first()
-    if link is None or not link.secret_enc:
+    from apps.tenants.models import Tenant
+    tenant_settings = Tenant.objects.filter(pk=tenant_id).values_list("settings", flat=True).first() or {}
+    link = tenant_settings.get(SETTINGS_KEY)
+    if not isinstance(link, dict) or link.get("is_active") is False or not link.get("secret_enc"):
         return None
-    if not link.secret_enc.startswith(SEALED_PREFIX):
-        plain = link.secret_enc.strip()
-        TenantOfbizLink.objects.filter(tenant_id=tenant_id, secret_enc=link.secret_enc).update(secret_enc=crypto.encrypt(plain))
+    secret = str(link["secret_enc"])
+    if not secret.startswith(SEALED_PREFIX):
+        plain = secret.strip()
+        with connections[router.db_for_write(Tenant)].cursor() as cursor:
+            cursor.execute("UPDATE tenant SET settings = jsonb_set(settings, %s, to_jsonb(%s::text)) "
+                           "WHERE id = %s AND settings -> %s ->> 'secret_enc' = %s",
+                           [[SETTINGS_KEY, "secret_enc"], crypto.encrypt(plain), str(tenant_id), SETTINGS_KEY, secret])
         return plain
-    return crypto.decrypt(link.secret_enc)
+    return crypto.decrypt(secret)
 
 
 def link_for(tenant_id) -> dict | None:
@@ -93,14 +101,14 @@ def link_for(tenant_id) -> dict | None:
         site_key, api_key, time_zone = (str(link[name]).strip() for name in ("site_key", "api_key", "time_zone"))
         ZoneInfo(time_zone)
     except (ValueError, TypeError, KeyError, ZoneInfoNotFoundError):
-        log.warning("tenant_ofbiz_link of %s does not hold {\"site_key\", \"api_key\", \"time_zone\"}: run database/ofbiz_sso_seed.sql",
+        log.warning("tenant.settings.ofbiz_sso of %s does not hold {\"site_key\", \"api_key\", \"time_zone\"}: run database/ofbiz_sso_seed.sql",
                     tenant_id)
         return None
-    roles = link.get("roles") or DEFAULT_ROLES
+    roles = link.get("roles") or {}
     if not (site_key and api_key) or not isinstance(roles, dict):
         return None
     return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone,
-            "roles": {str(code).strip().upper(): str(name).strip() for code, name in roles.items()}}
+            "roles": {**DEFAULT_ROLES, **{str(code).strip().upper(): str(name).strip() for code, name in roles.items()}}}
 
 
 def verify(token: str, audience: str, tenant: dict) -> dict:

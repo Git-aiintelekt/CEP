@@ -20,8 +20,8 @@ from api.v1 import auth_api
 from apps.identity.models import AppUser, Role, UserRole
 from apps.platform_ops import crypto, ofbiz
 from apps.platform_ops.multipass import MultipassTokenEncode
-from apps.platform_ops.models import TenantOfbizLink
 from apps.tenants import context
+from apps.tenants.models import Tenant
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
 
@@ -40,12 +40,22 @@ def _admin(admin_email):
 
 
 def _link(tenant, stored=STORED_KEYS, *, active=True):
-    """The workspace's tenant_ofbiz_link row, as the seed writes it: the keys in plain text; and the roles it maps to."""
+    """The workspace's tenant.settings["ofbiz_sso"], as the seed writes it: the keys in plain text; and the roles it maps to."""
     with connections["default"].cursor() as cursor:                  # row-level security, within the test's transaction
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])
     for name in ROLES.values():
         Role.objects.using("default").get_or_create(tenant_id=tenant.id, name=name)
-    TenantOfbizLink.objects.using("default").update_or_create(tenant_id=tenant.id, defaults={"secret_enc": stored, "is_active": active})
+    _set_link(tenant, {"is_active": active, "secret_enc": stored})
+
+
+def _set_link(tenant, link):
+    row = Tenant.objects.using("default").get(pk=tenant.id)
+    row.settings = {key: value for key, value in {**(row.settings or {}), "ofbiz_sso": link}.items() if value is not None}
+    row.save(update_fields=["settings"])
+
+
+def _stored_link(tenant):
+    return (Tenant.objects.using("default").get(pk=tenant.id).settings or {}).get("ofbiz_sso") or {}
 
 
 def _expires(minutes, zone=ICRM_TIME_ZONE):
@@ -91,7 +101,7 @@ def test_ofbiz_launch_and_logout(check, admin_email):
     fragment = _fragment(landed)
     check("a good OFBiz link lands on /launch with a one-time code", landed.status_code == 302 and "/launch#" in landed["Location"]
           and fragment.get("tenant") == [code] and fragment.get("code"), landed.get("Location"))
-    stored = TenantOfbizLink.objects.using("default").get(tenant_id=admin.tenant.id).secret_enc
+    stored = _stored_link(admin.tenant).get("secret_enc", "")
     check("keys seeded as plain text are encrypted on first use", stored.startswith(ofbiz.SEALED_PREFIX) and crypto.decrypt(stored) == STORED_KEYS)
     reused = _fragment(launch(token))
     check("getSSOToken has no jti: the same link works again until it expires", "/launch#" in landed["Location"] and reused.get("code"), reused)
@@ -163,7 +173,7 @@ def test_ofbiz_launch_refusals(check, admin_email):
     check("keys without the iCRM time zone", "not set up" in error(_ofbiz_token(admin.email, code)))
     _link(admin.tenant, active=False)
     check("switched off for the workspace", "not set up" in error(_ofbiz_token(admin.email, code)))
-    TenantOfbizLink.objects.using("default").filter(tenant_id=admin.tenant.id).delete()
+    _set_link(admin.tenant, None)
     check("not set up without a row", "not set up" in error(_ofbiz_token(admin.email, code)))
     check("a next that leaves the site falls back to Campaigns", ofbiz.safe_next("//evil.example") == "/campaigns" and ofbiz.safe_next("/journeys") == "/journeys")
     check.done()
@@ -212,6 +222,11 @@ def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
 
     check("a refused role leaves the user's role as it was", "no matching role" in error(_ofbiz_token(email, code, cep_role="OWNER"))
           and _platform_user(email)[1] == [ROLES["CAMPAIGN_MANAGER"]])
+
+    Role.objects.using("default").get_or_create(tenant_id=admin.tenant.id, name="Marketing Admin")
+    marketing = launch(_ofbiz_token(email, code, cep_role="MARKETING_ADMIN"))
+    check("iCRM's CEP_MARKETING_ADMIN opens CEP as Marketing Admin, even when the link's roles leave it out",
+          "/launch#" in marketing["Location"] and _platform_user(email)[1] == ["Marketing Admin"], marketing.get("Location"))
 
     tok = context.set_platform(True)
     try:

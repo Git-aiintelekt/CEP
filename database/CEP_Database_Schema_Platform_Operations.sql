@@ -187,19 +187,22 @@ CREATE TABLE IF NOT EXISTS tenant_identity_provider (
 );
 COMMENT ON TABLE tenant_identity_provider IS 'A tenant''s OpenID Connect identity provider (Entra ID, Okta, Google Workspace, ...): one per tenant';
 
-CREATE TABLE IF NOT EXISTS tenant_ofbiz_link (
-    tenant_id           UUID PRIMARY KEY REFERENCES tenant(id),
-    secret_enc          TEXT NOT NULL,                                   -- shared with OFBiz TenantProperties cep.sso.secret; may be inserted as
-                                                                         -- plain text, the application encrypts it the first time it reads it
-    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
-    created_by          UUID REFERENCES app_user(id),
-    updated_by          UUID REFERENCES app_user(id),
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    row_version         INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT ck_tenant_ofbiz_secret CHECK (length(secret_enc) >= 32)
-);
-COMMENT ON TABLE tenant_ofbiz_link IS '"Open CEP" from OFBiz iCRM: the HS256 secret OFBiz signs its launch and logout tokens with, one per tenant. No row, or is_active false = switched off';
+-- "Open CEP" from OFBiz iCRM lives in tenant.settings -> 'ofbiz_sso' = {"is_active": true, "secret_enc": "..."} (patch 0084):
+-- secret_enc is {"site_key", "api_key", "time_zone", "roles"}, inserted as plain text by database/ofbiz_sso_seed.sql and
+-- encrypted by the application the first time it reads it. Patch 0083 kept it in tenant_ofbiz_link: moved here, table dropped.
+DO $$
+DECLARE r RECORD;
+BEGIN
+    IF to_regclass('tenant_ofbiz_link') IS NOT NULL THEN
+        FOR r IN SELECT id FROM tenant LOOP
+            PERFORM set_config('app.current_tenant', r.id::text, true);      -- the old table has row-level security
+            UPDATE tenant t SET settings = jsonb_set(t.settings, '{ofbiz_sso}', jsonb_build_object('is_active', l.is_active, 'secret_enc', l.secret_enc))
+            FROM tenant_ofbiz_link l WHERE l.tenant_id = r.id AND t.id = r.id AND NOT (t.settings ? 'ofbiz_sso');
+        END LOOP;
+        PERFORM set_config('app.current_tenant', '', true);
+        DROP TABLE tenant_ofbiz_link;
+    END IF;
+END $$;
 
 -- -------------------------------------------------------------------------------------
 -- 6. GLOBAL PARAMETERS AND INDUSTRY PROFILES
@@ -275,7 +278,7 @@ ON CONFLICT (code) DO NOTHING;
 DO $$
 DECLARE t TEXT;
 BEGIN
-    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider', 'tenant_ofbiz_link'] LOOP
+    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider'] LOOP
         EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_touch ON %I', t, t);
         EXECUTE format('CREATE TRIGGER trg_%s_touch BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION fn_touch_row()', t, t);
         EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_audit ON %I', t, t);
@@ -285,7 +288,7 @@ BEGIN
         EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_touch ON %I', t, t);
         EXECUTE format('CREATE TRIGGER trg_%s_touch BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION fn_touch_updated_at()', t, t);
     END LOOP;
-    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider', 'tenant_ofbiz_link', 'support_access_log', 'tenant_operation'] LOOP
+    FOREACH t IN ARRAY ARRAY['tenant_invoice', 'tenant_identity_provider', 'support_access_log', 'tenant_operation'] LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
         EXECUTE format('DROP POLICY IF EXISTS rls_%s_tenant ON %I', t, t);
@@ -338,7 +341,7 @@ END $$;
 REVOKE INSERT, UPDATE, DELETE ON platform_setting, industry_profile FROM cep_app;
 GRANT SELECT ON platform_setting, industry_profile TO cep_app;
 REVOKE ALL ON tenant_operation, job_run, platform_alert FROM cep_app;
-GRANT ALL ON tenant_invoice, tenant_operation, job_run, platform_alert, support_access_log, tenant_identity_provider, tenant_ofbiz_link, platform_setting, industry_profile TO cep_admin;
+GRANT ALL ON tenant_invoice, tenant_operation, job_run, platform_alert, support_access_log, tenant_identity_provider, platform_setting, industry_profile TO cep_admin;
 -- invoices are produced by the platform, read by the tenant
 REVOKE INSERT, UPDATE, DELETE ON tenant_invoice FROM cep_app;
 -- the tenant reads its support access log; only the platform writes it
