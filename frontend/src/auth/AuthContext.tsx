@@ -29,9 +29,12 @@ const OFBIZ_RECHECK_MS = 60_000
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [hasToken, setHasToken] = useState(session.hasToken)
+  // Bumped on every sign-in, so signing in over an existing session (Open CEP from OFBiz while a password session is
+  // open) loads the new user instead of keeping the one already shown.
+  const [signIns, setSignIns] = useState(0)
 
   const meQuery = useQuery({
-    queryKey: ['me'],
+    queryKey: ['me', signIns],
     queryFn: ({ signal }) => api.get<Me>('/me/', undefined, signal),
     enabled: hasToken,
     staleTime: 5 * 60_000,
@@ -78,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signedIn = useCallback(() => {
     queryClient.clear()
     setHasToken(true)
+    setSignIns((count) => count + 1)
   }, [queryClient])
 
   const login = useCallback(

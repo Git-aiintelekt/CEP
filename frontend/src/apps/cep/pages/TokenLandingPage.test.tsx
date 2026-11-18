@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi } from '@/test/mockApi'
+import { cepReady, installMockApi, signIn } from '@/test/mockApi'
 
 async function renderAt(path: string) {
   window.history.pushState({}, '', path)
@@ -70,6 +70,20 @@ test('Open CEP in OFBiz: the code is exchanged without a binding and the session
   expect(window.sessionStorage.getItem('cep.ofbizLaunch.NWA')).toBe('Y')
   expect(window.location.hash).toBe('')
   expect(calls.find((call) => call.url.includes('/auth/sso/ofbiz/exchange/'))?.body).toEqual({ code: 'ofbiz-code-1' })
+})
+
+test('Open CEP over a session already open in the browser loads the user iCRM sent, not the one shown before', async () => {
+  const calls = installMockApi()
+  const meCalls = () => calls.filter((call) => call.url.endsWith('/me/')).length
+  signIn('/campaigns')
+  await renderAt('/campaigns')
+  await waitFor(() => expect(meCalls()).toBe(1))
+
+  window.history.pushState({}, '', '/launch#code=ofbiz-code-1&tenant=NWA')
+  window.dispatchEvent(new PopStateEvent('popstate'))
+
+  await waitFor(() => expect(window.location.pathname).toBe('/campaigns'))
+  await waitFor(() => expect(meCalls()).toBe(2))
 })
 
 test('a used or expired OFBiz link signs nobody in and points back to OFBiz', async () => {
