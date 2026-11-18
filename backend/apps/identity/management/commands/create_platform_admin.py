@@ -3,7 +3,8 @@
     python manage.py create_platform_admin platform@aiintelekt.com --name "Platform Admin"
 
 Every user belongs to a workspace, and a database built without the sample data has none, so this makes the Platform
-workspace (code PLATFORM, on the Insights plan, onboarded like any other) when it is missing, then the user in it as
+workspace (code PLATFORM, on the Enterprise plan so it has Engagement and Insights with every feature; --plan INSIGHTS for
+an Insights-only installation; onboarded like any other) when it is missing, then the user in it as
 Workspace Admin with is_staff and is_platform_admin, and asks for the password twice without showing it. Safe to run again:
 what exists is kept, the flags are set, and the password changes only when one is typed (--no-password skips the
 question; set it later with changepassword <email> --database platform). Runs on the BYPASSRLS `platform` connection.
@@ -22,7 +23,7 @@ from apps.tenants.models import SubscriptionPlan, Tenant, TenantSubscription
 
 P = settings.PLATFORM_ALIAS
 CODE = "PLATFORM"
-PLAN = "INSIGHTS"
+PLAN = "ENTERPRISE"
 
 
 class Command(BaseCommand):
@@ -33,6 +34,7 @@ class Command(BaseCommand):
         parser.add_argument("--name", default="Platform Admin", help="the display name")
         parser.add_argument("--timezone", default="UTC", help="the Platform workspace's time zone, when it is created")
         parser.add_argument("--no-password", action="store_true", help="do not ask for a password now")
+        parser.add_argument("--plan", default=PLAN, help="the Platform workspace's plan code, when it is created (default ENTERPRISE)")
 
     def handle(self, *args, email, name, no_password, **options):
         elsewhere = AppUser.objects.using(P).filter(email__iexact=email).exclude(tenant__code=CODE).select_related("tenant").first()
@@ -41,7 +43,7 @@ class Command(BaseCommand):
         password = None if no_password else self.ask_password(email)
 
         with transaction.atomic(using=P):
-            tenant, created = self.platform_workspace(options["timezone"])
+            tenant, created = self.platform_workspace(options["timezone"], options["plan"])
             user = AppUser.objects.using(P).filter(email__iexact=email).first()
             if user is None:
                 user = AppUser.objects.db_manager(P).create_user(email, name, tenant, None, auth_provider="LOCAL")
@@ -57,13 +59,14 @@ class Command(BaseCommand):
             f"{'Created' if created else 'Kept'} the workspace {CODE}; {user.email} is a platform administrator in it."))
         if not user.has_usable_password():
             self.stdout.write(f"No password yet: python manage.py changepassword {user.email} --database platform")
-        self.stdout.write("Next: sign in at /admin/ and set up two-step verification (Account Security in the app, workspace PLATFORM).")
+        self.stdout.write("Next: sign in at /admin/. Two-step verification is not required at first: once every staff member has set it up\n"
+                          "(Account Security in the app), switch on security.mfa_required_for_staff in the back-office.")
 
-    def platform_workspace(self, zone: str) -> tuple[Tenant, bool]:
+    def platform_workspace(self, zone: str, plan_code: str = PLAN) -> tuple[Tenant, bool]:
         tenant = Tenant.objects.using(P).filter(code=CODE).first()
         if tenant is not None:
             return tenant, False
-        plan = SubscriptionPlan.objects.using(P).filter(code=PLAN).first() or SubscriptionPlan.objects.using(P).order_by("code").first()
+        plan = SubscriptionPlan.objects.using(P).filter(code=plan_code.upper()).first() or SubscriptionPlan.objects.using(P).order_by("code").first()
         if plan is None:
             raise CommandError("No subscription plan in this database: was it built from the layers?")
         tenant = Tenant.objects.using(P).create(name="Platform", code=CODE, timezone=zone, status="ACTIVE", isolation_mode="SHARED",

@@ -5,10 +5,11 @@
 #
 #   PGHOST=... PGPORT=5432 PGUSER=postgres PGDATABASE=cep_db \
 #   PYTHON=/opt/cep/backend/.venv/bin/python DJANGO_SETTINGS_MODULE=config.settings.production \
-#   CEP_PUBLIC_URL=https://c360.example.com \
+#   CEP_PUBLIC_URL=https://c360.example.com [CEP_PLATFORM_PLAN=ENTERPRISE] \
 #   bash database/production/load_reference_data.sh platform@aiintelekt.com "Platform Admin"
 #
-# The administrator command runs with the app's own settings (.env), on the back-office login. Safe to run again: the
+# The Platform workspace is created on CEP_PLATFORM_PLAN (default ENTERPRISE: Engagement and Insights; INSIGHTS for an
+# Insights-only installation). The administrator command runs with the app's own settings (.env), on the back-office login. Safe to run again: the
 # settings are set to the same values, and an administrator that exists keeps its password unless one is typed.
 set -euo pipefail
 
@@ -27,4 +28,4 @@ psql -X -q -v ON_ERROR_STOP=1 -v public_url="${CEP_PUBLIC_URL:-}" -f "$here/refe
 
 echo "== the Platform workspace and $email"
 cd "$here/../../backend"
-"$PYTHON" manage.py create_platform_admin "$email" --name "$name" ${CEP_ADMIN_NO_PASSWORD:+--no-password}
+"$PYTHON" manage.py create_platform_admin "$email" --name "$name" --plan "${CEP_PLATFORM_PLAN:-ENTERPRISE}" ${CEP_ADMIN_NO_PASSWORD:+--no-password}
