@@ -102,6 +102,14 @@ test('a failed single sign-on comes back to the login page with its reason, and 
   expect(window.location.hash).toBe('')
 })
 
+test('a refused single sign-on signs out whoever was already signed in, and shows its reason', async () => {
+  installMockApi()
+  await renderAppAt('/login#sso_error=Your+CEP+account+is+deactivated.+Ask+your+administrator.')
+  expect((await screen.findByRole('alert')).textContent).toBe('Your CEP account is deactivated. Ask your administrator.')
+  expect(window.location.pathname).toBe('/login')
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
+})
+
 test('the single sign-on landing page takes the code out of the address bar and continues to the page asked for', async () => {
   installMockApi()
   window.sessionStorage.setItem('cep.sso.binding', 'tab-binding-1')
