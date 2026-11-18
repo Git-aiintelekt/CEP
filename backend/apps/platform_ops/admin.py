@@ -360,7 +360,16 @@ class PlatformSettingAdmin(BaseAdmin):
 
     def get_urls(self):
         return [path("guide/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide"),
-                path("guide/<slug:slug>/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide_chapter"), *super().get_urls()]
+                path("guide/<slug:slug>/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide_chapter"),
+                path("upgrade/", self.admin_site.admin_view(self.upgrade_view), name="platform_ops_upgrade"), *super().get_urls()]
+
+    def upgrade_view(self, request):
+        """Platform → Scheduled Upgrade (admin_upgrade): the upgrade notice people see in every workspace."""
+        from django.core.exceptions import PermissionDenied
+        from . import admin_upgrade
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        return admin_upgrade.page(self.admin_site, request)
 
     def guide_view(self, request, slug=None):
         """The Platform Guide: the chapters under docs/manuals/platform-guide, rendered here."""

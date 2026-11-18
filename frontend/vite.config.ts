@@ -1,9 +1,32 @@
+import { execSync } from 'node:child_process'
 import { fileURLToPath, URL } from 'node:url'
 
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { loadEnv, searchForWorkspaceRoot } from 'vite'
+import { loadEnv, searchForWorkspaceRoot, type Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
+
+/** The release this build is: CEP_VERSION when the install sets it, else the checkout's tag (git describe), else 'dev'. */
+function buildVersion(env: Record<string, string>): string {
+  if (env.CEP_VERSION) return env.CEP_VERSION
+  try {
+    return execSync('git describe --tags --always', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'
+  } catch {
+    return 'dev'
+  }
+}
+
+/** dist/version.json: an open page compares it with the build it runs (the upgrade notice offers Reload when they differ). */
+function versionFile(version: string): Plugin {
+  return {
+    name: 'cep-version-file',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: `${JSON.stringify({ version })}
+` })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -11,10 +34,12 @@ export default defineConfig(({ mode }) => {
   const backend = env.VITE_DEV_BACKEND || 'http://localhost:8000'
   // Names the dev server may be reached on besides localhost, e.g. a staging hostname in front of it (comma-separated).
   // Vite refuses any other Host header, so a server behind a proxy sets this in its own frontend/.env.local, not here.
+  const version = buildVersion(env)
   const allowedHosts = (env.VITE_DEV_ALLOWED_HOSTS || '').split(',').map((host) => host.trim()).filter(Boolean)
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), versionFile(version)],
+    define: { __CEP_VERSION__: JSON.stringify(version) },
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },

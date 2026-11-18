@@ -183,8 +183,17 @@ async function parseProblem(response: Response): Promise<Problem> {
   }
 }
 
+/** Fired when the API does not answer (a restart during an upgrade, the connection lost): the upgrade notice takes over. */
+export const UNREACHABLE_EVENT = 'cep:unreachable'
+const UNREACHABLE_STATUSES = [502, 503, 504]
+
+function signalUnreachable() {
+  window.dispatchEvent(new Event(UNREACHABLE_EVENT))
+}
+
 /** No answer at all (offline, the server unreachable): status 0, in C360's words rather than the browser's. */
 function unreachable(): ApiError {
+  signalUnreachable()
   return new ApiError(0, { type: 'about:blank', title: 'C360 could not be reached', status: 0, detail: 'C360 could not be reached. Check your connection and try again.' })
 }
 
@@ -241,6 +250,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     window.dispatchEvent(new CustomEvent<SignedOutReason>(UNAUTHORIZED_EVENT, { detail: 'expired' }))
   }
   if (!response.ok) {
+    if (UNREACHABLE_STATUSES.includes(response.status)) signalUnreachable()
     const problem = await parseProblem(response)
     // the workspace this tab was signed in to is not known (mistyped, or removed): back to the login page, which says so
     if (response.status === 404 && auth && memory.access !== null && problem.title === UNKNOWN_WORKSPACE_TITLE) {

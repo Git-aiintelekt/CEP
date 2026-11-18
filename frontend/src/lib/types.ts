@@ -3049,3 +3049,17 @@ export interface WarmUpOverview {
   days: WarmUpDay[]
   extra_templates?: { id: string; name: string }[]
 }
+
+/** GET /platform-status/: the upgrade notice every signed-in person sees, in every workspace */
+export type UpgradeState = 'NONE' | 'SCHEDULED' | 'UPGRADING' | 'DONE'
+export interface UpgradeNotice {
+  state: UpgradeState
+  starts_at?: string | null
+  minutes?: number | null
+  note?: string
+  changed_at?: string | null
+  version?: string
+}
+export interface PlatformStatus {
+  upgrade: UpgradeNotice
+}

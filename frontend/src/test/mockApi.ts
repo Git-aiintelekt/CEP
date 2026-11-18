@@ -50,6 +50,8 @@ export const platformVisits = [
 
 /** Insights (apps/insights): the catalogue, a saved report and a run's result the tests see */
 /** the components the workspace has, in the suite's order: what a report may be listed under */
+/** GET /platform-status/: tests set .upgrade to show the upgrade notice */
+export const platformStatusNow: { upgrade: Record<string, unknown> } = { upgrade: { state: 'NONE' } }
 export const suiteComponents = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }]
 export const insightsCatalog = {
   components: suiteComponents, can_choose_component: true,
@@ -1154,6 +1156,8 @@ export function installMockApi(options: MockOptions = {}) {
     }
     const tools = handleWorkspaceTools({ path, url, method, body }, toolsState)
     if (tools) return tools
+    if (path.endsWith('/platform-status/')) return json(platformStatusNow)
+    if (path.endsWith('/version.json')) return json({ detail: 'Not found' }, 404)
     if (path.endsWith('/legal/')) return json({ copyright_holder: 'Transaction Tree', year: 2026, terms: { title: 'Terms of Use', updated_at: '2026-10-09T10:00:00Z',
       body: '## 1. What C360 is\n\nCEP is a customer engagement platform.\n\n## 2. Your account\n\nYour account is personal.\n\n## 8. Contact\n\nAsk your workspace administrator.' } })
     if (path.endsWith('/auth/options/')) {

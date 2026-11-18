@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home cep-upgrade">
+    <div class="cep-pagehead">
+        <div>
+            <h1>{{ title }}</h1>
+            <p>What people see in every workspace, Platform included, before, during and after a release is installed. The install script marks the upgrade as started and done by itself.</p>
+        </div>
+    </div>
+
+    <section class="cep-card cep-upgrade-now" aria-label="Right Now">
+        <h2>Right Now</h2>
+        <p><span class="cep-tag" data-kind="{{ state_kind }}">{{ state_word }}{% if state == "DONE" and version %} to {{ version }}{% endif %}</span>
+        {% if state == "SCHEDULED" %} &nbsp;{{ starts }} ({{ zone_name }}), about {{ minutes }} minutes{% if note %} · {{ note }}{% endif %}
+        {% elif state == "UPGRADING" %} &nbsp;since {{ changed }} ({{ zone_name }}): open pages are dimmed and reconnect by themselves
+        {% elif state == "DONE" %} &nbsp;at {{ changed }} ({{ zone_name }}), shown to people for an hour, with Reload
+        {% else %} &nbsp;no strip or card shows in any workspace{% endif %}</p>
+        <form method="post" class="cep-upgrade-row">{% csrf_token %}
+            {% if state != "UPGRADING" %}<button type="submit" name="do" value="start" class="cep-button cep-button-quiet">Mark as Upgrading</button>{% endif %}
+            {% if state == "UPGRADING" %}
+                <label for="cep-release" class="cep-sr">Release</label>
+                <input id="cep-release" name="release" placeholder="Release, e.g. v1.2.2" maxlength="40">
+                <button type="submit" name="do" value="done" class="cep-button">Mark as Done</button>
+            {% endif %}
+            {% if state != "NONE" %}<button type="submit" name="do" value="remove" class="cep-button cep-button-quiet">Clear</button>{% endif %}
+        </form>
+    </section>
+
+    <form method="post" class="cep-card cep-upgrade-form" aria-label="Schedule">{% csrf_token %}
+        <h2>{% if state == "SCHEDULED" %}Change the Schedule{% else %}Schedule an Upgrade{% endif %}</h2>
+        {% if error %}<p class="cep-security-error" role="alert">{{ error }}</p>{% endif %}
+        <div class="cep-upgrade-grid">
+            <div><label for="cep-starts">Starts</label><input id="cep-starts" type="datetime-local" name="starts" value="{{ form.starts }}" required></div>
+            <div><label for="cep-zone">Time Zone</label><input id="cep-zone" name="zone" value="{{ form.zone }}" list="cep-zones" required>
+                <datalist id="cep-zones"><option value="UTC"><option value="Asia/Singapore"><option value="Asia/Kolkata"><option value="Asia/Dubai"><option value="Europe/London"><option value="America/New_York"></datalist></div>
+            <div><label for="cep-minutes">Takes About (Minutes)</label><input id="cep-minutes" type="number" name="minutes" min="1" max="240" value="{{ form.minutes }}" required></div>
+        </div>
+        <div><label for="cep-note">Note for People (Optional)</label><input id="cep-note" name="note" maxlength="200" value="{{ form.note }}" placeholder="e.g. New Delivery Warm-Up reports."></div>
+        <p class="cep-muted">People see the time in their own time zone. Once it is past and nobody marked it as upgrading, the strip goes away by itself.</p>
+        <div class="cep-actions"><button type="submit" name="do" value="save" class="cep-button">Save</button></div>
+    </form>
+</div>
+{% endblock %}

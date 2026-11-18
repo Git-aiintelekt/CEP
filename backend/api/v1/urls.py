@@ -24,6 +24,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from .platform_status_api import PlatformStatusView
 from . import (attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
@@ -101,6 +102,7 @@ urlpatterns = [
     path("client-errors/", client_errors.client_error_view, name="client-errors"),   # browser errors, no sign-in
     path("orders/", attribution_api.OrdersIngestView.as_view(), name="orders-ingest"),                 # the shop's orders, for attribution
     path("legal/", legal_api.LegalView.as_view(), name="legal"),                                      # the copyright line and the Terms of Use, no sign-in
+    path("platform-status/", PlatformStatusView.as_view(), name="platform-status"),                  # the upgrade notice, polled by every page; no sign-in
     path("events/", events_api.EventsIngestView.as_view(), name="events-ingest"),                       # what happened to customers, for journeys
     path("workspace/events/", events_api.EventsSettingsView.as_view(), name="workspace-events"),
     path("workspace/events/recent/", events_api.EventsRecentView.as_view(), name="workspace-events-recent"),
