@@ -1,7 +1,7 @@
-{% load i18n admin_urls unfold %}
+{% load i18n admin_urls unfold cep_forms %}
 {% comment %}
 The save bar, like the workspaces' forms: Save (solid Blue, the only primary), Save and Keep Editing beside it, the rarer
-saves under ⋯, Delete a red link on the left. Save stays FIRST in the page order (the bar is laid out right to left), so
+saves under ⋯, Cancel back to the page that opened the form, Delete a red link on the left. Save stays FIRST in the page order (the bar is laid out right to left), so
 Enter in a field still means Save. A solid bar: no translucency or blur (CEP design system).
 {% endcomment %}
 <div {% if not is_popup %}id="submit-row"{% endif %} class="relative lg:sticky lg:bottom-0 z-40">
@@ -42,6 +42,11 @@ Enter in a field still means Save. A solid bar: no translucency or blur (CEP des
                             {% endif %}
                         </div>
                     </div>
+                {% endif %}
+
+                {% if not is_popup %}
+                    {% cep_cancel_url as cancel_url %}
+                    <a href="{{ cancel_url }}" class="cep-cancel-link">Cancel</a>
                 {% endif %}
 
                 <div class="cep-save-bar-start">

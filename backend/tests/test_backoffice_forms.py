@@ -75,6 +75,36 @@ def test_a_global_parameter_reads_as_its_name_with_its_unit(check):
     check.done()
 
 
+def test_cancel_goes_back_to_the_page_that_opened_the_form(check):
+    tenant = Tenant.objects.using(P).order_by("created_at").first()
+    if tenant is None:
+        pytest.skip("no tenant in this database")
+    change = f"/admin/tenants/tenant/{tenant.pk}/change/"
+    add = "/admin/tenants/tenant/add/"
+
+    def cancel(client, path, referer=None):
+        extra = {"HTTP_REFERER": f"http://testserver{referer}"} if referer else {}
+        body = client.get(path, **extra).content.decode()
+        found = body.split('class="cep-cancel-link"')[0].rsplit('href="', 1)[-1].split('"')[0] if 'class="cep-cancel-link"' in body else None
+        return found.replace("&amp;", "&") if found else None
+
+    user_logged_in.disconnect(update_last_login, dispatch_uid="update_last_login")
+    try:
+        with override_settings(ALLOWED_HOSTS=["*"]):
+            office = _office()
+            check("from a filtered list, Cancel goes back to it", cancel(office, change, "/admin/tenants/tenant/?status__exact=ACTIVE&q=north") == "/admin/tenants/tenant/?status__exact=ACTIVE&q=north")
+            check("after Save and Keep Editing (the form reloads itself) it still goes there",
+                  cancel(office, change, change) == "/admin/tenants/tenant/?status__exact=ACTIVE&q=north")
+            check("from the home page, Cancel goes home", cancel(office, change, "/admin/") == "/admin/")
+            check("an add page opened from the home page, saved and kept editing: Cancel still goes home",
+                  cancel(office, add, "/admin/") == "/admin/" and cancel(office, change, add) == "/admin/")
+            fresh = _office()
+            check("opened directly (no referring page), Cancel goes to the list", cancel(fresh, change) == "/admin/tenants/tenant/")
+            check("another site is never a destination", cancel(fresh, add, None) == "/admin/tenants/tenant/"
+                  and cancel(_office(), add, "//evil.example/admin/") == "/admin/tenants/tenant/")
+    finally:
+        user_logged_in.connect(update_last_login, dispatch_uid="update_last_login")
+
 def test_a_link_to_another_record_is_typed_and_searched_not_an_id(check):
     import json
 
