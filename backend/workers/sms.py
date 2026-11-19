@@ -18,6 +18,9 @@ def send_batch(self, tenant_id: str, run_id: str, execution_ids: list[int]) -> d
         try:
             counts = dispatch_sms.send_batch(tenant_id, run_id, execution_ids)
         except RetryBatch as retry:
+            if retry.retry_after is not None:               # the engine's rate limit: wait for room, using up no retry
+                send_batch.apply_async(args=[tenant_id, run_id, retry.execution_ids], countdown=retry.retry_after)
+                return {"held": len(retry.execution_ids), "retry_after": retry.retry_after}
             if self.request.retries >= len(BACKOFF):
                 failed = dispatch_sms.fail_queued(tenant_id, run_id, f"Gave up after {self.request.retries} retries: {retry.reason}", retry.execution_ids)
                 finalize_run.delay(tenant_id, run_id)

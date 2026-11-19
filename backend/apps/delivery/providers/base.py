@@ -172,6 +172,13 @@ class ProviderError(Exception):
         self.retryable = retryable
 
 
+class RateLimited(ProviderError):
+    """The engine's own pace (Messages per Minute) has no room now: nothing is wrong, the message waits `retry_after` seconds."""
+    def __init__(self, message: str, *, limit: int | None, retry_after: int):
+        super().__init__(message, retryable=True)
+        self.limit, self.retry_after = limit, max(1, int(retry_after or 1))
+
+
 class EmailProvider(ABC):
     channel: str = "EMAIL"              # EMAIL adapters carry email; SMS adapters carry SMS and (supports_mms) MMS
     provider_type: str = ""             # value of delivery_provider.provider_type
