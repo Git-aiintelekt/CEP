@@ -103,13 +103,14 @@
                 {% endif %}
             {% endif %}
 
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--cep-line)">
-                <span>{% if step != "workspace" %}<button type="submit" name="back" value="1" class="cep-button cep-button-quiet">Back</button>{% endif %}</span>
-                <span style="display:flex;gap:0.5rem">
-                    {% if step in skippable %}<button type="submit" name="skip" value="1" class="cep-button cep-button-quiet">Skip for Now</button>{% endif %}
+            {# Continue (or Onboard) comes FIRST in the page, so Enter in a field moves on instead of going Back; the row is laid out right to left #}
+            <div style="display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:0.5rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--cep-line)">
+                <span style="display:flex;flex-direction:row-reverse;gap:0.5rem">
                     {% if step == "review" %}<button type="submit" name="finish" value="1" class="cep-button"><span class="material-symbols-outlined" aria-hidden="true">rocket_launch</span>Onboard {{ review.workspace.code }}</button>
                     {% else %}<button type="submit" name="continue" value="1" class="cep-button">Continue</button>{% endif %}
+                    {% if step in skippable %}<button type="submit" name="skip" value="1" class="cep-button cep-button-quiet">Skip for Now</button>{% endif %}
                 </span>
+                <span>{% if step != "workspace" %}<button type="submit" name="back" value="1" class="cep-button cep-button-quiet">Back</button>{% endif %}</span>
             </div>
         </form>
     </section>

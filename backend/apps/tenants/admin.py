@@ -65,6 +65,7 @@ class TenantAdmin(BaseAdmin):
     readonly_fields = ("id", "partition_seq", "created_at", "updated_at", "row_version")
     actions = ("suspend", "reactivate", "provision", "request_export")
     actions_list = ("onboard_flow",)
+    actions_detail = ("push_platform_tags",)
     list_before_template = "admin/tenants/onboard_notice.html"
     fieldsets = (
         ("Workspace", {"fields": ("name", "code", "status", "timezone")}),
@@ -103,6 +104,21 @@ class TenantAdmin(BaseAdmin):
         draft = onboarding.draft_of(request)
         extra = {**(extra_context or {}), "onboarding_draft": draft if draft.get("data") else None}
         return super().changelist_view(request, extra)
+
+    @action(description="Push Platform Tags", url_path="push-platform-tags", permissions=["change"])
+    def push_platform_tags(self, request, object_id):
+        """Readiness → Personalization Tags → Push Again: copies the active platform tags this workspace is missing into it
+        (apps/templates/inherit.py, the same copy onboarding makes; a tag it already has is left as it is)."""
+        from apps.templates.inherit import inherit_platform_tags
+        tenant = Tenant.objects.using(settings.PLATFORM_ALIAS).get(pk=object_id)
+        try:
+            outcome = inherit_platform_tags(tenant.pk, using=settings.PLATFORM_ALIAS, user_id=request.user.pk) or {}
+        except Exception as error:                                                     # noqa: BLE001  said on the page, not a 500
+            messages.error(request, f"The platform tags were not pushed to {tenant.code}: {error}")
+        else:
+            words = ", ".join(f"{count} {kind}" for kind, count in outcome.items() if count) or "nothing was missing"
+            messages.success(request, f"Platform tags pushed to {tenant.code}: {words}.")
+        return redirect("admin:tenants_tenant_change", tenant.pk)
 
     @action(description="Onboard a Tenant", url_path="onboard", icon="rocket_launch")
     def onboard_flow(self, request):
