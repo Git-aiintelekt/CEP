@@ -609,6 +609,9 @@ body { background: var(--cep-canvas); color: var(--cep-text-strong); }
 #submit-row .cep-delete-link { color: var(--cep-bad-text); } #submit-row .cep-delete-link:hover { text-decoration: underline; }
 #submit-row .cep-delete-link .material-symbols-outlined { font-size: 18px; }
 #submit-row .cep-quiet-link { color: var(--cep-text); } #submit-row .cep-quiet-link:hover { color: var(--cep-text-strong); }
+#submit-row .cep-cancel-link { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 1rem; border-radius: var(--cep-radius-control);
+    font-size: 14px; font-weight: 500; color: var(--cep-text-strong); }
+#submit-row .cep-cancel-link:hover { background: var(--cep-surface-hover); }
 #submit-row .cep-more { position: relative; }
 #submit-row .cep-more button.cep-more-button { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--cep-accent); border-radius: var(--cep-radius-control);
     background: var(--cep-surface); color: var(--cep-accent); }

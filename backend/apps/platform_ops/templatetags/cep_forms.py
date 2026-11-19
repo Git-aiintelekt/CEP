@@ -83,3 +83,43 @@ def cep_field(field, model_admin=None) -> dict:
     unit = (getattr(widget, "attrs", None) or {}).get("data-unit", "")
     return {"label": cep_title(label), "optional": optional, "width": _width(field, model_admin), "unit": unit, "help": help_text or "",
             "hidden": hidden, "readonly": readonly}
+
+
+CANCEL_KEY = "cep_cancel"          # in the session: {form path: the page that opened it}, so Save and Keep Editing keeps it
+CANCEL_KEEP = 30
+
+
+@register.simple_tag(takes_context=True)
+def cep_cancel_url(context) -> str:
+    """Where Cancel on an add or edit page goes: the page that opened the form (a filtered list, a tenant, the home page),
+    remembered for this form across Save and Keep Editing; else the model's list with its filters; else the home page.
+    Only an address on this site counts, and never the form itself."""
+    from urllib.parse import urlsplit
+
+    from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
+    from django.urls import NoReverseMatch, reverse
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    request = context.get("request")
+    if request is None:
+        return "/admin/"
+    here = request.path
+    remembered = dict(request.session.get(CANCEL_KEY) or {})
+    referer = request.META.get("HTTP_REFERER") or ""
+    if referer and url_has_allowed_host_and_scheme(referer, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        parts = urlsplit(referer)
+        if parts.path != here and parts.path.startswith("/admin/") and not parts.path.startswith(("/admin/login", "/admin/logout", "/admin/mfa")):
+            # from another form we know (an add page that saved and kept editing): where THAT form came from
+            target = remembered.get(parts.path) or parts.path + (f"?{parts.query}" if parts.query else "")
+            if remembered.get(here) != target:
+                remembered.pop(here, None)
+                remembered[here] = target
+                request.session[CANCEL_KEY] = dict(list(remembered.items())[-CANCEL_KEEP:])
+            return target
+    if remembered.get(here):
+        return remembered[here]
+    opts = context.get("opts")
+    try:
+        return add_preserved_filters(context, reverse(f"admin:{opts.app_label}_{opts.model_name}_changelist"))
+    except (AttributeError, NoReverseMatch):
+        return "/admin/"
