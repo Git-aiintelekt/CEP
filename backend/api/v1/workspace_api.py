@@ -234,8 +234,8 @@ class MailServerSerializer(serializers.ModelSerializer):
 
     def validate_host(self, value):
         value = value.strip().lower()
-        if value and (" " in value or "/" in value or "@" in value):
-            raise serializers.ValidationError("Enter the server name only, e.g. smtp.example.com.")
+        if problem := mail.server_name_problem(value):
+            raise serializers.ValidationError(problem)
         return value
 
     def validate(self, attrs):

@@ -99,6 +99,10 @@ class DigivizeProvider(SmsProvider):
                     help="Optional. The secret you gave Digivize for the callback: results are then verified (X-Signature over the body). Empty: the callback address's own token is the check."),
     )
 
+    @classmethod
+    def added_paths(cls, config: dict) -> dict[str, str]:
+        return {"endpoint": str(config.get("send_path") or DEFAULT_SEND_PATH).strip()}
+
     # ---- calls
     @property
     def _url(self) -> str:
