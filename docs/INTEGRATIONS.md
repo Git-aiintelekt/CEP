@@ -51,7 +51,7 @@ whether one worker or ten are sending: a per-minute counter and a per-second bur
 |---|---|---|
 | `apikey:<client>` | `api_client.rate_limit_per_minute` (Settings → API keys) | 429, `Retry-After`, `X-RateLimit-Limit/Remaining/Reset` |
 | `inbound:<tenant>:<kind>` | the integration's `throttle_per_minute`, else `integrations.inbound_per_minute[plan]` (Starter 60, Growth 600, Enterprise unlimited) | same |
-| `provider:<engine id>` (`:transactional` appended for receipts and other transactional mail when the engine holds a second credential, patch 0020) | the integration's `throttle_per_minute`, else the engine's `rate_limit_per_minute` | the worker waits up to 5 s for room, then hands the message back as retryable with a `THROTTLED` row |
+| `provider:<engine id>` (`:transactional` appended for receipts and other transactional mail when the engine holds a second credential, patch 0020) | the integration's `throttle_per_minute`, else the engine's `rate_limit_per_minute` | the worker waits up to 5 s for room, then logs a `THROTTLED` row and puts the message back in the queue with "Waiting for the engine's limit of N messages per minute" (the attempt is not counted). A campaign run is paced, never failed, by it: Celery sends the batch again as a fresh task after the window resets (no retry used up); without Celery the pass stops and the next `dispatch-campaign-runs` pass goes on from there |
 
 A second may carry the even pace or 10 calls, whichever is more, within the minute's limit; `throttle_burst` adds to
 that. Every answer of a throttled endpoint carries the `X-RateLimit-*` headers, so an integrator can pace itself.
