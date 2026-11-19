@@ -19,9 +19,9 @@ from apps.customers.models import CustomerMaster
 from apps.templates import design
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
-from ..providers import Outcome, ProviderError, SmsMessage, WhatsAppMessage, registry
+from ..providers import Outcome, ProviderError, RateLimited, SmsMessage, WhatsAppMessage, registry
 from . import content as run_content, linktags, session
-from .dispatch import MAX_ATTEMPTS, RetryBatch, _as_dict
+from .dispatch import MAX_ATTEMPTS, RetryBatch, _as_dict, held_reason, retry_for
 from .render import Renderer
 
 log = logging.getLogger("cep.delivery")
@@ -56,10 +56,11 @@ def _claim(tenant_id, execution_id):
         return cursor.fetchone()
 
 
-def _record(tenant_id, execution_id, member_id, *, status, reason=None, message_id=None, text=None, segments=None, used=None, answer=None) -> None:
+def _record(tenant_id, execution_id, member_id, *, status, reason=None, message_id=None, text=None, segments=None, used=None, answer=None, held=False) -> None:
     with session.tx(), session.connection().cursor() as cursor:
         if status == "QUEUED":
-            cursor.execute("UPDATE sms_execution SET status = 'QUEUED', submitted_at = NULL, status_reason = %s WHERE tenant_id = %s AND id = %s",
+            cursor.execute("UPDATE sms_execution SET status = 'QUEUED', submitted_at = NULL, status_reason = %s"
+                           + (", attempts = GREATEST(attempts - 1, 0)" if held else "") + " WHERE tenant_id = %s AND id = %s",
                            [reason, str(tenant_id), execution_id])
             return
         cursor.execute("""UPDATE sms_execution SET status = %s, status_reason = %s, provider_message_id = COALESCE(%s, provider_message_id), rendered_text = COALESCE(%s, rendered_text),
@@ -99,7 +100,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
         provider.open()
     except ProviderError as exc:
         if exc.retryable:
-            raise RetryBatch(execution_ids, str(exc)) from None
+            raise retry_for(execution_ids, exc) from None
         raise
 
     try:
@@ -153,10 +154,11 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
         try:
             results = provider.send_many_guarded([item[5] for item in prepared], related_ref=f"sms_run:{run_id}:{len(prepared)}") if prepared else []
         except ProviderError as exc:
+            held = isinstance(exc, RateLimited)
             for execution_id, member_id, *_ in prepared:
-                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])
+                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=(held_reason(exc) if held else str(exc))[:200], held=held)
             if exc.retryable:
-                raise RetryBatch([item[0] for item in prepared], str(exc)) from None
+                raise retry_for([item[0] for item in prepared], exc) from None
             raise
 
         for (execution_id, member_id, claimed, text, metrics, message), result in zip(prepared, results):
