@@ -58,7 +58,8 @@ class PostalProvider(EmailProvider):
     description = "Self-hosted Postal server. Delivery, bounce, open and click callbacks through webhooks."
     supports_webhooks = True
     config_fields = (
-        ConfigField("endpoint", "Postal Address", kind="url", placeholder="https://postal.example.com", help="Base address of your Postal installation."),
+        ConfigField("endpoint", "Postal Address", kind="url", placeholder="https://postal.example.com",
+                    help="Base address of your Postal installation, without /api: the app adds /api/v1/… itself."),
         ConfigField("api_key", "Server API Key", secret=True, help="Postal -> your mail server -> Credentials -> type API. Carries campaigns (and everything else until a transactional key is set)."),
         ConfigField("transactional_api_key", "Transactional Server API Key", required=False, secret=True, credential="transactional_secret",
                     help="Optional. The API key of a second Postal mail server for receipts and other transactional email: they never queue behind a campaign "
@@ -66,6 +67,10 @@ class PostalProvider(EmailProvider):
         ConfigField("webhook_public_key", "Webhook Public Key", required=False, kind="textarea",
                     help="Optional. PEM public key of the Postal installation (postal default-dkim-record): webhook signatures are then verified."),
     )
+
+    @classmethod
+    def added_paths(cls, config: dict) -> dict[str, str]:
+        return {"endpoint": "/api/v1"}
 
     def open(self) -> None:
         self._session = self.new_session()

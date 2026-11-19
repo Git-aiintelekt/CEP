@@ -14,7 +14,9 @@ delivery providers.
 
 Mail servers entered in the product live in `mail_server`; passwords are encrypted with FIELD_ENCRYPTION_KEY.
 """
+import ipaddress
 import logging
+import re
 from dataclasses import dataclass
 
 from django.conf import settings
@@ -27,6 +29,29 @@ from . import crypto, params
 log = logging.getLogger("cep.mail")
 P = settings.PLATFORM_ALIAS
 SMTP = "django.core.mail.backends.smtp.EmailBackend"
+WITH_PORT = re.compile(r"^(?P<name>[^:\s]+):(?P<port>\d*)$")
+
+
+def server_name_problem(host: str) -> str | None:
+    """Why `host` is not a bare SMTP server name, or None. smtp.office365.com:587 would be looked up as a name, port and all."""
+    host = (host or "").strip()
+    if not host:
+        return None
+    if "://" in host:
+        return "Enter the server name only, without smtp:// or https://, e.g. smtp.example.com."
+    found = WITH_PORT.match(host)
+    if found:
+        port = found["port"] or "the number"
+        return f"Enter the server name without the port, e.g. {found['name']}. The port ({port}) goes in the Port field."
+    if ":" in host:
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            return "Enter the server name only, e.g. smtp.example.com."
+        return None
+    if " " in host or "/" in host or "@" in host:
+        return "Enter the server name only, e.g. smtp.example.com."
+    return None
 
 
 @dataclass

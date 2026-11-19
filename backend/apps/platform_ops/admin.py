@@ -507,6 +507,8 @@ class MailServerForm(forms.ModelForm):
             self.add_error("port", "Port 587 goes with STARTTLS and port 465 with SSL/TLS.")
         if not data.get("host"):
             self.add_error("host", "Enter the SMTP server name.")
+        elif problem := mail.server_name_problem(data["host"]):
+            self.add_error("host", problem)
         return data
 
     def save(self, commit=True):

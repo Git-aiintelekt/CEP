@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from urllib.parse import urlparse
 
 
 # ------------------------------------------------------------------------------------------------------------ what goes out
@@ -258,7 +259,29 @@ class EmailProvider(ABC):
                 errors[item.key] = f"{item.label} is required."
             if item.kind == "url" and config.get(item.key) and not str(config[item.key]).startswith("https://"):
                 errors[item.key] = f"{item.label} must be an https:// address."
+        for key, added in cls.added_paths(config).items():
+            if key not in errors and (problem := doubled_path(str(config.get(key) or ""), added)):
+                errors[key] = problem
         return errors
+
+    @classmethod
+    def added_paths(cls, config: dict) -> dict[str, str]:
+        """address field -> the path the adapter puts after it (Postal: endpoint -> /api/v1). The form refuses an address that
+        already ends with the start of that path: https://postal.example.com/api would be called as /api/api/v1/..."""
+        return {}
+
+
+def doubled_path(address: str, added: str) -> str | None:
+    """Why `address` would double the start of `added`, or None."""
+    parsed = urlparse(address.strip())
+    segments = [part for part in parsed.path.split("/") if part]
+    wanted = [part for part in added.split("/") if part]
+    for start in range(len(segments)):
+        tail = segments[start:]
+        if [part.lower() for part in wanted[:len(tail)]] == [part.lower() for part in tail]:
+            base = f"{parsed.scheme}://{parsed.netloc}" + "".join("/" + part for part in segments[:start])
+            return f"Enter the address without /{'/'.join(tail)}, e.g. {base}. The app adds /{'/'.join(wanted[:2])}/… itself."
+    return None
 
 
 class SmsProvider(EmailProvider):
