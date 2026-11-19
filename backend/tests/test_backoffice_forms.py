@@ -45,7 +45,7 @@ def test_a_tenant_form_has_labels_above_and_the_new_save_bar(check):
         user_logged_in.connect(update_last_login, dispatch_uid="update_last_login")
     body = page.content.decode()
     check("the page opens", page.status_code == 200, str(page.status_code))
-    check("sections are cards with fields on the grid", 'fieldset class="module cep-section' in body and 'class="cep-form-grid"' in body)
+    check("sections are cards with fields on the grid", 'class="module cep-section' in body and 'class="cep-form-grid"' in body)
     check("each field sized: the name full width, the status half", "cep-field cep-w-L field-name" in body and "cep-field cep-w-M field-status" in body)
     check("labels in Title Case, optional fields say so, no red asterisks", ">Custom App Domain<span class=\"cep-optional\">(Optional)</span>" in body and "text-red-600 dark:text-red-500\">*" not in body)
     check("the read-only code is a quiet field", '<div class="cep-readonly">' in body)
@@ -72,4 +72,24 @@ def test_a_global_parameter_reads_as_its_name_with_its_unit(check):
     check("the number carries its unit", '<span class="cep-unit" aria-hidden="true">hours</span>' in body)
     check("its description is the value's help", "Hours a one-time password link stays valid" in body.split("About This Parameter")[0])
     check("Delete is a red link on the left", 'class="cep-delete-link"' in body)
+    check.done()
+
+
+def test_every_readiness_link_to_a_section_has_somewhere_to_land(check):
+    import re
+    tenant = Tenant.objects.using(P).order_by("created_at").first()
+    if tenant is None:
+        pytest.skip("no tenant in this database")
+    user_logged_in.disconnect(update_last_login, dispatch_uid="update_last_login")
+    try:
+        with override_settings(ALLOWED_HOSTS=["*"]):
+            body = _office().get(f"/admin/tenants/tenant/{tenant.pk}/change/").content.decode()
+    finally:
+        user_logged_in.connect(update_last_login, dispatch_uid="update_last_login")
+    here = f"/admin/tenants/tenant/{tenant.pk}/change/#"
+    anchors = sorted(set(re.findall(re.escape(here) + r"([a-z0-9-]+)", body)))
+    check("Readiness links into the page (Industry and Features at least)", "industry-and-features" in anchors, str(anchors))
+    missing = [a for a in anchors if f'<fieldset id="{a}"' not in body]
+    check("each lands on a section of that name", not missing, str(missing))
+    check("a folded section is a <details> the script opens", '<fieldset id="settings"' in body and "<details>" in body.split('<fieldset id="settings"', 1)[1][:400])
     check.done()

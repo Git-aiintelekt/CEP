@@ -2,7 +2,8 @@
 {% comment %}
 A form section in the back-office, like the workspaces' forms: a card with its title and a one-line note, each label above
 its field, short fields side by side (cep-w-S a third, M a half, L the full width), help and errors under the field, the
-unit beside a number, "(Optional)" on the few optional fields. Stacked inlines keep Unfold's own layout.
+unit beside a number, "(Optional)" on the few optional fields. Each section's id is its name slugified, so a link can
+open it (Readiness → Edit goes to #industry-and-features). Stacked inlines keep Unfold's own layout.
 {% endcomment %}
 {% if stacked == 1 %}
 <fieldset class="module relative border-l border-base-200 ml-3 dark:before:bg-striped-dark dark:border-base-800 before:content-[''] before:block before:h-full before:bg-striped before:absolute before:-left-3 before:top-0 before:w-3{% if fieldset.classes %} {{ fieldset.classes }}{% endif %}">
@@ -20,7 +21,7 @@ unit beside a number, "(Optional)" on the few optional fields. Stacked inlines k
     {% if fieldset.name and fieldset.is_collapsible %}</details>{% endif %}
 </fieldset>
 {% else %}
-<fieldset class="module cep-section{% if fieldset_tab %} cep-section-tab{% endif %}{% if fieldset.classes %} {{ fieldset.classes }}{% endif %}" x-show="activeTab == 'general'">
+<fieldset{% if fieldset.name %} id="{{ fieldset.name|slugify }}"{% endif %} class="module cep-section{% if fieldset_tab %} cep-section-tab{% endif %}{% if fieldset.classes %} {{ fieldset.classes }}{% endif %}" x-show="activeTab == 'general'">
     {% if fieldset.is_collapsible %}<details><summary>{% endif %}
     {% if fieldset.name and "tab" not in fieldset.classes or fieldset.description %}
         <div class="cep-section-head">

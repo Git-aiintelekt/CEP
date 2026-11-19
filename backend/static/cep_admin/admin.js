@@ -94,3 +94,18 @@ document.addEventListener('DOMContentLoaded', function () {
   footer.appendChild(terms)
   main.appendChild(footer)
 })
+
+/* A link to a section of a form (Readiness → Edit on a tenant: #industry-and-features, #settings) opens it when it is
+   folded (a "collapse" section is a <details>) and brings it into view, on arrival and when the address's # changes. */
+(function () {
+    function openTarget() {
+        var id = decodeURIComponent((window.location.hash || '').slice(1));
+        var section = id && document.getElementById(id);
+        if (!section || section.tagName !== 'FIELDSET') { return; }
+        var folded = section.querySelector(':scope > details');
+        if (folded && !folded.open) { folded.open = true; }
+        section.scrollIntoView({ block: 'start' });
+    }
+    window.addEventListener('hashchange', openTarget);
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', openTarget); } else { openTarget(); }
+}());
