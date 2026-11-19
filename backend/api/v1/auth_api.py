@@ -6,6 +6,9 @@
   GET  /auth/options/               public: does this workspace use SSO / require MFA (drives the login page)
   GET  /auth/sso/start/  /callback/ OpenID Connect; the callback hands the browser a one-time code, not the tokens
   POST /auth/sso/exchange/          the code + the binding the login page kept in the tab -> tokens
+  GET  /auth/sso/ofbiz/             "Open CEP" in OFBiz: its signed token -> a one-time code for /launch (no MFA, 8-hour session)
+  POST /auth/sso/ofbiz/exchange/    that code -> tokens
+  POST /auth/sso/ofbiz/logout/      OFBiz, server to server: the user signed out there, so their OFBiz-opened sessions end
   POST /auth/token/refresh/         a refresh token works once (a second use within REUSE_GRACE seconds is two tabs racing)
   POST /auth/token/revoke/          signing out ends the refresh token too
   POST /auth/support-session/end/   platform staff ends a "sign in as" session early
@@ -13,8 +16,10 @@
 CepJWTAuthentication is where the two restricted kinds of token are enforced, for every endpoint at once:
   * a support session (claim `imp`) is read-only unless opened for writing, never touches users / roles / keys /
     security, and dies the moment it is ended or expires;
-  * a user who must enrol MFA first (claim `mfa_setup`) can reach only the enrolment endpoints and /me.
+  * a user who must enrol MFA first (claim `mfa_setup`) can reach only the enrolment endpoints and /me;
+  * a session opened from OFBiz (claim `ofbiz`) ends when the user signs out of OFBiz.
 """
+import logging
 import time
 from urllib.parse import urlencode
 
@@ -37,11 +42,12 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.identity.models import AppUser
-from apps.platform_ops import mfa, params, sso
+from apps.platform_ops import mfa, ofbiz, params, sso
 from apps.platform_ops.models import SupportAccessLog, TenantIdentityProvider
 from apps.tenants.models import Tenant
 
 mfa_signer = TimestampSigner(salt="cep.mfa.pending")
+log = logging.getLogger("cep.auth")
 
 
 # ------------------------------------------------------------------------------------------------------------ policy
@@ -58,10 +64,14 @@ def identity_provider(tenant_id):
     return TenantIdentityProvider.objects.filter(tenant_id=tenant_id, is_active=True).first()
 
 
-def issue_tokens(user, *, mfa_setup: bool = False) -> dict:
+def issue_tokens(user, *, mfa_setup: bool = False, claims: dict | None = None, refresh_lifetime=None) -> dict:
     refresh = RefreshToken.for_user(user)
+    if refresh_lifetime is not None:
+        refresh.set_exp(lifetime=refresh_lifetime)
     if mfa_setup:
         refresh["mfa_setup"] = True                        # copied into every access token made from this refresh token
+    for name, value in (claims or {}).items():
+        refresh[name] = value                              # likewise, and kept on rotation
     user.last_login = timezone.now()
     user.save(update_fields=["last_login"])
     return {"access": str(refresh.access_token), "refresh": str(refresh), "mfa_setup_required": mfa_setup}
@@ -176,7 +186,7 @@ class AuthOptionsView(APIView):
 
 
 def _frontend(path: str, **fragment) -> HttpResponseRedirect:
-    return HttpResponseRedirect(settings.FRONTEND_URL.rstrip("/") + path + ("#" + urlencode(fragment) if fragment else ""))
+    return HttpResponseRedirect(params.frontend_url() + path + ("#" + urlencode(fragment) if fragment else ""))
 
 
 class SsoStartView(APIView):
@@ -230,6 +240,57 @@ class SsoExchangeView(PublicAuthView):
         return Response({"access": entry["access"], "refresh": entry["refresh"], "next": entry["next"]})
 
 
+# ------------------------------------------------------------------------------------------------------------ OFBiz single sign-on
+class OfbizLaunchView(PublicAuthView):
+    """A browser navigation from OFBiz: the token travels in the query string, so it is short-lived and single-use."""
+    throttle_classes = [LoginThrottle]
+
+    @extend_schema(exclude=True)
+    def get(self, request, version=None):
+        tenant = request.tenant
+        try:
+            claims = ofbiz.verify(request.query_params.get("token") or "", ofbiz.LAUNCH_AUDIENCE, tenant)
+            user = ofbiz.provision(claims, tenant["id"])
+        except ofbiz.OfbizError as exc:
+            return _frontend("/login", sso_error=str(exc))
+        # OFBiz owns the sign-in, second factor included: CEP does not ask for MFA here
+        tokens = issue_tokens(user, claims={"ofbiz": ofbiz.launch_time()}, refresh_lifetime=ofbiz.SESSION)
+        code = ofbiz.hand_off(tokens, tenant["code"], claims.get("next"))
+        log.info("OFBiz sign-in: user %s, OFBiz login %s, party %s, role %s, workspace %s", user.pk, claims["sub"], claims["party_id"],
+                 claims["cep_role"], tenant["code"])
+        return _frontend("/launch", code=code, tenant=tenant["code"])
+
+
+class OfbizExchangeView(PublicAuthView):
+    throttle_classes = [LoginThrottle]
+
+    @extend_schema(request=inline_serializer("OfbizExchange", {"code": serializers.CharField()}),
+                   responses=inline_serializer("OfbizTokens", {"access": serializers.CharField(), "refresh": serializers.CharField(), "next": serializers.CharField()}))
+    def post(self, request, version=None):
+        entry = ofbiz.take(str(request.data.get("code") or ""), request.tenant["code"])
+        if entry is None:
+            raise AuthenticationFailed("This link was already used or has expired. Open CEP again from OFBiz.")
+        return Response({"access": entry["access"], "refresh": entry["refresh"], "next": entry["next"]})
+
+
+class OfbizLogoutView(PublicAuthView):
+    """Server to server. The signed, single-use token is the guard; the answer is 204 whether or not a user matched."""
+    throttle_classes: list = []
+
+    @extend_schema(request=inline_serializer("OfbizLogout", {"token": serializers.CharField()}), responses={204: None})
+    def post(self, request, version=None):
+        tenant = request.tenant
+        try:
+            claims = ofbiz.verify(str(request.data.get("token") or ""), ofbiz.LOGOUT_AUDIENCE, tenant)
+        except ofbiz.OfbizError:
+            raise AuthenticationFailed("The logout token is invalid, expired or already used.") from None
+        user = ofbiz.find_user(claims["email"], tenant["id"])
+        if user is not None:
+            ofbiz.sign_out(user.pk)
+            log.info("OFBiz sign-out: user %s, OFBiz login %s, workspace %s", user.pk, claims["sub"], tenant["code"])
+        return Response(status=204)
+
+
 # ------------------------------------------------------------------------------------------------------------ refresh tokens
 REUSE_GRACE = 30
 
@@ -270,8 +331,15 @@ class RefreshSerializer(TokenRefreshSerializer):
         if visit is not None:
             return visit
         answer = super().validate(attrs)                   # signature, expiry, an active user
-        if not _spend(RefreshToken(attrs["refresh"], verify=False), at=time.time()):
+        used = RefreshToken(attrs["refresh"], verify=False)
+        if ofbiz.signed_out(used):
+            raise ofbiz.signed_out_error()
+        if not _spend(used, at=time.time()):
             raise InvalidToken("This sign-in has ended. Sign in again.")
+        if used.get("ofbiz") and "refresh" in answer:     # rotation resets the lifetime: an OFBiz session still ends 8 hours after the launch
+            rotated = RefreshToken(answer["refresh"], verify=False)
+            rotated["exp"] = min(int(rotated["exp"]), ofbiz.session_end(used))
+            answer["refresh"] = str(rotated)
         return answer
 
 

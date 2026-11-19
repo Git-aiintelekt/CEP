@@ -56,7 +56,7 @@ function keepSsoBinding(binding: string) {
 }
 
 export function LoginPage() {
-  const { status, tenant: rememberedTenant, login, verifyMfa } = useAuth()
+  const { status, tenant: rememberedTenant, login, verifyMfa, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
@@ -79,7 +79,8 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
-  const [error, setError] = useState<string | null>(takeSsoError)
+  const [ssoError] = useState(takeSsoError)
+  const [error, setError] = useState<string | null>(ssoError)
   const [resetError, setResetError] = useState<string | null>(null)
   const [resentAt, setResentAt] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -121,7 +122,12 @@ export function LoginPage() {
     }
   }, [tenant])
 
-  if (status === 'authenticated' && !submitting) return <Navigate to={from} replace />
+  // A refused single sign-on (a deactivated user, no CEP role...) must not fall through to whoever was already signed in here
+  useEffect(() => {
+    if (ssoError) logout()
+  }, [ssoError, logout])
+
+  if (status === 'authenticated' && !submitting && !ssoError) return <Navigate to={from} replace />
 
   const sso = options?.sso_enabled && options.workspace.toUpperCase() === tenant.trim().toUpperCase() ? options : null
   const passwordHidden = Boolean(sso?.sso_enforced) && !usePassword
@@ -217,6 +223,9 @@ export function LoginPage() {
           {signedOutReason === 'idle' && !error && <AuthNotice>You were signed out after some time without activity. Log in again to continue.</AuthNotice>}
           {signedOutReason === 'expired' && !error && (
             <AuthNotice>Your session ended. Sign in again to carry on. Changes on the page you were on that were not saved are not kept.</AuthNotice>
+          )}
+          {signedOutReason === 'ofbiz-signed-out' && !error && (
+            <AuthNotice>You signed out of OFBiz. Open CEP again from OFBiz to continue.</AuthNotice>
           )}
           {signedOutReason === 'unknown-workspace' && !error && (
             <AuthNotice>Workspace not found. Check the workspace code and log in again.</AuthNotice>
