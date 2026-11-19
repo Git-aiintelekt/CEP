@@ -212,6 +212,7 @@ CELERY_BEAT_SCHEDULE = {
     "process-list-imports": {"task": "workers.lists.process_imports", "schedule": 30},                 # the net under the API's own hand-off
     "rollup-integration-metrics": {"task": "workers.platform.rollup_integration_metrics", "schedule": 300},  # per-minute integration figures from the log
     "decide-ab-winners": {"task": "workers.campaign.decide_ab_winners", "schedule": 60},                 # subject-line tests whose decision time has come
+    "run-delivery-warm-ups": {"task": "workers.campaign.run_warm_ups", "schedule": 60},                 # Delivery Warm-Up: the day, the hour's sends, the hourly limit
     "send-weekly-reports": {"task": "workers.reports.send_weekly_reports", "schedule": 900},              # the Monday report, in each workspace's own time
     "deliver-report-schedules": {"task": "workers.insights_delivery.deliver_report_schedules", "schedule": 300},  # Insights reports scheduled by email
     "check-report-alerts": {"task": "workers.insights_alerts.check_report_alerts", "schedule": 300},  # Insights threshold alerts

@@ -29,3 +29,6 @@ ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
 .design-sync/node_modules
+
+# the previous build's files, held during a build (scripts/keep-assets.mjs)
+.assets-previous

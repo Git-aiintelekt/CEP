@@ -34,7 +34,7 @@ test('the menu: General, then a group per component the workspace has, with its 
   expect(within(menu()).getAllByRole('button', { name: /^(General|Engagement|Insights)$/ }).map((button) => button.textContent)).toEqual(['General', 'Engagement', 'Insights'])
   expect(within(menu()).getAllByRole('heading', { level: 4 }).map((heading) => heading.textContent)).toEqual(['Sending', 'Audience', 'Connections'])
   expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Security', 'AI Assistant', 'API Keys', 'Plan & Usage',
-    'Sending Engines', 'Email Server', 'UTM Tracking', 'Approvals', 'Tags', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'POS Receipts', 'Attribution', 'Events',
+    'Sending Engines', 'Delivery Warm-Up', 'Email Server', 'UTM Tracking', 'Approvals', 'Tags', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'POS Receipts', 'Attribution', 'Events',
     'Report Databases', 'Report Access', 'Fiscal Year'])
   expect(within(menu()).queryByRole('region', { name: 'Recent' })).toBeNull()                            // nothing visited before this page
   const current = within(menu()).getAllByRole('link', { name: 'Sending Engines' }).at(-1)!
@@ -52,7 +52,7 @@ test('Find a Setting narrows the menu to the matching pages, by page or group; E
   const box = within(menu()).getByRole('searchbox', { name: 'Find a setting' })
   await user.type(box, 'send')
   expect(within(menu()).getByRole('list', { name: 'Matching settings' })).toBeTruthy()
-  expect(links()).toEqual(['Sending Engines', 'Email Server', 'UTM Tracking', 'Approvals', 'Tags', 'Notifications'])     // the pages under Sending, by heading
+  expect(links()).toEqual(['Sending Engines', 'Delivery Warm-Up', 'Email Server', 'UTM Tracking', 'Approvals', 'Tags', 'Notifications'])     // the pages under Sending, by heading
   await user.clear(box)
   await user.type(box, 'xyz')
   expect(within(menu()).getByText(/Nothing matches/)).toBeTruthy()

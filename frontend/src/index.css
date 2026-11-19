@@ -117,6 +117,8 @@
   --color-cat-promotional-text: #8a3e14;
   --color-cat-transactional-bg: #eeeff5;
   --color-cat-transactional-text: #4a4e5a;
+  --color-cat-warmup-bg: #fbebd1;
+  --color-cat-warmup-text: #7a4a06;
 
   /* ---- the old Plum accent slots. Trial: they hold the blue ramp, so blue is the only accent (names kept so nothing breaks) ---- */
   --color-plum-50: #f3f6fe;
@@ -426,6 +428,8 @@
   --color-cat-promotional-text: #8a3e14;
   --color-cat-transactional-bg: #eeeff5;
   --color-cat-transactional-text: #4a4e5a;
+  --color-cat-warmup-bg: #fbebd1;
+  --color-cat-warmup-text: #7a4a06;
   --color-channel-email-tint: #e8effd;
   --color-channel-email-halo: #f7f9fe;
   --color-channel-email-icon: #3863db;
@@ -555,6 +559,8 @@
   --color-cat-promotional-text: #f5be97;
   --color-cat-transactional-bg: #2b2c2f;
   --color-cat-transactional-text: #bfc1c4;
+  --color-cat-warmup-bg: #3a2a0e;
+  --color-cat-warmup-text: #f3d9a4;
   --color-channel-email-tint: #24408a;
   --color-channel-email-halo: #152447;
   --color-channel-email-icon: #a9c1f7;

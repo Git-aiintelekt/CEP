@@ -9,13 +9,13 @@ from apps.identity.models import AppUser
 from apps.platform_ops import links, params
 from apps.platform_ops.admin import FeatureChoicesMixin
 from apps.platform_ops.models import IndustryProfile, TenantOperation
-from unfold.widgets import UnfoldAdminSelectWidget
+from unfold.widgets import UnfoldAdminSelect2Widget, UnfoldAdminSelectWidget
 
 from django.utils.html import format_html
 
 from django.shortcuts import redirect, render
 
-from . import onboarding, readiness, services
+from . import onboarding, readiness, services, timezones
 from .models import SubscriptionPlan, Tenant
 
 
@@ -33,6 +33,16 @@ class TenantForm(FeatureChoicesMixin):
         profiles = IndustryProfile.objects.using(settings.PLATFORM_ALIAS).filter(is_active=True)
         self.fields["industry"].choices = [("", "Installation default")] + [(p.code, p.name) for p in profiles]
         self.fields["industry"].initial = (self.instance.settings or {}).get("industry", "")
+        if "timezone" in self.fields:
+            self.fields["timezone"] = forms.ChoiceField(label="Time Zone", choices=timezones.choices(self.instance.timezone if self.instance.pk else None),
+                                                        initial=self.instance.timezone or "UTC", widget=UnfoldAdminSelect2Widget,
+                                                        help_text="Schedules, quiet hours for texts and the reports read in this zone. Type a place to find it.")
+
+    def clean_timezone(self):
+        value = self.cleaned_data["timezone"]
+        if not timezones.is_known(value):
+            raise forms.ValidationError("Not a known time zone. Choose a place from the list.")
+        return value
 
     def _current_features(self):
         return (self.instance.settings or {}).get("features") or {}
@@ -65,10 +75,11 @@ class TenantAdmin(BaseAdmin):
     readonly_fields = ("id", "partition_seq", "created_at", "updated_at", "row_version")
     actions = ("suspend", "reactivate", "provision", "request_export")
     actions_list = ("onboard_flow",)
+    actions_detail = ("push_platform_tags",)
     list_before_template = "admin/tenants/onboard_notice.html"
     fieldsets = (
         ("Workspace", {"fields": ("name", "code", "status", "timezone")}),
-        ("Access", {"fields": ("subdomain", "custom_app_domain"), "description": "Users reach the app at <subdomain>.your-domain; the API also accepts the code in the X-Tenant header."}),
+        ("Access", {"fields": ("subdomain", "custom_app_domain"), "description": "Users reach the app at <subdomain>.your-domain, or at the custom app domain (its DNS record, certificate, nginx server_name and ALLOWED_HOSTS set on the server); the sign-in page then knows the workspace. The API also accepts the code in the X-Tenant header."}),
         ("Hosting", {"fields": ("isolation_mode", "region", "data_residency", "onboarded_at"),
                      "description": "SHARED tenants live in the pool database in their own partitions. Moving to DEDICATED is a migration, not a field change."}),
         ("Industry and Features", {"fields": ("industry", *(f"feature_{code}" for code in params.FEATURES)),
@@ -103,6 +114,21 @@ class TenantAdmin(BaseAdmin):
         draft = onboarding.draft_of(request)
         extra = {**(extra_context or {}), "onboarding_draft": draft if draft.get("data") else None}
         return super().changelist_view(request, extra)
+
+    @action(description="Push Platform Tags", url_path="push-platform-tags", permissions=["change"])
+    def push_platform_tags(self, request, object_id):
+        """Readiness → Personalization Tags → Push Again: copies the active platform tags this workspace is missing into it
+        (apps/templates/inherit.py, the same copy onboarding makes; a tag it already has is left as it is)."""
+        from apps.templates.inherit import inherit_platform_tags
+        tenant = Tenant.objects.using(settings.PLATFORM_ALIAS).get(pk=object_id)
+        try:
+            outcome = inherit_platform_tags(tenant.pk, using=settings.PLATFORM_ALIAS, user_id=request.user.pk) or {}
+        except Exception as error:                                                     # noqa: BLE001  said on the page, not a 500
+            messages.error(request, f"The platform tags were not pushed to {tenant.code}: {error}")
+        else:
+            words = ", ".join(f"{count} {kind}" for kind, count in outcome.items() if count) or "nothing was missing"
+            messages.success(request, f"Platform tags pushed to {tenant.code}: {words}.")
+        return redirect("admin:tenants_tenant_change", tenant.pk)
 
     @action(description="Onboard a Tenant", url_path="onboard", icon="rocket_launch")
     def onboard_flow(self, request):

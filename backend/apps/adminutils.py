@@ -10,6 +10,7 @@ from django.apps import apps as django_apps
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import FieldDoesNotExist
 from django.db import connections, models
 from unfold.admin import ModelAdmin
 
@@ -18,6 +19,23 @@ SEARCHABLE = ("name", "code", "email", "display_name", "subject", "party_id", "k
 FILTERABLE = ("status", "channel", "campaign_type", "run_type", "list_kind", "tag_kind", "auth_provider",
               "isolation_mode", "is_active", "is_staff", "tenant")
 SECRET_FIELDS = {"password", "key_hash"}
+# what a list page can be searched by when its admin names nothing: these text columns, then the name of a linked record
+FOUND_BY = ("name", "code", "key", "tag_key", "node_key", "label", "title", "display_name", "email", "subject", "file_name", "domain", "url", "version_label")
+
+
+def derived_search_fields(model) -> tuple[str, ...]:
+    """'name', 'code', … where the model has them; else the linked records' names (a campaign run is found by its
+    campaign's name, a journey version by its journey's)."""
+    fields = {f.name: f for f in model._meta.concrete_fields}
+    own = tuple(name for name in FOUND_BY if name in fields and isinstance(fields[name], (models.CharField, models.TextField)))
+    if own:
+        return own
+    linked = []
+    for field in model._meta.concrete_fields:
+        if field.many_to_one and field.name not in AUDIT_FIELDS and field.name != "tenant":
+            target = {f.name: f for f in field.remote_field.model._meta.concrete_fields}
+            linked += [f"{field.name}__{name}" for name in ("name", "code", "label", "title") if name in target and isinstance(target[name], models.CharField)][:1]
+    return tuple(linked[:3])
 
 
 class PlatformWriteMixin:
@@ -70,6 +88,35 @@ class BaseAdmin(PlatformWriteMixin, ModelAdmin):
         if field is not None and isinstance(db_field, (models.JSONField, ArrayField)) and db_field.has_default():
             field.required = False
         return field
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # Unfold picks the id box BEFORE the type-to-search list (Django picks the list first): put the list first again
+        if "widget" not in kwargs and db_field.name in self.get_autocomplete_fields(request):
+            from django.contrib.admin.widgets import AutocompleteSelect
+            kwargs["widget"] = AutocompleteSelect(db_field, self.admin_site, using=kwargs.get("using"))
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_search_fields(self, request):
+        """Every list page can be searched: an admin that names no search fields gets them from the model's columns"""
+        return super().get_search_fields(request) or derived_search_fields(self.model)
+
+    def get_autocomplete_fields(self, request):
+        """A link to another record is a type-to-search field (type "CITI", pick CITISTAGING) wherever the other record's
+        page can be searched, instead of a box holding its id and a magnifier opening a pop-up list. Links to records
+        whose page has no search keep the id box (raw_id_fields): never a <select> of every row."""
+        explicit = tuple(super().get_autocomplete_fields(request))
+        found = []
+        for name in self.raw_id_fields:
+            try:
+                field = self.model._meta.get_field(name)
+            except FieldDoesNotExist:
+                continue
+            if not (field.many_to_one or field.one_to_one or field.many_to_many):
+                continue
+            related = self.admin_site._registry.get(field.remote_field.model)
+            if related is not None and related.get_search_fields(request) and related.has_view_permission(request):
+                found.append(name)
+        return explicit + tuple(name for name in found if name not in explicit)
 
     def get_fieldsets(self, request, obj=None):
         """Read-only system fields (ids, counters, timestamps) are filled by the database on insert: before the row

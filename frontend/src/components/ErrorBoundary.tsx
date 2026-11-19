@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { reportError } from '@/lib/errorReporter'
+import { isStaleBuild } from '@/lib/staleBuild'
 
 interface Props {
   children: ReactNode
@@ -18,18 +19,30 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    if (isStaleBuild(error)) return
     console.error('Unhandled UI error', error, info.componentStack)
     reportError(error, 'boundary', info.componentStack ?? undefined)
   }
 
   render() {
     if (!this.state.error) return this.props.children
+    const stale = isStaleBuild(this.state.error)
     return (
       <div role="alert" className="mx-auto max-w-xl px-4 py-20 text-center">
-        <p className="text-sm font-semibold text-danger-text">Screen failed to render</p>
-        <h1 className="mt-1 font-display text-page-title font-semibold text-ink-900">This screen could not be shown</h1>
-        <p className="mt-2 text-sm text-ink-800">{this.state.error.message}</p>
-        <p className="mt-1 text-sm text-ink-800">Reload the page. If it fails again, go back to the overview.</p>
+        {stale ? (
+          <>
+            <p className="text-sm font-semibold text-ink-800">C360 has been updated</p>
+            <h1 className="mt-1 font-display text-page-title font-semibold text-ink-900">Reload to open this screen</h1>
+            <p className="mt-2 text-sm text-ink-800">C360 was upgraded while this page was open, and this screen belongs to the new version. Reload the page to carry on.</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-semibold text-danger-text">Screen failed to render</p>
+            <h1 className="mt-1 font-display text-page-title font-semibold text-ink-900">This screen could not be shown</h1>
+            <p className="mt-2 text-sm text-ink-800">{this.state.error.message}</p>
+            <p className="mt-1 text-sm text-ink-800">Reload the page. If it fails again, go back to the overview.</p>
+          </>
+        )}
         <div className="mt-5 flex justify-center gap-3">
           <button type="button" onClick={() => window.location.reload()} className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-fill-hover">
             Reload

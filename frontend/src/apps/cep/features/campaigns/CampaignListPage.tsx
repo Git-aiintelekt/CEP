@@ -5,12 +5,13 @@
  * resume. Calendar view: the month, a bar per campaign. Archived campaigns stay out unless the Status filter asks for them.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Pause, Play, Plus, ShieldCheck, User, Workflow, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Pause, Play, Plus, ShieldCheck, Thermometer, User, Workflow, X } from 'lucide-react'
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { IconButton } from '@/components/Button'
+import { CategoryTag } from '@/components/CategoryTag'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { PageHeader } from '@/components/ResourceList'
@@ -40,7 +41,7 @@ import { StopDialog } from './detail/DripDialogs'
 import { DripCloneDialog } from './DripCloneDialog'
 import { dripStepsQuery } from './dripSteps'
 import { dripNextSend, dripProgressText, isDripSeries } from './dripLines'
-import { channelLabel, hasAction, typeShortLabel } from './vocabulary'
+import { channelLabel, hasAction, isWarmUp, typeShortLabel } from './vocabulary'
 import { timeInZone } from './zone'
 
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
@@ -211,11 +212,12 @@ function ChannelCell({ channel }: { channel: string }) {
 
 function TriggeredCell({ campaign }: { campaign: Campaign }) {
   const journey = campaign.triggered_by === 'JOURNEY'
-  const Icon = journey ? Workflow : User
+  const warmUp = campaign.triggered_by === 'WARM_UP'
+  const Icon = journey ? Workflow : warmUp ? Thermometer : User
   return (
     <div className="min-w-0 max-w-40">
-      <span className="flex items-center gap-2 text-ink-800"><Icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />{journey ? 'Journey' : 'Manual'}</span>
-      <span className="block truncate pl-6 text-helper text-ink-300">{journey ? 'Automated' : campaign.owner_name || 'No owner'}</span>
+      <span className="flex items-center gap-2 text-ink-800"><Icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />{journey ? 'Journey' : warmUp ? 'Warm-Up' : 'Manual'}</span>
+      <span className="block truncate pl-6 text-helper text-ink-300">{journey ? 'Automated' : warmUp ? 'Delivery Warm-Up' : campaign.owner_name || 'No owner'}</span>
     </div>
   )
 }
@@ -428,6 +430,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     const progress = dripProgressText(row, workspaceZone)
     return (
       <div className="min-w-0">
+        {isWarmUp(row) && <span className="mb-1 block"><CategoryTag category="warmup" /></span>}
         <button type="button" data-campaign-name={row.id} onClick={() => openPreview(row.id)}
           className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:text-link">
           {row.name}
@@ -535,7 +538,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
               <tbody className="divide-y divide-line-subtle">
                 {rows.map((row) => {
                   const picked = selected.includes(row.id) || previewId === row.id
-                  const rest = row.is_journey_generated ? 'bg-surface-subtle' : 'hover:bg-surface-hover'
+                  const rest = row.is_journey_generated || isWarmUp(row) ? 'bg-surface-subtle' : 'hover:bg-surface-hover'
                   return (
                     <tr key={row.id} onClick={openRow(row)} className={`h-[72px] cursor-pointer transition-colors duration-fast ease-standard ${picked ? 'bg-callout-bg' : rest}`}>
                       {canEdit && (
@@ -571,7 +574,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
           <ul aria-label="Campaigns" className="space-y-3">
             {rows.map((row) => (
               <li key={row.id} onClick={openRow(row)}
-                className={`cursor-pointer rounded-lg border border-line p-4 transition-colors duration-fast ease-standard ${row.is_journey_generated ? 'bg-surface-subtle' : 'bg-surface hover:bg-surface-hover'}`}>
+                className={`cursor-pointer rounded-lg border border-line p-4 transition-colors duration-fast ease-standard ${row.is_journey_generated || isWarmUp(row) ? 'bg-surface-subtle' : 'bg-surface hover:bg-surface-hover'}`}>
                 <div className="flex items-start justify-between gap-3">
                   {nameCell(row)}
                   <span className="flex shrink-0 items-center"><RowAction campaign={row} rights={rowRights} onAct={(action) => run(row, action)} />{rowMenu(row)}</span>
