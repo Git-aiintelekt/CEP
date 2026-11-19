@@ -15,8 +15,6 @@ import requests
 from django.core.cache import cache
 from django.utils import timezone
 
-from apps.platform_ops import params
-
 from . import logbook, redact, throttle
 
 log = logging.getLogger("cep.integrations")
@@ -168,7 +166,7 @@ def _trouble(guard, integration, exc) -> None:
         notifications.deliver(config, tenant_id, "engine_trouble", title=f"{guard.system}: sending paused after repeated failures",
                               lines=[f"{guard.breaker.threshold} sends in a row failed; the last error: {str(exc)[:300]}",
                                      f"Sending resumes on its own in {cooldown} seconds, or now from Settings → Integrations."],
-                              link=params.frontend_url() + "/settings/integrations", link_label="Open Integrations")
+                              link=settings.FRONTEND_URL.rstrip("/") + "/settings/integrations", link_label="Open Integrations")
     except Exception:                                      # noqa: BLE001
         log.exception("engine trouble notification not sent")
 

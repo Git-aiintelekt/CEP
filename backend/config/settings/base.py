@@ -83,7 +83,7 @@ DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 DATABASES["platform"] = env.db("PLATFORM_DATABASE_URL", default=env("DATABASE_URL", default="postgres://cep:cep@127.0.0.1:5432/cep_pool"))
 PLATFORM_ALIAS = "platform"
 PLATFORM_PATH_PREFIXES = ("/admin/",)
-FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")      # bootstrap only: the platform.frontend_url parameter wins
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")      # where one-time password links point
 API_PUBLIC_URL = env("API_PUBLIC_URL", default="http://localhost:8000")
 CEP_RELEASE = env("CEP_RELEASE", default="")                                 # shown on each recorded error; empty = the git commit at start-up   # the address an identity provider redirects back to
 PLATFORM_ADMIN_URL = env("PLATFORM_ADMIN_URL", default=API_PUBLIC_URL)    # linked from alert emails

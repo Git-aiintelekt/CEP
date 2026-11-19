@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from apps.tenants.models import Tenant
 
-from . import mail, params
+from . import mail
 
 log = logging.getLogger("cep.notifications")
 KEY = "notifications"
@@ -194,5 +194,5 @@ def send_test(tenant, *, by: str) -> dict:
 
 
 def campaign_link(campaign_id, *, setup: bool = False) -> str:
-    base = params.frontend_url()
+    base = settings.FRONTEND_URL.rstrip("/")
     return f"{base}/campaigns/{campaign_id}/edit?step=publish&section=review" if setup else f"{base}/campaigns/{campaign_id}"

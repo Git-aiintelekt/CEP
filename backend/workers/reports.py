@@ -7,7 +7,7 @@ from django.db import connections
 from django.utils import timezone
 
 from apps.delivery.engine import session
-from apps.platform_ops import jobs, notifications, params
+from apps.platform_ops import jobs, notifications
 from apps.reporting import reports
 from apps.tenants.models import Tenant
 
@@ -40,7 +40,7 @@ def send_for(tenant_id: str, weekly: dict) -> dict:
         reports.mark_weekly_sent(tenant, today)
         name = tenant.name
     outcome = notifications.deliver(config, tenant_id, "weekly_report", title=f"{name}: last week in numbers", lines=reports.weekly_lines(report),
-                                    link=params.frontend_url() + "/reports", link_label="Open Reports", to=weekly["recipients"])
+                                    link=settings.FRONTEND_URL.rstrip("/") + "/reports", link_label="Open Reports", to=weekly["recipients"])
     return {"sent": report["totals"]["sent"], **outcome}
 
 

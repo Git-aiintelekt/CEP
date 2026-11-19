@@ -39,7 +39,7 @@ def test_staff_without_an_authenticator_is_sent_to_set_one_up(check):
             setup = office.get("/admin/mfa/setup/")
             body = setup.content.decode()
             check("the setup page says what to do and links to the app's Account Security", setup.status_code == 200 and "Set Up Two-Step Verification" in body
-                  and params.frontend_url() + "/account/security" in body and "Sign Out" in body, f"{setup.status_code}")
+                  and settings.FRONTEND_URL.rstrip("/") + "/account/security" in body and "Sign Out" in body, f"{setup.status_code}")
         with _required(False):
             home = office.get("/admin/")
             check("not required: the back-office opens as before", home.status_code == 200, str(home.status_code))

@@ -21,7 +21,7 @@ The OFBiz side is built: it signs an HS256 JWT with a shared secret and redirect
 
 ## Configuration (in the database, not the environment)
 - **`tenant.settings` → `ofbiz_sso`** (existing table `tenant`, since 2026-11-18; before that its own table `tenant_ofbiz_link`): `{"is_active": true, "secret_enc": "..."}`. `secret_enc` holds `{"site_key", "api_key", "time_zone", "roles"}`, inserted as plain text by the seed and encrypted by the API with `FIELD_ENCRYPTION_KEY` the first time it reads it. No `ofbiz_sso`, or `is_active` false: "Signing in from OFBiz is not set up".
-- **`platform.frontend_url`** (global parameter, back-office → Parameters): where CEP sends the browser after checking the link (`<frontend_url>/launch`), and the base of every app link in emails. Empty = the `FRONTEND_URL` environment variable.
+- **`platform.frontend_url`** (global parameter, back-office → Parameters): where CEP sends the browser after checking the link (`<frontend_url>/launch`) and the other single sign-on landing pages; links in emails still use the `FRONTEND_URL` environment variable. Empty = the `FRONTEND_URL` environment variable.
 - **`REDIS_URL`** stays in the environment: the cache is connected before the database is read, and every worker must share it for logout and one-use links.
 - Set up: `database/apply_patch.sh 0083_ofbiz_sso.sql`, then fill in and run `database/ofbiz_sso_seed.sql`.
 
