@@ -112,7 +112,14 @@ def actions(campaign) -> list[str]:
     allowed = list(drip_lifecycle.actions(campaign, shown) if drip_lifecycle.is_drip(campaign) else ACTIONS.get(shown, ()))
     if campaign.is_journey_generated:
         allowed = [name for name in allowed if name in ("clone", "results")]
+    if campaign.campaign_type == "WARM_UP":
+        allowed = [name for name in allowed if name == "results"]
     return allowed
+
+
+def generated(campaign) -> bool:
+    """Made and sent by a journey or by the Delivery Warm-Up: never edited, published or approved by hand."""
+    return campaign.is_journey_generated or campaign.campaign_type == "WARM_UP"
 
 
 def _require(campaign, action: str, problem: str) -> None:

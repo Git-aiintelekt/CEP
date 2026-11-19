@@ -59,7 +59,7 @@ def state(campaign) -> dict | None:
 
 def actions(campaign) -> list[str]:
     """Added to the campaign's actions: request_approval while it can still be asked for, approve and send_back while it waits."""
-    if campaign.is_journey_generated or campaign.status not in service.EDITABLE:
+    if service.generated(campaign) or campaign.status not in service.EDITABLE:
         return []
     if campaign.approval_status == REQUESTED:
         return ["approve", "send_back"]
@@ -86,6 +86,8 @@ def _actor(user):
 def request(campaign, user, note: str = "") -> Campaign:
     if campaign.is_journey_generated:
         raise service.ActionError("A journey's campaign is approved with the journey.")
+    if campaign.campaign_type == "WARM_UP":
+        raise service.ActionError("A warm-up campaign is sent by the Delivery Warm-Up.")
     if campaign.status not in service.EDITABLE:
         raise service.ActionError("Approval can be requested while the campaign is a draft or test published.")
     if not required(campaign):

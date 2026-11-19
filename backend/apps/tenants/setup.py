@@ -1,6 +1,6 @@
 """Set Up Your Workspace: the steps an administrator works through after the first sign-in, each read from the workspace,
 never ticked by hand, with the page that does it. Only the steps of the components the workspace has are listed: a workspace
-with Engagement and Insights has eight, one with Insights alone three. Ready = every step not marked optional. The Home card
+with Engagement and Insights has nine, one with Insights alone three. Ready = every step not marked optional. The Home card
 can be hidden (tenant.settings.setup.dismissed_at); the page stays under Settings → Set-Up.
 
     General
@@ -9,6 +9,7 @@ can be hidden (tenant.settings.setup.dismissed_at); the page stays under Setting
     Engagement
     email_engine    an active email engine whose last Check passed
     email_sender    a verified email sender on an active email engine
+    warmup          (optional) a Delivery Warm-Up finished or running: a new IP or domain sending a little more each day
     text            (optional) an active text engine with a verified sender number
     lists           a production list with people (suppressions counted, not required)
     tell            (optional) a notification recipient, approvals on, or an API key
@@ -57,6 +58,36 @@ def _engine(engine) -> str:
 
 def _plural(count, word, plural=None):
     return f"{count} {word if count == 1 else (plural or word + 's')}"
+
+
+WARMUP_WHY = ("Inboxes distrust a new sending IP or domain that sends a lot at once. The warm-up sends a little more each day, "
+              "from your lists and templates, and holds every campaign to the day's limit until it is done.")
+
+
+def _warmup_step(tid) -> dict:
+    from apps.delivery import warmup
+    label, link = "Warm up your domain and IP", "/settings/delivery-warmup"
+    try:
+        found = warmup.setup_step(tid)
+    except Exception:                                      # noqa: BLE001  (the step never breaks the page)
+        found = None
+    if found is None:
+        return _step("warmup", label, TODO, "A new IP or domain: send a little more each day, on an hourly schedule sized to your plan.", why=WARMUP_WHY,
+                     links=[_link("Delivery Warm-Up", link, primary=True)], optional=True)
+    where = f"Day {found['day']} of {found['days_total']}"
+    kind = f"{'Dedicated IP' if found['ip_mode'] == 'DEDICATED' else 'Shared IP pool'}, {'daily' if found['plan_kind'] == 'DAILY' else 'hourly'} plan"
+    if found["status"] == "WARM":
+        return _step("warmup", label, DONE, f"Finished: {kind}, {found['days_total']} days.", links=[_link("Delivery Warm-Up", link)], optional=True)
+    if found["status"] == "STOPPED":
+        return _step("warmup", label, DONE, f"Stopped on day {found['day']} of {found['days_total']}.", tag="Stopped", links=[_link("Delivery Warm-Up", link)], optional=True)
+    if found["status"] == "PAUSED":
+        return _step("warmup", label, WARN, f"{kind}, paused on day {found['day']} of {found['days_total']}.", tag="Paused", why=WARMUP_WHY,
+                     links=[_link("Delivery Warm-Up", link, primary=True)], optional=True)
+    if found["offered_day"]:
+        return _step("warmup", label, WARN, f"{kind}, day {found['day']} of {found['days_total']}: day {found['offered_day']} waits for approval.",
+                     tag="Waiting for Approval", links=[_link("Delivery Warm-Up", link, primary=True)], optional=True)
+    return _step("warmup", label, TODO, f"{kind}, day {found['day']} of {found['days_total']}.", tag=where, why=WARMUP_WHY,
+                 links=[_link("Delivery Warm-Up", link, primary=True)], optional=True)
 
 
 def steps(tenant, user) -> list[dict]:
@@ -143,6 +174,9 @@ def _engagement(out: list, tenant, tid: str, zone: str, on) -> None:
         out.append(_step("email_sender", "Add an email sender and verify it", TODO, "From name and address on the engine; Verify; tick Default.",
                          why="The domain must be one the engine may send for. Verify checks SPF and DKIM on the engine; it takes a minute once the DNS records are in.",
                          links=[_link("Senders", "/settings/delivery#senders", primary=True)]))
+
+    # ---- the delivery warm-up (optional)
+    out.append(_warmup_step(tid))
 
     # ---- 5 texts (optional)
     if not on("sms"):

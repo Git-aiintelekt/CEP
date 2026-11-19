@@ -309,6 +309,7 @@ details.cep-more[open] > summary::after { content: ' ▴'; }
 .cep-button-quiet { background: var(--cep-surface); color: var(--cep-accent); border-color: var(--cep-accent); }
 .cep-button-quiet:hover { background: var(--cep-accent-soft); color: var(--cep-accent-text); border-color: var(--cep-accent-text); }
 .cep-narrow { max-width: 28rem; }
+.cep-steps { list-style: decimal; padding-left: 1.25rem; }
 /* danger outline: red text on white; red only marks the destructive action */
 .cep-button-danger { background: var(--cep-surface); color: var(--cep-bad-text); border-color: var(--cep-bad); }
 .cep-button-danger:hover { background: var(--cep-bad-soft); }
@@ -542,3 +543,81 @@ body { background: var(--cep-canvas); color: var(--cep-text-strong); }
 .cep-security-accept { display: grid; gap: 0.5rem; max-width: 640px; }
 .cep-security-accept label { font-size: 13px; font-weight: 600; color: var(--cep-text-strong); }
 .cep-security-accept input[type="date"] { height: 40px; max-width: 220px; padding: 0 0.75rem; border: 1px solid var(--cep-line-control); border-radius: var(--cep-radius-box); background: var(--cep-surface); color: var(--cep-text-strong); }
+
+/* Platform → Scheduled Upgrade */
+.cep-upgrade { display: flex; flex-direction: column; gap: 1rem; max-width: 760px; }
+.cep-upgrade-now, .cep-upgrade-form { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem 1.25rem; }
+.cep-upgrade h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-upgrade p { margin: 0; font-size: 14px; line-height: 21px; color: var(--cep-text); }
+.cep-upgrade-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.cep-upgrade-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
+.cep-upgrade label { display: block; margin-bottom: 0.25rem; font-size: 13px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-upgrade input { width: 100%; height: 40px; padding: 0 0.75rem; border: 1px solid var(--cep-line-control); border-radius: var(--cep-radius-box);
+                     background: var(--cep-surface); color: var(--cep-text-strong); font: inherit; font-size: 14px; }
+.cep-upgrade-row input { width: 200px; }
+.cep-upgrade input:focus { outline: none; border-color: var(--cep-accent); box-shadow: var(--cep-focus-ring); }
+
+/* ---- forms, like the workspaces' (templates/admin/includes/fieldset.html, submit_line.html; docs/mockups/backoffice-forms.html B)
+   Each section a card; the label above its field; short fields side by side on a six-column grid (S a third, M a half,
+   L the full row); 36px fields; help and errors under the field; the unit beside a number. -------------------------- */
+#content fieldset.cep-section { background: var(--cep-surface); border: 1px solid var(--cep-line); border-radius: var(--cep-radius-card); padding: 1rem 1.125rem 1.125rem; margin: 0; }
+/* a link to a section (Readiness → Edit): it lands below the sticky header, and the section is marked for a moment */
+#content fieldset.cep-section[id] { scroll-margin-top: 5rem; }
+#content fieldset.cep-section:target { animation: cep-section-arrive 2.4s var(--cep-ease, ease) 1; }
+@keyframes cep-section-arrive { 0%, 35% { border-color: var(--cep-accent); box-shadow: 0 0 0 3px var(--cep-accent-soft); } 100% { box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { #content fieldset.cep-section:target { animation: none; border-color: var(--cep-accent); } }
+#content fieldset.cep-section.cep-section-tab { border: 0; padding: 0.75rem 0 0; background: transparent; }
+#content fieldset.cep-section .cep-section-head { display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; margin-bottom: 0.875rem; }
+#content fieldset.cep-section .cep-section-head h2 { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--cep-text-strong); }
+#content fieldset.cep-section .cep-section-head p { margin: 0; font-size: 13px; line-height: 18px; color: var(--cep-text); max-width: 72ch; }
+#content .cep-form-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.875rem 1rem; align-items: start; }
+#content .cep-field { grid-column: span 6; min-width: 0; }
+@media (min-width: 900px) {
+    #content .cep-w-S { grid-column: span 2; }
+    #content .cep-w-M { grid-column: span 3; }
+}
+#content .cep-label { display: block; margin-bottom: 0.3125rem; font-size: 13px; line-height: 18px; font-weight: 500; color: var(--cep-text); white-space: normal; }
+#content .cep-optional { margin-left: 0.25rem; font-weight: 400; color: var(--cep-text-subtle); }
+#content .cep-help { margin-top: 0.3125rem; font-size: 12.5px; line-height: 17px; color: var(--cep-text); }
+#content .cep-error, #content .cep-error ul { margin: 0.3125rem 0 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 17px; font-weight: 500; color: var(--cep-bad-text); }
+#content .cep-field.has-error :is(input, select, textarea) { border-color: var(--cep-bad); }
+#content .cep-field :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) { width: 100%; max-width: none; }
+#content .cep-field .max-w-2xl, #content .cep-field .readonly { max-width: none; }
+#content .cep-field :is(input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="url"], input[type="tel"],
+    input[type="date"], input[type="time"], input[type="datetime-local"], select:not([multiple])) { height: 36px; min-height: 36px; padding-top: 0; padding-bottom: 0; font-size: 14px; }
+#content .cep-field textarea { font-size: 14px; }
+@supports (field-sizing: content) { #content .cep-field textarea { field-sizing: content; min-height: 4.5rem; max-height: 22rem; } }
+@supports not (field-sizing: content) { #content .cep-field textarea { height: 6.5rem; } }
+#content .cep-field .flex:has(> input[type="date"]) { gap: 0.5rem; }
+/* read-only values: a quiet filled field, so the eye still finds the value where the others are */
+#content .cep-readonly > * { min-height: 36px; display: flex; align-items: center; padding: 0.375rem 0.875rem; border-radius: var(--cep-radius-control); background: var(--cep-fill-subtle);
+    color: var(--cep-text-strong); font-size: 14px; line-height: 20px; border: 0; word-break: break-word; }
+#content .cep-field.cep-w-L .cep-readonly > * { border-radius: var(--cep-radius-box); }
+/* the unit beside a number: inside the field, after the value */
+#content .cep-unit-wrap { position: relative; }
+#content .cep-unit-wrap input { padding-right: 4.5rem; }
+#content .cep-unit { position: absolute; right: 0.875rem; top: 0; height: 36px; display: flex; align-items: center; font-size: 13px; color: var(--cep-text-subtle); pointer-events: none; }
+/* a checkbox or switch: the label beside it */
+#content .cep-check { display: flex; align-items: center; gap: 0.625rem; min-height: 36px; }
+#content .cep-check label { font-size: 14px; color: var(--cep-text-strong); font-weight: 500; }
+
+/* ---- the save bar: Save, Save and Keep Editing, ⋯, Delete a red link on the left ---------------------------------- */
+#submit-row .cep-save-bar { display: flex; flex-direction: column-reverse; gap: 0.75rem; align-items: stretch; padding-top: 0.75rem; }
+@media (min-width: 1024px) { #submit-row .cep-save-bar { flex-direction: row-reverse; align-items: center; height: 60px; padding-top: 0; } }
+#submit-row .cep-save-bar-start { display: flex; align-items: center; gap: 1.25rem; margin-right: auto; }
+#submit-row .cep-delete-link, #submit-row .cep-quiet-link { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 14px; font-weight: 500; border: 0; background: none; }
+#submit-row .cep-delete-link { color: var(--cep-bad-text); } #submit-row .cep-delete-link:hover { text-decoration: underline; }
+#submit-row .cep-delete-link .material-symbols-outlined { font-size: 18px; }
+#submit-row .cep-quiet-link { color: var(--cep-text); } #submit-row .cep-quiet-link:hover { color: var(--cep-text-strong); }
+#submit-row .cep-cancel-link { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 1rem; border-radius: var(--cep-radius-control);
+    font-size: 14px; font-weight: 500; color: var(--cep-text-strong); }
+#submit-row .cep-cancel-link:hover { background: var(--cep-surface-hover); }
+#submit-row .cep-more { position: relative; }
+#submit-row .cep-more button.cep-more-button { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--cep-accent); border-radius: var(--cep-radius-control);
+    background: var(--cep-surface); color: var(--cep-accent); }
+#submit-row .cep-more button.cep-more-button:hover { background: var(--cep-accent-soft); }
+#submit-row .cep-more-menu { position: absolute; right: 0; bottom: calc(100% + 0.5rem); min-width: 13rem; padding: 0.375rem; border: 1px solid var(--cep-line); border-radius: var(--cep-radius-box);
+    background: var(--cep-surface-overlay); box-shadow: var(--cep-shadow-menu); display: flex; flex-direction: column; z-index: 50; }
+#submit-row .cep-more .cep-more-menu button[role="menuitem"] { height: 36px; padding: 0 0.75rem; border: 0; border-radius: 6px; background: none; color: var(--cep-text-strong); font-size: 14px; text-align: left; white-space: nowrap; }
+#submit-row .cep-more .cep-more-menu button[role="menuitem"]:hover, #submit-row .cep-more .cep-more-menu button[role="menuitem"]:focus-visible { background: var(--cep-surface-hover); }
+.cep-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

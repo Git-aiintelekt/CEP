@@ -69,11 +69,12 @@ def test_typed_settings(check):
             differ.append((setting.key, form.errors.as_text()[:80], getattr(form, "assembled", None)))
     check(f"every real parameter round-trips through its typed form unchanged ({same} of {len(settings)})", same == len(settings) and not differ, str(differ[:3]))
 
+    # the value comes first (the back-office form, option B), the key, category and description after it
     fieldsets = ma.get_fieldsets(request, PlatformSetting.objects.get(key="messaging.sms_quiet_hours"))
     check("an object's keys are the form's fields, plus room for a new one; a plain value has one box",
-          fieldsets[1][1]["fields"] == (f"{MEMBER}end", f"{MEMBER}start", NEW_KEY, NEW_VALUE) or fieldsets[1][1]["fields"] == (f"{MEMBER}start", f"{MEMBER}end", NEW_KEY, NEW_VALUE),
-          str(fieldsets[1][1]["fields"]))
-    check("a plain value has one box", ma.get_fieldsets(request, PlatformSetting.objects.get(key="alerts.renotify_minutes"))[1][1]["fields"] == ("typed_value",))
+          fieldsets[0][1]["fields"] == (f"{MEMBER}end", f"{MEMBER}start", NEW_KEY, NEW_VALUE) or fieldsets[0][1]["fields"] == (f"{MEMBER}start", f"{MEMBER}end", NEW_KEY, NEW_VALUE),
+          str(fieldsets[0][1]["fields"]))
+    check("a plain value has one box", ma.get_fieldsets(request, PlatformSetting.objects.get(key="alerts.renotify_minutes"))[0][1]["fields"] == ("typed_value",))
 
     quiet = PlatformSetting.objects.get(key="messaging.sms_quiet_hours")
     edited = form_for(quiet, {f"{MEMBER}end": "07:30"})

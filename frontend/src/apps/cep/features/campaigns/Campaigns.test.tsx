@@ -463,7 +463,7 @@ test('Triggered by holds the owner: Manual narrows to one owner, Journey or Any 
   const trigger = within(filterBar()).getByRole('button', { name: 'Triggered By' })
   await user.click(trigger)
   let menu = screen.getByRole('region', { name: 'Triggered By' })
-  expect(within(menu).getAllByRole('button').map((row) => row.textContent)).toEqual(['Any', 'Journey', 'Manual (Any Owner)', 'Aby John', 'Devon Okafor'])
+  expect(within(menu).getAllByRole('button').map((row) => row.textContent)).toEqual(['Any', 'Journey', 'Warm-Up', 'Manual (Any Owner)', 'Aby John', 'Devon Okafor'])
   expect(within(menu).getByRole('group', { name: 'Owner' })).toBeTruthy()
   await user.click(within(menu).getByRole('button', { name: 'Devon Okafor' }))
   await vi.waitFor(() => expect(listCall((params) => params.get('triggered_by') === 'manual' && params.get('owner') === 'u2')).toBe(true))

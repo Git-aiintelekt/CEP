@@ -3231,6 +3231,203 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON whatsapp_template TO cep_app;
 GRANT ALL ON whatsapp_template TO cep_admin;
 
+-- ---- Delivery warm-up (patch 0084): a new sending IP or domain earns the inboxes' trust by sending a little more each day.
+-- A workspace has at most one open warm-up (WARMING or PAUSED). Its plan is a schedule of hourly limits by warm-up age (day 0 to
+-- 41), cut off where the workspace plan's contacts fit in one day; a DAILY plan sends only inside its window. Each plan day
+-- has its own lists and template (delivery_warmup_day). Every hour CEP picks the next people of the day's lists, round after
+-- round, each with a template they have not had (delivery_warmup_send), and sends them as a WARM_UP campaign per day and
+-- template (delivery_warmup_campaign). Every marketing email of the workspace is held while the warm-up is open
+-- (mailer_execution.send_after = 'infinity') and released a few at a time within the hour's limit, its own campaigns first
+-- (apps/delivery/warmup.py).
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_campaign_type;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_campaign_type CHECK (campaign_type IN ('REGULAR_MARKETING', 'E_RECEIPT', 'DRIP', 'JOURNEY', 'OTHER', 'WARM_UP'));
+
+CREATE TABLE IF NOT EXISTS delivery_warmup (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    sender_profile_id   UUID NOT NULL REFERENCES sender_profile(id),
+    ip_mode             VARCHAR(10) NOT NULL DEFAULT 'DEDICATED',     -- DEDICATED starts at age 0; SHARED (a warm pool: only the domain is new) at age 7
+    plan_kind           VARCHAR(10) NOT NULL DEFAULT 'DAILY',         -- HOURLY: the hour's limit round the clock; DAILY: only from window_start to window_end
+    window_start        TIME NOT NULL DEFAULT '08:00',
+    window_end          TIME NOT NULL DEFAULT '21:00',
+    advance_mode        VARCHAR(10) NOT NULL DEFAULT 'AUTO',          -- AUTO: the next day after a healthy one; APPROVE: someone approves it
+    status              VARCHAR(10) NOT NULL DEFAULT 'WARMING',       -- WARMING, PAUSED (warm-up sends stop, the limit stays), WARM (finished), STOPPED
+    status_note         TEXT,
+    current_day         INTEGER NOT NULL DEFAULT 1,                   -- the plan day in force (1-based)
+    day_started_on      DATE NOT NULL,                                -- the workspace's local date the current day began
+    offered_day         INTEGER,                                      -- APPROVE: the day waiting for approval
+    failed_streak       INTEGER NOT NULL DEFAULT 0,                   -- days in a row over a health limit
+    round               INTEGER NOT NULL DEFAULT 1,                   -- the pass through the lists: everyone once per round
+    contacts_target     INTEGER,                                      -- the workspace plan's contacts the plan was sized to; NULL = the whole schedule
+    extra_template_ids  UUID[] NOT NULL DEFAULT '{}',                 -- more templates for people who have had every day's template
+    last_hour_planned   TIMESTAMPTZ,                                  -- the hour whose warm-up sends were picked last
+    started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    started_by          UUID REFERENCES app_user(id),
+    paused_at           TIMESTAMPTZ,
+    finished_at         TIMESTAMPTZ,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by          UUID REFERENCES app_user(id),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_delivery_warmup_ip_mode CHECK (ip_mode IN ('DEDICATED', 'SHARED')),
+    CONSTRAINT ck_delivery_warmup_plan_kind CHECK (plan_kind IN ('HOURLY', 'DAILY')),
+    CONSTRAINT ck_delivery_warmup_advance CHECK (advance_mode IN ('AUTO', 'APPROVE')),
+    CONSTRAINT ck_delivery_warmup_status CHECK (status IN ('WARMING', 'PAUSED', 'WARM', 'STOPPED')),
+    CONSTRAINT ck_delivery_warmup_window CHECK (window_end > window_start)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_delivery_warmup_open ON delivery_warmup(tenant_id) WHERE status IN ('WARMING', 'PAUSED');
+
+CREATE TABLE IF NOT EXISTS delivery_warmup_day (
+    warmup_id           UUID NOT NULL REFERENCES delivery_warmup(id) ON DELETE CASCADE,
+    day_no              INTEGER NOT NULL,                             -- 1-based plan day
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    schedule_age        INTEGER NOT NULL,                             -- the schedule's warm-up age (0-41) its limit comes from
+    hourly_limit        INTEGER NOT NULL,
+    list_ids            UUID[] NOT NULL DEFAULT '{}',
+    template_id         UUID REFERENCES template_master(id),
+    started_on          DATE,                                         -- the local dates it was in force
+    closed_on           DATE,
+    sent                INTEGER,                                      -- the workspace's marketing email on its last date, judged at midnight
+    bounced             INTEGER,
+    complained          INTEGER,
+    outcome             VARCHAR(10),                                  -- DONE (healthy), HELD (over a limit), QUIET (nothing sent)
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by          UUID REFERENCES app_user(id),
+    PRIMARY KEY (warmup_id, day_no),
+    CONSTRAINT ck_delivery_warmup_day_limit CHECK (hourly_limit > 0),
+    CONSTRAINT ck_delivery_warmup_day_outcome CHECK (outcome IS NULL OR outcome IN ('DONE', 'HELD', 'QUIET'))
+);
+
+CREATE TABLE IF NOT EXISTS delivery_warmup_send (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    warmup_id           UUID NOT NULL REFERENCES delivery_warmup(id) ON DELETE CASCADE,
+    party_id            VARCHAR(60) NOT NULL,
+    round               INTEGER NOT NULL,
+    day_no              INTEGER NOT NULL,
+    sent_on             DATE NOT NULL,                                -- local date
+    template_id         UUID REFERENCES template_master(id),          -- NULL: they had every template, nothing was sent
+    campaign_id         UUID REFERENCES campaign(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_delivery_warmup_send_round ON delivery_warmup_send(warmup_id, round, party_id);
+CREATE INDEX IF NOT EXISTS ix_delivery_warmup_send_party ON delivery_warmup_send(warmup_id, party_id);
+CREATE INDEX IF NOT EXISTS ix_delivery_warmup_send_day ON delivery_warmup_send(warmup_id, sent_on);
+
+CREATE TABLE IF NOT EXISTS delivery_warmup_campaign (
+    campaign_id         UUID PRIMARY KEY REFERENCES campaign(id),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    warmup_id           UUID NOT NULL REFERENCES delivery_warmup(id) ON DELETE CASCADE,
+    day_no              INTEGER NOT NULL,
+    sent_on             DATE NOT NULL,
+    template_id         UUID NOT NULL REFERENCES template_master(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_delivery_warmup_campaign ON delivery_warmup_campaign(warmup_id, day_no, sent_on, template_id);
+
+-- the marketing email the warm-up holds back until its hour: one look per minute, per workspace
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_warmup_held ON mailer_execution(tenant_id, created_at) WHERE status = 'QUEUED' AND send_after = 'infinity';
+
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['delivery_warmup', 'delivery_warmup_day', 'delivery_warmup_send', 'delivery_warmup_campaign'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON delivery_warmup, delivery_warmup_day, delivery_warmup_send, delivery_warmup_campaign TO cep_app;
+GRANT ALL ON delivery_warmup, delivery_warmup_day, delivery_warmup_send, delivery_warmup_campaign TO cep_admin;
+
+-- ---- Time zones a workspace can be set to (patch 0085): IANA zones with a place people recognise, west to east. The forms
+-- show each with its offset as it is that day (apps/tenants/timezones.py), so summer time is right. A zone is offered
+-- while is_active; add one with a new row. A workspace already on a zone outside this list keeps it until changed.
+INSERT INTO reference_code (code_set, code, label, sort_order) VALUES
+    ('tenant.timezone', 'Pacific/Midway', 'Midway Island', 10),
+    ('tenant.timezone', 'Pacific/Honolulu', 'Hawaii', 20),
+    ('tenant.timezone', 'America/Anchorage', 'Alaska', 30),
+    ('tenant.timezone', 'America/Los_Angeles', 'Pacific Time (US & Canada)', 40),
+    ('tenant.timezone', 'America/Tijuana', 'Tijuana', 50),
+    ('tenant.timezone', 'America/Phoenix', 'Arizona', 60),
+    ('tenant.timezone', 'America/Denver', 'Mountain Time (US & Canada)', 70),
+    ('tenant.timezone', 'America/Chicago', 'Central Time (US & Canada)', 80),
+    ('tenant.timezone', 'America/Mexico_City', 'Mexico City', 90),
+    ('tenant.timezone', 'America/Regina', 'Saskatchewan', 100),
+    ('tenant.timezone', 'America/New_York', 'Eastern Time (US & Canada)', 110),
+    ('tenant.timezone', 'America/Toronto', 'Toronto', 120),
+    ('tenant.timezone', 'America/Bogota', 'Bogotá', 130),
+    ('tenant.timezone', 'America/Lima', 'Lima', 140),
+    ('tenant.timezone', 'America/Caracas', 'Caracas', 150),
+    ('tenant.timezone', 'America/Halifax', 'Atlantic Time (Canada)', 160),
+    ('tenant.timezone', 'America/Puerto_Rico', 'Puerto Rico', 170),
+    ('tenant.timezone', 'America/Santiago', 'Santiago', 180),
+    ('tenant.timezone', 'America/St_Johns', 'Newfoundland', 190),
+    ('tenant.timezone', 'America/Sao_Paulo', 'São Paulo', 200),
+    ('tenant.timezone', 'America/Argentina/Buenos_Aires', 'Buenos Aires', 210),
+    ('tenant.timezone', 'Atlantic/Azores', 'Azores', 220),
+    ('tenant.timezone', 'UTC', 'Coordinated Universal Time (UTC)', 230),
+    ('tenant.timezone', 'Europe/London', 'London', 240),
+    ('tenant.timezone', 'Europe/Dublin', 'Dublin', 250),
+    ('tenant.timezone', 'Europe/Lisbon', 'Lisbon', 260),
+    ('tenant.timezone', 'Africa/Casablanca', 'Casablanca', 270),
+    ('tenant.timezone', 'Europe/Paris', 'Paris', 280),
+    ('tenant.timezone', 'Europe/Berlin', 'Berlin', 290),
+    ('tenant.timezone', 'Europe/Madrid', 'Madrid', 300),
+    ('tenant.timezone', 'Europe/Rome', 'Rome', 310),
+    ('tenant.timezone', 'Europe/Amsterdam', 'Amsterdam', 320),
+    ('tenant.timezone', 'Europe/Brussels', 'Brussels', 330),
+    ('tenant.timezone', 'Europe/Zurich', 'Zurich', 340),
+    ('tenant.timezone', 'Europe/Stockholm', 'Stockholm', 350),
+    ('tenant.timezone', 'Europe/Warsaw', 'Warsaw', 360),
+    ('tenant.timezone', 'Africa/Lagos', 'Lagos', 370),
+    ('tenant.timezone', 'Europe/Athens', 'Athens', 380),
+    ('tenant.timezone', 'Europe/Bucharest', 'Bucharest', 390),
+    ('tenant.timezone', 'Europe/Helsinki', 'Helsinki', 400),
+    ('tenant.timezone', 'Europe/Kyiv', 'Kyiv', 410),
+    ('tenant.timezone', 'Africa/Cairo', 'Cairo', 420),
+    ('tenant.timezone', 'Africa/Johannesburg', 'Johannesburg', 430),
+    ('tenant.timezone', 'Asia/Jerusalem', 'Jerusalem', 440),
+    ('tenant.timezone', 'Europe/Istanbul', 'Istanbul', 450),
+    ('tenant.timezone', 'Europe/Moscow', 'Moscow', 460),
+    ('tenant.timezone', 'Asia/Riyadh', 'Riyadh', 470),
+    ('tenant.timezone', 'Asia/Qatar', 'Doha', 480),
+    ('tenant.timezone', 'Asia/Kuwait', 'Kuwait', 490),
+    ('tenant.timezone', 'Africa/Nairobi', 'Nairobi', 500),
+    ('tenant.timezone', 'Asia/Tehran', 'Tehran', 510),
+    ('tenant.timezone', 'Asia/Dubai', 'Dubai', 520),
+    ('tenant.timezone', 'Asia/Muscat', 'Muscat', 530),
+    ('tenant.timezone', 'Asia/Baku', 'Baku', 540),
+    ('tenant.timezone', 'Asia/Kabul', 'Kabul', 550),
+    ('tenant.timezone', 'Asia/Karachi', 'Karachi', 560),
+    ('tenant.timezone', 'Asia/Tashkent', 'Tashkent', 570),
+    ('tenant.timezone', 'Asia/Kolkata', 'India (Mumbai, New Delhi)', 580),
+    ('tenant.timezone', 'Asia/Colombo', 'Colombo', 590),
+    ('tenant.timezone', 'Asia/Kathmandu', 'Kathmandu', 600),
+    ('tenant.timezone', 'Asia/Dhaka', 'Dhaka', 610),
+    ('tenant.timezone', 'Asia/Yangon', 'Yangon', 620),
+    ('tenant.timezone', 'Asia/Bangkok', 'Bangkok', 630),
+    ('tenant.timezone', 'Asia/Jakarta', 'Jakarta', 640),
+    ('tenant.timezone', 'Asia/Ho_Chi_Minh', 'Ho Chi Minh City', 650),
+    ('tenant.timezone', 'Asia/Singapore', 'Singapore', 660),
+    ('tenant.timezone', 'Asia/Kuala_Lumpur', 'Kuala Lumpur', 670),
+    ('tenant.timezone', 'Asia/Manila', 'Manila', 680),
+    ('tenant.timezone', 'Asia/Hong_Kong', 'Hong Kong', 690),
+    ('tenant.timezone', 'Asia/Shanghai', 'Beijing, Shanghai', 700),
+    ('tenant.timezone', 'Asia/Taipei', 'Taipei', 710),
+    ('tenant.timezone', 'Australia/Perth', 'Perth', 720),
+    ('tenant.timezone', 'Asia/Tokyo', 'Tokyo', 730),
+    ('tenant.timezone', 'Asia/Seoul', 'Seoul', 740),
+    ('tenant.timezone', 'Australia/Darwin', 'Darwin', 750),
+    ('tenant.timezone', 'Australia/Adelaide', 'Adelaide', 760),
+    ('tenant.timezone', 'Australia/Brisbane', 'Brisbane', 770),
+    ('tenant.timezone', 'Australia/Sydney', 'Sydney, Melbourne', 780),
+    ('tenant.timezone', 'Pacific/Guam', 'Guam', 790),
+    ('tenant.timezone', 'Pacific/Noumea', 'Nouméa', 800),
+    ('tenant.timezone', 'Pacific/Auckland', 'Auckland', 810),
+    ('tenant.timezone', 'Pacific/Fiji', 'Fiji', 820),
+    ('tenant.timezone', 'Pacific/Tongatapu', 'Nuku''alofa', 830)
+ON CONFLICT (code_set, code) DO NOTHING;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

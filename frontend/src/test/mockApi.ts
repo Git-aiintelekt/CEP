@@ -10,6 +10,8 @@ import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
+import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
+import type { WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -48,6 +50,8 @@ export const platformVisits = [
 
 /** Insights (apps/insights): the catalogue, a saved report and a run's result the tests see */
 /** the components the workspace has, in the suite's order: what a report may be listed under */
+/** GET /platform-status/: tests set .upgrade to show the upgrade notice */
+export const platformStatusNow: { upgrade: Record<string, unknown> } = { upgrade: { state: 'NONE' } }
 export const suiteComponents = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }]
 export const insightsCatalog = {
   components: suiteComponents, can_choose_component: true,
@@ -846,6 +850,8 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** GET /warmup/; default: no warm-up yet, a Growth plan of 25,000 contacts */
+  warmup?: WarmUpOverview
   /** GET /workspace/utm/; default: both channels off, the recommended values */
   utm?: Partial<UtmSettings>
   /** POST /utm/preview/ links; default: a hero image, a shop button, Instagram and the unsubscribe link */
@@ -956,6 +962,10 @@ interface MockOptions {
   onForgotPassword?: (call: Call) => Response | null
   /** GET /auth/options/ ; default: no single sign-on */
   authOptions?: Partial<AuthOptions>
+  /** GET /auth/options/ without X-Tenant: the workspace this address belongs to (its own domain); default none */
+  addressWorkspace?: string
+  /** GET /auth/options/ answers 404 Unknown tenant for this code */
+  unknownWorkspace?: string
   /** GET /auth/mfa/ starts from this */
   mfaEnabled?: boolean
   /** answer for PUT /workspace/security/ ; default merges the body into the stored settings */
@@ -1031,6 +1041,7 @@ export function installMockApi(options: MockOptions = {}) {
   const consentPolicyNow = { ...consentPolicy }
   const attributionNow: AttributionSettings = JSON.parse(JSON.stringify(attributionSettings))
   let setupNow: WorkspaceSetup = { ...SAMPLE_SETUP_READY, ...options.setup }
+  let warmupNow: WarmUpOverview = structuredClone(options.warmup ?? NO_WARM_UP)
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
   let journeyNow: Journey = makeJourney(options.journey)
@@ -1145,9 +1156,16 @@ export function installMockApi(options: MockOptions = {}) {
     }
     const tools = handleWorkspaceTools({ path, url, method, body }, toolsState)
     if (tools) return tools
+    if (path.endsWith('/platform-status/')) return json(platformStatusNow)
+    if (path.endsWith('/version.json')) return json({ detail: 'Not found' }, 404)
     if (path.endsWith('/legal/')) return json({ copyright_holder: 'Transaction Tree', year: 2026, terms: { title: 'Terms of Use', updated_at: '2026-10-09T10:00:00Z',
       body: '## 1. What C360 is\n\nCEP is a customer engagement platform.\n\n## 2. Your account\n\nYour account is personal.\n\n## 8. Contact\n\nAsk your workspace administrator.' } })
-    if (path.endsWith('/auth/options/')) return json({ workspace: headers['X-Tenant'], sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
+    if (path.endsWith('/auth/options/')) {
+      // no X-Tenant: the server resolves the address (a workspace's sub-domain or own domain); jsdom's localhost is none unless a test says so
+      const workspace = headers['X-Tenant'] || options.addressWorkspace
+      if (!workspace || workspace === options.unknownWorkspace) return json({ type: 'about:blank', title: 'Unknown tenant', status: 404 }, 404)
+      return json({ workspace, sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
+    }
     if (path.endsWith('/auth/mfa/verify/')) {
       return body?.mfa_token === 'mfa-token-1' && body?.code === MFA_CODE ? json({ access: 'access-1', refresh: 'refresh-1' })
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'That code is not right. Codes change every 30 seconds; a recovery code works once.' }, 401)
@@ -1218,6 +1236,25 @@ export function installMockApi(options: MockOptions = {}) {
         .map((item) => options.engineHealth ? { ...item, health: engineHealth[item.id] ?? null } : item))
     }
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
+    if (path.endsWith('/warmup/plans/')) return json(SAMPLE_WARM_UP_PLANS)
+    if (path.endsWith('/warmup/') && method === 'POST') { warmupNow = structuredClone(SAMPLE_WARM_UP); return json(warmupNow, 201) }
+    if (path.endsWith('/warmup/') && method === 'PATCH' && warmupNow.warmup) { warmupNow = { ...warmupNow, warmup: { ...warmupNow.warmup, ...(body as Partial<WarmUp>) } }; return json(warmupNow) }
+    if (path.endsWith('/warmup/days/') && method === 'POST' && warmupNow.warmup) {
+      const change = body as { from_day: number; to_day: number; template_id?: string; hourly_limit?: number }
+      const template = templatesNow.find((item) => item.id === change.template_id)
+      warmupNow = { ...warmupNow, days: warmupNow.days.map((item) => item.day < change.from_day || item.day > change.to_day ? item
+        : { ...item, ...(template ? { template: { id: template.id, name: template.name } } : {}), ...(change.hourly_limit ? { hourly_limit: change.hourly_limit, daily_limit: change.hourly_limit * 13 } : {}) }) }
+      return json(warmupNow)
+    }
+    if (path.endsWith('/warmup/actions/') && method === 'POST' && warmupNow.warmup) {
+      const action = (body as { action: string }).action
+      const now = warmupNow.warmup
+      const next = action === 'approve' ? { current_day: now.offered_day ?? now.current_day, offered_day: null } : action === 'stay' ? { offered_day: null }
+        : action === 'pause' ? { status: 'PAUSED' as const } : action === 'resume' ? { status: 'WARMING' as const } : action === 'stop' ? { status: 'STOPPED' as const, offered_day: null } : {}
+      warmupNow = { ...warmupNow, warmup: { ...now, ...next } }
+      return json(warmupNow)
+    }
+    if (path.endsWith('/warmup/')) return json(warmupNow)
     if (path.endsWith('/workspace/utm/') && method === 'PUT') {
       const next = body as unknown as UtmSettings
       if ((next.email || next.sms) && next.domains.length === 0) return json({ type: 'about:blank', title: 'Invalid', status: 400, errors: { domains: ['Add at least one of your sites: only links to them are tagged.'] } }, 400)

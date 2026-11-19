@@ -33,6 +33,7 @@ import { ApprovalsPage } from './pages/settings/ApprovalsPage'
 import { AttributionPage } from './pages/settings/AttributionPage'
 import { ConsentPolicyPage } from './pages/settings/ConsentPolicyPage'
 import { DeliveryPage } from './pages/settings/DeliveryPage'
+import { DeliveryWarmUpPage } from './pages/settings/DeliveryWarmUpPage'
 import { UtmTrackingPage } from './pages/settings/UtmTrackingPage'
 import { EventsPage } from './pages/settings/EventsPage'
 import { IntegrationsPage } from './pages/settings/IntegrationsPage'
@@ -112,6 +113,7 @@ export default function CepRoutes() {
           <Route path="security" element={<SecurityPage />} />
           <Route path="email" element={<MailServerPage />} />
           <Route path="delivery" element={<DeliveryPage />} />
+          <Route path="delivery-warmup" element={<DeliveryWarmUpPage />} />
           <Route path="utm-tracking" element={<UtmTrackingPage />} />
           <Route path="integrations" element={<IntegrationsPage />} />
           <Route path="suppressions" element={<SuppressionsPage />} />

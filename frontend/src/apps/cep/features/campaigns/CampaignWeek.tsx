@@ -138,7 +138,7 @@ export function CampaignWeek({ filters, zone, canEdit, start, journeys, today }:
                         <Link to={campaignHome({ ...send.span, id: send.span.campaign }, canEdit)} aria-label={spoken(send)} className="min-w-0 flex-1 truncate text-ink-900 hover:underline">
                           {send.name}{send.message && <span className="text-ink-800"> · {send.message}</span>}
                         </Link>
-                        {send.span.is_journey_generated && <CategoryTag category="journey" />}
+                        {send.span.is_journey_generated && <CategoryTag category="journey" />}{send.span.campaign_type === 'WARM_UP' && <CategoryTag category="warmup" />}
                         <StatusBadge status={barStatus(send.span)} />
                       </li>
                     )

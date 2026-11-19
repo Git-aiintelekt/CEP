@@ -24,6 +24,7 @@ class Campaign(models.Model):
         DRIP = 'DRIP', 'Drip'
         JOURNEY = 'JOURNEY', 'Journey'
         OTHER = 'OTHER', 'Other'
+        WARM_UP = 'WARM_UP', 'Warm-Up'  # sent by the Delivery Warm-Up (patch 0084), never edited by hand
 
     class Channel(models.TextChoices):
         EMAIL = 'EMAIL', 'Email'
@@ -58,7 +59,7 @@ class Campaign(models.Model):
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
     legacy_marketing_campaign_id = models.CharField(max_length=60, null=True, blank=True, unique=True)  # iCRM marketing_campaign.MARKETING_CAMPAIGN_ID, where reconciling against pre-CEP campaign history
     name = models.CharField(max_length=200)
-    campaign_type = models.CharField(max_length=20, choices=CampaignType.choices)  # REGULAR_MARKETING, E_RECEIPT, DRIP, JOURNEY, OTHER
+    campaign_type = models.CharField(max_length=20, choices=CampaignType.choices)  # REGULAR_MARKETING, E_RECEIPT, DRIP, JOURNEY, OTHER, WARM_UP
     channel = models.CharField(max_length=20, choices=Channel.choices)  # EMAIL, SMS, MMS, MULTI
     status = models.CharField(max_length=30, default='DRAFT', choices=Status.choices)  # DRAFT, TEST_PUBLISHED, PRODUCTION_PUBLISHED, ACTIVE, COMPLETED, CANCELLED
     solicitation_type = models.CharField(max_length=20, default='MARKETING', choices=SolicitationType.choices)  # MARKETING (consent + caps + unsubscribe), TRANSACTIONAL (valid contact point only, cap-exempt), SERVICE, LEGAL (iCRM DND_REQUIRED)

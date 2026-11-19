@@ -133,7 +133,7 @@ function SetupCard({ campaign, zone, editable }: { campaign: Campaign; zone: str
       {!editable && (
         <p className="mt-6 flex items-center gap-2 text-helper text-ink-800">
           <Lock size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-300" />
-          {campaign.is_journey_generated ? 'These settings come from the journey that generated this campaign.' : 'Settings are fixed once a campaign is published. Clone the campaign to start again from them.'}
+          {campaign.is_journey_generated ? 'These settings come from the journey that generated this campaign.' : campaign.campaign_type === 'WARM_UP' ? 'These settings come from the Delivery Warm-Up that sent this campaign.' : 'Settings are fixed once a campaign is published. Clone the campaign to start again from them.'}
         </p>
       )}
     </DetailCard>

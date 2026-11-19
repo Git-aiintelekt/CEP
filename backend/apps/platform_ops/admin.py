@@ -263,12 +263,23 @@ MEMBER = "member__"                                     # an object's keys, one 
 NEW_KEY, NEW_VALUE = "new_key", "new_value"
 
 
-def typed_field(kind: str, value, label: str) -> forms.Field:
+UNITS = {"seconds": "seconds", "minutes": "minutes", "hours": "hours", "days": "days", "months": "months", "percent": "%", "pct": "%",
+         "mb": "MB", "gb": "GB", "kb": "KB", "ms": "ms"}
+
+
+def unit_of(key: str) -> str:
+    """'security.password_link_hours' -> 'hours': shown beside the number in the form"""
+    last = key.rsplit(".", 1)[-1].rsplit("_", 1)[-1].lower()
+    return UNITS.get(last, "")
+
+
+def typed_field(kind: str, value, label: str, unit: str = "", help_text: str = "") -> forms.Field:
     """A form field a person can use for one value of the given kind, holding the current value."""
+    attrs = {"data-unit": unit} if unit else {}
     if kind == "INTEGER":
-        return forms.IntegerField(label=label, required=False, initial=value, widget=UnfoldAdminIntegerFieldWidget)
+        return forms.IntegerField(label=label, required=False, initial=value, widget=UnfoldAdminIntegerFieldWidget(attrs=attrs), help_text=help_text)
     if kind == "DECIMAL":
-        return forms.FloatField(label=label, required=False, initial=value, widget=UnfoldAdminDecimalFieldWidget)
+        return forms.FloatField(label=label, required=False, initial=value, widget=UnfoldAdminDecimalFieldWidget(attrs=attrs), help_text=help_text)
     if kind == "BOOLEAN":
         return forms.BooleanField(label=label, required=False, initial=bool(value), widget=UnfoldBooleanSwitchWidget)
     if kind == "LIST":
@@ -284,7 +295,8 @@ def value_fields(setting) -> dict[str, forms.Field]:
         return {"typed_value": forms.CharField(label="Value", required=False, initial="" if value is None else str(value),
                                                widget=UnfoldAdminTextareaWidget(attrs={"rows": 24}), help_text="Markdown: ## for a heading, a blank line between paragraphs, - for a list.")}
     if kind != "OBJECT":
-        return {"typed_value": typed_field(kind, value, "Value")}
+        kind_name = typed_values.KIND_NAMES.get(kind, kind)
+        return {"typed_value": typed_field(kind, value, "Value", unit_of(setting.key), f"{setting.description.rstrip('.')}. {kind_name}." if setting.description else f"{kind_name}.")}
     fields = {f"{MEMBER}{key}": typed_field(typed_values.kind_of(item), item, key) for key, item in (value or {}).items()}
     fields[NEW_KEY] = forms.CharField(label="Add a Value: Name", required=False, widget=UnfoldAdminTextInputWidget)
     fields[NEW_VALUE] = forms.CharField(label="Add a Value: Value", required=False, widget=UnfoldAdminTextInputWidget,
@@ -360,7 +372,16 @@ class PlatformSettingAdmin(BaseAdmin):
 
     def get_urls(self):
         return [path("guide/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide"),
-                path("guide/<slug:slug>/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide_chapter"), *super().get_urls()]
+                path("guide/<slug:slug>/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide_chapter"),
+                path("upgrade/", self.admin_site.admin_view(self.upgrade_view), name="platform_ops_upgrade"), *super().get_urls()]
+
+    def upgrade_view(self, request):
+        """Platform → Scheduled Upgrade (admin_upgrade): the upgrade notice people see in every workspace."""
+        from django.core.exceptions import PermissionDenied
+        from . import admin_upgrade
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        return admin_upgrade.page(self.admin_site, request)
 
     def guide_view(self, request, slug=None):
         """The Platform Guide: the chapters under docs/manuals/platform-guide, rendered here."""
@@ -383,8 +404,8 @@ class PlatformSettingAdmin(BaseAdmin):
     def get_fieldsets(self, request, obj=None):
         if obj is None:
             return ((None, {"fields": ("key", "category", "description", "value_type", "raw")}),)
-        return ((None, {"fields": ("key", "category", "description", "value_type")}),
-                ("Value", {"fields": tuple(value_fields(obj)), "description": f"Kind: {typed_values.KIND_NAMES.get(obj.value_type, obj.value_type)}. Takes effect within a minute of saving."}))
+        return ((str(obj), {"fields": tuple(value_fields(obj)), "description": "Takes effect within a minute of saving."}),
+                ("About This Parameter", {"fields": ("key", "category", "value_type", "description")}))
 
     @display(description="Value")
     def show_value(self, obj):

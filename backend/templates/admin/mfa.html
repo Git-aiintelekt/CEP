@@ -1,23 +1,24 @@
-{% extends "admin/base.html" %}
+{% extends 'unfold/layouts/unauthenticated.html' %}
+{% comment %}The second step of signing in to the back-office, on the sign-in page's own layout: nothing of the back-office shows until the code is right.{% endcomment %}
 {% load unfold %}
+
 {% block title %}{{ title }} | {{ site_title }}{% endblock %}
-{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+
 {% block content %}
-<div class="flex flex-col gap-6 cep-narrow">
-    {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
-    {% component "unfold/components/card.html" %}
-        <form method="post">{% csrf_token %}
-        {% for field in form %}
-            <div class="mb-4">
-                <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
-                {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
-            </div>
-        {% endfor %}
-            <button type="submit" class="bg-primary-600 border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-sm text-white">Continue</button>
-        </form>
-    {% endcomponent %}
-    {% include "admin/mfa_sign_out.html" %}
-</div>
+    {% include "unfold/helpers/unauthenticated_title.html" with title=title subtitle=site_title %}
+
+    <p class="leading-relaxed mb-6 text-sm">Password accepted for <strong class="text-font-important-light dark:text-font-important-dark">{{ user.email }}</strong>. Type the six-digit code your authenticator app shows. A recovery code also works, once.</p>
+
+    <form method="post" id="mfa-form">
+        {% csrf_token %}
+        {% include "unfold/helpers/field.html" with field=form.code %}
+
+        <div class="flex flex-col gap-3 mt-6">
+            {% component "unfold/components/button.html" with submit=1 variant="primary" class="w-full" %}
+                Continue <span class="material-symbols-outlined relative right-0 transition-all group-hover:-right-1 text-sm">arrow_forward</span>
+            {% endcomponent %}
+        </div>
+    </form>
+
+    <div class="flex justify-center mt-6">{% include "admin/mfa_sign_out.html" %}</div>
 {% endblock %}
