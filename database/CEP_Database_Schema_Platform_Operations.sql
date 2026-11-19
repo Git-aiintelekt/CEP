@@ -187,11 +187,11 @@ CREATE TABLE IF NOT EXISTS tenant_identity_provider (
 );
 COMMENT ON TABLE tenant_identity_provider IS 'A tenant''s OpenID Connect identity provider (Entra ID, Okta, Google Workspace, ...): one per tenant';
 
--- "Open CEP" from OFBiz iCRM lives in its own column, tenant.sso_config (patch 0085): {"is_active": true, "secret_enc": "..."},
+-- "Open CEP" from OFBiz iCRM lives in its own column, tenant.sso_config (patch 0087): {"is_active": true, "secret_enc": "..."},
 -- one iCRM system per workspace (another system gets its own tenant row and code). secret_enc is {"site_key", "api_key",
 -- "time_zone", "roles"}, inserted as plain text by database/ofbiz_sso_seed.sql and encrypted by the application the first
 -- time it reads it. Earlier homes, carried over and then removed: the table tenant_ofbiz_link (patch 0083) and
--- tenant.settings -> 'ofbiz_sso' (patch 0084).
+-- tenant.settings -> 'ofbiz_sso' (patch 0086).
 ALTER TABLE tenant ADD COLUMN IF NOT EXISTS sso_config JSONB NOT NULL DEFAULT '{}';
 COMMENT ON COLUMN tenant.sso_config IS 'OFBiz iCRM "Open CEP" single sign-on of this workspace: {"is_active", "secret_enc"}; secret_enc is encrypted by the application';
 DO $$

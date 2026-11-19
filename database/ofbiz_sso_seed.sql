@@ -1,5 +1,5 @@
 -- "Open CEP" from OFBiz iCRM: the keys and time zone of iCRM's getSSOToken tokens, and the address CEP opens at.
--- Needs patches 0083, 0084 and 0085_tenant_sso_config.sql. Idempotent: run it again to change a value. Changes take effect within a minute.
+-- Needs patches 0083, 0086 and 0087_tenant_sso_config.sql. Idempotent: run it again to change a value. Changes take effect within a minute.
 -- One iCRM system per workspace: for another system (Citi Staging...), add its workspace (tenant row, new code) and run this for that code.
 --
 -- 1. Replace the values in the DECLARE block below:
@@ -17,7 +17,7 @@
 -- 2. Run as the database owner:  psql -X -1 -v ON_ERROR_STOP=1 -f database/ofbiz_sso_seed.sql
 -- 3. Do not commit this file with real keys in it.
 --
--- Stored in the tenant table, column sso_config (patch 0085): {"is_active": true, "secret_enc": "..."}
+-- Stored in the tenant table, column sso_config (patch 0087): {"is_active": true, "secret_enc": "..."}
 -- secret_enc gets {"site_key", "api_key", "time_zone", "roles"} as plain text; CEP encrypts it with FIELD_ENCRYPTION_KEY the
 -- first time it reads it. No other column of the tenant row is changed. To switch "Open CEP" off for a workspace:
 --   UPDATE tenant SET sso_config = jsonb_set(sso_config, '{is_active}', 'false') WHERE code = 'NWA';
