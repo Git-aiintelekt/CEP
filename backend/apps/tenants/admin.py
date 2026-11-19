@@ -9,13 +9,13 @@ from apps.identity.models import AppUser
 from apps.platform_ops import links, params
 from apps.platform_ops.admin import FeatureChoicesMixin
 from apps.platform_ops.models import IndustryProfile, TenantOperation
-from unfold.widgets import UnfoldAdminSelectWidget
+from unfold.widgets import UnfoldAdminSelect2Widget, UnfoldAdminSelectWidget
 
 from django.utils.html import format_html
 
 from django.shortcuts import redirect, render
 
-from . import onboarding, readiness, services
+from . import onboarding, readiness, services, timezones
 from .models import SubscriptionPlan, Tenant
 
 
@@ -33,6 +33,16 @@ class TenantForm(FeatureChoicesMixin):
         profiles = IndustryProfile.objects.using(settings.PLATFORM_ALIAS).filter(is_active=True)
         self.fields["industry"].choices = [("", "Installation default")] + [(p.code, p.name) for p in profiles]
         self.fields["industry"].initial = (self.instance.settings or {}).get("industry", "")
+        if "timezone" in self.fields:
+            self.fields["timezone"] = forms.ChoiceField(label="Time Zone", choices=timezones.choices(self.instance.timezone if self.instance.pk else None),
+                                                        initial=self.instance.timezone or "UTC", widget=UnfoldAdminSelect2Widget,
+                                                        help_text="Schedules, quiet hours for texts and the reports read in this zone. Type a place to find it.")
+
+    def clean_timezone(self):
+        value = self.cleaned_data["timezone"]
+        if not timezones.is_known(value):
+            raise forms.ValidationError("Not a known time zone. Choose a place from the list.")
+        return value
 
     def _current_features(self):
         return (self.instance.settings or {}).get("features") or {}
