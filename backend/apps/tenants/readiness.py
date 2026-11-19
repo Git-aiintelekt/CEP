@@ -108,12 +108,16 @@ def checks(tenant) -> list[dict]:
                           action="Add", url=reverse("admin:identity_appuser_add") + f"?tenant={tid}"))
 
     # ---- personalization tags
-    platform = set(PlatformPersonalizationTag.objects.using(P).filter(is_active=True).values_list("pk", flat=True))
-    present = set(PersonalizationTag.objects.using(P).filter(tenant_id=tid, deleted_at__isnull=True, platform_tag_id__in=platform).values_list("platform_tag_id", flat=True))
-    missing = len(platform - present)
+    # by key: a tag the workspace made itself with a platform tag's key covers it (the push keeps theirs)
+    platform = dict(PlatformPersonalizationTag.objects.using(P).filter(is_active=True).values_list("tag_key", "pk"))
+    rows = PersonalizationTag.objects.using(P).filter(tenant_id=tid, deleted_at__isnull=True, tag_key__in=list(platform)).values_list("tag_key", "platform_tag_id")
+    copies = {key for key, linked in rows if linked == platform[key]}
+    own = {key for key, linked in rows if linked != platform[key]}
+    missing = len(set(platform) - copies - own)
     out.append(_check("tags", "Personalization Tags", OK if not missing else WARN,
-                      f"{len(present)} of {len(platform)} platform tags present" + (f" · {missing} missing" if missing else ""),
-                      action="Push Again" if missing else None, url=reverse("admin:platform_ops_platformpersonalizationtag_changelist") if missing else None))
+                      f"{len(copies)} of {len(platform)} platform tags present" + (f" · {len(own)} the workspace's own" if own else "")
+                      + (f" · {missing} missing" if missing else ""),
+                      action="Push Again" if missing else None, url=reverse("admin:tenants_tenant_push_platform_tags", args=[tenant.pk]) if missing else None))
 
     # ---- consent policy
     chosen = stored.get(consent_policy.KEY) or {}
@@ -144,8 +148,8 @@ def checks(tenant) -> list[dict]:
         out.append(_check("sso", "Single Sign-On", OK, f"{idp.display_name} · {idp.protocol} · {'enforced' if idp.enforce_sso else 'optional'}", optional=True,
                           action="Open", url=reverse("admin:platform_ops_tenantidentityprovider_change", args=[idp.pk])))
     else:
-        out.append(_check("sso", "Single Sign-On", TODO, "No identity provider registered: users sign in with a password.", optional=True,
-                          action="Register", url=reverse("admin:platform_ops_tenantidentityprovider_add") + f"?tenant={tid}"))
+        out.append(_check("sso", "Single Sign-On", TODO, "No identity provider registered: users sign in with a password. "
+                          "The workspace's administrator registers one under Settings → Security.", optional=True))
     return out
 
 

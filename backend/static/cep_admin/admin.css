@@ -561,6 +561,11 @@ body { background: var(--cep-canvas); color: var(--cep-text-strong); }
    Each section a card; the label above its field; short fields side by side on a six-column grid (S a third, M a half,
    L the full row); 36px fields; help and errors under the field; the unit beside a number. -------------------------- */
 #content fieldset.cep-section { background: var(--cep-surface); border: 1px solid var(--cep-line); border-radius: var(--cep-radius-card); padding: 1rem 1.125rem 1.125rem; margin: 0; }
+/* a link to a section (Readiness → Edit): it lands below the sticky header, and the section is marked for a moment */
+#content fieldset.cep-section[id] { scroll-margin-top: 5rem; }
+#content fieldset.cep-section:target { animation: cep-section-arrive 2.4s var(--cep-ease, ease) 1; }
+@keyframes cep-section-arrive { 0%, 35% { border-color: var(--cep-accent); box-shadow: 0 0 0 3px var(--cep-accent-soft); } 100% { box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { #content fieldset.cep-section:target { animation: none; border-color: var(--cep-accent); } }
 #content fieldset.cep-section.cep-section-tab { border: 0; padding: 0.75rem 0 0; background: transparent; }
 #content fieldset.cep-section .cep-section-head { display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; margin-bottom: 0.875rem; }
 #content fieldset.cep-section .cep-section-head h2 { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--cep-text-strong); }

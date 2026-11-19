@@ -35,6 +35,14 @@ def apply_to_tenant(tag, tenant_id, *, using: str, user_id=None) -> str:
         return "added"
     if existing.platform_tag_id != tag.id:
         return "kept"
+    if existing.deleted_at is not None:                 # a copy deleted in the workspace: the platform's tag comes back
+        if not tag.is_active:
+            return "unchanged"
+        for name, value in _values(tag).items():
+            setattr(existing, name, value)
+        existing.deleted_at, existing.updated_by_id = None, user_id
+        existing.save(using=using, update_fields=[*COPIED, "deleted_at", "updated_by"])
+        return "added"
     changed = {name: value for name, value in _values(tag).items() if getattr(existing, name) != value}
     if not changed:
         return "unchanged"
