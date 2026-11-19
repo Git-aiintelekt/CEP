@@ -187,21 +187,27 @@ CREATE TABLE IF NOT EXISTS tenant_identity_provider (
 );
 COMMENT ON TABLE tenant_identity_provider IS 'A tenant''s OpenID Connect identity provider (Entra ID, Okta, Google Workspace, ...): one per tenant';
 
--- "Open CEP" from OFBiz iCRM lives in tenant.settings -> 'ofbiz_sso' = {"is_active": true, "secret_enc": "..."} (patch 0084):
--- secret_enc is {"site_key", "api_key", "time_zone", "roles"}, inserted as plain text by database/ofbiz_sso_seed.sql and
--- encrypted by the application the first time it reads it. Patch 0083 kept it in tenant_ofbiz_link: moved here, table dropped.
+-- "Open CEP" from OFBiz iCRM lives in its own column, tenant.sso_config (patch 0085): {"is_active": true, "secret_enc": "..."},
+-- one iCRM system per workspace (another system gets its own tenant row and code). secret_enc is {"site_key", "api_key",
+-- "time_zone", "roles"}, inserted as plain text by database/ofbiz_sso_seed.sql and encrypted by the application the first
+-- time it reads it. Earlier homes, carried over and then removed: the table tenant_ofbiz_link (patch 0083) and
+-- tenant.settings -> 'ofbiz_sso' (patch 0084).
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS sso_config JSONB NOT NULL DEFAULT '{}';
+COMMENT ON COLUMN tenant.sso_config IS 'OFBiz iCRM "Open CEP" single sign-on of this workspace: {"is_active", "secret_enc"}; secret_enc is encrypted by the application';
 DO $$
 DECLARE r RECORD;
 BEGIN
     IF to_regclass('tenant_ofbiz_link') IS NOT NULL THEN
         FOR r IN SELECT id FROM tenant LOOP
             PERFORM set_config('app.current_tenant', r.id::text, true);      -- the old table has row-level security
-            UPDATE tenant t SET settings = jsonb_set(t.settings, '{ofbiz_sso}', jsonb_build_object('is_active', l.is_active, 'secret_enc', l.secret_enc))
-            FROM tenant_ofbiz_link l WHERE l.tenant_id = r.id AND t.id = r.id AND NOT (t.settings ? 'ofbiz_sso');
+            UPDATE tenant t SET sso_config = jsonb_build_object('is_active', l.is_active, 'secret_enc', l.secret_enc)
+            FROM tenant_ofbiz_link l WHERE l.tenant_id = r.id AND t.id = r.id AND t.sso_config = '{}';
         END LOOP;
         PERFORM set_config('app.current_tenant', '', true);
         DROP TABLE tenant_ofbiz_link;
     END IF;
+    UPDATE tenant SET sso_config = settings -> 'ofbiz_sso' WHERE settings ? 'ofbiz_sso' AND sso_config = '{}';
+    UPDATE tenant SET settings = settings - 'ofbiz_sso' WHERE settings ? 'ofbiz_sso';
 END $$;
 
 -- -------------------------------------------------------------------------------------

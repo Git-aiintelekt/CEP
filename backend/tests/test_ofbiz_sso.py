@@ -40,7 +40,7 @@ def _admin(admin_email):
 
 
 def _link(tenant, stored=STORED_KEYS, *, active=True):
-    """The workspace's tenant.settings["ofbiz_sso"], as the seed writes it: the keys in plain text; and the roles it maps to."""
+    """The workspace's tenant.sso_config, as the seed writes it: the keys in plain text; and the roles it maps to."""
     with connections["default"].cursor() as cursor:                  # row-level security, within the test's transaction
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])
     for name in ROLES.values():
@@ -50,12 +50,12 @@ def _link(tenant, stored=STORED_KEYS, *, active=True):
 
 def _set_link(tenant, link):
     row = Tenant.objects.using("default").get(pk=tenant.id)
-    row.settings = {key: value for key, value in {**(row.settings or {}), "ofbiz_sso": link}.items() if value is not None}
-    row.save(update_fields=["settings"])
+    row.sso_config = link or {}
+    row.save(update_fields=["sso_config"])
 
 
 def _stored_link(tenant):
-    return (Tenant.objects.using("default").get(pk=tenant.id).settings or {}).get("ofbiz_sso") or {}
+    return Tenant.objects.using("default").get(pk=tenant.id).sso_config or {}
 
 
 def _expires(minutes, zone=ICRM_TIME_ZONE):
@@ -175,6 +175,7 @@ def test_ofbiz_launch_refusals(check, admin_email):
     check("switched off for the workspace", "not set up" in error(_ofbiz_token(admin.email, code)))
     _set_link(admin.tenant, None)
     check("not set up without a row", "not set up" in error(_ofbiz_token(admin.email, code)))
+    check("the workspace's other columns are left alone", "ofbiz_sso" not in (Tenant.objects.using("default").get(pk=admin.tenant.id).settings or {}))
     check("a next that leaves the site falls back to Campaigns", ofbiz.safe_next("//evil.example") == "/campaigns" and ofbiz.safe_next("/journeys") == "/journeys")
     check.done()
 
@@ -240,3 +241,4 @@ def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
                              content_type="application/json")
     check("an iCRM logout never creates a user", signed_out.status_code == 204 and _platform_user(stranger)[0] is None)
     check.done()
+
