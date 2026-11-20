@@ -185,8 +185,10 @@ class AuthOptionsView(APIView):
                          "sso_name": provider.display_name if provider else None, "mfa_required": tenant_requires_mfa(tenant_id)})
 
 
-def _frontend(path: str, **fragment) -> HttpResponseRedirect:
-    return HttpResponseRedirect(params.frontend_url() + path + ("#" + urlencode(fragment) if fragment else ""))
+def _frontend(request, path: str, **fragment) -> HttpResponseRedirect:
+    """The workspace's own address (tenant.sso_config.frontend_url), else the platform.frontend_url parameter."""
+    tenant_id = (getattr(request, "tenant", None) or {}).get("id")
+    return HttpResponseRedirect(ofbiz.frontend_url(tenant_id) + path + ("#" + urlencode(fragment) if fragment else ""))
 
 
 class SsoStartView(APIView):
@@ -197,14 +199,14 @@ class SsoStartView(APIView):
     def get(self, request, version=None):
         provider = identity_provider(request.tenant["id"]) if params.enabled(request.tenant["id"], "sso") else None
         if provider is None:
-            return _frontend("/login", sso_error="Single sign-on is not set up for this workspace.")
+            return _frontend(request, "/login", sso_error="Single sign-on is not set up for this workspace.")
         binding = request.query_params.get("binding") or ""
         if len(binding) < 16:
-            return _frontend("/login", sso_error="Start the sign-in again from this page.")
+            return _frontend(request, "/login", sso_error="Start the sign-in again from this page.")
         try:
             return HttpResponseRedirect(sso.start(provider, request.tenant["code"], request.query_params.get("next") or "/", binding))
         except sso.SsoError as exc:
-            return _frontend("/login", sso_error=str(exc))
+            return _frontend(request, "/login", sso_error=str(exc))
 
 
 class SsoCallbackView(APIView):
@@ -214,18 +216,18 @@ class SsoCallbackView(APIView):
     @extend_schema(exclude=True)
     def get(self, request, version=None):
         if request.query_params.get("error"):
-            return _frontend("/login", sso_error=request.query_params.get("error_description") or "The identity provider cancelled the sign-in.")
+            return _frontend(request, "/login", sso_error=request.query_params.get("error_description") or "The identity provider cancelled the sign-in.")
         provider = identity_provider(request.tenant["id"])
         if provider is None:
-            return _frontend("/login", sso_error="Single sign-on is not set up for this workspace.")
+            return _frontend(request, "/login", sso_error="Single sign-on is not set up for this workspace.")
         try:
             identity = sso.complete(provider, request.query_params.get("state", ""), request.query_params.get("code", ""))
             user = sso.resolve_user(provider, identity)
         except sso.SsoError as exc:
-            return _frontend("/login", sso_error=str(exc))
+            return _frontend(request, "/login", sso_error=str(exc))
         # the identity provider owns the second factor for SSO users: the platform does not ask again
         code = sso.hand_off(issue_tokens(user), request.tenant["code"], identity)
-        return _frontend("/sso/complete", code=code, tenant=request.tenant["code"])
+        return _frontend(request, "/sso/complete", code=code, tenant=request.tenant["code"])
 
 
 class SsoExchangeView(PublicAuthView):
@@ -252,13 +254,13 @@ class OfbizLaunchView(PublicAuthView):
             claims = ofbiz.verify(request.query_params.get("token") or "", ofbiz.LAUNCH_AUDIENCE, tenant)
             user = ofbiz.provision(claims, tenant["id"])
         except ofbiz.OfbizError as exc:
-            return _frontend("/login", sso_error=str(exc))
+            return _frontend(request, "/login", sso_error=str(exc))
         # OFBiz owns the sign-in, second factor included: CEP does not ask for MFA here
         tokens = issue_tokens(user, claims={"ofbiz": ofbiz.launch_time()}, refresh_lifetime=ofbiz.SESSION)
         code = ofbiz.hand_off(tokens, tenant["code"], claims.get("next"))
         log.info("OFBiz sign-in: user %s, OFBiz login %s, party %s, role %s, workspace %s", user.pk, claims["sub"], claims["party_id"],
                  claims["cep_role"], tenant["code"])
-        return _frontend("/launch", code=code, tenant=tenant["code"])
+        return _frontend(request, "/launch", code=code, tenant=tenant["code"])
 
 
 class OfbizExchangeView(PublicAuthView):

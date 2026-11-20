@@ -12,6 +12,8 @@ interface OfbizSsoConfig {
   code: string
   name: string
   is_active: boolean
+  /** where this workspace's sign-on redirects land; empty = the platform.frontend_url parameter */
+  frontend_url: string
   site_key: string
   api_key: string
   time_zone: string
@@ -37,7 +39,7 @@ function ConfigForm({ config }: { config: OfbizSsoConfig }) {
 
   const save = useMutation({
     mutationFn: () => api.put<OfbizSsoConfig>(`/platform/sso-config/${encodeURIComponent(config.code)}/`, {
-      is_active: form.is_active, site_key: form.site_key, api_key: form.api_key, time_zone: form.time_zone,
+      is_active: form.is_active, frontend_url: form.frontend_url, site_key: form.site_key, api_key: form.api_key, time_zone: form.time_zone,
       roles: Object.fromEntries(roles.filter((row) => row.code.trim() || row.name.trim()).map((row) => [row.code.trim(), row.name.trim()])) }),
     onSuccess: (data) => {
       queryClient.setQueryData(['platform', 'sso-config', config.code], data)
@@ -57,6 +59,9 @@ function ConfigForm({ config }: { config: OfbizSsoConfig }) {
         <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.is_active} onChange={(event) => set('is_active', event.target.checked)} />
         <span><span className="block text-sm font-medium text-ink-900">Open CEP Is On</span><span className="block text-xs text-ink-800">When off, links from OFBiz are refused for this workspace.</span></span>
       </label>
+      <Field label="Frontend URL" error={errors.frontend_url} hint="The address this workspace opens CEP at, for example https://cep.example.com. Leave empty to use the platform address.">
+        {(ids) => <TextInput {...ids} type="url" inputMode="url" value={form.frontend_url} placeholder="https://cep.example.com" onChange={(event) => set('frontend_url', event.target.value)} autoComplete="off" />}
+      </Field>
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Site Key" required error={errors.site_key} hint="iCRM common.site.key">
           {(ids) => <TextInput {...ids} value={form.site_key} onChange={(event) => set('site_key', event.target.value)} autoComplete="off" />}

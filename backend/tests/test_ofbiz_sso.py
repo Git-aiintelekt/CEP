@@ -242,3 +242,27 @@ def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
     check("an iCRM logout never creates a user", signed_out.status_code == 204 and _platform_user(stranger)[0] is None)
     check.done()
 
+
+
+def test_ofbiz_launch_lands_on_the_workspace_address(check, admin_email):
+    cache.clear()
+    admin = _admin(admin_email)
+    _link(admin.tenant)
+    code = admin.tenant.code
+    platform_address = ofbiz.frontend_url(None)
+
+    def landed():
+        response = Client().get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code)})
+        return response["Location"].split("#")[0]
+
+    check("without frontend_url the platform address applies", landed() == platform_address + "/launch", landed())
+    _set_link(admin.tenant, {**_stored_link(admin.tenant), "frontend_url": "https://cep-citi.example.com/"})
+    check("sso_config.frontend_url is where this workspace lands", landed() == "https://cep-citi.example.com/launch", landed())
+    _set_link(admin.tenant, {**_stored_link(admin.tenant), "frontend_url": "https://cep.example.com/some/path"})
+    check("an address with a path is ignored", landed() == platform_address + "/launch", landed())
+
+    errors = ofbiz.save_config(code, {**KEYS, "time_zone": ICRM_TIME_ZONE, "roles": ROLES, "frontend_url": "cep.example.com/x"})
+    check("saving an address with a path is refused", "frontend_url" in errors, errors)
+    errors = ofbiz.save_config(code, {**KEYS, "time_zone": ICRM_TIME_ZONE, "roles": ROLES, "frontend_url": "https://cep-b.example.com/"})
+    check("a good address is saved without its trailing slash", not errors
+          and ofbiz.read_config(code)["frontend_url"] == "https://cep-b.example.com", errors)
