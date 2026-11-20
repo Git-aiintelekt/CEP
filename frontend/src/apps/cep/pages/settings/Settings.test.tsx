@@ -95,6 +95,9 @@ test('roles: permissions are grouped by area, posted as codes, and a role in use
   const dialog = await screen.findByRole('dialog', { name: 'New Role' })
   expect(within(dialog).getByText('Campaigns')).toBeTruthy()
   expect(within(dialog).getByText('Administration')).toBeTruthy()
+  // each area's "admin" permission says what it allows there
+  expect(within(dialog).getByRole('checkbox', { name: /Manage Users, Roles and API Keys/ })).toBeTruthy()
+  expect(within(dialog).getByRole('checkbox', { name: /Manage Every Report, Its Sharing and Report Access/ })).toBeTruthy()
   await user.type(within(dialog).getByLabelText(/^Name/), 'Template Designer')
   await user.click(within(dialog).getByRole('checkbox', { name: /template\.edit/ }))
   await user.click(within(dialog).getByRole('checkbox', { name: /campaign\.view/ }))

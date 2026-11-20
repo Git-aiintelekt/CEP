@@ -16,7 +16,10 @@ const AREA_LABEL: Record<string, string> = {
   campaign: 'Campaigns', list: 'Contact Lists', template: 'Templates', journey: 'Journeys', consent: 'Consent', governance: 'Sending Rules',
   provider: 'Delivery Providers', report: 'Reports', user: 'Administration',
 }
-const ACTION_LABEL: Record<string, string> = { view: 'View', edit: 'Create and Edit', publish: 'Publish', activate: 'Activate', import: 'Import', admin: 'Manage Users, Roles and API Keys' }
+const ACTION_LABEL: Record<string, string> = { view: 'View', edit: 'Create and Edit', publish: 'Publish', activate: 'Activate', import: 'Import' }
+/** an "admin" permission means something different in each area */
+const PERMISSION_LABEL: Record<string, string> = { 'user.admin': 'Manage Users, Roles and API Keys', 'report.admin': 'Manage Every Report, Its Sharing and Report Access' }
+const permissionLabel = (permission: PermissionDef) => PERMISSION_LABEL[permission.code] ?? ACTION_LABEL[permission.code.split('.')[1]] ?? permission.description ?? permission.code
 
 type Editing = { role: Role | null } | null
 const ROLE_FIELDS = ['name', 'description', 'permissions']
@@ -86,7 +89,7 @@ function RoleForm({ role, catalogue, onClose }: { role: Role | null; catalogue: 
                     <li key={permission.code}>
                       <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-900">
                         <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={chosen.includes(permission.code)} onChange={() => toggle(permission.code)} />
-                        {ACTION_LABEL[permission.code.split('.')[1]] ?? permission.description ?? permission.code}
+                        {permissionLabel(permission)}
                         <span className="cep-num text-xs text-ink-800">{permission.code}</span>
                       </label>
                     </li>
