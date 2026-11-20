@@ -479,11 +479,12 @@ test('Escape saves what was typed and not yet left, as Done does', async () => {
   await vi.waitFor(() => expect(stepCalls(calls).filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ subject_line: 'Earn points three ways' }))
 })
 
-test('the step has no description, no help icon and no setup progress line', async () => {
+test('the step has no description, no help icon and no setup progress line; the help icon sits in the flow bar', async () => {
   installMockApi({ campaign: drip({ setup_step: 3 }), dripSteps: { c1: ready() } })
   await renderAppAt('/campaigns/c1/edit?step=sequence')
   await card(1, 'Welcome')
   expect(screen.queryByText(/Every message goes to everyone on the campaign list/)).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Help for this page' })).toBeNull()
+  const help = screen.getByRole('button', { name: 'Help for this page' })
+  expect(help.closest('[data-flow-bar]')).not.toBeNull()
   expect(screen.queryByTestId('setup-progress')).toBeNull()
 })

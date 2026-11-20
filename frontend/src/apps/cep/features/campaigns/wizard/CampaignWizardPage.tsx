@@ -42,6 +42,7 @@ import { StepSequence } from './StepSequence'
 import { StepTargets } from './StepTargets'
 import { StepTemplate } from './StepTemplate'
 import { StepTest } from './StepTest'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 
 /** the form fields each step owns: "Continue" (or saving a section) checks these and nothing else */
@@ -286,6 +287,7 @@ export function CampaignWizardPage() {
               <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />
             </Link>
             <span className="min-w-0 truncate text-card-title font-semibold text-ink-900" title={loaded.name} data-testid="flow-campaign-name">{loaded.name}</span>
+            <PageHelp chapter="campaign-setup" />
             <span className="hidden shrink-0 sm:inline-flex"><StatusBadge status={loaded.display_status} label={loaded.display_status_label} /></span>
             <button type="button" aria-label="Edit Details" onClick={() => openDetails(true)}
               className="group relative inline-flex shrink-0 items-center gap-1.5 rounded-control-sm text-sm font-semibold text-brand-800 hover:underline">

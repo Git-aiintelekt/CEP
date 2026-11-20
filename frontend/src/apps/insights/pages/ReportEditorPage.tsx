@@ -41,6 +41,7 @@ import { runWords } from '../components/resultWords'
 import { dimensions, EMPTY, fieldOf, isComplete, setBlend, setView, viewOf, withCustom } from '../editor/definition'
 import { Builder } from '../editor/Builder'
 import type { ParameterValues, ReportDefinition, RunResult } from '../types'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -195,6 +196,7 @@ export function ReportEditorPage() {
               <span aria-hidden className={`h-2 w-2 rounded-full ${dirty ? 'bg-warning' : 'bg-ink-300'}`} />
               {dirty ? 'Unsaved Changes' : `Saved ${formatDateTime(report.data.updated_at)} · Version ${report.data.version}`}
             </span>
+            <PageHelp chapter="insights" />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

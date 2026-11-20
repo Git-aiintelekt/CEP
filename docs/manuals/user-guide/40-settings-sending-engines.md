@@ -21,13 +21,13 @@ A campaign picks a sender when it is set up; the sender decides the engine. Unti
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Provider | The engine's name, its channel tag (Email or Texts) and **Default** when it is the one new senders are offered first. Under it, the engine type and its address, and *separate key for receipts* when a second credential is stored. | Nothing by itself; it is the row's identity. |
+| Provider | The engine's name, its channel tag (Email, Texts or WhatsApp) and **Default** when it is the one new senders are offered first. Under it, the engine type and its address, and *separate key for receipts* when a second credential is stored. | Nothing by itself; it is the row's identity. |
 | Health | What C360 found when it last checked the engine (every 10 minutes): **Healthy**, **Attention**, **Failing**, **Quiet** (nothing sent in the last day, so nothing to judge) or **No Receipts Yet** (a text engine that has never sent a delivery receipt). Under the tag, the reason in one line, or when it was checked; **See Health** opens the checks. Before the first check the column shows the engine's last Check: **Not Checked Yet**, **Checked** with the date and time, or **Check Failed**. **Switched Off** when *In Use* is unticked. | Nothing by itself: it tells you what to fix. The platform team is alerted when an engine is Failing or needs attention. Set-Up counts an email engine as done only when its Check passed. A switched-off engine is skipped by every send. |
 | Callbacks | **Copy Webhook URL** copies the engine's callback address, the address the provider must post delivery results to. **Rotate Address** makes a fresh address and retires the old one at once. Under them: when the last callback arrived and how many came in the last 24 hours, or a warning that none ever has. | Without a registered callback address C360 sends but never learns what happened: no delivered, bounced, opened or clicked counts, and bounced addresses are not blocked. Rotating means registering the new address with the provider again. |
 | Check | Asks the provider to confirm the address and the credential without sending anything. With two keys on a Postal engine it checks both and names the one refused. C360 also runs it on every engine once a day. | Records the result with the provider's own words, and the engine's Health follows at once: a fixed key clears *Key refused*. |
-| Edit | Opens the engine's form. | |
+| Edit | Opens the engine's form. | **Save Changes** applies at once: a new key, address or pace is used from the next send and the next Check. The engine type cannot be changed. |
 | Remove | Deletes the engine after a confirmation. | Its senders are removed with it. A campaign that used one of them has to be given another sender before it can publish. |
-| Add Engine | Opens the form for a new engine. | |
+| Add Engine | Opens the form for a new engine. | **Add Engine** in the form saves it: it appears in the table, can carry senders and is offered in Sends Through. Nothing is sent until a sender on it is used. |
 
 ### Engine Health
 
@@ -49,11 +49,11 @@ A rate is judged only from 50 messages or calls in its window, so a few test sen
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Engine | The engine type: *Email · Postal*, *Email · SendGrid*, *Texts · Digivize*, *Texts · Sandbox (sends nothing)*. The type is fixed once saved. *Email · SMTP (your mail server)* is not offered here: it is switched on from Settings → Email Server with *Offer this server as a campaign sender*. | Decides which fields follow, whether the engine reports callbacks, and the channel its senders belong to. |
+| Engine | The engine type: *Email · Postal*, *Email · SendGrid*, *Texts · Digivize*, *Texts · Sandbox (sends nothing)*, and *WhatsApp · WhatsApp (Meta)* once the platform team has switched WhatsApp on. The type is fixed once saved. *Email · SMTP (your mail server)* is not offered here: it is switched on from Settings → Email Server with *Offer this server as a campaign sender*. | Decides which fields follow, whether the engine reports callbacks, and the channel its senders belong to. |
 | Name | How the engine is listed in this workspace, for example *Postal (marketing)* or *Texts (short code 55123)*. | Shown on every sender and in Set-Up. |
 | The engine's own fields | What the type needs to connect. They are listed per type below. A field marked as a key or secret is write-only: once saved it is never shown again, and the form says *stored*; leave it empty to keep it, type a new one to replace it. | The credential and address C360 uses on every send. |
 | Messages per Minute | An optional pace. Empty means as fast as the provider accepts. | Spreads a run over time. Use it when the provider has a rate limit or when a slow ramp is wanted for a new sending domain. |
-| Default Engine for Email / Texts | One engine per channel is the default. | The one offered first when a sender is added. It does not change existing senders. |
+| Default Engine for Email / Texts / WhatsApp | One engine per channel is the default. | The one offered first when a sender is added. It does not change existing senders. |
 | In Use | Whether the engine may send. | Unticked: State reads Switched Off and every send that would use it fails at once with that reason. Tick it again to resume. |
 
 ### Fields per engine type
@@ -100,7 +100,7 @@ Offered once the platform team has switched WhatsApp on for the workspace. Each 
 | Access Token | A permanent system-user token (Meta Business Settings → System Users) with whatsapp_business_messaging and whatsapp_business_management. Write-only. | Used on every send, Check, Submit and Sync; a refused token stops the run. |
 | App Secret | Optional. Your Meta app's secret (App Settings → Basic). Write-only. | Callbacks are then checked against Meta's signature as well as the address's own token. |
 | App ID | Optional. | Needed only to submit a template with a picture or document header: Meta reviews it with a sample file. |
-| Graph API Version | Optional. Empty means the version CEP was built for. | Which version of Meta's API is called. |
+| Graph API Version | Optional. Empty means the version C360 was built for. | Which version of Meta's API is called. |
 
 After saving, paste the engine's callback address (Copy Webhook URL) and its verify token (Copy Verify Token) into Meta → WhatsApp → Configuration → Webhook, and subscribe to **messages** and **message_template_status_update**. Check reads the number from Meta: its display number, name, quality rating and how many people it may message a day. A WhatsApp sender is the number with its country code; Verify asks Meta whether the engine's number is that one, since WhatsApp sends no free-form test message.
 
@@ -117,23 +117,24 @@ The Sandbox accepts every text and sends none, and is not metered against the pl
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Sender | The display name, the channel tag and **Default** when it is the one a new campaign is offered first. Under it, the address or the number and the engine it sends through. | The From line (email) or the number (texts) on every message of a campaign that uses it. |
-| Status | **Not Verified Yet**, **Verified**, or **Verification Failed**. | Only a verified sender can publish to production. Test sends work from any sender. |
-| Verify / Verify Again | Email: sends a real message from the address to your own sign-in email. Texts: asks for a mobile number (with the country code) and sends it a text. Accepted by the engine = Verified. | Sets the status. |
-| Edit | Opens the sender's form. | |
+| Sender | The display name, the channel tag (Email, Texts or WhatsApp) and **Default** when it is the one a new campaign is offered first. Under it, the address or the number and the engine it sends through. | The From line (email) or the number (texts, WhatsApp) on every message of a campaign that uses it. |
+| Verification | **Not Verified Yet**, **Verified**, or **Verification Failed**. | Only a verified sender can publish to production. Test sends work from any sender. |
+| Verify / Verify Again | Email: sends a real message from the address to your own sign-in email. Texts: asks for a mobile number (with the country code) and sends it a text. WhatsApp: asks Meta whether the engine's number is the sender's number; no message is sent. Accepted by the engine (or confirmed by Meta) = Verified. | Sets the Verification status. |
+| Edit | Opens the sender's form. | **Save Changes** applies to every campaign using the sender from its next send. Changing the From Address resets it to Not Verified Yet, so it must be verified again before a production publish. |
 | Remove | Deletes the sender after a confirmation. | A campaign that used it needs another sender before it can publish. |
-| Add Sender | Opens the form for a new sender; needs an engine first. | |
+| Add Sender | Opens the form for a new sender; needs an engine first. | **Add Sender** in the form saves it, normally as Not Verified Yet: it can be used for test sends at once, and for production once verified. |
 
 ### The sender form (Add Sender, Edit)
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Sends Through | The engine this sender uses. | The channel of the sender (email or texts) and which account delivers its messages. |
+| Sends Through | The engine this sender uses. | The channel of the sender (email, texts or WhatsApp) and which account delivers its messages. |
 | From Name (email) / Name (texts) | Email: the name shown in the inbox, for example *Northwind Rewards*. Texts: how the sender is listed in campaigns, for example *Northwind texts*. | The name on every message, or the label in the campaign's sender list. |
 | From Address (email) | The address messages come from. It must belong to a domain the engine is allowed to send for. | Changing it needs a new verification. The engine's domain checks (SPF, DKIM) decide whether inboxes trust it. |
 | Reply-To Address (email) | Optional. Where replies go when it is not the From address. | The Reply-To header on every message. |
 | Sender Number (texts) | The number texts come from: a short code (`55123`), a long number with the country code (`+14045550155`) or an alphanumeric sender id where the aggregator allows one. | The number on every text; replies and STOP messages come back to it. |
-| Default | One sender per channel is the default. | Offered first when a campaign is set up. |
+| WhatsApp Number (WhatsApp) | Required. The engine's number with country code, as Meta shows it, for example `+6568124400`. | The number WhatsApp messages come from. Verify asks Meta whether the engine's number is this one; a different number fails verification. |
+| Default Sender for Email / Texts / WhatsApp | A tick box; the label names the sender's channel. One sender per channel is the default. | Offered first when a campaign is set up. Ticking it takes the default from the channel's previous default sender; existing campaigns keep their sender. |
 
 ### Sending Domains
 
@@ -141,14 +142,14 @@ One row per domain your email senders send from, with what inboxes read before t
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Domain | The domain, and how many DNS changes it needs (*Nothing to change* when all is well). A sender whose domain needs a change says so under its address, with a link here. | |
-| Used By | How many of your senders use the domain (point at it for their addresses). | |
+| Domain | The domain, and how many DNS changes it needs (*Nothing to change* when all is well). A sender whose domain needs a change says so under its address, with a link here. The row opens to show its records. | Nothing; a reading. A domain with changes to make sends mail that inboxes are more likely to filter or refuse. |
+| Used By | How many of your senders use the domain (point at it for their addresses). | Nothing; it tells you which senders a DNS fix helps. |
 | SPF | **Passes**, **Missing**, **Two Records** (the check fails outright: merge them) or **Lets Anyone Send** (the record ends in +all). | Names the servers allowed to send for the domain. Without it, mail is filtered more often and is easier to forge. |
 | DMARC | **Passes** (quarantine or reject), **Monitor Only** (p=none: reports, no protection) or **Missing**. | Tells inboxes what to do with mail that fails SPF and DKIM. |
 | DKIM | **Not Checked** until you give the selector, then **Passes** or **Missing**. | Proves a message was not changed on the way. |
 | The open row | For each record: why it matters, the record found, and the record to publish (name and value) with **Copy**. | Nothing: you publish the record at your DNS provider. |
 | Selector, Save and Check | The DKIM selector your engine shows for the domain (Postal: on the domain's DNS page, e.g. `postal-Xa71Qd`). Letters, digits, dots, hyphens and underscores. Empty it to stop checking DKIM. | The domain is looked up again with it at once. |
-| Check Now | Looks up all your domains again. Once a minute at most. | |
+| Check Now | Looks up all your domains again. Once a minute at most. | The SPF, DMARC and DKIM results and the changes to make are refreshed at once, for example after you published a record. Your DNS is never changed. |
 
 A domain reserved for examples (`.example`, `.test`) is not looked up. A new or changed sender's domain is looked up as soon as you save the sender.
 
@@ -156,12 +157,13 @@ A domain reserved for examples (`.example`, `.test`) is not looked up. A new or 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Provided by C360 | Shown when your tests run through C360's Mailgun Inspect account: this month's tests against your total, and where the total comes from (your plan's number, plus any tests the platform team added for the month). | |
-| Edit Clients | The default clients every test renders in (webmail, desktop apps, phones and tablets) and whether to render with images blocked. Leave every client unchecked for the service's own default set. | |
+| Provided by C360 | Shown when your tests run through C360's Mailgun Inspect account: this month's tests against your total, and where the total comes from (your plan's number, plus any tests the platform team added for the month). | Nothing; a reading. When the total is spent, the next test is refused until next month (Plan & Usage). |
+| Edit Clients | Opens **Default Clients**: the clients every test renders in (webmail, desktop apps, phones and tablets), and **Render with images blocked**. Leave every client unchecked for the service's own default set. | Every new inbox preview renders in the chosen clients, unless the person running it picks others for that test. |
+| Render with images blocked | A tick box in the clients form, off by default. | On: every new preview also shows the email as it looks to people whose inbox does not load images until asked, so you can check the alt text and the layout without pictures. |
 | Use Your Own Mailgun Account / Set Up Mailgun Inspect | Region (US or EU), your Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | Your tests run through your own account, and C360 does not limit them. |
-| Edit | Your own account's settings and its default clients. | |
+| Edit | Your own account's settings and its default clients. | A new region, username or key is used from the next test; press Check Connection to confirm them. |
 | Stop Using My Own Account | Removes your account; past results stay. | Tests go back to C360's account, within your plan. Shown as Remove when C360's account is not available. |
-| The status | Not Checked Yet, Checked, Check Failed, Switched Off. | |
+| The status | Not Checked Yet, Checked, Check Failed, Switched Off. | Nothing; a reading. Check Failed means tests through your own account will fail until the username or key is fixed. |
 
 Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Through C360's account, tests count against your plan's monthly number plus the tests added for the month (added tests end with the month); through your own, they are counted under Plan & Usage for information only.
 
