@@ -13,6 +13,7 @@ import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, formatRelative } from '@/lib/format'
+import { OfbizSignOnSection } from './OfbizSignOnSection'
 import type { Integration, IntegrationHealth, IntegrationLogDetail, IntegrationLogPage, IntegrationLogRow, IntegrationMetrics, IntegrationOutcome } from '@/lib/types'
 
 const INTEGRATIONS = ['integrations']
@@ -337,6 +338,8 @@ export function IntegrationsPage() {
                 onAlerts={(enabled) => alerts.mutate({ item, enabled })} alertsSave={alerts} onShowLog={() => setFilters({ integration: item.id, direction: '', failed: false, q: '' })} />)}
             </ul>}
       </section>
+
+      <OfbizSignOnSection />
 
       <section aria-labelledby="log-heading">
         <div className="mb-3">

@@ -189,6 +189,12 @@ def _frontend(path: str, **fragment) -> HttpResponseRedirect:
     return HttpResponseRedirect(params.frontend_url() + path + ("#" + urlencode(fragment) if fragment else ""))
 
 
+def _same_address(path: str, **fragment) -> HttpResponseRedirect:
+    """OFBiz sends the browser to its cep.url + /api/v1/auth/sso/ofbiz/: a relative redirect lands on that same address,
+    where nginx (and the Vite dev server) serve the app beside /api. CEP stores no address of its own for it."""
+    return HttpResponseRedirect(path + ("#" + urlencode(fragment) if fragment else ""))
+
+
 class SsoStartView(APIView):
     authentication_classes: list = []
     permission_classes = [AllowAny]
@@ -252,13 +258,13 @@ class OfbizLaunchView(PublicAuthView):
             claims = ofbiz.verify(request.query_params.get("token") or "", ofbiz.LAUNCH_AUDIENCE, tenant)
             user = ofbiz.provision(claims, tenant["id"])
         except ofbiz.OfbizError as exc:
-            return _frontend("/login", sso_error=str(exc))
+            return _same_address("/login", sso_error=str(exc))
         # OFBiz owns the sign-in, second factor included: CEP does not ask for MFA here
         tokens = issue_tokens(user, claims={"ofbiz": ofbiz.launch_time()}, refresh_lifetime=ofbiz.SESSION)
         code = ofbiz.hand_off(tokens, tenant["code"], claims.get("next"))
         log.info("OFBiz sign-in: user %s, OFBiz login %s, party %s, role %s, workspace %s", user.pk, claims["sub"], claims["party_id"],
                  claims["cep_role"], tenant["code"])
-        return _frontend("/launch", code=code, tenant=tenant["code"])
+        return _same_address("/launch", code=code, tenant=tenant["code"])
 
 
 class OfbizExchangeView(PublicAuthView):

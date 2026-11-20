@@ -1,7 +1,7 @@
 """Workspace-level settings for tenant administrators: plan and usage, invoices, sign-in security, support access log, approvals, notifications."""
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,7 +9,8 @@ from rest_framework.views import APIView
 from api.permissions import HasPermissionCode
 from apps.campaigns import approval
 from apps.identity.models import Role
-from apps.platform_ops import billing, campaign_sender, crypto, mail, notifications, params, sso
+from apps.platform_ops import billing, campaign_sender, crypto, mail, notifications, ofbiz, params, sso
+from apps.platform_ops.visits import PlatformOnly
 from apps.platform_ops.models import MailServer, SupportAccessLog, TenantIdentityProvider, TenantInvoice
 from apps.tenants import context
 from apps.tenants.models import Tenant
@@ -303,3 +304,53 @@ class MailServerTestView(APIView):
         ok, error = mail.test(server, to, by=getattr(request.user, "display_name", ""))
         sender = campaign_sender.sync(server, user_id=request.user.pk) if server.campaign_sender else None      # a passed test verifies the sender
         return Response({"ok": ok, "error": error or None, "to": to, "tested_at": server.last_tested_at, "sender_profile": sender})
+
+
+class SsoConfigWorkspacesView(APIView):
+    """Platform administrators: every workspace code, for the "Open CEP" keys dialog."""
+    permission_classes = [PlatformOnly]
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        return Response({"workspaces": ofbiz.config_workspaces()})
+
+
+class SsoConfigView(APIView):
+    """Platform administrators: one workspace's tenant.sso_config, secret_enc opened; PUT stores it encrypted."""
+    permission_classes = [PlatformOnly]
+
+    @extend_schema(responses={200: None})
+    def get(self, request, code, version=None):
+        config = ofbiz.read_config(code)
+        if config is None:
+            raise NotFound("No workspace has this code.")
+        return Response(config)
+
+    @extend_schema(request=None, responses={200: None})
+    def put(self, request, code, version=None):
+        if ofbiz.read_config(code) is None:
+            raise NotFound("No workspace has this code.")
+        errors = ofbiz.save_config(code, request.data if isinstance(request.data, dict) else {})
+        if errors:
+            raise ValidationError(errors)
+        return Response(ofbiz.read_config(code))
+
+
+class OfbizLinkView(APIView):
+    """Settings -> Integrations: sign-on from OFBiz iCRM for this workspace (tenant.sso_config): site key and API key, both
+    shown and both required. Stored encrypted."""
+    permission_classes = [IsAuthenticated, HasPermissionCode.for_("provider.edit")]
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        link = ofbiz.workspace_link(request.tenant["code"])
+        if link is None:
+            raise NotFound("No workspace has this code.")
+        return Response(link)
+
+    @extend_schema(request=None, responses={200: None})
+    def put(self, request, version=None):
+        errors = ofbiz.save_workspace_link(request.tenant["code"], request.data if isinstance(request.data, dict) else {})
+        if errors:
+            raise ValidationError(errors)
+        return Response(ofbiz.workspace_link(request.tenant["code"]))
