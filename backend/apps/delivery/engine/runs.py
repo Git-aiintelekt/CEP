@@ -232,6 +232,12 @@ def start(tenant_id, run_id) -> dict:
                 notes.append(f"Local send times: {local['localised']:,} people get it at {local['wall_clock'][-5:]} their time"
                              + (f", the last at {local['last_at'].astimezone(ZoneInfo(tenant_zone)):%d %b %H:%M} {tenant_zone}" if local["last_at"] else "")
                              + (f"; {local['unknown_zone']:,} with no known zone go now." if local["unknown_zone"] else "."))
+            if kind == "EMAIL" and not run.test_mode and campaign.solicitation_type == "MARKETING":
+                from apps.delivery import warmup
+                held = warmup.hold_run(cursor, tenant_id, run.pk)
+                if held:
+                    built["warm_up_held"] = held
+                    notes.append(f"Delivery Warm-Up: {held:,} messages go out within the warm-up's hourly limit, a few at a time.")
         label, position = _step_words(run)
         built.update(position)
         _activity(tenant_id, campaign.pk, run.pk, "SEND_STARTED",

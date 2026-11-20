@@ -16,8 +16,10 @@ const TrailChevron = () => <ChevronRight size={14} strokeWidth={1.5} aria-hidden
 function Trail({ path }: { path: string }) {
   const page = pageAt(path)
   const group = groupOf(path)
-  const chapter = path === '/settings/delivery' ? undefined : HELP_FOR_PAGE[path]                      // Sending Engines carries its own icon beside its heading
   if (!page || !group) return null
+  // a page's sub-pages (a dataset's map) open its chapter; Sending Engines and the query builder carry their own icon beside their heading
+  const ownIcon = path === '/settings/delivery' || /\/query(\/|$)/.test(path)
+  const chapter = ownIcon ? undefined : HELP_FOR_PAGE[page.to]
   return (
     <nav aria-label="Where you are" className="flex items-center gap-1.5 text-helper text-ink-800">
       <span>Settings</span><TrailChevron /><span>{group.label}</span><TrailChevron /><span aria-current="page" className="font-semibold text-ink-900">{page.label}</span>

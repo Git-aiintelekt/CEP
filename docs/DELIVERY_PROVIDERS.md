@@ -346,7 +346,7 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 | Scheduled job | `dispatch-campaign-runs` every minute: starts due runs (also the ones scheduled for later), closes finished ones. Shown on the back-office health page. |
 | Engine Health | `check-engine-health` every 10 minutes, `check-engines-daily` once a day (section 6.2); by hand `python manage.py run_job check-engine-health` |
 | Without Celery | `python manage.py send_campaign_runs` (everything due) or `--run <uuid>` |
-| Pace | `delivery_provider.rate_limit_per_minute` |
+| Pace | `delivery_provider.rate_limit_per_minute` (Settings → Sending Engines → Messages per Minute). A run waits for room and goes on at that pace; nothing fails because of it |
 | Test send | **Send a test** on the campaign page / `POST /api/v1/campaigns/{id}/send-test/ {"to": [...]}`: sample values, no execution rows |
 | Results | `GET /api/v1/campaign-runs/{id}/results/` and the campaign page (refreshes while a run is live) |
 

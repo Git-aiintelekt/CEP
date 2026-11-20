@@ -1,20 +1,29 @@
 /**
- * A dashboard page, viewing or editing: rows of tiles, or a free canvas (CanvasBody). Editing rows adds the row bar (its width,
- * Up, Down, Remove), the tile controls (Left, Right, Remove, the title as an input) and Add Row; the viewer skips empty rows.
- * A tile is a report's (TileCard), words (a text tile) or a button.
+ * A dashboard page, viewing or editing. Viewing: rows of tiles (a dashboard saved before tile sizes), or tiles placed on a canvas
+ * (CanvasBody), which is how a grid is saved too. Editing: a grid of sized tiles (GridBody; rows open as one), or a free canvas
+ * with each tile's grip and handle. A tile is a report's (TileCard), words (a text tile) or a button.
  */
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, MessageSquare, Pencil, Plus, Smartphone, X } from 'lucide-react'
+import { MessageSquare, Pencil, Smartphone, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-import { Select } from '@/components/Form'
-import type { DashboardCell, DashboardLayout, DashboardTile, DrillStep, Period, ResultColumn, RowWidth, SlicerSelection } from '../types'
+import type { DashboardCell, DashboardLayout, DashboardTile, DrillStep, Period, ResultColumn, SlicerSelection } from '../types'
 import { CanvasBody } from './CanvasBody'
-import { addRow, capacity, filled, moveRow, moveTile, removeRow, removeTile, rowGridClass, setRowWidth, updateTile, WIDTHS } from './layout'
+import { GridBody } from './GridBody'
+import { pack, readingOrder, rowsToCells } from './canvas'
+import { filled, rowGridClass } from './layout'
 import { TileCard, type TileLoader } from './TileCard'
 import { ButtonTile, TextTile } from './WordTiles'
 
 interface Editing {
   onChange: (layout: DashboardLayout) => void
+  /** the page as a grid of sized tiles; else the free canvas it is (a page of rows always opens as a grid) */
+  grid?: boolean
+  /** an id no tile on the dashboard has, for a duplicate */
+  newId?: () => string
+  /** the tile just added: its toolbar shows */
+  chosen?: string | null
+  /** a tile's report name, naming its controls when it has no title */
+  nameOf?: (tile: DashboardTile) => string | undefined
   onAddTile: () => void
   /** a text tile's words or a button's label and target */
   onEditTile?: (tile: DashboardTile) => void
@@ -39,7 +48,9 @@ export function DashboardBody({ layout, period, compare, load, keyPrefix, editin
   comments?: { count: (tileId: string) => number; open: (tile: DashboardTile) => void }
 }) {
   const tileFor = (tile: DashboardTile, controls?: ReactNode, onTitle?: (title: string) => void, fill = false) => {
-    const talk = !editing && comments ? (
+    const reportTile = tile.show !== 'text' && tile.show !== 'button'
+    // a report tile's ⋯ holds Comment; its count shows once there is a comment
+    const talk = !editing && comments && (!reportTile || comments.count(tile.id) > 0) ? (
       <button type="button" aria-label={`Comments on ${tile.title || tile.label || 'this tile'}${comments.count(tile.id) ? `, ${comments.count(tile.id)}` : ''}`} onClick={() => comments.open(tile)}
         className="inline-flex h-6 items-center gap-1 rounded-control-sm px-1.5 text-xs font-semibold text-ink-800 hover:bg-surface-hover">
         <MessageSquare size={13} strokeWidth={1.5} aria-hidden />{comments.count(tile.id) || ''}
@@ -51,13 +62,21 @@ export function DashboardBody({ layout, period, compare, load, keyPrefix, editin
     return (
       <TileCard tile={tile} period={period} compare={compare} load={load} keyPrefix={keyPrefix} selection={selection} slicers={layout.slicers} onPick={editing ? undefined : onPick}
         drillState={!editing && drills && onDrill ? { on: tile.id in drills, path: drills[tile.id] ?? [], set: (next) => onDrill(tile.id, next.on ? next.path : null) } : undefined}
-        onTitle={onTitle} controls={all} fill={fill} />
+        onTitle={onTitle} controls={all} fill={fill} onComment={!editing && comments ? () => comments.open(tile) : undefined} />
     )
   }
   const editWords = (tile: DashboardTile) => (editing?.onEditTile && (tile.show === 'text' || tile.show === 'button')
     ? <button type="button" aria-label={`Edit ${tile.title || tile.label || 'the text'}`} className={icon} onClick={() => editing.onEditTile?.(tile)}><Pencil size={13} strokeWidth={1.5} aria-hidden /></button>
     : null)
 
+  if (editing && (editing.grid || !layout.canvas)) {
+    const cells = layout.canvas ? readingOrder(layout.cells ?? []) : pack(rowsToCells(filled(layout).rows))
+    return (
+      <GridBody cells={cells} renderTile={(cell) => tileFor(cell, undefined, cell.show !== 'text' && cell.show !== 'button' ? (title) => editing.onChange({ ...layout, rows: [], canvas: true, cells: cells.map((c) => (c.id === cell.id ? { ...c, title: title || undefined } : c)) }) : undefined, true)}
+        onChange={(next) => editing.onChange({ ...layout, rows: [], canvas: true, cells: next })} onAdd={editing.onAddTile}
+        onEdit={(cell) => editing.onEditTile?.(cell)} newId={editing.newId ?? (() => `t${Date.now()}`)} nameOf={editing.nameOf} chosen={editing.chosen} />
+    )
+  }
   if (layout.canvas) {
     const cells = layout.cells ?? []
     const setCells = (next: DashboardCell[]) => editing?.onChange({ ...layout, cells: next })
@@ -80,50 +99,13 @@ export function DashboardBody({ layout, period, compare, load, keyPrefix, editin
     )
   }
 
-  const rows = editing ? layout.rows : filled(layout).rows
   return (
     <div className="flex flex-col gap-3">
-      {rows.map((row, index) => (
-        <div key={index} className="flex flex-col gap-1.5">
-          {editing && (
-            <div className="flex items-center gap-2 text-xs text-ink-700">
-              <span>Row {index + 1}</span>
-              <span className="w-40"><Select aria-label={`Row ${index + 1} width`} controlSize="sm" value={row.width} onChange={(event) => editing.onChange(setRowWidth(layout, index, event.target.value as RowWidth))}>
-                {WIDTHS.map((width) => <option key={width.value} value={width.value}>{width.label}</option>)}
-              </Select></span>
-              <span className="ml-auto flex items-center gap-0.5">
-                <button type="button" aria-label={`Move row ${index + 1} up`} className={icon} disabled={index === 0} onClick={() => editing.onChange(moveRow(layout, index, -1))}><ArrowUp size={14} strokeWidth={1.5} aria-hidden /></button>
-                <button type="button" aria-label={`Move row ${index + 1} down`} className={icon} disabled={index === rows.length - 1} onClick={() => editing.onChange(moveRow(layout, index, 1))}><ArrowDown size={14} strokeWidth={1.5} aria-hidden /></button>
-                <button type="button" aria-label={`Remove row ${index + 1}`} className={icon} onClick={() => editing.onChange(removeRow(layout, index))}><X size={14} strokeWidth={1.5} aria-hidden /></button>
-              </span>
-            </div>
-          )}
-          <div className={`grid gap-3 ${rowGridClass(row.width)}`}>
-            {row.tiles.map((tile, at) => (
-              <div key={tile.id} className="min-w-0">
-                {tileFor(tile, editing ? (
-                  <>
-                    {editWords(tile)}
-                    <button type="button" aria-label={`Move ${tile.title || tile.id} left`} className={icon} disabled={at === 0} onClick={() => editing.onChange(moveTile(layout, tile.id, -1))}><ArrowLeft size={14} strokeWidth={1.5} aria-hidden /></button>
-                    <button type="button" aria-label={`Move ${tile.title || tile.id} right`} className={icon} disabled={at === row.tiles.length - 1} onClick={() => editing.onChange(moveTile(layout, tile.id, 1))}><ArrowRight size={14} strokeWidth={1.5} aria-hidden /></button>
-                    <button type="button" aria-label={`Remove ${tile.title || tile.id}`} className={icon} onClick={() => editing.onChange(removeTile(layout, tile.id))}><X size={14} strokeWidth={1.5} aria-hidden /></button>
-                  </>
-                ) : undefined, editing && tile.show !== 'text' && tile.show !== 'button' ? (title) => editing.onChange(updateTile(layout, tile.id, { title: title || undefined })) : undefined)}
-              </div>
-            ))}
-            {editing && row.tiles.length < capacity(row.width) && (
-              <button type="button" onClick={editing.onAddTile} className="flex min-h-28 items-center justify-center gap-1.5 rounded-md border border-dashed border-line-control text-sm font-semibold text-ink-800 hover:bg-surface-hover">
-                <Plus size={16} strokeWidth={1.5} aria-hidden />Add Tile
-              </button>
-            )}
-          </div>
+      {filled(layout).rows.map((row, index) => (
+        <div key={index} className={`grid gap-3 ${rowGridClass(row.width)}`}>
+          {row.tiles.map((tile) => <div key={tile.id} className="min-w-0">{tileFor(tile)}</div>)}
         </div>
       ))}
-      {editing && (
-        <button type="button" onClick={() => editing.onChange(addRow(layout))} className="flex h-10 items-center justify-center gap-1.5 rounded-md border border-dashed border-line-control text-sm font-semibold text-ink-800 hover:bg-surface-hover">
-          <Plus size={16} strokeWidth={1.5} aria-hidden />Add Row
-        </button>
-      )}
     </div>
   )
 }

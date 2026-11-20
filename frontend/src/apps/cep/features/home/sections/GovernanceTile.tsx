@@ -81,7 +81,7 @@ export function GovernanceTile({ filters }: { filters: HomeFilters }) {
   if (result.status === 'unavailable') return null
   return (
     <HomeCard title="Governance"
-      actions={viewer.can('user.admin') ? <Link to="/settings/suppressions" className={buttonClass({ variant: 'secondary', size: 'sm' })}>Open Governance</Link> : undefined}>
+      actions={viewer.can('user.admin') ? <Link to="/settings/governance" className={buttonClass({ variant: 'secondary', size: 'sm' })}>Open Governance</Link> : undefined}>
       {result.status === 'loading' ? <div className="flex flex-col gap-3"><SkeletonLine width="70%" height={28} /><SkeletonLine width="100%" /><SkeletonLine width="60%" /></div>
         : result.status === 'error' ? <ErrorState error={result.error} onRetry={result.retry} title="Governance figures could not be loaded" />
         : <Body data={result.data} />}

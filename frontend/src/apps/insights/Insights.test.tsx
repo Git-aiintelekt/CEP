@@ -45,16 +45,20 @@ test('with Insights on the workspace, Engagement’s menu offers it and the laun
   expect(within(apps).getAllByRole('link').map((tile) => tile.textContent)).toEqual(['Engagement', 'Insights'])
 })
 
-test('Insights is an app on the rail when the workspace has it, never an item in Engagement’s menu', async () => {
-  const insightsTile = () => within(screen.getByRole('navigation', { name: 'Apps' })).queryByRole('link', { name: /^Insights/ })
+test('Insights is an app in the launcher when the workspace has it, never an item in Engagement’s rail', async () => {
+  const user = userEvent.setup()
+  const insightsTile = async () => {
+    await user.click(screen.getByRole('button', { name: 'Apps' }))
+    return within(await screen.findByRole('region', { name: 'Apps' })).queryByRole('link', { name: /^Insights/ })
+  }
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
   expect(within(nav()).queryByRole('link', { name: 'Insights' })).toBeNull()
-  expect(insightsTile()?.getAttribute('href')).toBe('/insights')
+  expect((await insightsTile())?.getAttribute('href')).toBe('/insights')
   cleanup()
   await renderAppAt('/campaigns', me)
   await screen.findByRole('navigation', { name: 'Main' })
-  expect(insightsTile()).toBeNull()
+  expect(await insightsTile()).toBeNull()
 })
 
 test('New Report: name it, pick a dataset, and the report opens in the editor with its rows previewed', async () => {

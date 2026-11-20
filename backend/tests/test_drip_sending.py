@@ -253,3 +253,23 @@ def test_a_regular_campaign_still_sends_as_before(world, check):
           run.drip_step_id is None and run.run_type == "ONE_TIME" and len(world.members(run)) == 22 and variants == {"A": "Campaign subject", "B": "Campaign B"}
           and sent and all("Campaign preheader" in item["html"] for item in sent), (variants, len(world.members(run)), world.posted[:1]))
     check.done()
+
+
+def test_a_gap_between_messages_skips_whoever_got_marketing_within_its_hours(world, check):
+    body = world.template("ZS gap email", "EMAIL", subject="Hi", html="<p>Hi</p>")
+    receipt = world.drip("ZS receipt stand-in", "EMAIL", [(0, body, {}), (2, body, {})], lists=[world.three])
+    world.publish(receipt)
+    world.send(receipt, 0)
+    world.sql("UPDATE campaign SET campaign_type = 'E_RECEIPT' WHERE id = %s", [receipt])          # sent as e-receipts: never counted
+    world.sql("""INSERT INTO communication_governance_policy (tenant_id, name, scope, channel, max_messages, period_days, gap_hours, applies_to, priority)
+                 VALUES (%s, 'ZS 16 hours between emails', 'CHANNEL', 'EMAIL', 1, 1, 16, 'MARKETING', 1)""", [world.tenant])
+    cid = world.drip("ZS gap", "EMAIL", [(0, body, {}), (2, body, {}), (4, body, {})], lists=[world.three])
+    world.publish(cid)
+    first = world.send(cid, 0)
+    check("an e-receipt a moment ago does not start the gap", set(world.members(first).values()) == {"ELIGIBLE"}, world.members(first))
+    second = world.send(cid, 2)
+    check("within 16 hours of message 1 everyone is skipped by the gap", set(world.members(second).values()) == {"FREQUENCY_CAP"}, world.members(second))
+    world.sql("UPDATE mailer_execution SET created_at = created_at - interval '17 hours' WHERE tenant_id = %s AND campaign_id = %s", [world.tenant, cid])
+    third = world.send(cid, 4)
+    check("17 hours later the gap has passed", set(world.members(third).values()) == {"ELIGIBLE"}, world.members(third))
+    check.done()

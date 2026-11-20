@@ -40,7 +40,7 @@ export function SavedViews({ dashboardId, canShare, current, onApply, applied }:
   const name = list.find((view) => view.id === applied)?.name
   return (
     <>
-      <FilterChip label={name ? `View: ${name}` : 'Views'} active={Boolean(name)} menuLabel="Saved views" menuWidth={300}>
+      <FilterChip label={`View: ${name ?? 'Default'}`} active={Boolean(name)} menuLabel="Saved views" menuWidth={300}>
         {({ close }) => (
           <div className="flex flex-col">
             {views.isPending ? <div className="p-3"><Spinner size="sm" label="Loading the views" /></div> : (

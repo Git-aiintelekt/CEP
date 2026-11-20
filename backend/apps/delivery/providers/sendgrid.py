@@ -35,6 +35,10 @@ class SendGridProvider(EmailProvider):
                     help="Optional. SendGrid -> Mail settings -> Event Webhook -> Signed Event Webhook: callbacks are then verified."),
     )
 
+    @classmethod
+    def added_paths(cls, config: dict) -> dict[str, str]:
+        return {"api_base": "/v3"}
+
     @property
     def _base(self) -> str:
         return str(self.config.get("api_base") or "https://api.sendgrid.com").rstrip("/")

@@ -1,6 +1,6 @@
 # Contact Lists
 
-**Where:** Contact Lists in the main navigation, and **Contact Lists → Uploads**.
+**Where:** Contact Lists in the main navigation; a list's own page (click its name); **Contact Lists → Uploads**; and **Contact Lists → Find a Customer**.
 
 ## What this page is for
 
@@ -25,10 +25,33 @@ The page shows every list of the workspace with its size and where it is used, a
 | Search | Filters the table by name as you type. | |
 | Type | Production or Test. | A campaign published to production refuses a Test list. Keep real sends and rehearsals apart with it. |
 | Source | Upload, BI or Extraction, Cloned. | |
+| Find a Customer | Opens the customer search (see *The customer page* below). | |
 | Uploads | Opens the Uploads page: every file upload of the workspace with its progress, who started it, Continue, Cancel and its report. | |
 | Create List | Opens the wizard. | |
 | The table | Name and description; **For** (Email, Texts, Email and Texts); the number of people; the source; the type; how many campaigns it is attached to and how many of those are live; when it changed. A note under the name when the list waits for approval or was refused. | |
-| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Delete** it. | Delete is refused while the list is attached to a campaign: archive it from its page instead. Deleting removes its people from the list, never from C360. |
+| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Archive** it (**Restore** on an archived list), **Delete** it. | Archive: campaigns can no longer pick the list; Restore makes it active again. Delete is refused while the list is attached to a campaign: archive it instead. Deleting removes its people from the list, never from C360. |
+
+### A list's page
+
+Opened by a list's name. It shows who is in the list, how and when each was added, where the list is used, and the ways to fix it.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Header | The name and description, the Type (Production or Test), the source, Archived when it is, and where an audience or a copy came from. | |
+| Refresh Now (a list that follows an audience) | Brings the list in line with its audience at once, instead of at the hourly refresh, and says how many were added and removed. | People who no longer qualify leave; people who now qualify join; contacts added by hand stay. |
+| Clone | Asks for the copy's name and opens the copy. | A new list with the same people today; the two change separately from then on. |
+| Edit Details | **List Name** (required, up to 200 characters), **Description**, **List Type** (Production or Test) and **What the List Is For** (Email, Texts, or Email and Texts). | List Type: a Test list is for test sends only, and publishing a campaign to production with it attached is refused. What the List Is For: which column a later upload must have (the address for email, the mobile number for texts, both for both). |
+| Add Contacts | **Email Addresses**: one per line, optionally followed by first and last name after commas (`ana@example.com, Ana, Lopez`); up to 500 at a time. | Adds them to this list and says how many were added, new to C360, already in the list, or not valid and skipped. Someone C360 knows is linked to their record; anyone new is added to C360 without a consent answer, so marketing sends leave them out until they opt in. Not offered on an archived list. |
+| The note on editing | Says whether the list is attached to live campaigns. | A change here is picked up the next time a campaign builds its Campaign List from it; a Campaign List that was already built does not change. |
+| Contacts, Added This Week, Attached Campaigns | The counts. | Nothing; a reading. |
+| Attached Campaigns | Each campaign the list is on, with its channel, status, Live, and how many Campaign Lists were already built from it. | The name opens the campaign. |
+| Approval | Shown when the workspace's Consent Policy asks for approval before the first send: Awaiting Approval, Approved or Refused, with who decided, when and their note. Someone with `consent.edit` writes an optional **Note** (up to 300 characters, kept on the compliance record) and presses **Approve List** or **Refuse**. | Awaiting: campaigns can be built with the list, but none sends to it. Approved: campaigns can send to it. Refused: no campaign sends to it until it is approved. |
+| Compliance Record | The source, the consent basis, where it was collected, who attested and when, the approval and the consent policy today; **Consent today** per channel (opted in from the file, confirmed since, no consent on record, unsubscribed). **Show Details** adds the attestation wording and every upload with its figures. | Nothing; the record. The consent figures are rebuilt each time the page opens; the attestation and the approval never change. |
+| Governance Check · Marketing Email, as of Today | How many of the list's people a marketing email could reach today, with the reasons the others cannot. | Nothing; a reading, with the send engine's own rules. Transactional campaigns ignore consent, but not blocked or invalid addresses. |
+| Search contacts, Consent | Filter the people by name, email address or customer id, and by their marketing-email verdict: Can Receive, Cannot Receive, Unsubscribed, No Consent on Record, Bounced, Complained, Blocked, Invalid Address, Suppressed. | The table below. |
+| The people | 50 a page: Email (opens the customer's page when C360 knows them), First Name, Last Name, Added On, Source (Upload, Manual, Audience, Cloned, Rule) and Marketing Email (Can Receive, or why not). A box per row, and one for the whole page. | |
+| Export All / Export Selected | A CSV of everyone in the list, or of the ticked people: email, first name, last name, mobile, the day added, the source and the customer id. | Nothing changes. Cells that a spreadsheet would read as a formula are made safe. |
+| Remove from List | Takes the ticked people out, after asking. Not offered on an archived list. | They leave this list only; they stay in C360 and in every other list. On a list that follows an audience, someone who still qualifies comes back at the next refresh. |
 
 ### The wizard: Upload a File
 
@@ -53,11 +76,11 @@ The other two sources are shorter: **BI or Extraction Tool** asks for the audien
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The list of uploads | Newest first: file, list, who started it, status and progress. | |
-| Continue | Opens the wizard again at the step an upload is waiting on (matching, consent, review). | |
-| Cancel | Stops an upload that has not been applied. | The file and the staged rows are discarded. An import that is already adding people finishes. |
-| Report | The review figures of any upload that was checked, and **Download the row-by-row report**: a CSV with every line of the file, whether it was imported or held back and why, how the person was recognised, and their marketing email status. | |
-| Open the list | | |
+| The table | Newest first: **List and File** (the list, the file and its rows), **Status** (In Progress, Waiting for You, Imported, Failed, Cancelled), **Progress** (what the upload is doing, with a bar while it works) and **Uploaded** (when, and who). | |
+| Continue | On an upload waiting for you (matching, consent, review). Needs `list.import` or `list.edit`. | Opens the wizard again at the step it waits on. |
+| Report | On any upload that was checked: the review figures, and **Download the Row-by-Row Report**, a CSV with every line of the file, whether it was imported or held back and why, how the person was recognised, and their marketing email status. | Nothing changes. |
+| Open the List | On an imported upload. | Opens the list's page. |
+| Cancel | On an upload that is not finished and not already adding people. Needs `list.import` or `list.edit`. | The file and the staged rows are discarded. An import that is already adding people finishes. |
 
 The upload button in the header shows the uploads running on every page and raises an alert when one finishes, fails, or waits for a review.
 
@@ -92,7 +115,7 @@ The upload button in the header shows the uploads running on every page and rais
 
 ## The customer page
 
-**Where:** **Find a Customer** on the Contact Lists page (`/customers`); a customer's name on a journey's Customers card, on Settings → Events and on a list's members opens their page directly.
+**Where:** **Find a Customer** on the Contact Lists page (`/customers`); a customer's name on a journey's Customers card, on Settings → Events and on a list's people opens their page directly.
 
 One customer across the workspace, read from the records C360 syncs (or an upload added). Nothing is edited here: the record is C360's.
 
@@ -108,6 +131,6 @@ One customer across the workspace, read from the records C360 syncs (or an uploa
 | Messages | The last 30 messages campaigns and journeys sent them, with what became of each (delivered, opened, clicked, or why it was not sent). |
 | Contact Lists | The lists they are on and how they got there. Lists a journey makes for its own sends are left out. |
 
-**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before C360 can reach them.
+**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id in **Search customers**; the results follow as you type, 25 a page, with the Customer, Email, Mobile, Customer ID, Source and when the record was Updated. The search stays in the page's address, so a link or the browser's Back returns to it. Click a name to open the customer. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before C360 can reach them. On a customer's page, **Find Another Customer** goes back to the search; nothing on the page changes the record.
 
 Who may see it: anyone who may see contact lists, campaigns or journeys.

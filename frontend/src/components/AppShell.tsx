@@ -5,12 +5,13 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { LegalFooter } from '@/components/LegalFooter'
+import { UpgradeNotice } from '@/components/UpgradeNotice'
 import { UploadsIndicator } from '@/apps/cep/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { leaveVisit } from '@/lib/visit'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
-import { AppRail, ComponentMenu } from '@/shell/LeftNav'
+import { PageRail } from '@/shell/LeftNav'
 import { componentAt, entitled, type EntitledComponent } from '@/shell/manifests'
 import { TopBar } from '@/shell/TopBar'
 import { SETTINGS, type NavItem } from './navItems'
@@ -77,7 +78,7 @@ const SHORTCUTS: { keys: string; does: string; engagement?: true }[] = [
   { keys: 'n', does: 'Create a campaign', engagement: true },
   { keys: 'g then c', does: 'Go to Campaigns', engagement: true },
   { keys: 'g then t', does: 'Go to Templates', engagement: true },
-  { keys: 'g then l', does: 'Go to Contact lists', engagement: true },
+  { keys: 'g then l', does: 'Go to Contact Lists', engagement: true },
   { keys: 'g then h', does: 'Go to Home', engagement: true },
   { keys: '?', does: 'Show these shortcuts' },
   { keys: 'Esc', does: 'Close a menu or a pop-up' },
@@ -121,10 +122,10 @@ function ShortcutsHelp({ onClose, engagement }: { onClose: () => void; engagemen
 
 /**
  * The suite shell: the navy top bar across the full width (navigation toggle, launcher, brand, search, account), the
- * app rail and the open component's menu below it, and the page. md and up the 88px rail is always there, and the menu
- * beside it is 240px, or a 64px column of icons when collapsed. xl and up it is open unless the person collapsed it;
- * below xl it is collapsed and the toggle opens it over the page (never pushing it). Below md there is no navigation
- * until the top bar's menu button opens both columns.
+ * navy rail with the open component's pages below it, and the page. Components are switched in the launcher only. md
+ * and up the rail is 240px, or a 64px column of icons when collapsed. xl and up it is open unless the person collapsed
+ * it; below xl it is collapsed and the toggle opens it over the page (never pushing it). Below md there is no navigation
+ * until the top bar's menu button opens the rail.
  *
  * `workspace` is for an editor that needs the whole window (the report editor): no rail or menu, and the page fills the
  * height under the top bar with no padding or footer, so the editor's own panes do the scrolling.
@@ -205,7 +206,7 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
     }
   }
 
-  const contentOffset = workspace || !isMd ? '' : isXl && !userCollapsed ? 'pl-[328px]' : current ? 'pl-[152px]' : 'pl-[88px]'
+  const contentOffset = workspace || !isMd ? '' : isXl && !userCollapsed ? 'pl-60' : 'pl-16'
   const closeOverlay = overlay ? () => setOpen(false) : undefined
 
   return (
@@ -214,16 +215,9 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
 
       {showNav && (
         <aside aria-label="Sidebar" className="fixed top-14 bottom-0 left-0 z-40 flex bg-sidebar">
-          <nav aria-label="Apps" className="flex w-[88px] shrink-0 flex-col overflow-y-auto pt-1.5 pb-4">
-            <AppRail components={components} current={current} settings={settings} />
+          <nav aria-label="Main" className={`overflow-x-hidden overflow-y-auto transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${menuOpen ? 'w-60' : 'w-16'}`}>
+            <PageRail current={current} settings={settings} collapsed={!menuOpen} onNavigate={closeOverlay} />
           </nav>
-          {current && (
-            <div className={`overflow-hidden border-r border-line bg-surface transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${menuOpen ? 'w-60' : 'w-16'}`}>
-              <nav aria-label="Main" className="h-full overflow-x-hidden overflow-y-auto pb-4">
-                <ComponentMenu current={current} collapsed={!menuOpen} onNavigate={closeOverlay} />
-              </nav>
-            </div>
-          )}
         </aside>
       )}
 
@@ -243,6 +237,8 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
       <div className={`flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
         {visit && <VisitBanner workspace={me?.workspace?.name ?? me?.tenant.code ?? 'this workspace'} home={visit.home} />}
+        {/* every workspace, Platform included: a scheduled upgrade, the pause while it runs, Reload after */}
+        <UpgradeNotice />
         {/* same side padding as the top bar's search and account, and no width cap, so content lines up with them */}
         {workspace ? (
           <main className="flex h-[calc(100dvh-3.5rem)] w-full min-w-0 flex-col overflow-hidden bg-surface"><Outlet /></main>

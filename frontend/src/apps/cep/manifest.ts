@@ -8,13 +8,13 @@ import { ChartPie, FileText, GitBranch, LayoutDashboard, Megaphone, Users } from
 import type { NavItem } from '@/components/navItems'
 import type { ComponentManifest } from '@/shell/componentTypes'
 
-/** the component's menu: everyone's everyday pages; Reports last, after the things it reports on (2026-10-09). Insights is its own app on the rail (2026-10-19). */
+/** the component's menu: everyone's everyday pages; Reports last, after the things it reports on (2026-10-09). Insights is its own app in the launcher, never an item here. */
 export const MAIN_NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
   { to: '/journeys', label: 'Journeys', icon: GitBranch, feature: 'journeys' },
   { to: '/templates', label: 'Templates', icon: FileText },
-  { to: '/contact-lists', label: 'Contact lists', icon: Users },
+  { to: '/contact-lists', label: 'Contact Lists', icon: Users },
   { to: '/reports', label: 'Reports', icon: ChartPie, permission: 'report.view' },
 ]
 

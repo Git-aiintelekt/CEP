@@ -52,6 +52,17 @@ class PartyTopicPreference(models.Model):
         db_table = 'party_topic_preference'
 
 
+# The rolling window a policy counts messages in, for SQL over communication_governance_policy g: a gap's hours, a cap's days.
+POLICY_WINDOW = "(CASE WHEN g.gap_hours IS NOT NULL THEN make_interval(hours => g.gap_hours) ELSE make_interval(days => g.period_days) END)"
+
+
+def marketing_only(alias: str) -> str:
+    """SQL: the execution row `alias` counts towards a cap or a gap: it was sent by a marketing campaign. Transactional messages
+    and e-receipts (sent under an E_RECEIPT campaign, whatever its solicitation type) never count."""
+    return (f"EXISTS (SELECT 1 FROM campaign mc WHERE mc.id = {alias}.campaign_id AND mc.solicitation_type = 'MARKETING'"
+            f" AND mc.campaign_type <> 'E_RECEIPT')")
+
+
 class CommunicationGovernancePolicy(models.Model):
     """Cross-campaign / cross-journey frequency-cap rule"""
     class Scope(models.TextChoices):
@@ -75,6 +86,8 @@ class CommunicationGovernancePolicy(models.Model):
     soft_bounce_threshold = models.IntegerField(null=True, blank=True)  # GLOBAL policy: soft bounces within the window that block a contact point (e.g. 3)
     soft_bounce_window_days = models.IntegerField(null=True, blank=True)  # e.g. 30
     is_active = models.BooleanField(default=True)
+    gap_hours = models.IntegerField(null=True, blank=True)  # patch 0089: Gap Between Messages (max_messages 1, period_days not read)
+    platform_policy = models.ForeignKey('platform_ops.PlatformGovernancePolicy', on_delete=models.SET_NULL, db_column='platform_policy_id', related_name='copies', null=True, blank=True)  # patch 0088: the platform's copy, locked
     created_at = models.DateTimeField(db_default=Now())
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)

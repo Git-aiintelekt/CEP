@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { cepReady, insightsAlertsNow, insightsCommentsNow, insightsDashboardsNow, installMockApi, me, signIn } from '@/test/mockApi'
 import { ReportResult } from './components/ReportViews'
-import { cellsToRows, phoneOrder, rowsToCells, setBox } from './dashboards/canvas'
+import { phoneOrder, rowsToCells, setBox } from './dashboards/canvas'
 import { containerOf, setContainer } from './dashboards/pages'
 import { themeStyle } from './dashboards/themes'
 import { TextTile } from './dashboards/WordTiles'
@@ -31,12 +31,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('the canvas: rows become places and back, a tile stays inside the twelve columns, a phone reads top to bottom without the hidden tiles', () => {
+test('the canvas: rows become places, a tile stays inside the twelve columns, a phone reads top to bottom without the hidden tiles', () => {
   const rows = [{ width: '2-1' as const, tiles: [{ id: 't1', report_id: 'r', show: 'chart' as const }, { id: 't2', report_id: 'r', show: 'figure' as const }] },
                 { width: '1' as const, tiles: [{ id: 't3', report_id: '', show: 'text' as const, text: 'Hi' }] }]
   const cells = rowsToCells(rows)
   expect(cells.map((c) => [c.id, c.x, c.y, c.w, c.h])).toEqual([['t1', 0, 0, 8, 5], ['t2', 8, 0, 4, 2], ['t3', 0, 5, 12, 2]])
-  expect(cellsToRows(cells).map((row) => [row.width, row.tiles.map((t) => t.id)])).toEqual([['3', ['t1', 't2', 't3']]])
   expect(setBox(cells, 't2', { x: 11, w: 4 }).find((c) => c.id === 't2')).toMatchObject({ x: 8, w: 4 })
   expect(setBox(cells, 't2', { w: 20 }).find((c) => c.id === 't2')).toMatchObject({ x: 0, w: 12 })
   const hidden: DashboardCell[] = cells.map((c) => (c.id === 't2' ? { ...c, hide_on_phone: true } : c))
@@ -155,15 +154,17 @@ test('the dashboard editor: Free Canvas turns the rows into places, Add Text and
   await screen.findByRole('textbox', { name: 'Dashboard name' }, { timeout: 5000 })
   await user.click(screen.getByRole('radio', { name: 'Free Canvas' }))
   expect((await screen.findAllByRole('button', { name: /^Move / })).length).toBeGreaterThan(0)
-  await user.click(screen.getByRole('button', { name: 'Add Text' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Add Text' })
-  await user.type(within(dialog).getByRole('textbox', { name: /^Title/ }), 'Read Me')
-  await user.type(within(dialog).getByRole('textbox', { name: /^Text/ }), 'How to read this board.')
-  await user.click(within(dialog).getByRole('button', { name: 'Add to Dashboard' }))
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Theme' }), 'berry')
+  await user.click(screen.getByRole('button', { name: 'Add' }))
+  const panel = screen.getByRole('complementary', { name: 'Add to the Dashboard' })
+  await user.click(within(panel).getByRole('radio', { name: 'Text' }))
+  await user.type(within(panel).getByRole('textbox', { name: /^Title/ }), 'Read Me')
+  await user.type(within(panel).getByRole('textbox', { name: /^Text/ }), 'How to read this board.')
+  await user.click(within(panel).getByRole('button', { name: 'Add to the Dashboard' }))
+  await user.click(screen.getByRole('button', { name: 'Theme: Classic' }))
+  await user.click(screen.getByRole('option', { name: 'Berry' }))
   await user.click(screen.getByRole('button', { name: 'Phone Preview' }))
   expect(document.querySelector('[data-canvas="phone"]')).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Done' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => {
     const put = calls.filter((c) => c.method === 'PUT' && c.url.endsWith('/insights/dashboards/dash-1/')).at(-1)?.body as { layout: DashboardLayout } | undefined
     expect(put?.layout).toMatchObject({ canvas: true, theme: 'berry' })

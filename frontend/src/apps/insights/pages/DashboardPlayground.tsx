@@ -1,15 +1,22 @@
-/** /dev/dashboard: a dashboard on sample data, with no backend: viewing, or ?edit=1 for the editor's controls. For design review and screenshots. */
+/**
+ * /dev/dashboard: a dashboard on sample data, with no backend, for design review and screenshots: viewing, or ?edit=1 for the
+ * editor's bar, settings line and grid (?canvas=1 for a free canvas, ?phone=1 for the phone preview, ?theme=berry for a theme).
+ */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { ChevronLeft, Pencil, Plus, RefreshCw, Share2 } from 'lucide-react'
+
+import { IconButton } from '@/components/Button'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
-import { PageHeader } from '@/components/ResourceList'
+import { SegmentedControl } from '@/components/SegmentedControl'
+import { Switch } from '@/components/Switch'
 import { ActionsMenu, MenuGap } from '../components/ActionsMenu'
 import { DashboardBody } from '../dashboards/DashboardBody'
-import { PeriodBar } from '../dashboards/PeriodBar'
+import { PeriodMenu } from '../dashboards/PeriodMenu'
 import { SlicerBar } from '../dashboards/SlicerBar'
-import { activeSlicers, periodBounds, periodWords, toggleValue } from '../dashboards/layout'
+import { activeSlicers, periodBounds, toggleValue } from '../dashboards/layout'
 import { bottom, rowsToCells } from '../dashboards/canvas'
 import { themeStyle } from '../dashboards/themes'
 import type { DashboardLayout, DashboardTheme, DashboardTile, DrillStep, Period, ResultColumn, RunResult, SlicerSelection, TileResult } from '../types'
@@ -125,30 +132,74 @@ export default function DashboardPlayground() {
     if (column.key !== 'channel' && !extra.some((item) => item.field === column.key)) setExtra((now) => [...now, { field: column.key, label: column.label }])
     setSelection((now) => toggleValue(now, column.key, value))
   }
-  return (
-    <div className={`${editing ? 'gap-4' : 'report-density gap-3'} flex min-h-0 flex-1 flex-col`}>
-      <PageHeader title="Marketing Weekly" description={editing ? undefined : `Sends, revenue and the top campaigns, by week · ${periodWords(bounds)}`}
-        actions={<div className="flex gap-2">{editing ? <><span className={buttonSecondary}>Add Tile</span><span className={buttonPrimary}>Done</span></> : <ActionsMenu>{(act) => (
-          <>
-            <MenuRow role="menuitem" divider={false} title="Edit" onClick={() => act(() => undefined)} />
-            <MenuGap />
-            {['Share', 'Comments', 'Schedule'].map((title) => <MenuRow key={title} role="menuitem" divider={false} title={title} onClick={() => act(() => undefined)} />)}
-            <MenuGap />
-            {['Export PDF', 'Export PowerPoint'].map((title) => <MenuRow key={title} role="menuitem" divider={false} title={title} onClick={() => act(() => undefined)} />)}
-            <MenuGap />
-            <MenuRow role="menuitem" divider={false} title="Embed on Another Site" onClick={() => act(() => undefined)} />
-            <MenuGap />
-            <MenuRow role="menuitem" divider={false} tone="error" title="Delete" onClick={() => act(() => undefined)} />
-          </>
-        )}</ActionsMenu>}</div>} />
-      <PeriodBar period={period} onPeriod={setPeriod} compare={compare} onCompare={setCompare} bounds={bounds} />
-      {!editing && <SlicerBar slicers={layout.slicers ?? []} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))}
-        onRemoveExtra={(field) => { setExtra((now) => now.filter((item) => item.field !== field)); setSelection((now) => ({ ...now, [field]: [] })) }}
-        loadValues={async (field) => ({ field, label: 'Channel', values: ['EMAIL', 'SMS'], datasets: 2 })} queryKey={['dev', 'dashboard', 'slicers']} />}
-      <div style={themeStyle((params.get('theme') ?? undefined) as DashboardTheme | undefined)}>
-        <DashboardBody layout={layout} period={period} compare={compare} load={load} keyPrefix={['dev', 'dashboard']} selection={activeSlicers(selection)} onPick={pick} phone={params.get('phone') === '1'}
-          editing={editing ? { onChange: setLayout, onAddTile: () => undefined } : undefined} onAction={() => undefined} />
+  const canvas = Boolean(layout.canvas)
+  const body = (
+    <div style={themeStyle((params.get('theme') ?? undefined) as DashboardTheme | undefined)}>
+      <DashboardBody layout={layout} period={period} compare={compare} load={load} keyPrefix={['dev', 'dashboard']} selection={activeSlicers(selection)} onPick={pick} phone={params.get('phone') === '1'}
+        editing={editing ? { onChange: setLayout, grid: !canvas, onAddTile: () => undefined, onEditTile: () => undefined } : undefined} onAction={() => undefined}
+        comments={editing ? undefined : { count: () => 0, open: () => undefined }} />
+    </div>
+  )
+  if (editing) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header aria-label="Editor" className="flex h-[60px] shrink-0 items-center gap-3 border-b border-line bg-surface pr-4 pl-3">
+          <IconButton label="Back to Dashboard" icon={ChevronLeft} size="md" onClick={() => undefined} />
+          <span aria-hidden className="h-6 w-px shrink-0 bg-line-subtle" />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <p className="text-xs text-ink-800">Dashboards</p>
+            <p className="flex items-center gap-3 font-display text-section-title font-semibold text-ink-900">Marketing Weekly
+              <span className="inline-flex items-center gap-1.5 font-body text-helper font-medium text-warning-text"><span aria-hidden className="h-2 w-2 rounded-full bg-warning" />Unsaved Changes</span></p>
+          </div>
+          <span className={buttonSecondary}>Discard Changes</span><span className={buttonPrimary}>Save</span>
+        </header>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line-subtle bg-surface px-6 py-3">
+          <PeriodMenu period={period} onPeriod={setPeriod} bounds={bounds} />
+          <Switch checked={compare} onChange={setCompare} label="Compare With Previous Period" />
+          <span aria-hidden className="mx-1 h-6 w-px bg-line-subtle" />
+          <SegmentedControl label="Layout" options={[{ value: 'grid', label: 'Grid' }, { value: 'canvas', label: 'Free Canvas' }]} value={canvas ? 'canvas' : 'grid'} onChange={() => undefined} />
+          <span className="ml-auto"><span className={buttonPrimary}><Plus size={16} strokeWidth={1.5} aria-hidden />Add</span></span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto bg-canvas px-6 py-5">{body}</div>
       </div>
+    )
+  }
+  return (
+    <div className="report-density flex min-h-0 flex-1 flex-col gap-3">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="mb-3 inline-flex items-center gap-1 text-helper text-brand-800"><ChevronLeft size={16} strokeWidth={1.5} aria-hidden /> Dashboards</p>
+          <h1 className="font-display text-page-title font-semibold text-ink-900">Marketing Weekly</h1>
+          <p className="mt-1 text-sm text-ink-800">Sends, revenue and the top campaigns, by week</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-helper text-ink-800">Updated just now</span>
+          <IconButton label="Refresh" icon={RefreshCw} onClick={() => undefined} />
+          <span className={buttonSecondary}><Share2 size={16} strokeWidth={1.5} aria-hidden />Share</span>
+          <span className={buttonPrimary}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</span>
+          <ActionsMenu>{(act) => (
+            <>
+              {['Comments', 'Schedule'].map((title) => <MenuRow key={title} role="menuitem" divider={false} title={title} onClick={() => act(() => undefined)} />)}
+              <MenuGap />
+              {['Export PDF', 'Export PowerPoint'].map((title) => <MenuRow key={title} role="menuitem" divider={false} title={title} onClick={() => act(() => undefined)} />)}
+              <MenuGap />
+              <MenuRow role="menuitem" divider={false} title="Embed on Another Site" onClick={() => act(() => undefined)} />
+              <MenuGap />
+              <MenuRow role="menuitem" divider={false} tone="error" title="Delete" onClick={() => act(() => undefined)} />
+            </>
+          )}</ActionsMenu>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <PeriodMenu period={period} onPeriod={setPeriod} bounds={bounds} />
+        <Switch checked={compare} onChange={setCompare} label="Compare With Previous Period" />
+        <span aria-hidden className="mx-1 h-6 w-px bg-line-subtle" />
+        <SlicerBar slicers={layout.slicers ?? []} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))}
+          onRemoveExtra={(field) => { setExtra((now) => now.filter((item) => item.field !== field)); setSelection((now) => ({ ...now, [field]: [] })) }}
+          loadValues={async (field) => ({ field, label: 'Channel', values: ['EMAIL', 'SMS'], datasets: 2 })} queryKey={['dev', 'dashboard', 'slicers']} />
+        <span className={`${buttonSecondary} ml-auto`}>View: Default</span>
+      </div>
+      {body}
     </div>
   )
 }

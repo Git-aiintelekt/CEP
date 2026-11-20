@@ -471,7 +471,9 @@ export interface Campaign extends Audited {
   list_count: number
   audience_size: number | null
   owner_name: string | null
-  triggered_by: 'MANUAL' | 'JOURNEY'
+  triggered_by: 'MANUAL' | 'JOURNEY' | 'WARM_UP'
+  /** warm-up campaigns only: the day of the Delivery Warm-Up that sent it; null for every other campaign */
+  warm_up?: { day: number; days_total: number; sent_on: string; warm_up_status: WarmUpStatus } | null
   tags: string[]
   send_type: SendType
   send_timezone: string | null
@@ -2961,4 +2963,145 @@ export interface Legal {
   /** the server's current year; the footer uses the browser's own */
   year: number
   terms: { title: string; body: string; updated_at: string | null }
+}
+
+// ---- Delivery Warm-Up (Settings → Engagement · Sending → Delivery Warm-Up)
+export type WarmUpStatus = 'WARMING' | 'PAUSED' | 'WARM' | 'STOPPED'
+export type WarmUpIpMode = 'DEDICATED' | 'SHARED'
+export type WarmUpPlanKind = 'HOURLY' | 'DAILY'
+export type WarmUpAdvance = 'AUTO' | 'APPROVE'
+
+export interface WarmUpPlanDay {
+  day: number
+  /** the schedule's warm-up age (0-41) its limit comes from */
+  age: number
+  hourly: number
+  daily: number
+}
+
+export interface WarmUpPlans {
+  contacts_target: number | null
+  plan_name: string | null
+  /** DEDICATED_HOURLY, DEDICATED_DAILY, SHARED_HOURLY, SHARED_DAILY */
+  plans: Record<string, WarmUpPlanDay[]>
+}
+
+export interface WarmUpDay {
+  day: number
+  age: number
+  hourly_limit: number
+  daily_limit: number
+  /** the local date it ran, or will run if every day moves on */
+  date: string | null
+  state: 'DONE' | 'TODAY' | 'PLANNED' | 'SKIPPED'
+  lists: { id: string; name: string; member_count: number }[]
+  template: { id: string; name: string } | null
+  sent: number
+  opened: number
+  waiting: number
+  health: { sent: number; bounced: number; complained: number; outcome: 'DONE' | 'HELD' | 'QUIET' } | null
+  campaigns: { id: string; name: string; status: string; sent_on: string }[]
+}
+
+export interface WarmUp {
+  id: string
+  status: WarmUpStatus
+  status_note: string | null
+  ip_mode: WarmUpIpMode
+  plan_kind: WarmUpPlanKind
+  window_start: string
+  window_end: string
+  window_hours: number
+  advance_mode: WarmUpAdvance
+  current_day: number
+  days_total: number
+  offered_day: number | null
+  round: number
+  contacts_target: number | null
+  extra_template_ids: string[]
+  sender: { id: string; display_name: string | null; from_address: string | null }
+  started_at: string
+  finished_at: string | null
+  time_zone: string
+  today: {
+    date: string
+    hour: string
+    in_window: boolean
+    limit_hour: number | null
+    limit_day: number | null
+    sent_this_hour: number
+    sent: number
+    bounced: number
+    complained: number
+    waiting_own: number
+    waiting_warm_up: number
+  }
+  limits: { bounce: number; complaint: number }
+  people: { reached: number; no_template: number }
+}
+
+export interface WarmUpOverview {
+  /** false until patch 0084 is on this workspace's database */
+  present: boolean
+  contacts_target: number | null
+  plan_name: string | null
+  warmup: WarmUp | null
+  days: WarmUpDay[]
+  extra_templates?: { id: string; name: string }[]
+}
+
+/** GET /platform-status/: the upgrade notice every signed-in person sees, in every workspace */
+export type UpgradeState = 'NONE' | 'SCHEDULED' | 'UPGRADING' | 'DONE'
+export interface UpgradeNotice {
+  state: UpgradeState
+  starts_at?: string | null
+  minutes?: number | null
+  note?: string
+  changed_at?: string | null
+  version?: string
+}
+export interface PlatformStatus {
+  upgrade: UpgradeNotice
+}
+
+/** Settings → Governance (GET /workspace/governance/) */
+export interface GovernanceCap {
+  id: string
+  name: string
+  channel: 'ALL' | 'EMAIL' | 'SMS' | 'WHATSAPP'
+  channel_label: string
+  max_messages: number
+  period_days: number
+  rule: string
+  is_active: boolean
+  /** set by the platform for this workspace: shown locked */
+  platform: boolean
+  row_version: number
+}
+/** A Gap Between Messages: no marketing message of the channel within `hours` of the last one */
+export interface GovernanceGap {
+  id: string
+  name: string
+  hours: number
+  rule: string
+  is_active: boolean
+  platform: boolean
+  row_version: number
+}
+export interface GovernanceGapChannel {
+  channel: 'EMAIL' | 'SMS' | 'WHATSAPP'
+  channel_label: string
+  /** the hours a new gap of the workspace's own starts at */
+  recommended_hours: number
+  own: GovernanceGap | null
+  platform: GovernanceGap[]
+  /** a cap of one message that already keeps at least the own gap, so the gap adds nothing while it applies */
+  covered_by: string | null
+}
+export interface GovernanceOverview {
+  caps: GovernanceCap[]
+  gaps: GovernanceGapChannel[]
+  activity: { days: number; checked: number; sent: number; capped: number; sent_percent: number | null }
+  text_quiet_hours: { start: string; end: string } | null
+  soft_bounces: number
 }

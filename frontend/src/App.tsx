@@ -46,6 +46,7 @@ const InsightsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insig
 const DashboardPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DashboardPlayground')) : null
 const AskPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/AskPlayground')) : null
 const BaseReportsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/BaseReportsPlayground')) : null
+const UpgradePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/UpgradePlayground')) : null
 const ExplainPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/ExplainPlayground')) : null
 const DataPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DataPlayground')) : null
 const NewReportPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/NewReportPlayground')) : null
@@ -109,6 +110,7 @@ export default function App() {
                 {DashboardPlayground && <Route path="/dev/dashboard" element={<Suspense fallback={<FullPageSpinner label="Loading the dashboard" />}><DashboardPlayground /></Suspense>} />}
                 {AskPlayground && <Route path="/dev/ask" element={<Suspense fallback={<FullPageSpinner label="Loading the box" />}><AskPlayground /></Suspense>} />}
                 {BaseReportsPlayground && <Route path="/dev/base-reports" element={<Suspense fallback={<FullPageSpinner label="Loading the base reports" />}><BaseReportsPlayground /></Suspense>} />}
+                {UpgradePlayground && <Route path="/dev/upgrade" element={<Suspense fallback={<FullPageSpinner label="Loading the playground" />}><UpgradePlayground /></Suspense>} />}
                 {ExplainPlayground && <Route path="/dev/explain" element={<Suspense fallback={<FullPageSpinner label="Loading Explain" />}><ExplainPlayground /></Suspense>} />}
                 {DataPlayground && <Route path="/dev/data" element={<Suspense fallback={<FullPageSpinner label="Loading the samples" />}><DataPlayground /></Suspense>} />}
                 {NewReportPlayground && <Route path="/dev/new-report" element={<Suspense fallback={<FullPageSpinner label="Loading New Report" />}><NewReportPlayground /></Suspense>} />}

@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, me, problem, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, me, problem, security, settingsUsers, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string, authenticated = true) {
   if (authenticated) signIn(path)
@@ -33,7 +33,7 @@ test('settings opens on users; the administrator cannot deactivate themselves', 
   const other = within(table).getByText('devon@example.com').closest('tr') as HTMLElement
   expect(within(other).getByText('No password yet')).toBeTruthy()
   expect(within(other).getByRole('button', { name: 'Deactivate' })).toBeTruthy()
-  expect(within(screen.getByRole('navigation', { name: 'Apps' })).getByText('Settings')).toBeTruthy()
+  expect(within(screen.getByRole('navigation', { name: 'Main' })).getByText('Settings')).toBeTruthy()
 })
 
 test('add a user with a role: no password field exists, and the chosen roles are posted', async () => {
@@ -95,6 +95,9 @@ test('roles: permissions are grouped by area, posted as codes, and a role in use
   const dialog = await screen.findByRole('dialog', { name: 'New Role' })
   expect(within(dialog).getByText('Campaigns')).toBeTruthy()
   expect(within(dialog).getByText('Administration')).toBeTruthy()
+  // each area's "admin" permission says what it allows there
+  expect(within(dialog).getByRole('checkbox', { name: /Manage Users, Roles and API Keys/ })).toBeTruthy()
+  expect(within(dialog).getByRole('checkbox', { name: /Manage Every Report, Its Sharing and Report Access/ })).toBeTruthy()
   await user.type(within(dialog).getByLabelText(/^Name/), 'Template Designer')
   await user.click(within(dialog).getByRole('checkbox', { name: /template\.edit/ }))
   await user.click(within(dialog).getByRole('checkbox', { name: /campaign\.view/ }))
@@ -137,7 +140,7 @@ test('someone without user.admin sees no Settings entry and is refused on the UR
   try {
     await renderAppAt('/settings/users')
     expect(await screen.findByText('Settings are for workspace administrators')).toBeTruthy()
-    expect(within(screen.getByRole('navigation', { name: 'Apps' })).queryByText('Settings')).toBeNull()
+    expect(within(screen.getByRole('navigation', { name: 'Main' })).queryByText('Settings')).toBeNull()
   } finally {
     me.principal.permissions = ['campaign.edit', 'campaign.publish', 'template.edit', 'user.admin']
   }
@@ -166,4 +169,23 @@ test('set password (public): mismatch is caught locally, an expired link is expl
   expect(post?.body).toEqual({ uid: 'dTI', token: 'abc-123', password: 'a long enough passphrase' })
   expect(post?.headers['X-Tenant']).toBe('NWA')
   expect(post?.headers.Authorization).toBeUndefined()
+})
+
+test('a single sign-on user gets a Password Link only while the workspace’s single sign-on is off, so removing it never locks them out', async () => {
+  const sso = { ...settingsUsers[0], id: 'u-sso', email: 'sso.person@example.com', display_name: 'Sam Single', auth_provider: 'OIDC', has_password: false, is_self: false }
+  settingsUsers.push(sso)
+  const saved = security.identity_provider
+  try {
+    for (const [provider, offered] of [[{ is_active: true }, false], [{ is_active: false }, true], [null, true]] as const) {
+      security.identity_provider = provider === null ? null : ({ ...provider } as never)
+      installMockApi()
+      await renderAppAt('/settings/users')
+      const row = (await screen.findByText('Sam Single')).closest('tr') as HTMLElement
+      await vi.waitFor(() => expect(Boolean(within(row).queryByRole('button', { name: 'Password Link' }))).toBe(offered))
+      cleanup()
+    }
+  } finally {
+    settingsUsers.pop()
+    security.identity_provider = saved
+  }
 })

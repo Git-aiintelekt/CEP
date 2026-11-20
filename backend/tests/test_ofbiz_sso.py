@@ -63,10 +63,10 @@ def _expires(minutes, zone=ICRM_TIME_ZONE):
     return (datetime.now(ZoneInfo(zone)) + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M")
 
 
-def _ofbiz_token(email, tenant="default", *, keys=KEYS, minutes=5, **overrides):
+def _ofbiz_token(user_email, tenant="default", *, keys=KEYS, minutes=5, **overrides):
     """What iCRM's UtilCommon.getCepSSOToken sends (getSSOToken plus cep_role and display_name): expiry in iCRM's time zone,
     no jti, no audience. The logout sends the same."""
-    data = {"user_login_id": "sharmila", "version": "1.0", "tenant_id": tenant, "expires": _expires(minutes), "email": email,
+    data = {"user_login_id": "sharmila", "version": "1.0", "tenant_id": tenant, "expires": _expires(minutes), "email": user_email,
             "cep_role": "ANALYST", "display_name": "Sharmila K", **overrides}
     return MultipassTokenEncode(keys["site_key"], keys["api_key"]).encode(data)
 
@@ -184,14 +184,12 @@ def test_ofbiz_launch_refusals(check, admin_email):
     check.done()
 
 
-def _platform_user(email):
-    tok = context.set_platform(True)
-    try:
-        user = AppUser.objects.filter(email__iexact=email).first()
-        roles = sorted(UserRole.objects.filter(user=user).values_list("role__name", flat=True)) if user else []
-        return user, roles
-    finally:
-        context.reset_platform(tok)
+def _workspace_user(email):
+    """Read on the test's own connection (row-level security set by _link): the launch wrote there, inside the test's transaction,
+    where the platform connection cannot see it."""
+    user = AppUser.objects.using("default").filter(email__iexact=email).first()
+    roles = sorted(UserRole.objects.using("default").filter(user=user).values_list("role__name", flat=True)) if user else []
+    return user, roles
 
 
 def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
@@ -210,40 +208,36 @@ def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
         return "/login#" in response["Location"] and (_fragment(response).get("sso_error") or [""])[0]
 
     check("an iCRM user with no CEP role is refused and not created", "don't have a CEP role" in error(_ofbiz_token(email, code, cep_role=""))
-          and _platform_user(email)[0] is None)
+          and _workspace_user(email)[0] is None)
 
     first = launch(_ofbiz_token(email.upper(), code, display_name="  New   Person "))
     check("the first Open CEP of an iCRM user signs them in", first.status_code == 302 and "/launch#" in first["Location"], first.get("Location"))
-    user, roles = _platform_user(email)
+    user, roles = _workspace_user(email)
     check("the CEP user is created with the email and name only", user is not None and user.email == email and user.display_name == "New Person"
           and user.tenant_id == admin.tenant.id and user.is_active, user and (user.email, user.display_name))
     check("CEP keeps no password for them", user is not None and not user.password and not user.has_usable_password())
     check("with the role iCRM sent", roles == [ROLES["ANALYST"]], roles)
 
     again = launch(_ofbiz_token(email, code, cep_role="campaign_manager"))
-    user_again, roles = _platform_user(email)
+    user_again, roles = _workspace_user(email)
     check("the next Open CEP signs in the same user", "/launch#" in again["Location"] and user_again.pk == user.pk)
     check("and replaces the role with iCRM's current one", roles == [ROLES["CAMPAIGN_MANAGER"]], roles)
 
     check("a refused role leaves the user's role as it was", "no matching role" in error(_ofbiz_token(email, code, cep_role="OWNER"))
-          and _platform_user(email)[1] == [ROLES["CAMPAIGN_MANAGER"]])
+          and _workspace_user(email)[1] == [ROLES["CAMPAIGN_MANAGER"]])
 
     Role.objects.using("default").get_or_create(tenant_id=admin.tenant.id, name="Marketing Admin")
     marketing = launch(_ofbiz_token(email, code, cep_role="MARKETING_ADMIN"))
     check("iCRM's MARKETING_ADMIN opens CEP as the workspace's role named Marketing Admin",
-          "/launch#" in marketing["Location"] and _platform_user(email)[1] == ["Marketing Admin"], marketing.get("Location"))
+          "/launch#" in marketing["Location"] and _workspace_user(email)[1] == ["Marketing Admin"], marketing.get("Location"))
 
-    tok = context.set_platform(True)
-    try:
-        AppUser.objects.filter(pk=user.pk).update(is_active=False)
-    finally:
-        context.reset_platform(tok)
+    AppUser.objects.using("default").filter(pk=user.pk).update(is_active=False)
     check("a user deactivated in CEP stays out", "deactivated" in error(_ofbiz_token(email, code)))
 
     stranger = f"icrm-{uuid.uuid4().hex[:8]}@example.invalid"
     signed_out = client.post(f"/api/v1/auth/sso/ofbiz/logout/?tenant={code}", json.dumps({"token": _ofbiz_token(stranger, code)}),
                              content_type="application/json")
-    check("an iCRM logout never creates a user", signed_out.status_code == 204 and _platform_user(stranger)[0] is None)
+    check("an iCRM logout never creates a user", signed_out.status_code == 204 and _workspace_user(stranger)[0] is None)
     check.done()
 
 

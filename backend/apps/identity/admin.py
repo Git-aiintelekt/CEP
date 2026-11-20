@@ -105,8 +105,9 @@ class AppUserAdmin(BaseAdmin):
     def password_link(self, request, object_id):
         from django.shortcuts import redirect
         user = AppUser.objects.using(P).select_related("tenant").get(pk=object_id)
-        if not user.is_active or user.auth_provider != "LOCAL":
-            messages.error(request, "Only active users who sign in with a password can get a link.")
+        from apps.platform_ops import sso
+        if not user.is_active or (user.auth_provider != "LOCAL" and sso.in_use(user.tenant_id, using=P)):
+            messages.error(request, "Only active users who sign in with a password can get a link; this workspace signs them in through single sign-on.")
         else:
             from apps.platform_ops import links, mail
             link = links.password_link(user)

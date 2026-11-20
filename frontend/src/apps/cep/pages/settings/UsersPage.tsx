@@ -11,7 +11,7 @@ import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { saveFailure } from '@/lib/saveFeedback'
-import type { PasswordLink, Role, SettingsUser } from '@/lib/types'
+import type { PasswordLink, Role, SecuritySettings, SettingsUser } from '@/lib/types'
 
 type Editing = { mode: 'create' } | { mode: 'edit'; user: SettingsUser } | null
 const USER_FIELDS = ['email', 'display_name', 'roles']
@@ -133,6 +133,9 @@ export function UsersPage() {
   const [linkFor, setLinkFor] = useState<SettingsUser | null>(null)
   const users = useQuery({ queryKey: ['settings', 'users'], queryFn: ({ signal }) => api.get<SettingsUser[]>('/users/', undefined, signal) })
   const roles = useQuery({ queryKey: ['settings', 'roles'], queryFn: ({ signal }) => api.get<Role[]>('/roles/', undefined, signal) })
+  const security = useQuery({ queryKey: ['workspace', 'security'], queryFn: ({ signal }) => api.get<SecuritySettings>('/workspace/security/', undefined, signal) })
+  // single sign-on switched off (or not set up): its users can choose a password too, so they are never locked out
+  const ssoOn = security.data ? Boolean(security.data.identity_provider?.is_active) : true
 
   const toggle = useMutation({
     mutationFn: (user: SettingsUser) => api.patch<SettingsUser>(`/users/${user.id}/`, { is_active: !user.is_active }),
@@ -153,7 +156,7 @@ export function UsersPage() {
     { key: 'actions', header: '', align: 'right', render: (user) => (
       <span className="flex justify-end gap-1">
         <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditing({ mode: 'edit', user })}>Edit</button>
-        {user.is_active && user.auth_provider === 'LOCAL' && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setLinkFor(user)}>Password Link</button>}
+        {user.is_active && (user.auth_provider === 'LOCAL' || !ssoOn) && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setLinkFor(user)}>Password Link</button>}
         {!user.is_self && <button type="button" className={buttonClass({ variant: user.is_active ? 'danger' : 'link', size: 'sm' })} disabled={toggle.isPending}
           onClick={() => (user.is_active ? window.confirm(`Deactivate ${user.display_name}? They will not be able to sign in.`) : true) && toggle.mutate(user)}>{user.is_active ? 'Deactivate' : 'Activate'}</button>}
       </span>) },

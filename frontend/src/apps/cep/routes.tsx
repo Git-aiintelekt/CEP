@@ -33,6 +33,7 @@ import { ApprovalsPage } from './pages/settings/ApprovalsPage'
 import { AttributionPage } from './pages/settings/AttributionPage'
 import { ConsentPolicyPage } from './pages/settings/ConsentPolicyPage'
 import { DeliveryPage } from './pages/settings/DeliveryPage'
+import { DeliveryWarmUpPage } from './pages/settings/DeliveryWarmUpPage'
 import { UtmTrackingPage } from './pages/settings/UtmTrackingPage'
 import { EventsPage } from './pages/settings/EventsPage'
 import { IntegrationsPage } from './pages/settings/IntegrationsPage'
@@ -51,6 +52,7 @@ import { RolesPage } from './pages/settings/RolesPage'
 import { SecurityPage } from './pages/settings/SecurityPage'
 import { SettingsLayout } from './pages/settings/SettingsLayout'
 import { SuppressionsPage } from './pages/settings/SuppressionsPage'
+import { GovernancePage } from './pages/settings/GovernancePage'
 import { TagsPage } from './pages/settings/TagsPage'
 import { UsersPage } from './pages/settings/UsersPage'
 import { WorkspaceSetupPage } from './pages/settings/WorkspaceSetupPage'
@@ -112,8 +114,10 @@ export default function CepRoutes() {
           <Route path="security" element={<SecurityPage />} />
           <Route path="email" element={<MailServerPage />} />
           <Route path="delivery" element={<DeliveryPage />} />
+          <Route path="delivery-warmup" element={<DeliveryWarmUpPage />} />
           <Route path="utm-tracking" element={<UtmTrackingPage />} />
           <Route path="integrations" element={<IntegrationsPage />} />
+          <Route path="governance" element={<GovernancePage />} />
           <Route path="suppressions" element={<SuppressionsPage />} />
           <Route path="preference-center" element={<PreferenceCenterPage />} />
           <Route path="consent" element={<ConsentPolicyPage />} />

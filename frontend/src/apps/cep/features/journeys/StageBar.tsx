@@ -21,9 +21,11 @@ interface StageBarProps {
   live?: boolean
   /** the right-hand slot: the page's own status and actions */
   actions?: ReactNode
+  /** the page's help icon (PageHelp), beside the journey's name */
+  help?: ReactNode
 }
 
-export function StageBar({ journeyName, stage, testDone = false, approveState, live = false, actions }: StageBarProps) {
+export function StageBar({ journeyName, stage, testDone = false, approveState, live = false, actions, help }: StageBarProps) {
   const stages: { key: string; label: string; state: StageState }[] = [
     { key: 'setup', label: 'Setup', state: 'done' },
     { key: 'build', label: 'Build', state: stage === 'build' ? 'current' : 'done' },
@@ -44,6 +46,7 @@ export function StageBar({ journeyName, stage, testDone = false, approveState, l
           <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />
         </Link>
         <p className="min-w-0 truncate text-sm font-semibold text-ink-900" title={journeyName}>{journeyName}</p>
+        {help}
       </div>
       {/* below 1100px the full stepper runs under the right-hand actions: show where you are instead */}
       <p className="text-sm whitespace-nowrap text-ink-800 max-sm:hidden min-[1100px]:hidden">

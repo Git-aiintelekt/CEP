@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import { useState } from 'react'
 
-import { Field, Select, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
@@ -16,10 +16,11 @@ import { useToast } from '@/components/Toast'
 import { useAuth } from '@/auth/AuthContext'
 import { formatDateTime } from '@/lib/format'
 import { alertsApi } from '../api'
-import type { AlertOp, ReportAlert, ResultColumn } from '../types'
+import type { ReportAlert, ResultColumn } from '../types'
+import { AlertFields } from './AlertFields'
+import { alertBody, alertDraftOf, alertReady } from './alertDraft'
 import { formatCell } from './resultWords'
 
-const OPS: { value: AlertOp; label: string }[] = [{ value: '<', label: 'Falls below' }, { value: '<=', label: 'Is at or below' }, { value: '>', label: 'Rises above' }, { value: '>=', label: 'Is at or above' }]
 const STATE: Record<ReportAlert['state'], { label: string; tone: 'success' | 'error' | 'neutral' }> = {
   OK: { label: 'Within', tone: 'success' }, TRIGGERED: { label: 'Crossed', tone: 'error' }, UNKNOWN: { label: 'Not Checked Yet', tone: 'neutral' },
 }
@@ -61,21 +62,14 @@ export function AlertsDialog({ reportId, reportName, measures, onClose }: { repo
   const builder = can('report.edit') || can('report.admin')
   const key = ['insights', 'alerts', reportId]
   const alerts = useQuery({ queryKey: key, queryFn: () => alertsApi.list(reportId) })
-  const [measure, setMeasure] = useState(measures[0]?.key ?? '')
-  const [op, setOp] = useState<AlertOp>('<')
-  const [threshold, setThreshold] = useState('')
-  const [every, setEvery] = useState<'hour' | 'day'>('day')
-  const [at, setAt] = useState('08:00')
-  const [recipients, setRecipients] = useState(me?.principal.email ?? '')
-  const [name, setName] = useState('')
+  const [draft, setDraft] = useState(() => alertDraftOf(null, measures[0]?.key ?? '', me?.principal.email ?? ''))
   const refresh = () => client.invalidateQueries({ queryKey: key })
   const create = useMutation({
-    mutationFn: () => alertsApi.create({ report_id: reportId, measure, op, threshold: Number(threshold), every, ...(every === 'day' ? { at_time: at } : {}),
-      recipients: recipients.split(/[\s,;]+/).map((a) => a.trim()).filter(Boolean), ...(name.trim() ? { name: name.trim() } : {}) }),
-    onSuccess: () => { toast.success('Alert set', 'It is checked on its schedule; Check Now reads it at once.'); setThreshold(''); setName(''); void refresh() },
+    mutationFn: () => alertsApi.create(alertBody(draft, reportId)),
+    onSuccess: () => { toast.success('Alert set', 'It is checked on its schedule; Check Now reads it at once.'); setDraft((now) => ({ ...now, threshold: '', name: '' })); void refresh() },
     onError: (error) => toast.failure(error, 'The alert was not set'),
   })
-  const ready = measure && threshold.trim() !== '' && Number.isFinite(Number(threshold)) && recipients.trim()
+  const ready = alertReady(draft)
   return (
     <Modal title="Alerts" subtitle={reportName} size="lg" scrollBody onClose={onClose} footer={<div className="flex justify-end"><button type="button" className={buttonSecondary} onClick={onClose}>Done</button></div>}>
       {alerts.isPending ? <Spinner label="Loading the alerts" /> : alerts.isError ? <ErrorState error={alerts.error} onRetry={() => alerts.refetch()} />
@@ -90,21 +84,7 @@ export function AlertsDialog({ reportId, reportName, measures, onClose }: { repo
             )}
             <form aria-label="New alert" className="flex flex-col gap-3 rounded-md border border-line p-3" onSubmit={(event) => { event.preventDefault(); if (ready) create.mutate() }}>
               <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink-900"><Bell size={16} strokeWidth={1.5} aria-hidden />New Alert</h3>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="When">{(ids) => <Select id={ids.id} value={measure} onChange={(event) => setMeasure(event.target.value)}>{measures.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}</Select>}</Field>
-                <Field label="Condition">{(ids) => <Select id={ids.id} value={op} onChange={(event) => setOp(event.target.value as AlertOp)}>{OPS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>}</Field>
-                <Field label="Threshold" hint={measures.find((m) => m.key === measure)?.format === 'percent' ? 'In percent: 90 is 90%' : undefined}>
-                  {(ids) => <TextInput id={ids.id} describedBy={ids.describedBy} type="number" step="any" value={threshold} onChange={(event) => setThreshold(event.target.value)} />}
-                </Field>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Check">{(ids) => <Select id={ids.id} value={every} onChange={(event) => setEvery(event.target.value as 'hour' | 'day')}><option value="day">Every Day</option><option value="hour">Every Hour</option></Select>}</Field>
-                {every === 'day' && <Field label="At">{(ids) => <TextInput id={ids.id} type="time" value={at} onChange={(event) => setAt(event.target.value)} />}</Field>}
-                <Field label="Name" hint="Optional">{(ids) => <TextInput id={ids.id} describedBy={ids.describedBy} value={name} maxLength={120} onChange={(event) => setName(event.target.value)} />}</Field>
-              </div>
-              <Field label="Email To" hint={builder ? 'One or more addresses' : 'An alert goes to you only'}>
-                {(ids) => <TextInput id={ids.id} describedBy={ids.describedBy} value={recipients} readOnly={!builder} onChange={(event) => setRecipients(event.target.value)} />}
-              </Field>
+              <AlertFields draft={draft} onChange={setDraft} measures={measures} builder={builder} />
               <div className="flex justify-end"><button type="submit" className={buttonPrimary} disabled={!ready || create.isPending || !alerts.data.mail_configured}>Set Alert</button></div>
             </form>
           </div>

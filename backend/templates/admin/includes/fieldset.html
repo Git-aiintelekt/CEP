@@ -1,0 +1,70 @@
+{% load unfold cep_forms %}
+{% comment %}
+A form section in the back-office, like the workspaces' forms: a card with its title and a one-line note, each label above
+its field, short fields side by side (cep-w-S a third, M a half, L the full width), help and errors under the field, the
+unit beside a number, "(Optional)" on the few optional fields. Each section's id is its name slugified, so a link can
+open it (Readiness → Edit goes to #industry-and-features). Stacked inlines keep Unfold's own layout.
+{% endcomment %}
+{% if stacked == 1 %}
+<fieldset class="module relative border-l border-base-200 ml-3 dark:before:bg-striped-dark dark:border-base-800 before:content-[''] before:block before:h-full before:bg-striped before:absolute before:-left-3 before:top-0 before:w-3{% if fieldset.classes %} {{ fieldset.classes }}{% endif %}">
+    {% if fieldset.is_collapsible %}<details><summary>{% endif %}
+    {% if fieldset.name or fieldset.description %}
+        <div class="bg-base-50 border-b border-base-200 flex flex-row gap-3 px-3 py-2 dark:border-base-800 dark:bg-white/[.02] {% if forloop.counter0 > 0 %}border-t{% endif %}">
+            {% if fieldset.name %}<h2 class="font-semibold text-important">{{ fieldset.name }}</h2>{% endif %}
+            {% if fieldset.description %}<div class="leading-relaxed max-w-4xl text-subtle">{{ fieldset.description|safe }}</div>{% endif %}
+        </div>
+    {% endif %}
+    {% if fieldset.is_collapsible %}</summary>{% endif %}
+    <div class="{% fieldset_rows_classes %}">
+        {% for line in fieldset %}{% include "unfold/helpers/fieldset_row.html" %}{% endfor %}
+    </div>
+    {% if fieldset.name and fieldset.is_collapsible %}</details>{% endif %}
+</fieldset>
+{% else %}
+<fieldset{% if fieldset.name %} id="{{ fieldset.name|slugify }}"{% endif %} class="module cep-section{% if fieldset_tab %} cep-section-tab{% endif %}{% if fieldset.classes %} {{ fieldset.classes }}{% endif %}" x-show="activeTab == 'general'">
+    {% if fieldset.is_collapsible %}<details><summary>{% endif %}
+    {% if fieldset.name and "tab" not in fieldset.classes or fieldset.description %}
+        <div class="cep-section-head">
+            {% if fieldset.name and "tab" not in fieldset.classes %}<h2>{{ fieldset.name|cep_title }}</h2>{% endif %}
+            {% if fieldset.description %}<p>{{ fieldset.description|safe }}</p>{% endif %}
+        </div>
+    {% endif %}
+    {% if fieldset.is_collapsible %}</summary>{% endif %}
+
+    <div class="cep-form-grid">
+        {% for line in fieldset %}
+            {% for field in line %}
+                {% cep_field field adminform.model_admin as f %}
+                {% if f.hidden %}
+                    {{ field.field }}
+                {% else %}
+                    {% with adminform.model_admin.conditional_fields|index:field.field.name as conditional_display %}
+                    <div class="cep-field cep-w-{{ f.width }} field-{{ field.field.name }}{% if field.errors %} has-error{% endif %}{% if f.readonly %} is-readonly{% endif %}"
+                         {% if has_conditional_display and conditional_display %}x-show="{{ conditional_display }}"{% endif %}>
+                        {% if has_conditional_display and not f.readonly %}{% with field|changeform_condition as field %}{% endwith %}{% endif %}
+                        {% if field.is_checkbox %}
+                            <div class="cep-check">
+                                {{ field.field }}
+                                <label for="{{ field.field.id_for_label }}">{{ f.label }}</label>
+                            </div>
+                        {% else %}
+                            <label class="cep-label"{% if not f.readonly %} for="{{ field.field.id_for_label }}"{% endif %}>{{ f.label }}{% if f.optional %}<span class="cep-optional">(Optional)</span>{% endif %}</label>
+                            {% if f.readonly %}
+                                <div class="cep-readonly">{% include "unfold/helpers/field_readonly_value.html" %}</div>
+                            {% elif f.unit %}
+                                <div class="cep-unit-wrap">{{ field.field }}<span class="cep-unit" aria-hidden="true">{{ f.unit }}</span></div>
+                            {% else %}
+                                {{ field.field }}
+                            {% endif %}
+                        {% endif %}
+                        {% if f.help %}<p class="cep-help">{{ f.help|safe }}</p>{% endif %}
+                        {% if field.errors %}<div class="cep-error" role="alert">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endwith %}
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+    {% if fieldset.name and fieldset.is_collapsible %}</details>{% endif %}
+</fieldset>
+{% endif %}

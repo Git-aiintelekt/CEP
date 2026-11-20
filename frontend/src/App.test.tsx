@@ -59,7 +59,8 @@ test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bea
   await vi.waitFor(() => expect(calls.some((call) => call.url.endsWith('/campaigns/c1/publish/') && call.method === 'POST')).toBe(true))
 
   // the login call and the public sign-in options lookup carry no token
-  const authed = calls.filter((call) => !call.url.includes('/auth/token/') && !call.url.includes('/auth/options/'))
+  // the sign-in calls and the upgrade notice's status poll (every page, signed in or not) carry no session by design
+  const authed = calls.filter((call) => !call.url.includes('/auth/token/') && !call.url.includes('/auth/options/') && !call.url.includes('/platform-status/'))
   expect(authed.length).toBeGreaterThan(0)
   expect(authed.every((call) => call.headers['X-Tenant'] === 'NWA' && call.headers.Authorization === 'Bearer access-1')).toBe(true)
 })

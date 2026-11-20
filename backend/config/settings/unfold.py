@@ -25,6 +25,7 @@ AI = reverse_lazy("admin:platform_ops_ai_assistant")       # the AI providers, l
 BASE_REPORTS = reverse_lazy("admin:insights_base_reports")   # the base report packs, under the report datasets admin's address
 USAGE = reverse_lazy("admin:platform_ops_usage")          # lives under the invoice admin's address
 GUIDE = reverse_lazy("admin:platform_ops_guide")          # the Platform Guide, under the global parameters admin's address
+UPGRADE = reverse_lazy("admin:platform_ops_upgrade")      # Scheduled Upgrade, likewise
 PERFORMANCE = reverse_lazy("admin:tenants_tenant_performance")   # under the tenant admin's address
 
 
@@ -122,6 +123,7 @@ UNFOLD = {
             ]},
             {"title": "Operations", "separator": True, "items": [
                 _link("Job Runs", "schedule", "platform_ops_jobrun"),
+                {"title": "Scheduled Upgrade", "icon": "system_update", "link": UPGRADE, "active": _under(UPGRADE)},
                 _link("Change Audit Trail", "history", "audit_definitionauditlog"),
                 _link("Database Routing", "dns", "tenants_tenantdatabase"),
                 _link("Storage and CDN", "cloud", "tenants_tenantstorageconfig"),
@@ -168,7 +170,8 @@ UNFOLD = {
                 _link("Consent Records", "fact_check", "governance_consentrecord"),
                 _link("Suppressions", "do_not_disturb_on", "governance_consentsuppression"),
                 _link("Contact Point Status", "contact_phone", "governance_contactpointstatus"),
-                _link("Policies", "policy", "governance_communicationgovernancepolicy"),
+                _link("Platform Policies", "public", "platform_ops_platformgovernancepolicy"),
+                _link("Workspace Policies", "policy", "governance_communicationgovernancepolicy"),
                 _link("Exemptions", "rule", "governance_governanceexemption"),
                 _link("Evaluation Log", "checklist", "governance_governanceevaluationlog"),
             ]},

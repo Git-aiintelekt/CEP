@@ -10,6 +10,7 @@ from django.apps import apps as django_apps
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import FieldDoesNotExist
 from django.db import connections, models
 from unfold.admin import ModelAdmin
 
@@ -18,6 +19,28 @@ SEARCHABLE = ("name", "code", "email", "display_name", "subject", "party_id", "k
 FILTERABLE = ("status", "channel", "campaign_type", "run_type", "list_kind", "tag_kind", "auth_provider",
               "isolation_mode", "is_active", "is_staff", "tenant")
 SECRET_FIELDS = {"password", "key_hash"}
+
+
+def is_secret(name: str) -> bool:
+    """a credential column: never listed, shown or edited in the back-office (stored encrypted as *_enc, or hashed)"""
+    return name in SECRET_FIELDS or name.endswith("_enc")
+# what a list page can be searched by when its admin names nothing: these text columns, then the name of a linked record
+FOUND_BY = ("name", "code", "key", "tag_key", "node_key", "label", "title", "display_name", "email", "subject", "file_name", "domain", "url", "version_label")
+
+
+def derived_search_fields(model) -> tuple[str, ...]:
+    """'name', 'code', … where the model has them; else the linked records' names (a campaign run is found by its
+    campaign's name, a journey version by its journey's)."""
+    fields = {f.name: f for f in model._meta.concrete_fields}
+    own = tuple(name for name in FOUND_BY if name in fields and isinstance(fields[name], (models.CharField, models.TextField)))
+    if own:
+        return own
+    linked = []
+    for field in model._meta.concrete_fields:
+        if field.many_to_one and field.name not in AUDIT_FIELDS and field.name != "tenant":
+            target = {f.name: f for f in field.remote_field.model._meta.concrete_fields}
+            linked += [f"{field.name}__{name}" for name in ("name", "code", "label", "title") if name in target and isinstance(target[name], models.CharField)][:1]
+    return tuple(linked[:3])
 
 
 class PlatformWriteMixin:
@@ -71,6 +94,35 @@ class BaseAdmin(PlatformWriteMixin, ModelAdmin):
             field.required = False
         return field
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # Unfold picks the id box BEFORE the type-to-search list (Django picks the list first): put the list first again
+        if "widget" not in kwargs and db_field.name in self.get_autocomplete_fields(request):
+            from django.contrib.admin.widgets import AutocompleteSelect
+            kwargs["widget"] = AutocompleteSelect(db_field, self.admin_site, using=kwargs.get("using"))
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_search_fields(self, request):
+        """Every list page can be searched: an admin that names no search fields gets them from the model's columns"""
+        return super().get_search_fields(request) or derived_search_fields(self.model)
+
+    def get_autocomplete_fields(self, request):
+        """A link to another record is a type-to-search field (type "CITI", pick CITISTAGING) wherever the other record's
+        page can be searched, instead of a box holding its id and a magnifier opening a pop-up list. Links to records
+        whose page has no search keep the id box (raw_id_fields): never a <select> of every row."""
+        explicit = tuple(super().get_autocomplete_fields(request))
+        found = []
+        for name in self.raw_id_fields:
+            try:
+                field = self.model._meta.get_field(name)
+            except FieldDoesNotExist:
+                continue
+            if not (field.many_to_one or field.one_to_one or field.many_to_many):
+                continue
+            related = self.admin_site._registry.get(field.remote_field.model)
+            if related is not None and related.get_search_fields(request) and related.has_view_permission(request):
+                found.append(name)
+        return explicit + tuple(name for name in found if name not in explicit)
+
     def get_fieldsets(self, request, obj=None):
         """Read-only system fields (ids, counters, timestamps) are filled by the database on insert: before the row
         exists they hold a DatabaseDefault placeholder, not a value, so the add form leaves them out."""
@@ -105,7 +157,7 @@ class GenericAdmin(BaseAdmin):
         names = [f.name for f in fields]
         bulky = (models.JSONField, ArrayField, models.BinaryField)
         columns = [f.name for f in fields
-                   if not isinstance(f, bulky) and f.name not in SECRET_FIELDS
+                   if not isinstance(f, bulky) and not is_secret(f.name)
                    and (f.name not in AUDIT_FIELDS or f.name == "created_at")
                    and not (isinstance(f, models.TextField) and f.name not in SEARCHABLE)]
         self.list_display = columns[:8] or [model._meta.pk.name]
@@ -113,7 +165,7 @@ class GenericAdmin(BaseAdmin):
         self.list_filter = [n for n in FILTERABLE if n in names][:5]
         self.raw_id_fields = [f.name for f in fields if f.is_relation]          # never render a <select> of every row
         self.readonly_fields = [n for n in names if n in AUDIT_FIELDS and n not in self.raw_id_fields]
-        self.exclude = [n for n in names if n in SECRET_FIELDS]
+        self.exclude = [n for n in names if is_secret(n)]
         if "created_at" in names:
             self.ordering = ("-created_at",)
         super().__init__(model, admin_site)

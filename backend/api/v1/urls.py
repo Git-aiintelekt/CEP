@@ -24,9 +24,10 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
+from .platform_status_api import PlatformStatusView
+from . import (attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
-               home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
+               home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api, governance_api)
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -86,6 +87,10 @@ urlpatterns = [
     path("utm/preview/", utm_api.UtmPreviewView.as_view(), name="utm-preview"),
     path("campaigns/<uuid:pk>/link-tracking/", utm_api.CampaignLinkTrackingView.as_view(), name="campaign-link-tracking"),
     path("l/<str:tenant_code>/<str:token>/", utm_api.short_link, name="short-link"),
+    path("warmup/", warmup_api.WarmupView.as_view(), name="warmup"),
+    path("warmup/plans/", warmup_api.WarmupPlansView.as_view(), name="warmup-plans"),
+    path("warmup/days/", warmup_api.WarmupDaysView.as_view(), name="warmup-days"),
+    path("warmup/actions/", warmup_api.WarmupActionsView.as_view(), name="warmup-actions"),
     path("sending-domains/", delivery_api.SendingDomainsView.as_view(), name="sending-domains"),
     path("sending-domains/check/", delivery_api.SendingDomainsCheckView.as_view(), name="sending-domains-check"),
     path("sending-domains/selector/", delivery_api.SendingDomainSelectorView.as_view(), name="sending-domains-selector"),
@@ -103,6 +108,7 @@ urlpatterns = [
     path("client-errors/", client_errors.client_error_view, name="client-errors"),   # browser errors, no sign-in
     path("orders/", attribution_api.OrdersIngestView.as_view(), name="orders-ingest"),                 # the shop's orders, for attribution
     path("legal/", legal_api.LegalView.as_view(), name="legal"),                                      # the copyright line and the Terms of Use, no sign-in
+    path("platform-status/", PlatformStatusView.as_view(), name="platform-status"),                  # the upgrade notice, polled by every page; no sign-in
     path("events/", events_api.EventsIngestView.as_view(), name="events-ingest"),                       # what happened to customers, for journeys
     path("workspace/events/", events_api.EventsSettingsView.as_view(), name="workspace-events"),
     path("workspace/events/recent/", events_api.EventsRecentView.as_view(), name="workspace-events-recent"),
@@ -154,6 +160,11 @@ urlpatterns = [
     path("integrations/<uuid:pk>/pause/", integrations_api.IntegrationPauseView.as_view(), {"pause": True}, name="integration-pause"),
     path("integrations/<uuid:pk>/resume/", integrations_api.IntegrationPauseView.as_view(), {"pause": False}, name="integration-resume"),
     path("sms-inbound/", delivery_api.SmsInboundView.as_view(), name="sms-inbound"),
+    path("workspace/governance/", governance_api.GovernanceView.as_view(), name="workspace-governance"),
+    path("workspace/governance/caps/", governance_api.CapsView.as_view(), name="workspace-governance-caps"),
+    path("workspace/governance/caps/<uuid:pk>/", governance_api.CapView.as_view(), name="workspace-governance-cap"),
+    path("workspace/governance/standard/", governance_api.StandardView.as_view(), name="workspace-governance-standard"),
+    path("workspace/governance/gaps/<str:channel>/", governance_api.GapView.as_view(), name="workspace-governance-gap"),
     path("suppressions/", suppressions_api.SuppressionListView.as_view(), name="suppression-list"),
     path("suppressions/summary/", suppressions_api.SuppressionSummaryView.as_view(), name="suppression-summary"),
     path("suppressions/export.csv", suppressions_api.SuppressionExportView.as_view(), name="suppression-export"),

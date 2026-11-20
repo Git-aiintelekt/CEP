@@ -1,7 +1,7 @@
 /**
  * A free canvas, pure: tiles placed on a 12-column grid by column, row, width and height (rows of 72px). Tiles may overlap; the
- * later one sits on top. Converting rows to a canvas keeps their order and widths; a canvas back to rows reads it top to bottom,
- * up to four tiles a row. On a phone the canvas stacks top to bottom, without the tiles marked Hide on Phone.
+ * later one sits on top. Converting rows to a canvas keeps their order and widths. On a phone the canvas stacks top to bottom,
+ * without the tiles marked Hide on Phone.
  */
 import type { DashboardCell, DashboardRow, DashboardTile, RowWidth } from '../types'
 
@@ -39,18 +39,6 @@ export function rowsToCells(rows: DashboardRow[]): DashboardCell[] {
   return cells
 }
 
-const WIDTH_OF: Record<number, RowWidth> = { 1: '1', 2: '2', 3: '3', 4: '4' }
-
-export function cellsToRows(cells: DashboardCell[]): DashboardRow[] {
-  const ordered = [...cells].sort((a, b) => a.y - b.y || a.x - b.x)
-  const rows: DashboardRow[] = []
-  for (let i = 0; i < ordered.length; i += 4) {
-    const tiles = ordered.slice(i, i + 4).map(({ x: _x, y: _y, w: _w, h: _h, ...tile }) => tile)
-    rows.push({ width: WIDTH_OF[tiles.length], tiles })
-  }
-  return rows
-}
-
 /** the first row below every tile */
 export function bottom(cells: DashboardCell[]): number {
   return cells.reduce((low, cell) => Math.max(low, cell.y + cell.h), 0)
@@ -75,4 +63,80 @@ export function setBox(cells: DashboardCell[], id: string, box: Partial<Pick<Das
 
 export function phoneOrder(cells: DashboardCell[]): DashboardCell[] {
   return [...cells].filter((cell) => !cell.hide_on_phone).sort((a, b) => a.y - b.y || a.x - b.x)
+}
+
+// ---------------------------------------------------------------------------------------------------- grid
+// Grid is a canvas whose tiles flow: in order, left to right, a line as tall as its tallest tile, the next line below it. It is
+// saved as cells like any canvas; a page whose cells sit where flowing puts them is a grid.
+
+export const SIZES: { w: number; label: string; part: string }[] = [
+  { w: 3, label: 'Small', part: '¼' }, { w: 4, label: 'One Third', part: '⅓' }, { w: 6, label: 'Medium', part: '½' },
+  { w: 8, label: 'Two Thirds', part: '⅔' }, { w: 9, label: 'Wide', part: '¾' }, { w: 12, label: 'Full Width', part: '' },
+]
+
+/** the size nearest a tile's width */
+export function sizeOf(cell: Pick<DashboardCell, 'w'>): (typeof SIZES)[number] {
+  return SIZES.reduce((best, size) => (Math.abs(size.w - cell.w) < Math.abs(best.w - cell.w) ? size : best), SIZES[0])
+}
+
+export function isTall(cell: DashboardCell): boolean {
+  return cell.h >= startSize(cell.show).h * 2
+}
+
+/** top to bottom, left to right */
+export function readingOrder(cells: DashboardCell[]): DashboardCell[] {
+  return [...cells].sort((a, b) => a.y - b.y || a.x - b.x)
+}
+
+/** the cells in the order given, flowed into lines */
+export function pack(cells: DashboardCell[]): DashboardCell[] {
+  let x = 0
+  let y = 0
+  let line = 0
+  return cells.map((cell) => {
+    const w = Math.min(COLUMNS, Math.max(1, cell.w))
+    if (x > 0 && x + w > COLUMNS) { y += line; x = 0; line = 0 }
+    const placed = { ...cell, x, y, w }
+    x += w
+    line = Math.max(line, cell.h)
+    return placed
+  })
+}
+
+export function isPacked(cells: DashboardCell[]): boolean {
+  const ordered = readingOrder(cells)
+  return pack(ordered).every((cell, i) => cell.x === ordered[i].x && cell.y === ordered[i].y && cell.w === ordered[i].w)
+}
+
+/** where the next tile of this width goes */
+export function nextPlace(cells: DashboardCell[], w: number): { x: number; y: number } {
+  const probe = pack([...cells, { id: '_next', report_id: '', show: 'text', x: 0, y: 0, w, h: 2 }])
+  const last = probe[probe.length - 1]
+  return { x: last.x, y: last.y }
+}
+
+export function moveTo(cells: DashboardCell[], id: string, to: number): DashboardCell[] {
+  const from = cells.findIndex((cell) => cell.id === id)
+  if (from < 0) return cells
+  const next = [...cells]
+  const [moved] = next.splice(from, 1)
+  next.splice(Math.max(0, Math.min(to, next.length)), 0, moved)
+  return pack(next)
+}
+
+export function setSize(cells: DashboardCell[], id: string, w: number): DashboardCell[] {
+  return pack(cells.map((cell) => (cell.id === id ? { ...cell, w } : cell)))
+}
+
+export function setTall(cells: DashboardCell[], id: string, tall: boolean): DashboardCell[] {
+  return pack(cells.map((cell) => (cell.id === id ? { ...cell, h: Math.min(MAX_HEIGHT, startSize(cell.show).h * (tall ? 2 : 1)) } : cell)))
+}
+
+/** a copy of the tile right after it */
+export function duplicateCell(cells: DashboardCell[], id: string, newId: string): DashboardCell[] {
+  const at = cells.findIndex((cell) => cell.id === id)
+  if (at < 0) return cells
+  const next = [...cells]
+  next.splice(at + 1, 0, { ...cells[at], id: newId })
+  return pack(next)
 }

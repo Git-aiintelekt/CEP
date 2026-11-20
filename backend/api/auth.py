@@ -82,13 +82,15 @@ from rest_framework_simplejwt.authentication import JWTAuthentication  # noqa: E
 SAFE = ("GET", "HEAD", "OPTIONS")
 SUPPORT_FORBIDDEN = ("/users/", "/roles/", "/api-clients/", "/workspace/security/", "/auth/mfa/")
 MFA_SETUP_ALLOWED = ("/auth/mfa/", "/me/", "/auth/token/refresh/")
+VISIT_FORBIDDEN = ("/auth/mfa/",)        # a visitor's own sign-in security belongs to their home workspace
 
 
 class CepJWTAuthentication(JWTAuthentication):
     """* a support session (claim `imp`) is read-only unless opened for writing, never touches users / roles / keys /
          sign-in security, and stops working the moment it is ended or expires;
        * a visit (claim `visit`, Switch Workspace): a platform administrator in another workspace as themselves, read through the
-         platform connection (the workspace's row-level security hides them), only in that workspace and while the visit is open;
+         platform connection (the workspace's row-level security hides them), only in that workspace and while the visit is open,
+         and never to their own sign-in security, which belongs to their home workspace;
        * a user who must enrol MFA first (claim `mfa_setup`) reaches only the enrolment endpoints and /me;
        * a session opened from OFBiz (claim `ofbiz`) ends when the user signs out of OFBiz."""
 
@@ -136,6 +138,8 @@ class CepJWTAuthentication(JWTAuthentication):
             if visit is None:
                 raise exceptions.AuthenticationFailed("This visit has ended. Go back to your workspace and switch again.")
             request._request.platform_visit = visit
+            if any(path.startswith(prefix) for prefix in VISIT_FORBIDDEN):
+                raise exceptions.PermissionDenied("Your sign-in security is managed in your own workspace. Go back to the platform to change it.")
             visits.touch(visit_id, request.method not in SAFE)
 
         from apps.platform_ops import ofbiz

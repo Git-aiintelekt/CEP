@@ -16,11 +16,11 @@ Who is told when something happens: a send completed or failed, an approval was 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Events | A row per event with a checkbox per channel: Owner by Email, Recipients by Email, Webhook. | Who hears about each event. |
-| Email Addresses | Up to 20, separated by commas. | They get the events ticked under Recipients by Email. |
-| Webhook URL | The chat webhook's address; *Working* once a test reached it, *Not Tested* before. | The events ticked under Webhook are posted there as a message. |
-| Save | | |
-| Send a Test Message | One message by every channel that is set, with the saved settings, and records when the webhook last worked. | |
+| Events | A row per event with a checkbox per channel: Owner by Email, Recipients by Email, Webhook. Each event starts with the default channels below. | Who hears about each event. An event with no box ticked is told to nobody (approvers are still emailed when approval is asked). |
+| Email Addresses | Up to 20, separated by commas. Something that is not an address is refused. | They get the events ticked under Recipients by Email. Empty: that column sends nothing. |
+| Webhook URL | The chat webhook's address, starting with http:// or https://. *Working* once a test reached it, *Not Tested* before; changing the address sets it back to Not Tested. | The events ticked under Webhook are posted there as a message. Empty: that column sends nothing. |
+| Save | Enabled once something has changed; *Saved* confirms it. | The events from then on follow the new settings. Until you save, nothing changes and the test still uses the old settings. |
+| Send a Test Message | Greyed out until your changes are saved (*Save first: the test uses the saved settings.*), and until there are recipients or a webhook. | Sends one test message to the saved Email Addresses and to the webhook (not to campaign owners), and says what happened: *Test email sent to …*, *The webhook accepted the test message*, or that it refused it. A webhook that accepts it is marked Working, with when. |
 
 ### The events
 
@@ -38,13 +38,14 @@ Who is told when something happens: a send completed or failed, an approval was 
 
 **Get failures in a Slack channel.** Make an incoming webhook in Slack, paste its address, tick Webhook on Send failed and Sending engine trouble, Save, Send a Test Message.
 
-**Keep marketing ops informed.** Put the shared mailbox under Email Addresses and tick Recipients by Email on the events that matter.
+**Keep marketing ops informed.** Put the shared mailbox under Email Addresses and tick Recipients by Email on the events that matter → Save.
 
 ## What happens behind the scenes
 
-Notifications are prepared inside the work they report on and sent after it, so a failed notification never fails a send. Email goes through the workspace's own mail server when one is entered, the platform's otherwise. An integration's Email Alerts switch under Integrations decides whether that engine's trouble reaches these channels.
+Notifications are prepared inside the work they report on and sent after it, so a failed notification never fails a send. Email goes through the workspace's own mail server when one is in use, the platform's otherwise, with the subject starting *[C360]*. The webhook receives a JSON message with a `text` field. An integration's Email Alerts switch under Integrations decides whether that engine's trouble reaches these channels.
 
 ## Things to know
 
 - The campaign's owner is set on its Edit Details; a campaign without an owner has nobody to email under Owner.
 - The weekly report's own recipients and schedule live under Reports.
+- An address that gets an event two ways (as owner and as a recipient) gets one email.

@@ -10,6 +10,8 @@ import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
+import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
+import type { GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -48,6 +50,8 @@ export const platformVisits = [
 
 /** Insights (apps/insights): the catalogue, a saved report and a run's result the tests see */
 /** the components the workspace has, in the suite's order: what a report may be listed under */
+/** GET /platform-status/: tests set .upgrade to show the upgrade notice */
+export const platformStatusNow: { upgrade: Record<string, unknown> } = { upgrade: { state: 'NONE' } }
 export const suiteComponents = [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }]
 export const insightsCatalog = {
   components: suiteComponents, can_choose_component: true,
@@ -648,6 +652,7 @@ export const roles: Role[] = [
 export const permissionCatalogue = [
   { code: 'campaign.view', description: 'Campaign view' }, { code: 'campaign.edit', description: 'Campaign edit' },
   { code: 'template.edit', description: 'Template edit' }, { code: 'user.admin', description: 'User admin' },
+  { code: 'report.admin', description: 'Report admin' },
 ]
 const settingsUser = (overrides: Partial<SettingsUser>): SettingsUser => ({
   id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_active: true, auth_provider: 'LOCAL', mfa_enabled: false,
@@ -702,6 +707,26 @@ export const invoices: Invoice[] = [
   { id: 'inv-1', invoice_number: 'INV-NWA-202608', period_month: '2026-08-01', plan_code: 'GROWTH', currency: 'USD', base_amount: '499.00', overage_amount: '2.70', total_amount: '501.70',
     line_items: [], status: 'ISSUED', issued_at: '2026-09-01T06:00:00Z', due_at: '2026-09-15T06:00:00Z', paid_at: null },
 ]
+const CAP_WORDS: Record<string, [string, string, string]> = { EMAIL: ['Email', 'email', 'emails'], SMS: ['Text', 'text', 'texts'], WHATSAPP: ['WhatsApp', 'WhatsApp message', 'WhatsApp messages'], ALL: ['All Channels', 'message', 'messages'] }
+export const governanceCap = (overrides: Partial<GovernanceCap>): GovernanceCap => {
+  const cap = { id: 'cap-1', name: 'Cap', channel: 'EMAIL' as GovernanceCap['channel'], max_messages: 3, period_days: 7, is_active: true, platform: false, row_version: 1, ...overrides }
+  const [label, one, many] = CAP_WORDS[cap.channel]
+  return { ...cap, channel_label: label, rule: `${cap.max_messages} ${cap.max_messages === 1 ? one : many} per ${cap.period_days === 1 ? 'day' : `${cap.period_days} days`}` }
+}
+export const governanceGap = (channel: GovernanceGapChannel['channel'], overrides: Partial<GovernanceGap>): GovernanceGap => {
+  const gap = { id: `gap-${channel.toLowerCase()}`, name: 'Gap', hours: 16, is_active: true, platform: false, row_version: 1, ...overrides }
+  return { ...gap, rule: `${gap.hours} ${gap.hours === 1 ? 'hour' : 'hours'} between ${CAP_WORDS[channel][2]}` }
+}
+const gapChannel = (channel: GovernanceGapChannel['channel'], recommended: number, own: GovernanceGap | null, platform: GovernanceGap[] = []): GovernanceGapChannel =>
+  ({ channel, channel_label: CAP_WORDS[channel][0], recommended_hours: recommended, own, platform, covered_by: null })
+export const governance: GovernanceOverview = {
+  caps: [governanceCap({ id: 'cap-platform', channel: 'EMAIL', max_messages: 3, period_days: 7, platform: true }), governanceCap({ id: 'cap-own', channel: 'SMS', max_messages: 4, period_days: 30 })],
+  gaps: [gapChannel('EMAIL', 16, null), gapChannel('SMS', 24, governanceGap('SMS', { hours: 24 })),
+    gapChannel('WHATSAPP', 24, null, [governanceGap('WHATSAPP', { id: 'gap-platform', hours: 24, platform: true })])],
+  activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
+  text_quiet_hours: { start: '21:00', end: '08:00' },
+  soft_bounces: 3,
+}
 export const security: SecuritySettings = { require_mfa: false, sso_available: true, redirect_uri: 'http://localhost:8000/api/v1/auth/sso/callback/', identity_provider: null }
 export const supportAccess: SupportAccess[] = [
   { id: 'sup-1', staff: 'Pat Support', as_user: 'Devon Okafor', as_email: 'devon@example.com', reason: 'Ticket 4821: cannot find a campaign', mode: 'READ',
@@ -846,6 +871,8 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** GET /warmup/; default: no warm-up yet, a Growth plan of 25,000 contacts */
+  warmup?: WarmUpOverview
   /** GET /workspace/utm/; default: both channels off, the recommended values */
   utm?: Partial<UtmSettings>
   /** POST /utm/preview/ links; default: a hero image, a shop button, Instagram and the unsubscribe link */
@@ -956,6 +983,10 @@ interface MockOptions {
   onForgotPassword?: (call: Call) => Response | null
   /** GET /auth/options/ ; default: no single sign-on */
   authOptions?: Partial<AuthOptions>
+  /** GET /auth/options/ without X-Tenant: the workspace this address belongs to (its own domain); default none */
+  addressWorkspace?: string
+  /** GET /auth/options/ answers 404 Unknown tenant for this code */
+  unknownWorkspace?: string
   /** GET /auth/mfa/ starts from this */
   mfaEnabled?: boolean
   /** answer for PUT /workspace/security/ ; default merges the body into the stored settings */
@@ -1031,6 +1062,7 @@ export function installMockApi(options: MockOptions = {}) {
   const consentPolicyNow = { ...consentPolicy }
   const attributionNow: AttributionSettings = JSON.parse(JSON.stringify(attributionSettings))
   let setupNow: WorkspaceSetup = { ...SAMPLE_SETUP_READY, ...options.setup }
+  let warmupNow: WarmUpOverview = structuredClone(options.warmup ?? NO_WARM_UP)
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
   let journeyNow: Journey = makeJourney(options.journey)
@@ -1063,6 +1095,7 @@ export function installMockApi(options: MockOptions = {}) {
   let savedTemplatesNow: JourneyTemplate[] = (options.savedTemplates ?? []).map((row) => structuredClone(row))
   let securityNow: SecuritySettings = { ...security }
   let ofbizLinkNow = { workspace: 'NWA', site_key: '', api_key: '', has_api_key: false, configured: false, problem: null as string | null }
+  let governanceNow: GovernanceOverview = structuredClone(governance)
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
   const tagRows: PersonalizationTag[] = (options.tags ?? tags).map((item) => ({ ...item }))
@@ -1146,9 +1179,16 @@ export function installMockApi(options: MockOptions = {}) {
     }
     const tools = handleWorkspaceTools({ path, url, method, body }, toolsState)
     if (tools) return tools
+    if (path.endsWith('/platform-status/')) return json(platformStatusNow)
+    if (path.endsWith('/version.json')) return json({ detail: 'Not found' }, 404)
     if (path.endsWith('/legal/')) return json({ copyright_holder: 'Transaction Tree', year: 2026, terms: { title: 'Terms of Use', updated_at: '2026-10-09T10:00:00Z',
       body: '## 1. What C360 is\n\nCEP is a customer engagement platform.\n\n## 2. Your account\n\nYour account is personal.\n\n## 8. Contact\n\nAsk your workspace administrator.' } })
-    if (path.endsWith('/auth/options/')) return json({ workspace: headers['X-Tenant'], sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
+    if (path.endsWith('/auth/options/')) {
+      // no X-Tenant: the server resolves the address (a workspace's sub-domain or own domain); jsdom's localhost is none unless a test says so
+      const workspace = headers['X-Tenant'] || options.addressWorkspace
+      if (!workspace || workspace === options.unknownWorkspace) return json({ type: 'about:blank', title: 'Unknown tenant', status: 404 }, 404)
+      return json({ workspace, sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
+    }
     if (path.endsWith('/auth/mfa/verify/')) {
       return body?.mfa_token === 'mfa-token-1' && body?.code === MFA_CODE ? json({ access: 'access-1', refresh: 'refresh-1' })
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'That code is not right. Codes change every 30 seconds; a recovery code works once.' }, 401)
@@ -1219,6 +1259,25 @@ export function installMockApi(options: MockOptions = {}) {
         .map((item) => options.engineHealth ? { ...item, health: engineHealth[item.id] ?? null } : item))
     }
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
+    if (path.endsWith('/warmup/plans/')) return json(SAMPLE_WARM_UP_PLANS)
+    if (path.endsWith('/warmup/') && method === 'POST') { warmupNow = structuredClone(SAMPLE_WARM_UP); return json(warmupNow, 201) }
+    if (path.endsWith('/warmup/') && method === 'PATCH' && warmupNow.warmup) { warmupNow = { ...warmupNow, warmup: { ...warmupNow.warmup, ...(body as Partial<WarmUp>) } }; return json(warmupNow) }
+    if (path.endsWith('/warmup/days/') && method === 'POST' && warmupNow.warmup) {
+      const change = body as { from_day: number; to_day: number; template_id?: string; hourly_limit?: number }
+      const template = templatesNow.find((item) => item.id === change.template_id)
+      warmupNow = { ...warmupNow, days: warmupNow.days.map((item) => item.day < change.from_day || item.day > change.to_day ? item
+        : { ...item, ...(template ? { template: { id: template.id, name: template.name } } : {}), ...(change.hourly_limit ? { hourly_limit: change.hourly_limit, daily_limit: change.hourly_limit * 13 } : {}) }) }
+      return json(warmupNow)
+    }
+    if (path.endsWith('/warmup/actions/') && method === 'POST' && warmupNow.warmup) {
+      const action = (body as { action: string }).action
+      const now = warmupNow.warmup
+      const next = action === 'approve' ? { current_day: now.offered_day ?? now.current_day, offered_day: null } : action === 'stay' ? { offered_day: null }
+        : action === 'pause' ? { status: 'PAUSED' as const } : action === 'resume' ? { status: 'WARMING' as const } : action === 'stop' ? { status: 'STOPPED' as const, offered_day: null } : {}
+      warmupNow = { ...warmupNow, warmup: { ...now, ...next } }
+      return json(warmupNow)
+    }
+    if (path.endsWith('/warmup/')) return json(warmupNow)
     if (path.endsWith('/workspace/utm/') && method === 'PUT') {
       const next = body as unknown as UtmSettings
       if ((next.email || next.sms) && next.domains.length === 0) return json({ type: 'about:blank', title: 'Invalid', status: 400, errors: { domains: ['Add at least one of your sites: only links to them are tagged.'] } }, 400)
@@ -1415,6 +1474,40 @@ export function installMockApi(options: MockOptions = {}) {
         ofbizLinkNow = { ...ofbizLinkNow, site_key: sent.site_key, api_key: sent.api_key, has_api_key: true, configured: true }
       }
       return json(ofbizLinkNow)
+    }
+    if (path.endsWith('/workspace/governance/')) return json(governanceNow)
+    if (path.endsWith('/workspace/governance/standard/') && method === 'POST') {
+      const have = new Set(governanceNow.caps.filter((cap) => !cap.platform).map((cap) => cap.channel))
+      const added = ([['EMAIL', 3, 7], ['SMS', 4, 30], ['WHATSAPP', 2, 7], ['ALL', 5, 7]] as const).filter(([channel]) => !have.has(channel))
+        .map(([channel, most, days], index) => governanceCap({ id: `cap-standard-${index}`, channel, max_messages: most, period_days: days }))
+      governanceNow = { ...governanceNow, caps: [...governanceNow.caps, ...added] }
+      return json({ added: added.map((cap) => cap.rule), caps: governanceNow.caps })
+    }
+    if (path.endsWith('/workspace/governance/caps/') && method === 'POST') {
+      const made = governanceCap({ id: `cap-${governanceNow.caps.length + 1}`, platform: false, ...(body as Partial<GovernanceCap>) })
+      governanceNow = { ...governanceNow, caps: [...governanceNow.caps, made] }
+      return json(made, 201)
+    }
+    const gapMatch = path.match(/\/workspace\/governance\/gaps\/([^/]+)\/$/)
+    if (gapMatch && method === 'PUT') {
+      const entry = governanceNow.gaps.find((item) => item.channel === gapMatch[1])
+      if (!entry) return problem(404, { detail: 'No such channel.' })
+      const asked = body as { hours?: number; is_active?: boolean }
+      const hours = asked.hours ?? entry.own?.hours ?? entry.recommended_hours
+      if (hours < 1 || hours > 168) return problem(400, { hours: ['The gap is between 1 and 168 hours (7 days).'] })
+      const next = { ...entry, own: governanceGap(entry.channel, { ...entry.own, hours, is_active: asked.is_active ?? entry.own?.is_active ?? true }) }
+      governanceNow = { ...governanceNow, gaps: governanceNow.gaps.map((item) => (item.channel === entry.channel ? next : item)) }
+      return json(next)
+    }
+    const capMatch = path.match(/\/workspace\/governance\/caps\/([^/]+)\/$/)
+    if (capMatch) {
+      const cap = governanceNow.caps.find((item) => item.id === capMatch[1])
+      if (!cap) return problem(404, { detail: 'No such cap.' })
+      if (cap.platform) return problem(403, { detail: 'This cap is set by the platform for your workspace: it is changed in the back-office, not here.' })
+      if (method === 'DELETE') { governanceNow = { ...governanceNow, caps: governanceNow.caps.filter((item) => item.id !== cap.id) }; return new Response(null, { status: 204 }) }
+      const next = governanceCap({ ...cap, ...(body as Partial<GovernanceCap>) })
+      governanceNow = { ...governanceNow, caps: governanceNow.caps.map((item) => (item.id === cap.id ? next : item)) }
+      return json(next)
     }
     if (path.endsWith('/workspace/security/')) {
       if (method === 'PUT') {
@@ -1689,6 +1782,13 @@ export function installMockApi(options: MockOptions = {}) {
         return json(found)
       }
       const alertOne = /\/insights\/alerts\/([\w-]+)\/$/.exec(path)
+      if (alertOne && method === 'PUT') {
+        const found = insightsAlertsNow.find((a) => a.id === alertOne[1]) as Record<string, unknown> | undefined
+        if (!found) return json({ detail: 'No such alert.' }, 404)
+        const put = body as Record<string, unknown>
+        Object.assign(found, { measure: put.measure, op: put.op, threshold: put.threshold, every: put.every, at_time: put.at_time ?? null, recipients: put.recipients, name: put.name ?? null, row_version: (found.row_version as number) + 1 })
+        return json(found)
+      }
       if (alertOne && method === 'DELETE') { insightsAlertsNow.splice(insightsAlertsNow.findIndex((a) => a.id === alertOne[1]), 1); return new Response(null, { status: 204 }) }
       if (path.endsWith('/insights/comments/') && method === 'POST') {
         const posted = body as { kind: string; item_id: string; body: string; anchor?: Record<string, unknown> | null }

@@ -123,13 +123,16 @@ test('the editor: Viewer Filters adds a required question on Channel, saved with
   })
 })
 
-test('Uploaded Files: a CSV is read, its columns reviewed, and Create Report opens on it, picked', async () => {
+test('Uploaded Files: Upload a File reads a CSV, step 2 reviews its columns, and Create Report opens on it, picked', async () => {
   const user = userEvent.setup()
   const calls = await renderAppAt('/insights/uploads')
   expect(await screen.findByRole('heading', { name: 'Uploaded Files' })).toBeTruthy()
-  expect(await screen.findByText(/Up to 100,000 rows, 50 columns and 20 MB\./)).toBeTruthy()
-  await user.upload(screen.getByLabelText('Choose a file to upload'), new File(['Store,Sales,Opened\nDowntown,1234.5,2026-10-19\n'], 'store_sales.csv', { type: 'text/csv' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Review the Columns' })
+  await user.click((await screen.findAllByRole('button', { name: 'Upload a File' }))[0])          // the header's; the empty list has one too
+  const dialog = await screen.findByRole('dialog', { name: 'Upload a File' })
+  expect(within(dialog).getByText('Step 1 of 2 · Choose the File')).toBeTruthy()
+  expect(within(dialog).getByText(/Up to 100,000 rows, 50 columns and 20 MB\./)).toBeTruthy()
+  await user.upload(within(dialog).getByLabelText('Choose a file to upload'), new File(['Store,Sales,Opened\nDowntown,1234.5,2026-10-19\n'], 'store_sales.csv', { type: 'text/csv' }))
+  expect(await within(dialog).findByText('Step 2 of 2 · Review the Columns')).toBeTruthy()
   expect(within(dialog).getByText('store_sales.csv · 3 rows · 3 columns')).toBeTruthy()
   expect(within(dialog).getByText('Downtown · Mall · Airport')).toBeTruthy()
   const types = within(dialog).getByLabelText('Sales type') as HTMLSelectElement

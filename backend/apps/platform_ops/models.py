@@ -241,7 +241,12 @@ class PlatformSetting(models.Model):
         ordering = ('category', 'key')
 
     def __str__(self):
-        return self.key
+        """'security.password_link_hours' -> 'Password Link Hours': the change page's title; the key itself shows on the page"""
+        words = self.key.rsplit(".", 1)[-1].split("_")
+        return " ".join(word.upper() if word in ACRONYMS else word.capitalize() for word in words if word)
+
+
+ACRONYMS = {"ai", "api", "cdn", "dns", "id", "ip", "mfa", "sms", "sso", "smtp", "url", "utm", "pos", "mb", "gb", "ttl", "jwt", "otp"}
 
 
 class IndustryProfile(models.Model):
@@ -535,3 +540,57 @@ class SecurityFinding(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class PlatformGovernancePolicy(models.Model):
+    """A frequency cap (or, with gap_hours, a Gap Between Messages: patch 0089) the platform applies to every workspace, to chosen
+    ones, or to one (patch 0088): copied into each such
+    workspace's communication_governance_policy by apps/governance/platform.py."""
+    class Scope(models.TextChoices):
+        GLOBAL = 'GLOBAL', 'All Channels Together'
+        CHANNEL = 'CHANNEL', 'One Channel'
+
+    class Channel(models.TextChoices):
+        EMAIL = 'EMAIL', 'Email'
+        SMS = 'SMS', 'Text (SMS and MMS)'
+        WHATSAPP = 'WHATSAPP', 'WhatsApp'
+
+    class AppliesTo(models.TextChoices):
+        MARKETING = 'MARKETING', 'Marketing Only'
+        ALL = 'ALL', 'Every Message'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=200, unique=True)
+    scope = models.CharField(max_length=20, choices=Scope.choices, default=Scope.CHANNEL)
+    channel = models.CharField(max_length=20, choices=Channel.choices, null=True, blank=True)
+    max_messages = models.IntegerField()
+    period_days = models.IntegerField()
+    gap_hours = models.IntegerField(null=True, blank=True)  # patch 0089: Gap Between Messages instead of a cap
+    applies_to = models.CharField(max_length=20, choices=AppliesTo.choices, default=AppliesTo.MARKETING)
+    priority = models.IntegerField(default=100)
+    applies_all = models.BooleanField(default=False)
+    tenant_ids = ArrayField(models.UUIDField(), default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'platform_governance_policy'
+        verbose_name = 'Platform Policy'
+        verbose_name_plural = 'Platform Policies'
+
+    def __str__(self):
+        return self.name
+
+    def applies_to_tenant(self, tenant_id) -> bool:
+        return self.is_active and (self.applies_all or str(tenant_id) in {str(t) for t in self.tenant_ids})
+
+    def rule(self) -> str:
+        what = "messages" if self.scope == "GLOBAL" else {"EMAIL": "emails", "SMS": "texts", "WHATSAPP": "WhatsApp messages"}.get(self.channel or "", "messages")
+        if self.gap_hours:
+            return f"{self.gap_hours} hour{'s' if self.gap_hours != 1 else ''} between {what}"
+        return f"{self.max_messages} {what} per {self.period_days} day{'s' if self.period_days != 1 else ''}"

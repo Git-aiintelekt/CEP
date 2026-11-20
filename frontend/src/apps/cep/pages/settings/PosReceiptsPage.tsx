@@ -4,10 +4,11 @@
  * from the integration log, because C360 stores nothing about a transaction or a customer.
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { Download, Upload } from 'lucide-react'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
+import { buttonClass } from '@/components/buttonStyles'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
@@ -21,8 +22,11 @@ import { useToast } from '@/components/Toast'
 import { api, ApiError, request } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
 import { saveFailure } from '@/lib/saveFeedback'
+import { saveFile } from '@/lib/saveFile'
 import type { PosReceivedPage, PosSettings, Store, StoreInput } from '@/lib/types'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
+
+import { storeTemplateCsv } from '@/apps/cep/features/pos/storeTemplate'
 
 const KEY = ['workspace', 'pos']
 const STORES = ['stores']
@@ -87,7 +91,7 @@ export function PosReceiptsPage() {
                   {textCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
                 </Select>}
               </Field>
-              <Field label="Phone Numbers Are From" error={errors.default_country} labelEnd={<SaveTick mutation={save} field="default_country" />} help="How a ten-digit number from a register is read: with +1 for US or CA. A number sent with its country code is used as sent. It decides whether a text receipt can be sent at all." hint="Ten-digit numbers from a US or CA register are read as +1…; numbers sent with a country code are used as they are.">
+              <Field label="Phone Numbers Are From" error={errors.default_country} labelEnd={<SaveTick mutation={save} field="default_country" />} help="How a number from a register is read when it has no country code: it gets this country's code, and a leading 0 is dropped (07911 123456 from a UK register becomes +44 7911 123456). A number sent with + or 00 and its country code is used as sent. It decides whether a text receipt can be sent at all." hint="Numbers without a country code get this country's code; numbers sent with one are used as they are.">
                 {(ids) => <Select {...ids} value={data.default_country} onChange={(event) => save.mutate({ default_country: event.target.value })}>
                   <option value="US">United States (+1)</option><option value="CA">Canada (+1)</option><option value="GB">United Kingdom (+44)</option><option value="IN">India (+91)</option><option value="AU">Australia (+61)</option>
                 </Select>}
@@ -167,6 +171,12 @@ function StoresCard() {
         </span>
       </div>
       <p className="px-4 pt-3 text-sm text-ink-500">A transaction names its store by number only. The store's details here fill the receipt's store tags (name, address, phone, manager, return policy, links). A CSV needs a header row with <code>store_number</code> and <code>name</code>; the other columns are optional and a listed store is updated.</p>
+      <p className="px-4 pt-1 text-sm text-ink-500">
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => saveFile(new Blob([storeTemplateCsv()], { type: 'text/csv;charset=utf-8' }), 'store-import-template.csv')}>
+          <Download size={14} strokeWidth={1.5} aria-hidden />Download Template
+        </button>{' '}
+        a CSV with every column and two sample stores: replace the samples with your stores, then Import CSV.
+      </p>
       {outcome && <p role="status" className="px-4 pt-2 text-sm text-ink-700">{outcome}</p>}
       {importCsv.isError && <div className="px-4 pt-2"><ErrorState title="The CSV was not imported" error={importCsv.error} /></div>}
       <div className="p-4">

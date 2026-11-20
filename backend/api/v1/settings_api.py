@@ -30,7 +30,7 @@ from rest_framework.views import APIView
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.identity.models import ApiClient, AppUser, Permission, Role, RolePermission, UserRole
-from apps.platform_ops import links, mail, params
+from apps.platform_ops import links, mail, params, sso
 from apps.tenants import context
 from apps.tenants.models import Tenant, TenantSubscription
 
@@ -168,7 +168,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         user = self.get_object()
         if not user.is_active:
             raise Conflict("Activate the user before sending a password link.")
-        if user.auth_provider != "LOCAL":
+        if user.auth_provider != "LOCAL" and sso.in_use(user.tenant_id):
             raise Conflict("This user signs in through single sign-on and has no password here.")
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
@@ -197,9 +197,11 @@ class SetPasswordView(APIView):
     def post(self, request, version=None):
         uid, token, password = (str(request.data.get(key) or "") for key in ("uid", "token", "password"))
         try:
-            user = AppUser.objects.filter(pk=force_str(urlsafe_base64_decode(uid)), is_active=True, deleted_at__isnull=True, auth_provider="LOCAL").first()
+            user = AppUser.objects.filter(pk=force_str(urlsafe_base64_decode(uid)), is_active=True, deleted_at__isnull=True).first()
         except (ValueError, TypeError, OverflowError, DjangoValidationError):
             user = None
+        if user is not None and user.auth_provider != "LOCAL" and sso.in_use(user.tenant_id):
+            user = None                                     # signs in through the workspace's single sign-on, which is on
         if user is None or not links.check(user, token):
             raise ValidationError({"token": "This link is not valid any more. Ask your administrator for a new one."})
         try:
@@ -207,7 +209,8 @@ class SetPasswordView(APIView):
         except DjangoValidationError as exc:
             raise ValidationError({"password": list(exc.messages)}) from None
         user.set_password(password)
-        user.save(update_fields=["password"])
+        user.auth_provider, user.external_subject_id = "LOCAL", None          # a single sign-on user whose workspace switched it off
+        user.save(update_fields=["password", "auth_provider", "external_subject_id"])
         return Response(status=204)
 
 

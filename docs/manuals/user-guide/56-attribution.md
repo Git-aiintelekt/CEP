@@ -25,19 +25,21 @@ Until attribution is on, every revenue figure in C360 reads *Not Set Up*: Home's
 
 ## How to configure attribution
 
-**1. Make a key for the shop.** Settings → API Keys → New Key, with the scope `orders:ingest`. Copy it: it is shown once.
+**1. Make a key for the shop.** Settings → API Keys → New API Key, with the scope `orders:ingest`. Copy it: it is shown once.
 
-**2. Switch it on.** Settings → Attribution → **Attribution** on. From now on the shop's orders are accepted (while it is off they are refused with 409), and every campaign that has ever sent gets figures within five minutes, 0 until its first order.
+**2. Switch it on.** Settings → Attribution → **Attribution** on (off by default). From now on the shop's orders are accepted (while it is off they are refused with 409), and every campaign that has ever sent gets figures within five minutes, 0 until its first order.
 
 **3. Choose the windows.** Each saves as you change it.
 
-| Setting | Choices | Means |
+| Control | What it is | What it changes |
 |---|---|---|
-| Click Window | 1, 3, 7, 14 or 30 days | How long after a click the click still earns an order. |
-| Open Window | Opens Do Not Count, 1, 2, 3 or 7 days | How long an open of a marketing email earns an order when there was no click. Scanner opens and receipts never count. |
-| Text Window | Texts Do Not Count, 1, 2, 3 or 7 days | How long a delivered marketing text earns an order when there was no click or open. |
+| Click Window | 1, 3, 7 (the default), 14 or 30 days. | How long after a click on a campaign's link the click still takes the credit for an order the same person places. A longer window credits more orders to campaigns. |
+| Open Window | Opens Do Not Count, 1 (the default), 2, 3 or 7 days. | With no click, how long an open of a marketing email takes the credit. Scanner opens and e-receipts never count. Opens Do Not Count: opens never earn credit. |
+| Text Window | Texts Do Not Count, 1 (the default), 2, 3 or 7 days. | With no click or open, how long a delivered marketing text takes the credit. Text links are not tracked yet, so delivery stands in for a click. Texts Do Not Count: texts never earn credit. |
 
-**4. Count store sales** (shown when the workspace has POS Receipts). Switch **Count Store Sales** on and every transaction the point of sale posts also becomes an order: the amount without tax and shipping, the customer, the store and its promotion codes. Returns become refunds; employee sales are left out.
+A change to a window or to the send costs makes the next pass of the attribute-orders job (within five minutes) work out every campaign's figures again. Without `user.admin` the controls are shown but cannot be changed.
+
+**4. Count store sales** (shown when the workspace has POS Receipts). **Count Store Sales** is off by default and cannot be switched on until **Attribution** is on. Switch it on and every transaction the point of sale posts also becomes an order: the amount without tax and shipping, the customer, the store and its promotion codes. Returns become refunds; employee sales are left out. Off, or with Attribution off, nothing about a transaction is kept beyond the POS Receipts trail.
 
 **5. Enter the send costs.** **Send Costs**: what 1,000 delivered emails and 1,000 delivered texts cost you, then **Save Costs**. A campaign's cost is then its delivered messages at these rates plus its offer cost, and ROI, contribution and cost per conversion follow. Left empty, ROI uses each campaign's planned cost.
 

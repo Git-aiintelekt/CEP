@@ -239,13 +239,19 @@ def activate_copies(campaign) -> list[str]:
 # ---------------------------------------------------------------- the review timeline
 def _caps(campaign) -> list[tuple]:
     """The workspace's active frequency limits that count this drip's messages, strictest first: the ones audience.py and
-    audience_sms.py apply (GLOBAL, or CHANNEL for this channel)."""
+    audience_sms.py apply (GLOBAL, or CHANNEL for this channel). (most, window, the window in words); a gap is one message
+    in its hours."""
     channel = campaign.channel if campaign.channel in TEXT_CHANNELS else "EMAIL"
     with service._conn().cursor() as cursor:
-        cursor.execute("""SELECT scope, channel, max_messages, period_days FROM communication_governance_policy
-                           WHERE tenant_id = %s AND is_active ORDER BY priority""", [str(campaign.tenant_id)])
+        cursor.execute("""SELECT scope, channel, max_messages, period_days, gap_hours FROM communication_governance_policy
+                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
         rows = cursor.fetchall()
-    return [(maximum, days) for scope, own, maximum, days in rows if scope == "GLOBAL" or (scope == "CHANNEL" and (own or channel) == channel)]
+    limits = []
+    for scope, own, maximum, days, hours in rows:
+        if scope == "GLOBAL" or (scope == "CHANNEL" and (own or channel) == channel):
+            limits.append((1, timedelta(hours=hours), f"{hours} hour{'s' if hours != 1 else ''}") if hours
+                          else (maximum, timedelta(days=days), f"{days} day{'s' if days != 1 else ''}"))
+    return limits
 
 
 def _moment(campaign, step) -> datetime | None:
@@ -276,10 +282,10 @@ def review(campaign) -> dict:
         if index and step.day - steps[index - 1].day < MIN_GAP_DAYS:
             gap = step.day - steps[index - 1].day
             warnings.append({"code": "TOO_CLOSE", "message": f"Only {gap} day{'s' if gap != 1 else ''} after message {index}."})
-        for maximum, days in caps:
-            window = sum(1 for moment in moments[:index + 1] if moment > moments[index] - timedelta(days=days))
+        for maximum, span, words in caps:
+            window = sum(1 for moment in moments[:index + 1] if moment > moments[index] - span)
             if window > maximum:
-                warnings.append({"code": "FREQUENCY", "message": f"This drip sends {window} {noun} within {days} day{'s' if days != 1 else ''}; "
+                warnings.append({"code": "FREQUENCY", "message": f"This drip sends {window} {noun} within {words}; "
                                                                  f"the limit is {maximum}, so this message will skip people."})
                 break
         if texts and marketing and drip._clock(campaign, step, campaign.scheduled_at) is not None:

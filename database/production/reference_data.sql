@@ -3,8 +3,9 @@
 -- psql variables: public_url (the installation's public https address, no trailing slash; empty keeps the default).
 \set ON_ERROR_STOP on
 
--- staff sign in to the back-office with a second factor; the first platform administrator is sent to set one up
-UPDATE platform_setting SET value = 'true', updated_at = now() WHERE key = 'security.mfa_required_for_staff';
+-- staff two-step verification is NOT required on a first deployment: switch security.mfa_required_for_staff on in the
+-- back-office once every staff member has set it up (Account Security), so nobody is locked out on day one
+UPDATE platform_setting SET value = 'false', updated_at = now() WHERE key = 'security.mfa_required_for_staff';
 -- people are told when platform staff open their account or switch into their workspace
 UPDATE platform_setting SET value = 'true', updated_at = now() WHERE key = 'security.notify_user_on_support_access';
 

@@ -13,7 +13,7 @@ from apps.customers.models import CustomerMaster
 from apps.governance import preferences
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
-from ..providers import TRAFFIC_BULK, TRAFFIC_TRANSACTIONAL, EmailMessage, Outcome, ProviderError, registry
+from ..providers import TRAFFIC_BULK, TRAFFIC_TRANSACTIONAL, EmailMessage, Outcome, ProviderError, RateLimited, registry
 from . import content as run_content, linktags, session, unsubscribe
 from .render import Renderer
 
@@ -22,10 +22,21 @@ MAX_ATTEMPTS = 5
 
 
 class RetryBatch(Exception):
-    """Some messages hit a temporary provider problem and are QUEUED again: run the batch again later."""
-    def __init__(self, execution_ids, reason):
+    """Some messages hit a temporary provider problem and are QUEUED again: run the batch again later.
+    `retry_after` is set when the engine's rate limit held them: a wait, not a failure, so it uses up no retry."""
+    def __init__(self, execution_ids, reason, retry_after: int | None = None):
         super().__init__(reason)
-        self.execution_ids, self.reason = execution_ids, reason
+        self.execution_ids, self.reason, self.retry_after = execution_ids, reason, retry_after
+
+
+def held_reason(exc: RateLimited) -> str:
+    return f"Waiting for the engine's limit of {exc.limit:,} messages per minute" if exc.limit else "Waiting for the engine's rate limit"
+
+
+def retry_for(execution_ids, exc: ProviderError) -> RetryBatch:
+    if isinstance(exc, RateLimited):
+        return RetryBatch(execution_ids, held_reason(exc), retry_after=exc.retry_after)
+    return RetryBatch(execution_ids, str(exc))
 
 
 def _load(tenant_id, run_id):
@@ -51,10 +62,12 @@ def _claim(tenant_id, execution_id) -> tuple | None:
         return cursor.fetchone()
 
 
-def _record(tenant_id, execution_id, member_id, *, status, reason=None, message_id=None) -> None:
+def _record(tenant_id, execution_id, member_id, *, status, reason=None, message_id=None, held=False) -> None:
+    """`held`: put back by the engine's rate limit before it was offered to the provider, so the claim's attempt does not count."""
     with session.tx(), session.connection().cursor() as cursor:
         if status == "QUEUED":
-            cursor.execute("UPDATE mailer_execution SET status = 'QUEUED', submitted_at = NULL, status_reason = %s WHERE tenant_id = %s AND id = %s",
+            cursor.execute("UPDATE mailer_execution SET status = 'QUEUED', submitted_at = NULL, status_reason = %s"
+                           + (", attempts = GREATEST(attempts - 1, 0)" if held else "") + " WHERE tenant_id = %s AND id = %s",
                            [reason, str(tenant_id), execution_id])
             return
         cursor.execute("UPDATE mailer_execution SET status = %s, status_reason = %s, provider_message_id = COALESCE(%s, provider_message_id) WHERE tenant_id = %s AND id = %s",
@@ -93,7 +106,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
         provider.open()
     except ProviderError as exc:
         if exc.retryable:
-            raise RetryBatch(execution_ids, str(exc)) from None
+            raise retry_for(execution_ids, exc) from None
         raise
 
     try:
@@ -124,9 +137,10 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                                        traffic=TRAFFIC_BULK if marketing else TRAFFIC_TRANSACTIONAL)
                 result = provider.send_guarded(message, related_ref=f"mailer_execution:{execution_id}")
             except ProviderError as exc:                    # nothing more will go out: put this one back and stop
-                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])
+                held = isinstance(exc, RateLimited)
+                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=(held_reason(exc) if held else str(exc))[:200], held=held)
                 if exc.retryable:
-                    raise RetryBatch(execution_ids, str(exc)) from None
+                    raise retry_for(execution_ids, exc) from None
                 raise
             except Exception as exc:                        # noqa: BLE001  a rendering problem with one person must not stop the run
                 log.exception("execution %s could not be prepared", execution_id)

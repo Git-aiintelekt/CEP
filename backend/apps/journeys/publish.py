@@ -123,7 +123,8 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
         word = "Emails" if channel == "EMAIL" else "Texts"
         caps = [p for p in policies if p.scope == "GLOBAL" or (p.scope == "CHANNEL" and (p.channel or channel) == channel)]
         if caps:
-            limits = "; ".join(f"at most {p.max_messages} in {p.period_days} day{'s' if p.period_days != 1 else ''} ({p.name})" for p in caps[:3])
+            limits = "; ".join((f"at least {p.gap_hours} hour{'s' if p.gap_hours != 1 else ''} between messages ({p.name})" if p.gap_hours
+                                else f"at most {p.max_messages} in {p.period_days} day{'s' if p.period_days != 1 else ''} ({p.name})") for p in caps[:3])
             more = f" and {len(caps) - 3} more" if len(caps) > 3 else ""
             sentences.append(f"{word}: {limits}{more}. A customer who has reached a cap is held back, not sent.")
         else:

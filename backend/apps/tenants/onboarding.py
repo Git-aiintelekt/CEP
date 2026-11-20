@@ -25,14 +25,14 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from unfold.widgets import UnfoldAdminCheckboxSelectMultipleWidget  # noqa: F401  (the admin's widgets are what the page styles)
-from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextareaWidget, UnfoldAdminTextInputWidget
+from unfold.widgets import UnfoldAdminSelect2Widget, UnfoldAdminSelectWidget, UnfoldAdminTextareaWidget, UnfoldAdminTextInputWidget
 
 from apps.contact_lists import consent as consent_policy
 from apps.identity.models import AppUser, Role, UserRole
 from apps.platform_ops import components, links, mail, params
 from apps.platform_ops.models import IndustryProfile, MailServer, TenantComponent
 
-from . import services
+from . import services, timezones
 from .models import SubscriptionPlan, Tenant, TenantSubscription
 
 P = settings.PLATFORM_ALIAS
@@ -43,8 +43,6 @@ SKIPPABLE = {"policies", "handoff"}
 CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,19}$")
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 TRI_STATE = (("", "Follow the profile"), ("on", "On"), ("off", "Off"))
-COMMON_ZONES = ("UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Toronto", "Europe/London", "Europe/Paris", "Europe/Berlin",
-                "Asia/Kolkata", "Asia/Dubai", "Asia/Singapore", "Australia/Sydney")
 HANDOFF_CHECKLIST = (
     ("Roles and users", "Settings → Roles, Users. Invite the team; at least one role with campaign.approve if Approvals will be on."),
     ("Email engine, text engine, senders", "Settings → Sending Engines. Postal, SendGrid or your mail server; Digivize or Sandbox texts; Verify each sender; register the callback address with the provider."),
@@ -60,14 +58,18 @@ class WorkspaceForm(forms.Form):
                            help_text="Short, upper case, fixed once created. The API's X-Tenant header, the callback addresses and the partition names carry it.")
     subdomain = forms.CharField(label="Subdomain", max_length=63, required=False, widget=UnfoldAdminTextInputWidget, help_text="Host-based sign-in: <subdomain>.your-domain. Optional.")
     custom_app_domain = forms.CharField(label="Custom App Domain", max_length=253, required=False, widget=UnfoldAdminTextInputWidget,
-                                        help_text="Optional. Needs the DNS record and a certificate; the subdomain works meanwhile.")
-    timezone = forms.ChoiceField(label="Time Zone", choices=[(zone, zone) for zone in COMMON_ZONES], initial="UTC", widget=UnfoldAdminSelectWidget,
-                                 help_text="Schedules, quiet hours for texts and the reports read in this zone. Any IANA zone can be typed on the tenant's page afterwards.")
+                                        help_text="Optional, e.g. engage.acme.com: the sign-in page then knows the workspace. Needs a DNS record to this server, the name in its certificate, nginx server_name and ALLOWED_HOSTS; the subdomain works meanwhile.")
+    timezone = forms.ChoiceField(label="Time Zone", choices=(), initial="UTC", widget=UnfoldAdminSelect2Widget,
+                                 help_text="Schedules, quiet hours for texts and the reports read in this zone. Type a place to find it.")
     region = forms.CharField(label="Region", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. us-east. Optional.")
     data_residency = forms.CharField(label="Data Residency", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. US, EU. Optional.")
     isolation_mode = forms.ChoiceField(label="Hosting", choices=(("SHARED", "Shared database: the pool, its own partitions and row-level security (the usual choice)"),
                                                                  ("DEDICATED", "Dedicated database: provisioned by a tenant operation after this flow (Enterprise plans)")),
                                        initial="SHARED", widget=UnfoldAdminSelectWidget)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["timezone"].choices = timezones.choices()
 
     def clean_name(self):
         value = " ".join(self.cleaned_data["name"].split())
