@@ -1,5 +1,5 @@
-"""Back-office → Consent and Governance → Platform Policies: frequency caps applied to every workspace, to chosen ones, or to
-one (patch 0088). Saving pushes the policy into the workspaces (apps/governance/platform.py)."""
+"""Back-office → Consent and Governance → Platform Policies: frequency caps and gaps between messages (patch 0089) applied to
+every workspace, to chosen ones, or to one (patch 0088). Saving pushes the policy into the workspaces (apps/governance/platform.py)."""
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
@@ -13,6 +13,8 @@ from .models import PlatformGovernancePolicy
 
 P = settings.PLATFORM_ALIAS
 ALL, SELECTED, ONE = "ALL", "SELECTED", "ONE"
+CAP, GAP = "CAP", "GAP"
+MAX_GAP_HOURS = 168
 
 
 def _workspaces() -> list[tuple[str, str]]:
@@ -21,6 +23,9 @@ def _workspaces() -> list[tuple[str, str]]:
 
 
 class PlatformPolicyForm(forms.ModelForm):
+    kind = forms.ChoiceField(label="Kind", widget=UnfoldAdminRadioSelectWidget, initial=CAP, choices=[
+        (CAP, "Frequency Cap: the most marketing messages one person receives in a number of days"),
+        (GAP, "Gap Between Messages: the hours that must pass after one marketing message before the next (one channel)")])
     reach = forms.ChoiceField(label="Applies To", widget=UnfoldAdminRadioSelectWidget, initial=ALL, choices=[
         (ALL, "All Workspaces: every workspace now and every workspace onboarded later"),
         (SELECTED, "Selected Workspaces: the workspaces chosen below; one added later is not included until chosen"),
@@ -31,13 +36,15 @@ class PlatformPolicyForm(forms.ModelForm):
 
     class Meta:
         model = PlatformGovernancePolicy
-        fields = ("name", "scope", "channel", "max_messages", "period_days", "priority", "is_active")
+        fields = ("name", "scope", "channel", "max_messages", "period_days", "gap_hours", "priority", "is_active")
+        labels = {"gap_hours": "Gap (Hours)"}
         help_texts = {
             "name": "Shown to each workspace on its Governance page, locked.",
             "scope": "One Channel counts that channel's messages; All Channels Together counts every email, text and WhatsApp message.",
             "channel": "For One Channel. Text covers SMS and MMS.",
             "max_messages": "The most marketing messages one person may receive within the period. A message over it is skipped for that person (Frequency Capped); transactional messages and e-receipts are never capped.",
             "period_days": "The rolling window the messages are counted in, in days.",
+            "gap_hours": "For a Gap Between Messages: 1 to 168. A person who received a marketing message of the channel in the last this many hours is skipped (Frequency Capped).",
             "priority": "Lower comes first when the send log names the cap that held a person back.",
             "is_active": "Off: the workspaces keep a copy that does not apply, so it can be switched on again in one place.",
         }
@@ -47,8 +54,11 @@ class PlatformPolicyForm(forms.ModelForm):
         choices = _workspaces()
         self.fields["workspaces"].choices = choices
         self.fields["workspace"].choices = [("", "Choose a Workspace"), *choices]
+        for field in ("max_messages", "period_days"):
+            self.fields[field].required = False
         policy = self.instance
         if policy and policy.pk:
+            self.fields["kind"].initial = GAP if policy.gap_hours else CAP
             chosen = [str(t) for t in policy.tenant_ids]
             self.fields["reach"].initial = ALL if policy.applies_all else ONE if len(chosen) == 1 else SELECTED
             self.fields["workspaces"].initial = chosen
@@ -60,9 +70,20 @@ class PlatformPolicyForm(forms.ModelForm):
             data["channel"] = None
         elif not data.get("channel"):
             self.add_error("channel", "Choose the channel this cap counts.")
-        for field in ("max_messages", "period_days"):
-            if data.get(field) is not None and data[field] < 1:
-                self.add_error(field, "At least 1.")
+        if data.get("kind") == GAP:
+            if data.get("scope") == PlatformGovernancePolicy.Scope.GLOBAL:
+                self.add_error("scope", "A gap is for one channel: choose One Channel.")
+            hours = data.get("gap_hours")
+            if hours is None or not 1 <= hours <= MAX_GAP_HOURS:
+                self.add_error("gap_hours", f"Between 1 and {MAX_GAP_HOURS} hours.")
+            data["max_messages"], data["period_days"] = 1, 1
+        else:
+            data["gap_hours"] = None
+            for field in ("max_messages", "period_days"):
+                if data.get(field) is None:
+                    self.add_error(field, "Required for a frequency cap.")
+                elif data[field] < 1:
+                    self.add_error(field, "At least 1.")
         reach = data.get("reach")
         if reach == SELECTED and not data.get("workspaces"):
             self.add_error("workspaces", "Choose at least one workspace, or apply it to all.")
@@ -72,6 +93,8 @@ class PlatformPolicyForm(forms.ModelForm):
 
     def save(self, commit=True):
         policy = super().save(commit=False)
+        policy.max_messages, policy.period_days, policy.gap_hours = (self.cleaned_data["max_messages"], self.cleaned_data["period_days"],
+                                                                     self.cleaned_data["gap_hours"])
         reach = self.cleaned_data["reach"]
         policy.applies_all = reach == ALL
         policy.tenant_ids = [] if reach == ALL else [self.cleaned_data["workspace"]] if reach == ONE else list(self.cleaned_data["workspaces"])
@@ -82,7 +105,7 @@ class PlatformPolicyForm(forms.ModelForm):
 
 @admin.register(PlatformGovernancePolicy)
 class PlatformGovernancePolicyAdmin(BaseAdmin):
-    """Frequency caps the platform sets for workspaces. A workspace sees its copy locked and adds stricter caps of its own."""
+    """Frequency caps and gaps the platform sets for workspaces. A workspace sees its copy locked and adds stricter rules of its own."""
     form = PlatformPolicyForm
     list_display = ("name", "show_rule", "show_reach", "is_active")
     list_filter = ("is_active", "scope", "channel", "applies_all")
@@ -91,7 +114,8 @@ class PlatformGovernancePolicyAdmin(BaseAdmin):
     readonly_fields = ("created_at", "updated_at")
     actions = ["push_again"]
     fieldsets = (
-        ("The Cap", {"fields": ("name", "scope", "channel", "max_messages", "period_days", "priority", "is_active")}),
+        ("The Rule", {"fields": ("name", "kind", "scope", "channel", "max_messages", "period_days", "gap_hours", "priority", "is_active"),
+                      "description": "A Frequency Cap uses Most and Days; a Gap Between Messages uses Gap (Hours)."}),
         ("Applies To", {"fields": ("reach", "workspaces", "workspace"),
                         "description": "Each workspace it applies to gets a locked copy on its Governance page. Taking a workspace off removes its copy."}),
     )

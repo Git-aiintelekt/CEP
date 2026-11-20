@@ -6,6 +6,7 @@ import json
 import pytest
 from django.db import connections, transaction
 from django.test import Client
+from django.utils.timezone import now
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.governance import platform
@@ -145,4 +146,72 @@ def test_a_new_workspace_gets_the_platform_standards_locked_and_the_standard_cap
             transaction.set_rollback(True, using=P)
     finally:
         context.reset_platform(token)
+    check.done()
+
+
+def test_a_platform_gap_reaches_the_workspace_as_a_gap(check):
+    if not _present():
+        pytest.skip("patch 0088 has not been applied to this database")
+    token = context.set_platform(True)
+    try:
+        with transaction.atomic(using=P):
+            made = Tenant.objects.using(P).create(name="Governance Gap Test", code="ZZGOVG")
+            with connections[P].cursor() as cursor:
+                cursor.execute("SELECT fn_provision_tenant(%s::uuid, 3)", [str(made.pk)])
+            policy = PlatformGovernancePolicy.objects.using(P).create(name="Test Text Gap", scope="CHANNEL", channel="SMS", max_messages=1, period_days=1, gap_hours=24,
+                                                                       tenant_ids=[made.pk])
+            platform.push(policy, using=P)
+            copy = CommunicationGovernancePolicy.objects.using(P).get(platform_policy_id=policy.pk, tenant_id=made.pk, deleted_at__isnull=True)
+            check("the copy is a gap of 24 hours", (copy.gap_hours, copy.max_messages, copy.channel) == (24, 1, "SMS"), (copy.gap_hours, copy.max_messages))
+            check("the back-office names it as a gap", policy.rule() == "24 hours between texts", policy.rule())
+            transaction.set_rollback(True, using=P)
+    finally:
+        context.reset_platform(token)
+    check.done()
+
+
+def test_the_workspace_sets_its_own_gap_per_channel_beside_the_platform_one(check, admin_email):
+    if not _present():
+        pytest.skip("patch 0088 has not been applied to this database")
+    token = context.set_platform(True)
+    admin = AppUser.objects.using(P).select_related("tenant").get(email=admin_email)
+    context.reset_platform(token)
+    tenant_id, code = str(admin.tenant_id), admin.tenant.code
+    context.set_current(tenant_id, "default", str(admin.pk))
+    office = Client(HTTP_X_TENANT=code, HTTP_AUTHORIZATION="Bearer " + str(AccessToken.for_user(admin)))
+    with transaction.atomic(using="default"), transaction.atomic(using=P):
+        with connections["default"].cursor() as cursor:
+            cursor.execute("SELECT set_config('app.current_tenant', %s, false)", [tenant_id])
+            cursor.execute("SELECT set_config('app.current_user_id', %s, false)", [str(admin.pk)])
+        CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True).update(deleted_at=now())   # this workspace's rules would blur it
+        rule = PlatformGovernancePolicy.objects.create(name="Test Platform Gap", scope="CHANNEL", channel="SMS", max_messages=1, period_days=1, gap_hours=24, applies_all=True)
+        locked = CommunicationGovernancePolicy.objects.create(tenant_id=tenant_id, name="Test Platform Gap", scope="CHANNEL", channel="SMS", max_messages=1,
+                                                              period_days=1, gap_hours=24, platform_policy_id=rule.pk)
+
+        page = office.get("/api/v1/workspace/governance/").json()
+        entries = {entry["channel"]: entry for entry in page.get("gaps", [])}
+        check("one entry per channel, the platform's gap locked under Text", list(entries) == ["EMAIL", "SMS", "WHATSAPP"]
+              and [(g["rule"], g["platform"]) for g in entries["SMS"]["platform"]] == [("24 hours between texts", True)] and entries["SMS"]["own"] is None, entries)
+        check("a gap is not listed among the caps", str(locked.pk) not in {row["id"] for row in page["caps"]})
+        check("email starts at the recommended 16 hours", entries["EMAIL"]["recommended_hours"] == 16 and entries["EMAIL"]["own"] is None)
+
+        made = office.put("/api/v1/workspace/governance/gaps/EMAIL/", json.dumps({"hours": 16, "is_active": True}), content_type="application/json")
+        check("an email gap of its own is made", made.status_code == 200 and made.json()["own"]["rule"] == "16 hours between emails" and made.json()["own"]["platform"] is False,
+              made.content[:300])
+        changed = office.put("/api/v1/workspace/governance/gaps/EMAIL/", json.dumps({"hours": 20}), content_type="application/json")
+        check("and changed, the same row", changed.status_code == 200 and changed.json()["own"]["id"] == made.json()["own"]["id"] and changed.json()["own"]["hours"] == 20)
+        off = office.put("/api/v1/workspace/governance/gaps/EMAIL/", json.dumps({"is_active": False}), content_type="application/json")
+        check("switched off, keeping its hours", off.status_code == 200 and off.json()["own"]["is_active"] is False and off.json()["own"]["hours"] == 20)
+        bad = office.put("/api/v1/workspace/governance/gaps/EMAIL/", json.dumps({"hours": 200}), content_type="application/json")
+        check("more than 168 hours is refused on its field", bad.status_code == 400 and "hours" in bad.json().get("errors", bad.json()), bad.content[:300])
+        check("an unknown channel is not found", office.put("/api/v1/workspace/governance/gaps/FAX/", json.dumps({"hours": 4}), content_type="application/json").status_code == 404)
+        check("a gap cannot be edited as a cap", office.patch(f"/api/v1/workspace/governance/caps/{made.json()['own']['id']}/", json.dumps({"max_messages": 3}),
+                                                               content_type="application/json").status_code == 404)
+
+        office.put("/api/v1/workspace/governance/gaps/EMAIL/", json.dumps({"hours": 16, "is_active": True}), content_type="application/json")
+        office.post("/api/v1/workspace/governance/caps/", json.dumps({"channel": "EMAIL", "max_messages": 1, "period_days": 1}), content_type="application/json")
+        email = next(entry for entry in office.get("/api/v1/workspace/governance/").json()["gaps"] if entry["channel"] == "EMAIL")
+        check("a cap of 1 email per day already keeps 16 hours, and the page says so", email["covered_by"] == "1 email per day", email)
+        transaction.set_rollback(True, using="default")
+        transaction.set_rollback(True, using=P)
     check.done()

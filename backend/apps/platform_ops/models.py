@@ -543,7 +543,8 @@ class SecurityFinding(models.Model):
 
 
 class PlatformGovernancePolicy(models.Model):
-    """A frequency cap the platform applies to every workspace, to chosen ones, or to one (patch 0088): copied into each such
+    """A frequency cap (or, with gap_hours, a Gap Between Messages: patch 0089) the platform applies to every workspace, to chosen
+    ones, or to one (patch 0088): copied into each such
     workspace's communication_governance_policy by apps/governance/platform.py."""
     class Scope(models.TextChoices):
         GLOBAL = 'GLOBAL', 'All Channels Together'
@@ -564,6 +565,7 @@ class PlatformGovernancePolicy(models.Model):
     channel = models.CharField(max_length=20, choices=Channel.choices, null=True, blank=True)
     max_messages = models.IntegerField()
     period_days = models.IntegerField()
+    gap_hours = models.IntegerField(null=True, blank=True)  # patch 0089: Gap Between Messages instead of a cap
     applies_to = models.CharField(max_length=20, choices=AppliesTo.choices, default=AppliesTo.MARKETING)
     priority = models.IntegerField(default=100)
     applies_all = models.BooleanField(default=False)
@@ -589,4 +591,6 @@ class PlatformGovernancePolicy(models.Model):
 
     def rule(self) -> str:
         what = "messages" if self.scope == "GLOBAL" else {"EMAIL": "emails", "SMS": "texts", "WHATSAPP": "WhatsApp messages"}.get(self.channel or "", "messages")
+        if self.gap_hours:
+            return f"{self.gap_hours} hour{'s' if self.gap_hours != 1 else ''} between {what}"
         return f"{self.max_messages} {what} per {self.period_days} day{'s' if self.period_days != 1 else ''}"

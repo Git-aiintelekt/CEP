@@ -10,7 +10,8 @@ Rules, in order (first match is the recorded suppression_reason):
     SUPPRESSED         consent_suppression.suppressed                                  (marketing only, as are the next two)
     TOPIC_OPTED_OUT    the person unticked this campaign's topic on the preference page (marketing, preference centre on)
     NO_CONSENT         no OPTED_IN consent for texts: marketing texts need express consent
-    FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached
+    FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached, or a Gap Between
+                       Messages policy's gap_hours have not passed since the last message
     DUPLICATE_NUMBER   another party in this run has the same number (the first keeps it)
 
 A GLOBAL policy counts every message the person received (email and text); a CHANNEL policy counts texts only.
@@ -23,6 +24,7 @@ A later drip message (`base_list_id`) takes its people from the first message's 
 lists, all of them whatever their outcome there; every rule above then applies again at its own send.
 """
 from apps.governance import preferences
+from apps.governance.models import POLICY_WINDOW, marketing_only
 
 from . import session
 
@@ -64,9 +66,9 @@ WITH picked AS ({picked}
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND (COALESCE(g.channel, %(channel)s) = %(channel)s OR (g.channel = 'SMS' AND %(channel)s = 'MMS'))))
                            AND (CASE WHEN g.scope = 'GLOBAL' THEN
                                      (SELECT count(*) FROM mailer_execution x WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id
-                                         AND x.status NOT IN ('QUEUED', 'FAILED') AND x.created_at >= now() - make_interval(days => g.period_days)) ELSE 0 END
+                                         AND x.status NOT IN ('QUEUED', 'FAILED') AND x.created_at >= now() - {POLICY_WINDOW} AND {marketing_only('x')}) ELSE 0 END
                                 + (SELECT count(*) FROM sms_execution y WHERE y.tenant_id = %(tenant)s AND y.party_id = r.party_id
-                                      AND y.status NOT IN ('QUEUED', 'FAILED') AND y.created_at >= now() - make_interval(days => g.period_days)
+                                      AND y.status NOT IN ('QUEUED', 'FAILED') AND y.created_at >= now() - {POLICY_WINDOW} AND {marketing_only('y')}
                                       -- a channel cap counts that channel's messages only; a GLOBAL cap counts them all
                                       AND (g.scope = 'GLOBAL' OR (CASE WHEN %(channel)s = 'WHATSAPP' THEN y.message_type = 'WHATSAPP' ELSE y.message_type IN ('SMS', 'MMS') END)))) >= g.max_messages
                          ORDER BY g.priority LIMIT 1) AS policy_id

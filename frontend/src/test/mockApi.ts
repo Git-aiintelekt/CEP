@@ -11,7 +11,7 @@ import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
-import type { GovernanceCap, GovernanceOverview, WarmUp, WarmUpOverview } from '@/lib/types'
+import type { GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -713,8 +713,16 @@ export const governanceCap = (overrides: Partial<GovernanceCap>): GovernanceCap 
   const [label, one, many] = CAP_WORDS[cap.channel]
   return { ...cap, channel_label: label, rule: `${cap.max_messages} ${cap.max_messages === 1 ? one : many} per ${cap.period_days === 1 ? 'day' : `${cap.period_days} days`}` }
 }
+export const governanceGap = (channel: GovernanceGapChannel['channel'], overrides: Partial<GovernanceGap>): GovernanceGap => {
+  const gap = { id: `gap-${channel.toLowerCase()}`, name: 'Gap', hours: 16, is_active: true, platform: false, row_version: 1, ...overrides }
+  return { ...gap, rule: `${gap.hours} ${gap.hours === 1 ? 'hour' : 'hours'} between ${CAP_WORDS[channel][2]}` }
+}
+const gapChannel = (channel: GovernanceGapChannel['channel'], recommended: number, own: GovernanceGap | null, platform: GovernanceGap[] = []): GovernanceGapChannel =>
+  ({ channel, channel_label: CAP_WORDS[channel][0], recommended_hours: recommended, own, platform, covered_by: null })
 export const governance: GovernanceOverview = {
   caps: [governanceCap({ id: 'cap-platform', channel: 'EMAIL', max_messages: 3, period_days: 7, platform: true }), governanceCap({ id: 'cap-own', channel: 'SMS', max_messages: 4, period_days: 30 })],
+  gaps: [gapChannel('EMAIL', 16, null), gapChannel('SMS', 24, governanceGap('SMS', { hours: 24 })),
+    gapChannel('WHATSAPP', 24, null, [governanceGap('WHATSAPP', { id: 'gap-platform', hours: 24, platform: true })])],
   activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
   text_quiet_hours: { start: '21:00', end: '08:00' },
   soft_bounces: 3,
@@ -1469,6 +1477,17 @@ export function installMockApi(options: MockOptions = {}) {
       const made = governanceCap({ id: `cap-${governanceNow.caps.length + 1}`, platform: false, ...(body as Partial<GovernanceCap>) })
       governanceNow = { ...governanceNow, caps: [...governanceNow.caps, made] }
       return json(made, 201)
+    }
+    const gapMatch = path.match(/\/workspace\/governance\/gaps\/([^/]+)\/$/)
+    if (gapMatch && method === 'PUT') {
+      const entry = governanceNow.gaps.find((item) => item.channel === gapMatch[1])
+      if (!entry) return problem(404, { detail: 'No such channel.' })
+      const asked = body as { hours?: number; is_active?: boolean }
+      const hours = asked.hours ?? entry.own?.hours ?? entry.recommended_hours
+      if (hours < 1 || hours > 168) return problem(400, { hours: ['The gap is between 1 and 168 hours (7 days).'] })
+      const next = { ...entry, own: governanceGap(entry.channel, { ...entry.own, hours, is_active: asked.is_active ?? entry.own?.is_active ?? true }) }
+      governanceNow = { ...governanceNow, gaps: governanceNow.gaps.map((item) => (item.channel === entry.channel ? next : item)) }
+      return json(next)
     }
     const capMatch = path.match(/\/workspace\/governance\/caps\/([^/]+)\/$/)
     if (capMatch) {

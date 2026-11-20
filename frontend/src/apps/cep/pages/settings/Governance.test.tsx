@@ -81,3 +81,28 @@ test('a workspace with no caps of its own adds the recommended ones in one go, a
     governance.caps = saved
   }
 })
+
+test('gap between messages: switched on at the recommended hours, changed, switched off; the platform gap is locked', async () => {
+  const calls = installMockApi({ me: { principal: { ...me.principal, kind: 'user' as const, permissions: [...me.principal.permissions, 'governance.edit'] } } as never })
+  const user = userEvent.setup()
+  await renderAppAt('/settings/governance')
+  const gaps = await screen.findByRole('group', { name: 'Gap Between Messages' })
+  expect(within(gaps).getByText('Off: no gap of your own between emails.')).toBeTruthy()
+  expect((within(gaps).getByLabelText('Email gap in hours') as HTMLInputElement).value).toBe('16')
+
+  await user.click(within(gaps).getByRole('switch', { name: 'Email gap in use' }))
+  expect(await within(gaps).findByText('Skip a person who received a marketing email in the last 16 hours.')).toBeTruthy()
+  expect(calls.find((call) => call.method === 'PUT' && call.url.endsWith('/workspace/governance/gaps/EMAIL/'))?.body).toEqual({ hours: 16, is_active: true })
+
+  const hours = within(gaps).getByLabelText('Email gap in hours')
+  await user.clear(hours)
+  await user.type(hours, '20{Enter}')
+  expect(await within(gaps).findByText('Skip a person who received a marketing email in the last 20 hours.')).toBeTruthy()
+
+  await user.click(within(gaps).getByRole('switch', { name: 'Text gap in use' }))
+  expect(await within(gaps).findByText('Off: no gap of your own between texts.')).toBeTruthy()
+  expect(calls.filter((call) => call.method === 'PUT' && call.url.endsWith('/gaps/SMS/')).at(-1)?.body).toEqual({ is_active: false })
+
+  expect(within(gaps).getByText('24 hours between WhatsApp messages')).toBeTruthy()
+  expect(within(gaps).getAllByText('Locked')).toHaveLength(1)
+})
