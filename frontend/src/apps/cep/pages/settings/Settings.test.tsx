@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, me, problem, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, me, problem, security, settingsUsers, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string, authenticated = true) {
   if (authenticated) signIn(path)
@@ -166,4 +166,23 @@ test('set password (public): mismatch is caught locally, an expired link is expl
   expect(post?.body).toEqual({ uid: 'dTI', token: 'abc-123', password: 'a long enough passphrase' })
   expect(post?.headers['X-Tenant']).toBe('NWA')
   expect(post?.headers.Authorization).toBeUndefined()
+})
+
+test('a single sign-on user gets a Password Link only while the workspace’s single sign-on is off, so removing it never locks them out', async () => {
+  const sso = { ...settingsUsers[0], id: 'u-sso', email: 'sso.person@example.com', display_name: 'Sam Single', auth_provider: 'OIDC', has_password: false, is_self: false }
+  settingsUsers.push(sso)
+  const saved = security.identity_provider
+  try {
+    for (const [provider, offered] of [[{ is_active: true }, false], [{ is_active: false }, true], [null, true]] as const) {
+      security.identity_provider = provider === null ? null : ({ ...provider } as never)
+      installMockApi()
+      await renderAppAt('/settings/users')
+      const row = (await screen.findByText('Sam Single')).closest('tr') as HTMLElement
+      await vi.waitFor(() => expect(Boolean(within(row).queryByRole('button', { name: 'Password Link' }))).toBe(offered))
+      cleanup()
+    }
+  } finally {
+    settingsUsers.pop()
+    security.identity_provider = saved
+  }
 })

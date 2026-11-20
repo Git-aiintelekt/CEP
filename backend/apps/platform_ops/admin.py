@@ -14,7 +14,7 @@ from unfold.widgets import (UnfoldAdminDecimalFieldWidget, UnfoldAdminIntegerFie
 
 from apps.adminutils import BaseAdmin, ReadOnlyAdmin, register_app_models
 
-from . import billing, crypto, guide, mail, params, tenant_ops, typed_values
+from . import billing, crypto, guide, mail, params, sso, tenant_ops, typed_values
 from .models import (IndustryProfile, JobRun, MailServer, PlatformAlert, PlatformPersonalizationTag, PlatformSetting, PlatformVisit, SupportAccessLog, TenantIdentityProvider, TenantInvoice,
                      TenantOperation)
 
@@ -256,6 +256,17 @@ class TenantIdentityProviderAdmin(BaseAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    def delete_model(self, request, obj):
+        tenant_id = obj.tenant_id
+        super().delete_model(request, obj)
+        sso.release_users(tenant_id, using=P)             # its users can be sent a password link
+
+    def delete_queryset(self, request, queryset):
+        tenants = list(queryset.values_list("tenant_id", flat=True))
+        super().delete_queryset(request, queryset)
+        for tenant_id in tenants:
+            sso.release_users(tenant_id, using=P)
 
 
 # ------------------------------------------------------------------------------------------------------------ global parameters, industry profiles
