@@ -63,6 +63,7 @@ const TemplateDesignerPage = lazy(() => import('./pages/TemplateDesignerPage'))
 const JourneyBuildPage = lazy(() => import('./pages/JourneyBuildPage'))
 const JourneyTestPublishPage = lazy(() => import('./pages/JourneyTestPublishPage'))
 const ReceiptEditorPage = lazy(() => import('./pages/ReceiptEditorPage'))
+const ReceiptLayoutEditorPage = lazy(() => import('./pages/ReceiptLayoutEditorPage'))
 
 /** /cep/... stands for today's addresses: a link with the prefix lands on the same page, query string and all */
 function ComponentAlias() {
@@ -80,6 +81,7 @@ export default function CepRoutes() {
         <Route path="templates/:id/whatsapp" element={<EditorScope><WhatsAppEditorPage /></EditorScope>} />
         <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
         <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
+        <Route path="templates/receipt-layouts/:id" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptLayoutEditorPage /></Suspense></EditorScope>} />
         <Route path="journeys/:id/build" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the builder" />}><JourneyBuildPage /></Suspense></EditorScope>} />
         <Route path="journeys/:id/test-publish" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading Test Publish" />}><JourneyTestPublishPage /></Suspense></EditorScope>} />
       </Route>

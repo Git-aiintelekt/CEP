@@ -296,3 +296,27 @@ class ReceiptFieldConfiguration(models.Model):
 
     def __str__(self):
         return str(self.pk)
+
+
+class ReceiptLayout(models.Model):
+    """A named receipt layout (Templates -> Receipt Layouts) that E-Receipt templates pick. `content` holds what a template's
+    own receipt layout holds: sections, register (the Store Register settings), custom_html, custom_css and item_row."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    name = models.CharField(max_length=120)
+    layout_preset = models.CharField(max_length=20)
+    content = models.JSONField(default=dict)
+    version_number = models.IntegerField(default=1)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    archived_at = models.DateTimeField(null=True, blank=True)
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'receipt_layout'
+
+    def __str__(self):
+        return self.name

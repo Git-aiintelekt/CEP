@@ -1,7 +1,7 @@
 /** /templates/:id/receipt : loads the template, its outer design, its receipt layout, the tag catalogue and the image library. */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
@@ -11,13 +11,14 @@ import { EditorFailure, EditorLoading } from '@/apps/cep/features/designer/Edito
 import { canEditTemplate } from '@/apps/cep/features/designer/editAccess'
 import { ReceiptWorkspace, type ReceiptBackend } from '@/apps/cep/features/receipt/ReceiptWorkspace'
 import { api } from '@/lib/api'
-import type { CodeSample, Design, DesignVersion, MediaAsset, Page, PersonalizationTag, ReceiptLayout, Template } from '@/lib/types'
+import type { CodeSample, Design, DesignVersion, MediaAsset, Page, PersonalizationTag, ReceiptLayout, ReceiptLayoutSummary, ReceiptLibraryLayout, Template } from '@/lib/types'
 
 export default function ReceiptEditorPage() {
   const { id = '' } = useParams()
   const { can, has } = useAuth()
   const codes = has('dynamic_codes')
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const template = useQuery({ queryKey: ['templates', 'detail', id], queryFn: ({ signal }) => api.get<Template>(`/templates/${id}/`, undefined, signal) })
   // gcTime 0: always open the editor on what is stored now, never on a cached copy of an older version
@@ -52,8 +53,18 @@ export default function ReceiptEditorPage() {
       },
       // Barcodes and QR codes is switched on per workspace in tenant management
       sampleCode: codes ? (request) => api.post<CodeSample>('/codes/sample/', request) : undefined,
+      library: {
+        list: () => api.get<ReceiptLayoutSummary[]>('/receipt-layouts/'),
+        load: (layoutId) => api.get<ReceiptLibraryLayout>(`/receipt-layouts/${layoutId}/`),
+        create: async (input) => {
+          const made = await api.post<ReceiptLibraryLayout>('/receipt-layouts/', input)
+          void queryClient.invalidateQueries({ queryKey: ['receipt-layouts'] })
+          return made
+        },
+        edit: (layoutId) => navigate(`/templates/receipt-layouts/${layoutId}`, { state: { backTo: `/templates/${id}/receipt` } }),
+      },
     }),
-    [id, queryClient, codes],
+    [id, queryClient, codes, navigate],
   )
 
   // as for the email designer, an image library that will not load leaves the editor usable, without pictures

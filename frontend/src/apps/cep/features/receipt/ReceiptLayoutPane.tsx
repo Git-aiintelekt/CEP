@@ -10,27 +10,32 @@ import { Field, Select, TextArea } from '@/components/Form'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { Switch } from '@/components/Switch'
 import { titleCase } from '@/lib/format'
-import type { ReceiptLayout, ReceiptSection, ReceiptSectionKey } from '@/lib/types'
+import type { PersonalizationTag, ReceiptLayout, ReceiptSection, ReceiptSectionKey } from '@/lib/types'
 
+import { CustomHtmlEditor } from './CustomHtmlEditor'
 import { ReceiptPreview } from './ReceiptPreview'
-import { renderRegisterEmailHtml } from './receiptEmailHtml'
+import { RegisterEditor, RegisterParts, type RegisterPart } from './RegisterSettingsPanel'
 import { PRESET_CARDS, defaultSectionsFor, inOrder, moveSection } from './receiptPresets'
-import { DEFAULT_SAMPLE_TRANSACTION, SAMPLE_TRANSACTIONS } from './sampleReceiptData'
+import { STARTER_CUSTOM_HTML, STARTER_ITEM_ROW, defaultRegisterSettings } from './registerSettings'
+import { DEFAULT_SAMPLE_TRANSACTION } from './sampleReceiptData'
 
-export type ReceiptLayoutConfig = Pick<ReceiptLayout, 'layout_preset' | 'sections' | 'custom_html' | 'custom_css'>
+export type ReceiptLayoutConfig = Pick<ReceiptLayout, 'layout_preset' | 'sections' | 'custom_html' | 'custom_css' | 'item_row' | 'register'>
 
 interface ReceiptLayoutPaneProps {
   layout: ReceiptLayoutConfig
   onChange: (next: ReceiptLayoutConfig) => void
   readOnly?: boolean
+  /** the tag catalogue, for the Store Register's footer text */
+  tags?: PersonalizationTag[]
+  /** shown above Presentation: the E-Receipt editor's layout picker */
+  top?: ReactNode
 }
 
 const PANEL_TITLE = 'px-3 pt-3 pb-2 text-xs font-semibold text-ink-800'
-/** the in-store sale: the one sample that carries register details */
-const REGISTER_SAMPLE = SAMPLE_TRANSACTIONS.find((entry) => entry.data.register)?.data ?? DEFAULT_SAMPLE_TRANSACTION
 
-export function ReceiptLayoutPane({ layout, onChange, readOnly = false }: ReceiptLayoutPaneProps) {
+export function ReceiptLayoutPane({ layout, onChange, readOnly = false, tags, top }: ReceiptLayoutPaneProps) {
   const [selectedKey, setSelectedKey] = useState<ReceiptSectionKey>('items')
+  const [part, setPart] = useState<RegisterPart>('columns')
   const [insideShell, setInsideShell] = useState(false)
   const custom = layout.layout_preset === 'CUSTOM_HTML'
   const register = layout.layout_preset === 'REGISTER'
@@ -42,15 +47,23 @@ export function ReceiptLayoutPane({ layout, onChange, readOnly = false }: Receip
 
   const choosePreset = (preset: ReceiptLayout['layout_preset']) => {
     if (preset === layout.layout_preset) return
-    if (preset === 'CUSTOM_HTML') onChange({ ...layout, layout_preset: preset, custom_html: layout.custom_html ?? '', custom_css: layout.custom_css ?? '' })
+    if (preset === 'CUSTOM_HTML') {
+      // a first Custom HTML layout starts from a working table with its Item Row; one written before keeps its own HTML
+      const fresh = !layout.custom_html
+      onChange({ ...layout, layout_preset: preset, custom_html: fresh ? STARTER_CUSTOM_HTML : layout.custom_html, custom_css: layout.custom_css ?? '', item_row: fresh ? STARTER_ITEM_ROW : (layout.item_row ?? null) })
+    } else if (preset === 'REGISTER') onChange({ ...layout, layout_preset: preset, sections: defaultSectionsFor(preset), register: layout.register ?? defaultRegisterSettings() })
     else onChange({ ...layout, layout_preset: preset, sections: defaultSectionsFor(preset) })
   }
+  // a layout saved before the Store Register had settings shows (and prints) the defaults until something is changed
+  const registerSettings = layout.register ?? defaultRegisterSettings()
 
   return (
     <div className="flex h-full min-h-0 bg-canvas">
       <aside aria-label="Receipt Layout" className="flex h-full w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface">
+        {top}
         <h2 className={PANEL_TITLE}>Presentation</h2>
         <PresetCards value={layout.layout_preset} disabled={readOnly} onChange={choosePreset} />
+        {register && <RegisterParts settings={registerSettings} selected={part} onSelect={setPart} />}
         {custom || register ? null : (
           <>
             <h2 className={`${PANEL_TITLE} mt-2 border-t border-line`}>Receipt Sections</h2>
@@ -74,21 +87,13 @@ export function ReceiptLayoutPane({ layout, onChange, readOnly = false }: Receip
       </aside>
 
       {custom ?
-        <CustomHtml layout={layout} disabled={readOnly} onChange={onChange} />
+        <CustomHtmlEditor
+          value={{ custom_html: layout.custom_html, custom_css: layout.custom_css, item_row: layout.item_row ?? null }}
+          disabled={readOnly}
+          onChange={(next) => onChange({ ...layout, ...next })}
+        />
       : register ?
-        <>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto bg-surface-subtle p-6">
-              {/* the same HTML the email carries; the sample is a point-of-sale transaction with its register details */}
-              <div data-testid="register-preview" className="mx-auto max-w-[600px]" dangerouslySetInnerHTML={{ __html: renderRegisterEmailHtml(REGISTER_SAMPLE) }} />
-            </div>
-          </div>
-          <aside aria-label="Section Settings" className="flex h-full w-[296px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface p-4 max-[1439px]:w-[272px] max-[1199px]:w-[264px]">
-            <h2 className="text-card-title font-semibold text-ink-900">Store Register</h2>
-            <p className="mt-2 text-sm text-ink-800">The receipt as the register prints it: the transaction numbers, each line with its discount and quantity at price, the lines’ sum, then the subtotal, every tax with its rate, the total, each tender with its authorisation, and the change.</p>
-            <p className="mt-2 text-sm text-ink-800">Everything comes from the transaction, so there is nothing to configure here. Choose Standard, Compact or Itemized for sections you can switch and reorder.</p>
-          </aside>
-        </>
+        <RegisterEditor settings={registerSettings} part={part} disabled={readOnly} tags={tags} onChange={(next) => onChange({ ...layout, register: next })} />
       : <>
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex h-12 shrink-0 items-center justify-end gap-2 border-b border-line bg-surface px-4">
@@ -339,36 +344,3 @@ function SectionSettings({ section, disabled, onChange }: { section: ReceiptSect
   )
 }
 
-function CustomHtml({ layout, disabled, onChange }: { layout: ReceiptLayoutConfig; disabled: boolean; onChange: (next: ReceiptLayoutConfig) => void }) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto bg-surface p-6">
-      <p className="text-sm text-ink-800">The receipt is your own HTML and CSS. Choose a preset to go back to the section layout.</p>
-      <Field label="HTML">
-        {({ id }) => (
-          <TextArea
-            id={id}
-            rows={14}
-            spellCheck={false}
-            value={layout.custom_html ?? ''}
-            disabled={disabled}
-            onChange={(event) => onChange({ ...layout, custom_html: event.target.value })}
-            className="font-mono"
-          />
-        )}
-      </Field>
-      <Field label="CSS">
-        {({ id }) => (
-          <TextArea
-            id={id}
-            rows={8}
-            spellCheck={false}
-            value={layout.custom_css ?? ''}
-            disabled={disabled}
-            onChange={(event) => onChange({ ...layout, custom_css: event.target.value })}
-            className="font-mono"
-          />
-        )}
-      </Field>
-    </div>
-  )
-}

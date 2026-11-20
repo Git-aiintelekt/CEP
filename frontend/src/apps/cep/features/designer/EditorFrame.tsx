@@ -27,6 +27,7 @@ export interface EditorPane<T extends string = string> {
 
 interface EditorFrameProps<T extends string> {
   name: string
+  /** a template's status; empty for what has none (a receipt layout) */
   status: string
   /** real saves only, e.g. "Version 3 · unsaved changes" */
   saveNote: string
@@ -134,7 +135,7 @@ export function EditorFrame<T extends string>({
         {backLink}
         <div className="flex min-w-0 items-center gap-2.5">
           <h1 className="min-w-0 truncate font-sans text-sm font-semibold text-ink-900">{context && <span className="font-normal text-ink-800">{context}</span>}{name}</h1>
-          <StatusBadge status={status} />
+          {status && <StatusBadge status={status} />}
           {help}
         </div>
         <span className={`cep-num ml-auto shrink-0 text-helper ${saveNoteTone === 'warning' ? 'text-warning-text' : 'text-ink-800'}`}>{saveNote}</span>

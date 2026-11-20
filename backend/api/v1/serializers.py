@@ -371,6 +371,10 @@ class ReceiptLayoutSaveSerializer(serializers.Serializer):
     sections = serializers.ListField(child=serializers.DictField(), default=list, help_text="the typed section list the editor owns; kept loose here, same as editor_state")
     custom_html = serializers.CharField(trim_whitespace=False, allow_null=True, allow_blank=True, required=False, default=None)
     custom_css = serializers.CharField(trim_whitespace=False, allow_null=True, allow_blank=True, required=False, default=None)
+    item_row = serializers.CharField(trim_whitespace=False, allow_null=True, allow_blank=True, required=False, default=None,
+                                     help_text="Custom HTML: the row repeated once per line at {{receipt_items}}")
+    register = serializers.DictField(allow_null=True, required=False, default=None, help_text="the Store Register settings")
+    layout_id = serializers.UUIDField(allow_null=True, required=False, default=None, help_text="pick this library layout (Templates -> Receipt Layouts) instead of an own layout")
     base_version = serializers.IntegerField(min_value=0, help_text="version the editor loaded; a newer stored version answers 409")
 
 
@@ -382,6 +386,10 @@ class ReceiptLayoutSerializer(serializers.Serializer):
     sections = serializers.ListField(child=serializers.DictField())
     custom_html = serializers.CharField(allow_null=True)
     custom_css = serializers.CharField(allow_null=True)
+    item_row = serializers.CharField(allow_null=True)
+    register = serializers.DictField(allow_null=True)
+    layout_id = serializers.UUIDField(allow_null=True)
+    layout_name = serializers.CharField(allow_null=True)
     saved_at = serializers.DateTimeField(allow_null=True)
     saved_by = serializers.CharField(allow_null=True)
 

@@ -1,6 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, test, vi, type Mock } from 'vitest'
 
 import { ToastProvider } from '@/components/Toast'
@@ -12,6 +13,7 @@ import { makeDesign, makeReceiptLayout } from '@/test/mockApi'
 import { ReceiptWorkspace, type ReceiptBackend } from './ReceiptWorkspace'
 import { COMBINED_FRAME_TITLE } from './PreviewTestPane'
 import { conflictNote, olderNote } from './receiptWorkspaceCopy'
+import { defaultRegisterSettings } from './registerSettings'
 
 // GrapesJS needs a real browser layout engine; the canvas is checked in the browser playground (/dev/receipt)
 vi.mock('./OuterDesignPane', () => import('@/test/fakeOuterDesignPane'))
@@ -22,7 +24,7 @@ const TAGS: PersonalizationTag[] = [{
 }]
 
 /** Every method a vitest mock, so a test can read its calls and change its answers. */
-type MockBackend = { [K in keyof Required<ReceiptBackend>]: Mock<NonNullable<ReceiptBackend[K]>> }
+type MockBackend = { [K in Exclude<keyof Required<ReceiptBackend>, 'library'>]: Mock<NonNullable<ReceiptBackend[K]>> } & Pick<ReceiptBackend, 'library'>
 
 function makeBackend(over: Partial<ReceiptBackend> = {}): MockBackend {
   return {
@@ -262,4 +264,41 @@ test('read-only: a strip says so, and there is nothing to save or activate', () 
   expect(screen.getByText('You can view this template but not edit it')).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Save Draft' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Activate' })).toBeNull()
+})
+
+test('a library layout is picked, shows read-only, saves as the pick, and Make a Copy for This Template makes it the template\'s own again', async () => {
+  const chosen = {
+    id: 'lay-1', name: 'Citi Register', layout_preset: 'REGISTER' as const, kind: 'SETTINGS' as const, used_by: 3, version_number: 2, updated_at: '2026-11-21T10:00:00Z', updated_by: null,
+    archived: false, sections: [], custom_html: null, custom_css: null, item_row: null, register: { ...defaultRegisterSettings(), footer_text: 'Returns within 30 days.' }, templates: [],
+  }
+  const library = { list: vi.fn(async () => [chosen]), load: vi.fn(async () => chosen), create: vi.fn(), edit: vi.fn() }
+  const backend = makeBackend({ library } as Partial<ReceiptBackend>)
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <ToastProvider>
+          <ReceiptWorkspace templateName="Citi receipt" status="DRAFT" design={makeDesign()} receiptLayout={makeReceiptLayout()} tags={TAGS} assets={[]} backend={backend} backTo="/templates" />
+        </ToastProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+  await user.click(tab('Receipt Layout'))
+  const picker = await screen.findByLabelText('Layout')
+  await screen.findByRole('option', { name: 'Citi Register' })
+  await user.selectOptions(picker, 'lay-1')
+  expect(library.load).toHaveBeenCalledWith('lay-1')
+  expect(await screen.findByRole('button', { name: /Edit Layout/ })).toBeTruthy()
+  expect(screen.getByTestId('register-preview').innerHTML).toContain('Returns within 30 days.')
+  expect(screen.getByRole('radio', { name: /Standard/ })).toHaveProperty('disabled', true)
+
+  await user.click(save())
+  await waitFor(() => expect(backend.saveReceiptLayout).toHaveBeenCalled())
+  expect(backend.saveReceiptLayout.mock.calls.at(-1)?.[0]).toMatchObject({ layout_id: 'lay-1', layout_preset: 'REGISTER' })
+
+  await user.click(screen.getByRole('button', { name: 'Make a Copy for This Template' }))
+  expect(screen.getByRole('radio', { name: /Standard/ })).toHaveProperty('disabled', false)
+  await user.click(save())
+  await waitFor(() => expect(backend.saveReceiptLayout.mock.calls.at(-1)?.[0]).toMatchObject({ layout_id: null, layout_preset: 'REGISTER' }))
+  expect(backend.saveReceiptLayout.mock.calls.at(-1)?.[0].register?.footer_text).toBe('Returns within 30 days.')
 })

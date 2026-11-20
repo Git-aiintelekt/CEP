@@ -7,7 +7,8 @@ import { isEmptyDesign } from '@/apps/cep/features/designer/preview/previewState
 import type { ReceiptLayoutPreset, ReceiptSection } from '@/lib/types'
 
 import { injectReceiptIntoOuterHtml } from './injectReceipt'
-import { RECEIPT_HIDE_MOBILE_STYLE, renderReceiptEmailHtml } from './receiptEmailHtml'
+import { RECEIPT_HIDE_MOBILE_STYLE, renderLayoutEmailHtml, renderReceiptEmailHtml, type LayoutContent } from './receiptEmailHtml'
+import { FOLD_RULE, folds } from './registerSettings'
 import type { SampleTransaction } from './sampleReceiptData'
 
 /** Some clients keep only the <style> in <head>, so the phone rule is placed there too. No head, no insert. */
@@ -18,6 +19,13 @@ export function withHeadStyle(html: string, css: string): string {
 
 export function combineReceiptEmail(outerHtml: string, sections: ReceiptSection[], transaction: SampleTransaction, preset?: ReceiptLayoutPreset): string {
   return injectReceiptIntoOuterHtml(withHeadStyle(outerHtml, RECEIPT_HIDE_MOBILE_STYLE), renderReceiptEmailHtml(sections, transaction, preset))
+}
+
+/** The same for a whole layout, whatever its kind: Store Register settings, Custom HTML with its Item Row, or sections. */
+export function combineLayoutEmail(outerHtml: string, layout: LayoutContent, transaction: SampleTransaction): string {
+  let html = withHeadStyle(outerHtml, RECEIPT_HIDE_MOBILE_STYLE)
+  if (layout.layout_preset === 'REGISTER' && folds(layout.register)) html = withHeadStyle(html, FOLD_RULE)
+  return injectReceiptIntoOuterHtml(html, renderLayoutEmailHtml(layout, transaction))
 }
 
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;' }
@@ -54,6 +62,6 @@ export function compileOuter(editor: Compiler | null | undefined): OuterEmail {
   }
 }
 
-export function combinedFor(outer: OuterEmail, sections: ReceiptSection[], transaction: SampleTransaction, preset?: ReceiptLayoutPreset): string {
-  return outer.ready ? combineReceiptEmail(outer.html, sections, transaction, preset) : outer.message
+export function combinedFor(outer: OuterEmail, layout: LayoutContent, transaction: SampleTransaction): string {
+  return outer.ready ? combineLayoutEmail(outer.html, layout, transaction) : outer.message
 }

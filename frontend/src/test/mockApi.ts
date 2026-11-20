@@ -2223,6 +2223,7 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.endsWith('/receipt/')) return json(receiptLayout)
     if (path.endsWith('/receipt/versions/')) return json([{ version_number: receiptLayout.latest_version, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' }])
+    if (path.endsWith('/receipt-layouts/')) return json([])
     if (path.endsWith('/field-rules/')) return json(fieldRules)
     if (path.endsWith('/personalization-tags/data-points/')) return json(tagDataPoints)
     if (path.endsWith('/personalization-tags/') && method === 'POST') {
