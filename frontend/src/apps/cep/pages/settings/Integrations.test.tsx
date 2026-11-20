@@ -120,7 +120,7 @@ test('the call log is paged: rows per page is chosen and remembered, Previous an
   expect(calls.filter((call) => call.url.includes('/integrations/log/?')).at(-1)!.url).toContain('page=1')
 })
 
-test('sign-on from OFBiz iCRM saves the CEP URL, site key and a write-only API key for this workspace', async () => {
+test('sign-on from OFBiz iCRM saves the site key and API key for this workspace, and Show reveals the API key', async () => {
   const calls = installMockApi()
   const user = userEvent.setup()
   await renderAppAt('/settings/integrations')
@@ -129,18 +129,16 @@ test('sign-on from OFBiz iCRM saves the CEP URL, site key and a write-only API k
   await within(section).findByText('Not Set Up')
   expect(within(section).getByText('NWA')).toBeTruthy()
 
-  await user.type(within(section).getByLabelText('CEP URL'), 'https://cep.example.com/app')
+  expect(within(section).queryByLabelText(/CEP URL/)).toBeNull()
   await user.type(within(section).getByLabelText(/Site Key/), 'site-key-123')
   await user.type(within(section).getByLabelText(/API Key/), 'api-key-456')
   await user.click(within(section).getByRole('button', { name: 'Save Sign-On' }))
-  expect(await within(section).findByText(/The address only/)).toBeTruthy()
-
-  await user.clear(within(section).getByLabelText('CEP URL'))
-  await user.type(within(section).getByLabelText('CEP URL'), 'https://cep.example.com')
-  await user.click(within(section).getByRole('button', { name: 'Save Sign-On' }))
   expect(await within(section).findByText('Set Up')).toBeTruthy()
   const put = calls.filter((call) => call.url.endsWith('/workspace/ofbiz-sso/') && call.method === 'PUT').at(-1)
-  expect(put?.body).toEqual({ frontend_url: 'https://cep.example.com', site_key: 'site-key-123', api_key: 'api-key-456' })
-  expect((within(section).getByLabelText(/API Key/) as HTMLInputElement).value).toBe('')
-  expect(within(section).getByText('A key is stored. Leave this empty to keep it.')).toBeTruthy()
+  expect(put?.body).toEqual({ site_key: 'site-key-123', api_key: 'api-key-456' })
+  const apiKey = within(section).getByLabelText(/API Key/) as HTMLInputElement
+  expect(apiKey.value).toBe('api-key-456')
+  expect(apiKey.type).toBe('password')
+  await user.click(within(section).getByRole('button', { name: 'Show' }))
+  expect(apiKey.type).toBe('text')
 })

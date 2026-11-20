@@ -2,10 +2,10 @@
 
 OFBiz sends the token of iCRM's UtilCommon.getSSOToken, for both the launch and the logout: a Multipass token (token-app.jar,
 see .multipass) sealed with TenantProperties `security` `common.site.key` and `common.api.key`. In CEP the workspace's tenant row holds
-them in the column sso_config = {"is_active", "frontend_url", "secret_enc"}: secret_enc is {"site_key", "api_key", "time_zone", "roles"} (the
+them in the column sso_config = {"is_active", "secret_enc"}: secret_enc is {"site_key", "api_key", "time_zone", "roles"} (the
 same two keys, the iCRM server's time zone, and the role names), encrypted by the application. One iCRM system per workspace:
-another system gets its own workspace (tenant row, code) and its own sso_config. frontend_url is the address this workspace's
-CEP opens at (sign-on redirects land there); empty, the platform.frontend_url parameter applies.
+another system gets its own workspace (tenant row, code) and its own sso_config. CEP stores no address: iCRM sends the
+browser to its cep.url, and the launch answers on that same address (/launch or /login).
 
 getSSOToken's fields: user_login_id (-> claim sub), email, expires ("yyyy-MM-dd HH:mm" in iCRM time, common.token.expiry.min,
 default 5 minutes), version, tenant_id (common.site.tenantId: not checked, since the keys already tie the token to this
@@ -15,7 +15,6 @@ Optional fields, checked when present: aud, exp, jti, party_id, next.
 CAMPAIGN_MANAGER or ANALYST) and display_name. iCRM owns the login and the role; CEP keeps only the email, name and role.
 
   link_for(...)   -> the workspace's keys, iCRM time zone and roles, or None when "Open CEP" is off for it
-  frontend_url(.) -> the address the workspace's sign-on redirects go to
 
   verify(...)     -> the token's claims, or OfbizError with a sentence for the login page
   find_user(...)  -> the active CEP user of this workspace with the token's email (logout: never created)
@@ -30,7 +29,6 @@ CEP's MFA: OFBiz has already signed the user in. The cache must be the shared Re
 """
 import json
 import logging
-import re
 import secrets
 import time
 from datetime import timedelta
@@ -41,7 +39,7 @@ from django.db import connections, router
 from django.core.cache import cache
 from rest_framework.exceptions import AuthenticationFailed
 
-from . import crypto, params
+from . import crypto
 from .multipass import decoded_json, is_valid_token
 
 log = logging.getLogger(__name__)
@@ -57,7 +55,6 @@ DEFAULT_NEXT = "/campaigns"
 COLUMN = "sso_config"
 # cep_role -> CEP role name; the workspace's "roles": {code: role name} adds to it or renames
 DEFAULT_ROLES = {"MARKETING_ADMIN": "Marketing Admin", "CAMPAIGN_MANAGER": "Campaign Manager", "ANALYST": "Analyst"}
-FRONTEND_URL = re.compile(r"^https?://[^/\s]+$")             # the address only: no path, no trailing slash
 SEALED_PREFIX = "gAAAAA"                                    # every Fernet token starts so; a secret seeded by SQL does not
 
 INVALID_LINK = "This link is invalid or has expired. Open CEP again from OFBiz."
@@ -109,14 +106,6 @@ def link_for(tenant_id) -> dict | None:
         return None
     return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone,
             "roles": {**DEFAULT_ROLES, **{str(code).strip().upper(): str(role).strip() for code, role in roles.items()}}}
-
-
-def frontend_url(tenant_id) -> str:
-    """sso_config.frontend_url of the workspace, else the platform.frontend_url parameter (one address for every workspace)."""
-    from apps.tenants.models import Tenant
-    config = Tenant.objects.filter(pk=tenant_id).values_list(COLUMN, flat=True).first() if tenant_id else None
-    url = str(config.get("frontend_url") or "").strip().rstrip("/") if isinstance(config, dict) else ""
-    return url if FRONTEND_URL.match(url) else params.frontend_url()
 
 
 def verify(token: str, audience: str, tenant: dict) -> dict:
@@ -238,13 +227,13 @@ def config_workspaces() -> list[dict]:
 
 def read_config(code: str) -> dict | None:
     """The workspace's sso_config with secret_enc opened:
-    {code, name, is_active, frontend_url, site_key, api_key, time_zone, roles, encrypted, problem}."""
+    {code, name, is_active, site_key, api_key, time_zone, roles, encrypted, problem}."""
     rows = _platform_rows(f"SELECT code, name, {COLUMN} AS config FROM tenant WHERE code = %s AND deleted_at IS NULL", [code])
     if not rows:
         return None
     config = rows[0]["config"] if isinstance(rows[0]["config"], dict) else json.loads(rows[0]["config"] or "{}")
     answer = {"code": rows[0]["code"], "name": rows[0]["name"], "is_active": config.get("is_active") is not False,
-              "frontend_url": str(config.get("frontend_url") or ""), "site_key": "", "api_key": "", "time_zone": "", "roles": {}, "encrypted": False, "problem": None}
+              "site_key": "", "api_key": "", "time_zone": "", "roles": {}, "encrypted": False, "problem": None}
     secret = str(config.get("secret_enc") or "")
     if not secret:
         return answer
@@ -259,8 +248,7 @@ def read_config(code: str) -> dict | None:
 
 
 def save_config(code: str, data: dict) -> dict:
-    """Validates and stores {is_active, frontend_url, site_key, api_key, time_zone, roles}, the keys encrypted; returns field
-    errors or {}. An empty frontend_url means the platform.frontend_url parameter."""
+    """Validates and stores {is_active, site_key, api_key, time_zone, roles}, the keys encrypted; returns field errors or {}."""
     errors, values = {}, {}
     for field in ("site_key", "api_key", "time_zone"):
         values[field] = str(data.get(field) or "").strip()
@@ -271,23 +259,21 @@ def save_config(code: str, data: dict) -> dict:
             ZoneInfo(values["time_zone"])
         except (ZoneInfoNotFoundError, ValueError):
             errors["time_zone"] = "Not a time zone, for example America/New_York."
-    url = str(data.get("frontend_url") or "").strip().rstrip("/")
-    if url and not FRONTEND_URL.match(url):
-        errors["frontend_url"] = "The address only, such as https://cep.example.com (no path)."
     roles = data.get("roles") or {}
     if not isinstance(roles, dict) or any(not str(k).strip() or not str(v).strip() for k, v in roles.items()):
         errors["roles"] = "Every role needs an iCRM code and a CEP role name."
     if errors:
         return errors
     sealed = crypto.encrypt(json.dumps({**values, "roles": {str(k).strip().upper(): str(v).strip() for k, v in roles.items()}}))
-    config = json.dumps({"is_active": bool(data.get("is_active", True)), "frontend_url": url, "secret_enc": sealed})
-    _platform_rows(f"UPDATE tenant SET {COLUMN} = COALESCE({COLUMN}, '{{}}'::jsonb) || %s::jsonb WHERE code = %s AND deleted_at IS NULL", [config, code])
+    config = json.dumps({"is_active": bool(data.get("is_active", True)), "secret_enc": sealed})
+    _platform_rows(f"UPDATE tenant SET {COLUMN} = (COALESCE({COLUMN}, '{{}}'::jsonb) - 'frontend_url') || %s::jsonb WHERE code = %s AND deleted_at IS NULL", [config, code])
     log.info("tenant.%s of %s changed by a platform administrator", COLUMN, code)
     return {}
 
 
-# The workspace's own administrators (Settings -> Integrations) edit the three values iCRM's CEP Configuration screen holds:
-# CEP URL, Site Key and API Key. The time zone, roles and on/off stay as stored (seed); the API key is write-only.
+# The workspace's own administrators (Settings -> Integrations) edit the two keys iCRM seals "Open CEP" tokens with:
+# Site Key (security / common.site.key) and API Key (cep / cep.api.key). The time zone, roles and on/off stay as stored
+# (seed). Both keys are shown to whoever may open the screen (provider.edit), as iCRM's own screen shows them.
 DEFAULT_TIME_ZONE = "America/New_York"                     # iCRM staging (EST5EDT), until the seed sets another
 
 
@@ -295,20 +281,19 @@ def workspace_link(code: str) -> dict | None:
     config = read_config(code)
     if config is None:
         return None
-    return {"workspace": config["code"], "frontend_url": config["frontend_url"], "site_key": config["site_key"],
+    return {"workspace": config["code"], "site_key": config["site_key"], "api_key": config["api_key"],
             "has_api_key": bool(config["api_key"]), "configured": bool(config["site_key"] and config["api_key"]),
             "problem": config["problem"]}
 
 
 def save_workspace_link(code: str, data: dict) -> dict:
-    """{frontend_url, site_key, api_key}: an empty api_key keeps the stored one. Returns field errors or {}."""
+    """{site_key, api_key}, both required. Returns field errors or {}."""
     stored = read_config(code) or {}
-    api_key = str(data.get("api_key") or "").strip() or stored.get("api_key", "")
-    errors = save_config(code, {"is_active": stored.get("is_active", True), "frontend_url": data.get("frontend_url"),
-                                "site_key": data.get("site_key"), "api_key": api_key,
+    errors = save_config(code, {"is_active": stored.get("is_active", True),
+                                "site_key": data.get("site_key"), "api_key": data.get("api_key"),
                                 "time_zone": stored.get("time_zone") or DEFAULT_TIME_ZONE, "roles": stored.get("roles") or {}})
     if "api_key" in errors:
-        errors["api_key"] = "Enter iCRM's API key (common.api.key)."
+        errors["api_key"] = "Enter iCRM's API key (cep.api.key)."
     if "site_key" in errors:
         errors["site_key"] = "Enter iCRM's site key (common.site.key)."
     return errors

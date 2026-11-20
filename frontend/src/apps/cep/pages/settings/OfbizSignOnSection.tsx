@@ -4,13 +4,14 @@ import { useState, type FormEvent } from 'react'
 import { buttonPrimary, Field, TextInput } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 
 /** GET/PUT /workspace/ofbiz-sso/: this workspace's tenant.sso_config, as iCRM's CEP Configuration screen names it */
 interface OfbizLink {
   workspace: string
-  frontend_url: string
   site_key: string
+  api_key: string
   has_api_key: boolean
   configured: boolean
   problem: string | null
@@ -20,16 +21,16 @@ const KEY = ['workspace', 'ofbiz-sso']
 
 function SignOnForm({ link }: { link: OfbizLink }) {
   const queryClient = useQueryClient()
-  const [url, setUrl] = useState(link.frontend_url)
   const [siteKey, setSiteKey] = useState(link.site_key)
-  const [apiKey, setApiKey] = useState('')
+  const [apiKey, setApiKey] = useState(link.api_key)
+  const [showKey, setShowKey] = useState(false)
 
   const save = useMutation({
-    mutationFn: () => api.put<OfbizLink>('/workspace/ofbiz-sso/', { frontend_url: url.trim(), site_key: siteKey.trim(), ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}) }),
-    onSuccess: (data) => { queryClient.setQueryData(KEY, data); setApiKey('') },
+    mutationFn: () => api.put<OfbizLink>('/workspace/ofbiz-sso/', { site_key: siteKey.trim(), api_key: apiKey.trim() }),
+    onSuccess: (data) => { queryClient.setQueryData(KEY, data); setSiteKey(data.site_key); setApiKey(data.api_key) },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
-  const other = save.isError && !errors.frontend_url && !errors.site_key && !errors.api_key ? save.error : null
+  const other = save.isError && !errors.site_key && !errors.api_key ? save.error : null
 
   return (
     <form className="space-y-4" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
@@ -39,15 +40,12 @@ function SignOnForm({ link }: { link: OfbizLink }) {
       </div>
       {link.problem && <p role="alert" className="rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning-text">{link.problem} Saving replaces the stored keys.</p>}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Field label="CEP URL" error={errors.frontend_url} hint="The address people open this workspace at, for example https://cep.example.com. Empty uses the platform address.">
-          {(ids) => <TextInput {...ids} type="url" inputMode="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://cep.example.com" autoComplete="off" />}
-        </Field>
-        <Field label="Site Key" required error={errors.site_key} hint="iCRM common.site.key, character for character.">
+        <Field label="Site Key" required error={errors.site_key} hint="iCRM security / common.site.key, character for character.">
           {(ids) => <TextInput {...ids} value={siteKey} onChange={(event) => setSiteKey(event.target.value)} autoComplete="off" />}
         </Field>
-        <Field label="API Key" required={!link.has_api_key} error={errors.api_key}
-          hint={link.has_api_key ? 'A key is stored. Leave this empty to keep it.' : 'iCRM common.api.key. Stored encrypted; never shown again.'}>
-          {(ids) => <TextInput {...ids} type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="new-password" placeholder={link.has_api_key ? '••••••••' : ''} />}
+        <Field label="API Key" required error={errors.api_key} hint="iCRM cep / cep.api.key, character for character. Stored encrypted."
+          labelEnd={<button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} aria-pressed={showKey} onClick={() => setShowKey((shown) => !shown)}>{showKey ? 'Hide' : 'Show'}</button>}>
+          {(ids) => <TextInput {...ids} type={showKey ? 'text' : 'password'} value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="new-password" />}
         </Field>
       </div>
       {other !== null && <ErrorState title="The sign-on settings were not saved" error={other} />}
@@ -66,7 +64,7 @@ export function OfbizSignOnSection() {
     <section aria-labelledby="ofbiz-heading">
       <div className="mb-3">
         <h2 id="ofbiz-heading" className="font-display text-section-title font-semibold text-ink-900">Sign-On from OFBiz iCRM</h2>
-        <p className="text-sm text-ink-800">"Open CEP" in iCRM signs people in to this workspace. Enter the same values as iCRM's CEP Configuration screen.</p>
+        <p className="text-sm text-ink-800">"Open CEP" in iCRM signs people in to this workspace. Enter the same keys as iCRM's CEP Configuration screen.</p>
       </div>
       <div className="rounded-lg border border-line bg-surface p-5">
         {link.isError ? <ErrorState error={link.error} onRetry={() => void link.refetch()} />

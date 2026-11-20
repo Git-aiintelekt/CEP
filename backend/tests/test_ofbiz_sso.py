@@ -243,42 +243,39 @@ def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
     check.done()
 
 
-
-def test_ofbiz_launch_lands_on_the_workspace_address(check, admin_email):
+def test_ofbiz_launch_answers_on_the_address_icrm_used(check, admin_email):
+    """iCRM sends the browser to its cep.url + /api/v1/auth/sso/ofbiz/: CEP's answer is a relative redirect, so the browser stays
+    on that address. CEP stores no address for it."""
     cache.clear()
     admin = _admin(admin_email)
     _link(admin.tenant)
     code = admin.tenant.code
-    platform_address = ofbiz.frontend_url(None)
+    client = Client()
 
-    def landed():
-        response = Client().get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code)})
-        return response["Location"].split("#")[0]
-
-    check("without frontend_url the platform address applies", landed() == platform_address + "/launch", landed())
-    _set_link(admin.tenant, {**_stored_link(admin.tenant), "frontend_url": "https://cep-citi.example.com/"})
-    check("sso_config.frontend_url is where this workspace lands", landed() == "https://cep-citi.example.com/launch", landed())
-    _set_link(admin.tenant, {**_stored_link(admin.tenant), "frontend_url": "https://cep.example.com/some/path"})
-    check("an address with a path is ignored", landed() == platform_address + "/launch", landed())
-
-    errors = ofbiz.save_config(code, {**KEYS, "time_zone": ICRM_TIME_ZONE, "roles": ROLES, "frontend_url": "cep.example.com/x"})
-    check("saving an address with a path is refused", "frontend_url" in errors, errors)
-    errors = ofbiz.save_config(code, {**KEYS, "time_zone": ICRM_TIME_ZONE, "roles": ROLES, "frontend_url": "https://cep-b.example.com/"})
-    check("a good address is saved without its trailing slash", not errors
-          and ofbiz.read_config(code)["frontend_url"] == "https://cep-b.example.com", errors)
+    landed = client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code)})
+    check("a good link lands on /launch on the same address", landed.status_code == 302 and landed["Location"].startswith("/launch#"), landed.get("Location"))
+    refused = client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code)[:-6]})
+    check("a refusal lands on /login on the same address", refused.status_code == 302 and refused["Location"].startswith("/login#"), refused.get("Location"))
+    check("sso_config holds no address", "frontend_url" not in _stored_link(admin.tenant), _stored_link(admin.tenant))
+    check.done()
 
 
-def test_workspace_link_saves_url_and_keys_and_keeps_the_rest(check, admin_email):
+def test_workspace_link_saves_the_keys_and_keeps_the_rest(check, admin_email):
+    """Settings -> Integrations: Site Key and API Key only, both shown and required; the time zone and roles stay as seeded."""
     admin = _admin(admin_email)
     _link(admin.tenant)
     code = admin.tenant.code
 
-    errors = ofbiz.save_workspace_link(code, {"frontend_url": "https://cep-w.example.com", "site_key": "new-site-key-000", "api_key": ""})
-    stored = ofbiz.read_config(code)
-    check("an empty API key keeps the stored one", not errors and stored["api_key"] == KEYS["api_key"], errors)
-    check("the time zone and roles stay as seeded", stored["time_zone"] == ICRM_TIME_ZONE and stored["roles"] == ROLES, stored)
-    check("the URL and site key are saved", stored["frontend_url"] == "https://cep-w.example.com" and stored["site_key"] == "new-site-key-000", stored)
-    link = ofbiz.workspace_link(code)
-    check("the workspace view never returns the API key", "api_key" not in link and link["has_api_key"] and link["configured"], link)
-    errors = ofbiz.save_workspace_link(code, {"frontend_url": "", "site_key": "", "api_key": ""})
-    check("a site key is required", "site_key" in errors, errors)
+    link = ofbiz.workspace_link(code) or {}
+    check("the screen shows both stored keys", link.get("site_key") == KEYS["site_key"] and link.get("api_key") == KEYS["api_key"], link)
+    errors = ofbiz.save_workspace_link(code, {"site_key": "new-site-key-000", "api_key": KEYS["api_key"]})
+    stored = ofbiz.read_config(code) or {}
+    check("the site key is saved", not errors and stored.get("site_key") == "new-site-key-000", errors or stored)
+    check("the time zone and roles stay as seeded", stored.get("time_zone") == ICRM_TIME_ZONE and stored.get("roles") == ROLES, stored)
+    errors = ofbiz.save_workspace_link(code, {"site_key": "new-site-key-000", "api_key": "new-api-key-111"})
+    check("a new API key replaces the stored one", not errors and (ofbiz.read_config(code) or {}).get("api_key") == "new-api-key-111", errors)
+    link = ofbiz.workspace_link(code) or {}
+    check("the screen shows the new API key", link.get("api_key") == "new-api-key-111" and link.get("configured"), link)
+    errors = ofbiz.save_workspace_link(code, {"site_key": "", "api_key": ""})
+    check("both keys are required", "site_key" in errors and "api_key" in errors, errors)
+    check.done()

@@ -336,8 +336,8 @@ class SsoConfigView(APIView):
 
 
 class OfbizLinkView(APIView):
-    """Settings -> Integrations: sign-on from OFBiz iCRM for this workspace (tenant.sso_config): CEP URL, site key, API key.
-    The API key is write-only; empty on PUT keeps the stored one."""
+    """Settings -> Integrations: sign-on from OFBiz iCRM for this workspace (tenant.sso_config): site key and API key, both
+    shown and both required. Stored encrypted."""
     permission_classes = [IsAuthenticated, HasPermissionCode.for_("provider.edit")]
 
     @extend_schema(responses={200: None})
