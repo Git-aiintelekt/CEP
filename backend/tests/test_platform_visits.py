@@ -72,6 +72,10 @@ def test_a_visit(check, admin_email):
     check("the visit is listed for the workspace's administrators, open, with the reason", listed and listed[0]["who"] == "Platform Tester" and listed[0]["open"]
           and listed[0]["reason"] == "Checking the demo before the customer call", listed)
     check("a visit's token is refused for another workspace", visits.open_visit(tokens["visit"], staff.pk, staff.tenant_id) is None)
+    mfa = inside.get("/api/v1/auth/mfa/")
+    check("Account Security inside a visit is a refusal that says where to go, not a server error",
+          mfa.status_code == 403 and "own workspace" in mfa.json().get("detail", ""), f"{mfa.status_code} {mfa.content[:200]!r}")
+    check("and the visit cannot change the administrator's sign-in security", inside.post("/api/v1/auth/mfa/", json.dumps({"action": "setup"}), content_type="application/json").status_code == 403)
     check("switching again from inside a visit is refused: go back first", inside.get("/api/v1/platform/workspaces/").status_code == 403)
     nwa_client = Client(HTTP_X_TENANT=nwa, HTTP_AUTHORIZATION="Bearer " + str(AccessToken.for_user(nwa_admin)))
     ordinary_client = Client(HTTP_X_TENANT=nwa, HTTP_AUTHORIZATION="Bearer " + str(AccessToken.for_user(ordinary)))
