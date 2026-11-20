@@ -1458,6 +1458,13 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/workspace/invoices/')) return json(invoices)
     if (path.endsWith('/workspace/support-access/')) return json(supportAccess)
     if (path.endsWith('/workspace/governance/')) return json(governanceNow)
+    if (path.endsWith('/workspace/governance/standard/') && method === 'POST') {
+      const have = new Set(governanceNow.caps.filter((cap) => !cap.platform).map((cap) => cap.channel))
+      const added = ([['EMAIL', 3, 7], ['SMS', 4, 30], ['WHATSAPP', 2, 7], ['ALL', 5, 7]] as const).filter(([channel]) => !have.has(channel))
+        .map(([channel, most, days], index) => governanceCap({ id: `cap-standard-${index}`, channel, max_messages: most, period_days: days }))
+      governanceNow = { ...governanceNow, caps: [...governanceNow.caps, ...added] }
+      return json({ added: added.map((cap) => cap.rule), caps: governanceNow.caps })
+    }
     if (path.endsWith('/workspace/governance/caps/') && method === 'POST') {
       const made = governanceCap({ id: `cap-${governanceNow.caps.length + 1}`, platform: false, ...(body as Partial<GovernanceCap>) })
       governanceNow = { ...governanceNow, caps: [...governanceNow.caps, made] }

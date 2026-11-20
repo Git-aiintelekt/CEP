@@ -86,10 +86,10 @@ def _clean(data: dict) -> dict:
     return values
 
 
-def _name(tenant_id, values: dict, exclude=None) -> str:
+def _name(tenant_id, values: dict, exclude=None, using: str = "default") -> str:
     base = rule(values["max_messages"], values["period_days"], values["channel"])
     base = base[0].upper() + base[1:]
-    taken = set(CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True).exclude(pk=exclude).values_list("name", flat=True))
+    taken = set(CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True).exclude(pk=exclude).values_list("name", flat=True))
     name, number = base, 2
     while name in taken:
         name, number = f"{base} ({number})", number + 1
@@ -126,3 +126,10 @@ def remove_cap(tenant_id, policy_id, user_id) -> None:
     policy = _own(tenant_id, policy_id)
     policy.deleted_at, policy.is_active, policy.updated_by_id = timezone.now(), False, user_id
     policy.save(update_fields=["deleted_at", "is_active", "updated_by"])
+
+
+def add_standard(tenant_id, user_id) -> dict:
+    """the recommended caps for the channels the workspace does not cap yet (apps/governance/standard.py)"""
+    from apps.governance import standard
+    added = standard.workspace_caps(tenant_id, user_id=user_id)
+    return {"added": added, "caps": caps(tenant_id)}

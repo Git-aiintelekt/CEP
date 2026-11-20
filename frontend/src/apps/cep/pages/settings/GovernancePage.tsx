@@ -93,6 +93,10 @@ export function GovernancePage() {
     mutationFn: (cap: GovernanceCap) => api.patch<GovernanceCap>(`/workspace/governance/caps/${cap.id}/`, { is_active: !cap.is_active }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: KEY }),
   })
+  const recommended = useMutation({
+    mutationFn: () => api.post<{ added: string[] }>('/workspace/governance/standard/'),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: KEY }),
+  })
   const remove = useMutation({
     mutationFn: (cap: GovernanceCap) => api.delete(`/workspace/governance/caps/${cap.id}/`),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: KEY }),
@@ -102,6 +106,7 @@ export function GovernancePage() {
   if (data.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
   const { caps, activity, text_quiet_hours: quiet, soft_bounces: softBounces } = data.data
   const platformCaps = caps.filter((cap) => cap.platform).length
+  const ownCaps = caps.length - platformCaps
 
   return (
     <div className="max-w-4xl space-y-5">
@@ -151,6 +156,13 @@ export function GovernancePage() {
             </table>
           </div>
         )}
+        {editable && ownCaps === 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line-subtle bg-surface-subtle px-4 py-3">
+            <p className="max-w-xl text-sm text-ink-800">No caps of your own yet. The recommended start: 3 emails per 7 days, 4 texts per 30 days, 2 WhatsApp messages per 7 days and 5 messages per 7 days across all channels. Each can be changed or removed afterwards.</p>
+            <button type="button" className={buttonPrimary} disabled={recommended.isPending} onClick={() => recommended.mutate()}>Use the Recommended Caps</button>
+          </div>
+        )}
+        {recommended.isError && <div className="mt-3"><ErrorState title="The recommended caps were not added" error={recommended.error} /></div>}
         {platformCaps > 0 && <p className="mt-3 text-helper text-ink-800">{platformCaps === 1 ? 'One cap is' : `${platformCaps} caps are`} set by the platform for your workspace. Caps of your own apply as well, so they can only make sending stricter.</p>}
         {(toggle.isError || remove.isError) && <div className="mt-3"><ErrorState title="The cap was not changed" error={toggle.error ?? remove.error} /></div>}
       </Card>

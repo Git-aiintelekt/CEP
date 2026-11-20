@@ -111,3 +111,38 @@ def test_the_workspace_sees_the_platform_cap_locked_and_manages_its_own(check, a
         transaction.set_rollback(True, using="default")
         transaction.set_rollback(True, using=P)
     check.done()
+
+
+def test_a_new_workspace_gets_the_platform_standards_locked_and_the_standard_caps_as_its_own(check):
+    if not _present():
+        pytest.skip("patch 0088 has not been applied to this database")
+    from apps.governance import standard
+    token = context.set_platform(True)
+    try:
+        with transaction.atomic(using=P):
+            fresh = Tenant.objects.using(P).create(name="Governance Standard Test", code="ZZGOVS")
+            kept = Tenant.objects.using(P).create(name="Governance Own Email Cap", code="ZZGOVK")
+            with connections[P].cursor() as cursor:
+                for made in (fresh, kept):
+                    cursor.execute("SELECT fn_provision_tenant(%s::uuid, 3)", [str(made.pk)])
+                cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(kept.pk)])
+            CommunicationGovernancePolicy.objects.using(P).create(tenant_id=kept.pk, name="Our email cap", scope="CHANNEL", channel="EMAIL", max_messages=2, period_days=7)
+
+            result = standard.for_new_workspace(fresh.pk, using=P)
+            rows = CommunicationGovernancePolicy.objects.using(P).filter(tenant_id=fresh.pk, deleted_at__isnull=True)
+            locked = {(r.channel, r.max_messages, r.period_days) for r in rows if r.platform_policy_id}
+            own = {("ALL" if r.scope == "GLOBAL" else r.channel, r.max_messages, r.period_days) for r in rows if not r.platform_policy_id}
+            check("the platform standards arrive locked: one per channel per day", {("EMAIL", 1, 1), ("SMS", 1, 1), ("WHATSAPP", 1, 1)} <= locked, locked)
+            check("and the standard caps as the workspace's own", own == {("EMAIL", 3, 7), ("SMS", 4, 30), ("WHATSAPP", 2, 7), ("ALL", 5, 7)}, own)
+            check("onboarding reports them", len(result["own"]) == 4, result)
+
+            first = standard.apply(using=P)
+            check("for every workspace: one that caps email already keeps its own and gets the other three",
+                  sorted(first["workspaces"]["ZZGOVK"]) == sorted(["4 texts per 30 days", "2 WhatsApp messages per 7 days", "5 messages per 7 days"]), first["workspaces"].get("ZZGOVK"))
+            again = standard.apply(using=P)
+            check("running it again adds nothing", not any(again["workspaces"].values()) and len(PlatformGovernancePolicy.objects.using(P).filter(name__startswith="Platform Standard")) == 3,
+                  again["workspaces"])
+            transaction.set_rollback(True, using=P)
+    finally:
+        context.reset_platform(token)
+    check.done()

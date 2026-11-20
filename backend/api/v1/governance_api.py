@@ -4,6 +4,7 @@
     POST   /workspace/governance/caps/         {channel: ALL|EMAIL|SMS|WHATSAPP, max_messages, period_days}
     PATCH  /workspace/governance/caps/<id>/    the same fields, and is_active
     DELETE /workspace/governance/caps/<id>/
+    POST   /workspace/governance/standard/     the recommended caps for the channels not capped yet
 
 Reading needs campaign.view or governance.edit; changing needs governance.edit. A platform cap is refused with 403.
 """
@@ -79,3 +80,11 @@ class CapView(APIView):
     def delete(self, request, pk, version=None):
         self._run(lambda: workspace.remove_cap(_tenant(), pk, _user(request)))
         return Response(status=204)
+
+
+class StandardView(APIView):
+    permission_classes = ACCESS
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None):
+        return Response(workspace.add_standard(_tenant(), _user(request)))

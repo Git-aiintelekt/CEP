@@ -8,6 +8,17 @@ How often marketing may reach one person, and what those rules did in the last 3
 
 Some caps are set by the platform team for your workspace (sometimes for several workspaces at once). They are shown locked, marked **Platform**. You add caps of your own beside them. Every cap applies at the same time, so a cap of your own can only make sending stricter than the platform's, never looser.
 
+## The standard caps
+
+Every workspace starts with the industry-standard set:
+
+| Set By | Cap | Can You Change It |
+|---|---|---|
+| Platform | 1 marketing email per day, 1 text per day, 1 WhatsApp message per day | No: the platform's limit for every workspace, so nobody receives a burst of messages. |
+| This Workspace | 3 emails per 7 days, 4 texts per 30 days, 2 WhatsApp messages per 7 days, 5 messages per 7 days across all channels | Yes: edit, switch off or remove any of them, and add more. |
+
+A workspace with no caps of its own sees **Use the Recommended Caps**, which adds the workspace set in one go.
+
 ## Who can use it
 
 | | |
@@ -28,6 +39,7 @@ Some caps are set by the platform team for your workspace (sometimes for several
 | Days | 1 to 365. A rolling period ending now. | How far back the messages are counted. |
 | In Use | A switch on each of your own caps; *On* or *Off* for the platform's. | Off: the cap stays listed but is not checked. |
 | Add Cap | Opens the cap form. | Adds a cap of your own. It applies from the next send. |
+| Use the Recommended Caps | Shown while the workspace has no caps of its own. | Adds the standard workspace caps above for every channel not capped yet. Each is then yours to change. |
 | Edit | On your own caps. | Changes the cap from the next send; sends already built are not rebuilt. |
 | Remove | On your own caps; asks first. | The cap no longer applies. |
 | Locked | On the platform's caps. | The platform team changes or removes these in the back-office; you cannot. |

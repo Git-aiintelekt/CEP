@@ -29,7 +29,8 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
     3. the starting roles
     4. the coupon tags barcode and QR code blocks read
     5. a copy of every active platform personalization tag (apps/templates/inherit.py)
-    6. a copy of every platform governance policy applied to all workspaces (apps/governance/platform.py)
+    6. governance: a copy of every platform policy applied to all workspaces, and the standard caps as the workspace's own
+       (apps/governance/standard.py)
     """
     with connections[using].cursor() as cursor:
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])       # audit triggers need a tenant
@@ -69,12 +70,12 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
     except Exception:                                      # noqa: BLE001  the same: the back-office can push them later
         log.exception("platform tags not inherited by tenant %s", tenant.id)
         inherited = {}
-    from apps.governance.platform import inherit as inherit_policies
+    from apps.governance.standard import for_new_workspace
     try:
-        policies = inherit_policies(tenant.id, using=using, user_id=user_id)
-    except Exception:                                      # noqa: BLE001  the same: Platform Policies → Apply to the Workspaces Again
-        log.exception("platform governance policies not inherited by tenant %s", tenant.id)
-        policies = 0
+        policies = for_new_workspace(tenant.id, using=using, user_id=user_id)
+    except Exception:                                      # noqa: BLE001  the same: manage.py governance_standard --apply adds them later
+        log.exception("governance not set up for tenant %s", tenant.id)
+        policies = {}
     return {"partition_sets": partitions, "roles": created_roles, "coupon_tags": coupon_tags, "platform_tags": inherited, "platform_policies": policies}
 
 

@@ -160,6 +160,7 @@ urlpatterns = [
     path("workspace/governance/", governance_api.GovernanceView.as_view(), name="workspace-governance"),
     path("workspace/governance/caps/", governance_api.CapsView.as_view(), name="workspace-governance-caps"),
     path("workspace/governance/caps/<uuid:pk>/", governance_api.CapView.as_view(), name="workspace-governance-cap"),
+    path("workspace/governance/standard/", governance_api.StandardView.as_view(), name="workspace-governance-standard"),
     path("suppressions/", suppressions_api.SuppressionListView.as_view(), name="suppression-list"),
     path("suppressions/summary/", suppressions_api.SuppressionSummaryView.as_view(), name="suppression-summary"),
     path("suppressions/export.csv", suppressions_api.SuppressionExportView.as_view(), name="suppression-export"),
