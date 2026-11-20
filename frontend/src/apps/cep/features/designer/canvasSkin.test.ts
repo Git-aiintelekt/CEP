@@ -73,17 +73,18 @@ test('it styles only the editing chrome, never the email', () => {
   expect(selectors.length).toBeGreaterThan(0)
   // GrapesJS's own chrome classes, the attribute the layers panel paints on the frame's DOM, or the phone-width
   // preview — which does name a class of ours in the email, and so is only ever reached through that attribute.
-  // The frame's root scroller, whose scrollbar is hidden, is the one exception: it is the page around the email.
+  // The frame's root scroller and its scrollbar are the one exception: they are the page around the email.
   // Nothing else: the email's own tags, classes and styles are never targeted.
-  for (const selector of selectors.filter((s) => !/^html(::-webkit-scrollbar)?$/.test(s))) {
+  for (const selector of selectors.filter((s) => !/^html(\[data-cep-phone\])?(::-webkit-scrollbar(-thumb|-track)?)?$/.test(s))) {
     expect(selector, selector).toMatch(new RegExp(`gjs-|\\[${HIDDEN_ATTRIBUTE}\\]|^\\[${PHONE_ATTRIBUTE}\\] |^\\[${DESKTOP_ATTRIBUTE}\\] `))
   }
 })
 
-test('it hides the frame scrollbar without stopping the frame from scrolling', () => {
+test('the frame shows a thin scrollbar beside the template, hidden at the phone width, and the frame still scrolls', () => {
   const css = canvasSkin(themed())
-  expect(css).toMatch(/html \{\s*scrollbar-width: none;/)
-  expect(css).toContain('html::-webkit-scrollbar')
+  expect(css).toMatch(/html \{\s*scrollbar-width: thin;/)
+  expect(css).toContain('html::-webkit-scrollbar-thumb')
+  expect(css).toMatch(/html\[data-cep-phone\] \{\s*scrollbar-width: none;/)
   expect(css).not.toMatch(/overflow:\s*hidden/)
 })
 

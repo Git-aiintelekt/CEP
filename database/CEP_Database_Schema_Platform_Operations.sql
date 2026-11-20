@@ -1029,6 +1029,11 @@ INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_s
     ('preference_url', 'Preference Centre Link', 'SYSTEM', 'SYSTEM', 'preference_url', 'STRING', '{EMAIL}',
      'The recipient''s own preference page, made at send time; the unsubscribe link while the workspace''s preference centre is off', 'https://cep.example.com/preferences')
 ON CONFLICT (tag_key) DO NOTHING;
+-- patch 0090: the opt-out line of a marketing text, kept in one place. Every workspace inherits it; the back-office changes its words.
+INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_source, static_value, data_type, applies_to_channels, description, sample_value) VALUES
+    ('opt_out_text', 'Opt-Out Text', 'STANDARD', 'STATIC', 'Reply STOP to opt out', 'STRING', '{SMS,MMS}',
+     'How to stop marketing texts, the same words in every message; a marketing text needs it or its own opt-out words. Set in the back-office.', 'Reply STOP to opt out')
+ON CONFLICT (tag_key) DO NOTHING;
 
 -- =====================================================================================
 -- POINT OF SALE E-RECEIPTS (patch 0029)

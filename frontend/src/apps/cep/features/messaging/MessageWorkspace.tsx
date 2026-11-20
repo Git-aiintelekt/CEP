@@ -20,7 +20,7 @@ import type { DesignVersion, MediaAsset, Message, MessageSaveInput, Personalizat
 import { useUtmSettings, withShortLinks } from '@/apps/cep/pages/settings/utm'
 
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
-import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
+import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, OPT_OUT_TAG, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 export interface MessageBackend {
@@ -106,7 +106,11 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   }
   if (metrics.segments > 3) warnings.push(`${metrics.segments} parts per recipient. Each part is billed as one message.`)
   if (unknown.length > 0) warnings.push(`Unknown tags (they would be sent as typed): ${unknown.map(asToken).join(', ')}`)
-  if (body.trim() && !OPT_OUT_PATTERN.test(body)) warnings.push('No opt-out wording. Marketing messages must say how to stop them, for example: Reply STOP to opt out.')
+  const optOutTag = tags.find((tag) => tag.tag_key === OPT_OUT_TAG)
+  const missingOptOut = Boolean(body.trim()) && !OPT_OUT_PATTERN.test(body)
+  if (missingOptOut) warnings.push(optOutTag
+    ? `No opt-out wording. Marketing messages must say how to stop them: add the Opt-Out Text tag (${asToken(OPT_OUT_TAG)}, “${optOutTag.static_value ?? optOutTag.sample_value ?? 'Reply STOP to opt out'}”), or write your own.`
+    : 'No opt-out wording. Marketing messages must say how to stop them, for example: Reply STOP to opt out.')
   if (isMms && !media) warnings.push('No picture yet. An MMS template needs one before it can be activated.')
   if (media && media.byte_size > MMS_WARN_BYTES) warnings.push(`The picture is ${kb(media.byte_size)}. Some carriers shrink or drop attachments over 600 KB.`)
 
@@ -384,6 +388,10 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             <div className="rounded-lg border border-warning bg-warning-bg px-5 py-4 text-sm text-warning-text">
               <p className="font-medium">Before Sending</p>
               <ul className="mt-1 list-disc space-y-1 pl-5">{warnings.map((item) => <li key={item}>{item}</li>)}</ul>
+              {missingOptOut && optOutTag && !readOnly && (
+                <button type="button" className={`mt-3 ${buttonClass({ variant: 'secondary', size: 'sm' })}`}
+                  onClick={() => setBody(`${body.trimEnd()} ${asToken(OPT_OUT_TAG)}`)}>Add the Opt-Out Text</button>
+              )}
             </div>
           )}
 

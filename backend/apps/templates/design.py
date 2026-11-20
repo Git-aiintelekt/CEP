@@ -385,7 +385,8 @@ LONG_MESSAGE_SEGMENTS = 3
 MMS_MEDIA_TYPES = ("image/jpeg", "image/png", "image/gif")          # WebP is not reliably delivered over MMS
 MMS_MEDIA_WARN_BYTES = 600 * 1024            # above this some carriers transcode or drop the attachment
 MMS_MEDIA_MAX_BYTES = 1024 * 1024
-OPT_OUT_RE = re.compile(r"\b(stop|unsubscribe|opt[\s-]?out)\b", re.I)
+# the opt-out wording, or the {{opt_out_text}} tag that carries it (a platform tag: back-office, Personalization Tags)
+OPT_OUT_RE = re.compile(r"\b(stop|unsubscribe|opt[\s-]?out)\b|(\{\{|\$\{)\s*opt_out_text\s*\}", re.I)
 URL_RE = re.compile(r"https?://\S+", re.I)
 
 GSM7_BASIC = set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑܧ¿abcdefghijklmnopqrstuvwxyzäöñüà")

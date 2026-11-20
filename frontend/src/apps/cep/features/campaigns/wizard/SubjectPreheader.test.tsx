@@ -79,3 +79,22 @@ test("the subject line test's A and the review summary say when the subject is t
   expect(await box.findByDisplayValue('Jordan, last days')).toBeTruthy()
   expect(box.getByText('A · Set for This Campaign')).toBeTruthy()
 })
+
+test("an emoji picked while the subject is empty is added to the template's line, which becomes the campaign's own; then it goes in at the caret", async () => {
+  installMockApi({ design, campaign: makeCampaign({ status: 'DRAFT', setup_step: 2 }) })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns/c1/edit?step=content')
+
+  const box = await card()
+  const subject = box.getByLabelText('Subject Line') as HTMLInputElement
+  await box.findAllByText("Empty: the template's is used.", {}, { timeout: 3000 })
+  await user.click(box.getAllByRole('button', { name: 'Insert Emoji' })[0])
+  await user.click(await within(await screen.findByRole('region', { name: 'Insert Emoji' })).findByRole('option', { name: 'fire' }))
+  await vi.waitFor(() => expect(subject.value).toBe('Fall is here, {{first_name}}🔥'))
+  expect(box.getByText(/This campaign's own\. The template's: “Fall is here/)).toBeTruthy()
+
+  subject.setSelectionRange(0, 0)
+  await user.click(box.getAllByRole('button', { name: 'Insert Emoji' })[0])
+  await user.click(await within(await screen.findByRole('region', { name: 'Insert Emoji' })).findByRole('option', { name: 'fire' }))
+  await vi.waitFor(() => expect(subject.value).toBe('🔥Fall is here, {{first_name}}🔥'))
+})

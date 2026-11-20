@@ -15,7 +15,8 @@ const tag = (tag_key: string, label: string, tag_kind: string, sample_value: str
   default_value: null, static_value: null, is_active: true,
 })
 const TAGS = [tag('first_name', 'First name', 'STANDARD', 'Jordan'), tag('loyalty_tier', 'Loyalty tier', 'STANDARD', 'Gold'), tag('offer_code', 'Offer code', 'CUSTOM', 'FALL017'),
-              tag('discount_pct', 'Discount %', 'CUSTOM', '20'), tag('shop_url', 'Shop URL', 'SYSTEM', 'https://nwa.example/s/9x2')]
+              tag('discount_pct', 'Discount %', 'CUSTOM', '20'), tag('shop_url', 'Shop URL', 'SYSTEM', 'https://nwa.example/s/9x2'),
+              { ...tag('opt_out_text', 'Opt-Out Text', 'STANDARD', 'Reply STOP to opt out'), static_value: 'Reply STOP to opt out' }]
 
 const image = (id: string, label: string, color: string, byte_size: number): MediaAsset => ({
   id, file_name: `${label.toLowerCase()}.png`, mime_type: 'image/png', byte_size, width_px: 600, height_px: 400, created_at: new Date().toISOString(),

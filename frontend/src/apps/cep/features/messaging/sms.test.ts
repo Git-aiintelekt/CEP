@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 
 import type { PersonalizationTag } from '@/lib/types'
 
-import { canBePlain, plainPunctuation, renderWithSamples, smsMetrics } from './sms'
+import { canBePlain, OPT_OUT_PATTERN, plainPunctuation, renderWithSamples, smsMetrics } from './sms'
 
 const tag = (tag_key: string, sample_value: string | null, default_value: string | null = null): PersonalizationTag => ({
   id: tag_key, tag_key, label: tag_key, tag_kind: 'STANDARD', data_type: 'STRING', applies_to_channels: ['SMS'], description: null,
@@ -43,4 +43,9 @@ test('plainPunctuation brings a pasted message back to GSM-7', () => {
   expect(plainPunctuation(pasted)).toBe('It\'s here - "20% off"...')
   expect(smsMetrics(plainPunctuation(pasted)).encoding).toBe('GSM-7')
   expect(canBePlain(['\u{1F600}'])).toBe(false) // an emoji has no plain twin: the writer decides
+})
+
+test('the Opt-Out Text tag counts as opt-out wording, as the server check does', () => {
+  for (const body of ['Shop now {{opt_out_text}}', 'Shop now {{ opt_out_text }}', 'Shop now ${opt_out_text}', 'Reply STOP to opt out', 'Text UNSUBSCRIBE']) expect(OPT_OUT_PATTERN.test(body), body).toBe(true)
+  for (const body of ['Shop {{shop_url}}', 'Use code {{offer_code}}']) expect(OPT_OUT_PATTERN.test(body), body).toBe(false)
 })
