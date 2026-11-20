@@ -90,6 +90,7 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
           <>
             <span aria-hidden className="hidden h-4 w-px bg-sidebar-icon sm:block" />
             <span data-component-name className="hidden font-display text-base font-semibold whitespace-nowrap text-on-brand sm:block">{current.name}</span>
+            {current.access === 'TRIAL' && <span data-trial className="hidden rounded-sm bg-warning px-1.5 text-xs leading-5 font-semibold text-on-warning sm:block">Trial</span>}
           </>
         )}
       </div>

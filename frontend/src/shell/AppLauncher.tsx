@@ -52,6 +52,7 @@ export function AppLauncher({ me, components, current }: { me: Me | null; compon
                   <li key={item.key}>
                     <Link
                       to={item.home}
+                      title={item.tagline}
                       data-dropdown-item
                       aria-current={isCurrent ? 'true' : undefined}
                       onClick={() => dropdown.close({ restoreFocus: false })}

@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navy Rail Pages</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --hover:#eeeff5; --fill-subtle:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --sidebar:#20265d; --sidebar-text:#e7e8ef; --sidebar-icon:#a9afd0; --sidebar-hover:#2c336f; --sidebar-pressed:#363e82;
+    --sidebar-selected:#313c8e; --sidebar-accent:#9fb0ff; --sidebar-divider:#3a4178;
+    --toast:#17181c; --scrim:rgba(19,21,27,0.45);
+    --warning:#fcf4cb; --on-warning:#17181c;
+    --tag-active-bg:#d8f1e7; --tag-active-text:#0c5f43; --tag-active-dot:#2fa57a;
+    --tag-draft-bg:#f2ebe4; --tag-draft-text:#5d4535;
+    --tag-scheduled-bg:#fce4d8; --tag-scheduled-text:#8f3a12;
+    --tag-completed-bg:#ddedfb; --tag-completed-text:#1a5486;
+    --shadow-menu:0 4px 16px rgb(20 23 31 / 0.10);
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,p { margin:0 }
+  button { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer }
+  .wrap { max-width:1360px; margin:0 auto; padding:0 16px 64px }
+  .intro { margin-top:24px; padding:16px 20px; border-radius:8px; background:var(--surface); border:1px solid var(--line) }
+  .intro h1 { font-size:24px; line-height:32px; font-weight:600; letter-spacing:-0.01em }
+  .intro p { margin-top:6px; font-size:14px; line-height:20px; color:var(--ink-800); max-width:980px }
+  .switches { margin-top:14px; display:flex; flex-wrap:wrap; gap:12px 28px }
+  .switch { display:flex; align-items:center; gap:10px; font-size:13px; line-height:18px; font-weight:500; color:var(--ink-800) }
+  .seg { display:inline-flex; border:1px solid var(--line-control); border-radius:6px; overflow:hidden }
+  .seg button { height:30px; padding:0 12px; font-size:13px; font-weight:500; color:var(--ink-900); border-left:1px solid var(--line-subtle) }
+  .seg button:first-child { border-left:0 }
+  .seg button[aria-pressed="true"] { background:var(--brand-100); color:var(--brand-800); font-weight:600 }
+  .part { margin:36px 0 4px; font-size:20px; line-height:28px; font-weight:600; letter-spacing:-0.01em }
+  .part + p { font-size:14px; line-height:20px; color:var(--ink-800); max-width:980px; margin-bottom:12px }
+  .scroller { overflow-x:auto; border-radius:8px; border:1px solid var(--line) }
+
+  /* icons: Lucide 0.454.0 as masks */
+  .i { display:inline-block; width:16px; height:16px; flex:none; background:currentColor; -webkit-mask:var(--u) center/contain no-repeat; mask:var(--u) center/contain no-repeat }
+  .i20 { width:20px; height:20px } .i22 { width:22px; height:22px }
+  .i-home{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-dashboard.svg)}
+  .i-megaphone{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/megaphone.svg)}
+  .i-branch{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/git-branch.svg)}
+  .i-file{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-text.svg)}
+  .i-users{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/users.svg)}
+  .i-pie{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-pie.svg)}
+  .i-settings{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/settings.svg)}
+  .i-sparkles{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sparkles.svg)}
+  .i-report{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-chart-column.svg)}
+  .i-grid{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/layout-grid.svg)}
+  .i-clock{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/calendar-clock.svg)}
+  .i-upload{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/file-up.svg)}
+  .i-sigma{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/sigma.svg)}
+  .i-target{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/target.svg)}
+  .i-log{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/scroll-text.svg)}
+  .i-activity{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/activity.svg)}
+  .i-column{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chart-column.svg)}
+  .i-grip{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/grip.svg)}
+  .i-close{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/panel-left-close.svg)}
+  .i-open{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/panel-left-open.svg)}
+  .i-search{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/search.svg)}
+  .i-help{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/circle-help.svg)}
+  .i-bell{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/bell.svg)}
+  .i-down{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/chevron-down.svg)}
+  .i-plus{--u:url(https://unpkg.com/lucide-static@0.454.0/icons/plus.svg)}
+
+  /* ---------- the shell ---------- */
+  .app { position:relative; width:1280px; height:720px; background:var(--surface); overflow:hidden }
+  .app.narrow { width:1024px }
+  .top { position:absolute; inset:0 0 auto 0; height:56px; background:var(--sidebar); display:flex; align-items:center; gap:10px; padding:0 12px; z-index:4 }
+  .ib { width:40px; height:40px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--sidebar-icon) }
+  .ib:hover { background:var(--sidebar-hover); color:#fff }
+  .ib.on { background:var(--sidebar-selected); color:#fff }
+  .brand { display:flex; align-items:center; gap:10px; white-space:nowrap }
+  .ctile { width:32px; height:32px; border-radius:6px; background:var(--brand-600); color:#fff; font-weight:600; font-size:16px; display:flex; align-items:center; justify-content:center }
+  .c360 { color:#fff; font-weight:600; font-size:16px; letter-spacing:-0.02em }
+  .vdiv { width:1px; height:16px; background:var(--sidebar-icon) }
+  .pname { color:#fff; font-weight:600; font-size:16px; display:flex; align-items:center; gap:6px; height:36px; padding:0 4px; border-radius:6px }
+  .pname .i { color:var(--sidebar-icon); display:none }
+  body[data-name="button"] .pname { cursor:pointer; padding:0 8px }
+  body[data-name="button"] .pname:hover { background:var(--sidebar-hover) }
+  body[data-name="button"] .pname .i { display:inline-block }
+  .trial { font-size:11px; line-height:16px; font-weight:600; padding:0 5px; border-radius:4px; background:var(--warning); color:var(--on-warning) }
+  .search { flex:1; display:flex; justify-content:center; padding:0 24px }
+  .search div { width:100%; max-width:480px; height:36px; border-radius:6px; background:var(--sidebar-hover); color:var(--sidebar-icon); display:flex; align-items:center; gap:8px; padding:0 12px; font-size:14px; white-space:nowrap; overflow:hidden }
+  .right { display:flex; align-items:center; gap:4px; color:var(--sidebar-text); font-size:14px; white-space:nowrap }
+  .right b { color:#fff; font-weight:600; margin:0 8px 0 6px }
+  .avatar { width:30px; height:30px; border-radius:50%; background:var(--brand-100); color:var(--brand-800); font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; margin-left:4px }
+  .who { display:flex; flex-direction:column; line-height:16px; margin-left:8px }
+  .who span:first-child { color:#fff; font-weight:600; font-size:14px } .who span:last-child { color:var(--sidebar-text); font-size:12px }
+
+  .rail { position:absolute; top:56px; bottom:0; left:0; width:240px; background:var(--sidebar); display:flex; flex-direction:column; padding:8px 12px 16px; z-index:3; transition:width 240ms cubic-bezier(0.2,0,0.38,0.9) }
+  .rail ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px }
+  .rail .foot { margin-top:auto; border-top:1px solid var(--sidebar-divider); padding-top:8px }
+  .rhead { display:none; padding:8px 12px 12px; white-space:nowrap }
+  .rhead b { color:#fff; font-weight:600; font-size:18px; line-height:24px }
+  body[data-head="rail"] .rhead { display:flex }
+  .item { position:relative; display:flex; align-items:center; gap:12px; height:40px; padding:0 12px; border-radius:8px; color:var(--sidebar-text); font-weight:500; white-space:nowrap; cursor:pointer }
+  .item .i { color:var(--sidebar-icon) }
+  .item:hover { background:var(--sidebar-hover); color:#fff }
+  .item:hover .i { color:#fff }
+  .item.cur { background:var(--sidebar-selected); color:#fff; font-weight:600 }
+  .item.cur .i { color:#fff }
+  .tip { position:absolute; left:52px; top:50%; transform:translateY(-50%); background:var(--toast); color:#fff; font-size:13px; line-height:18px; font-weight:500; padding:5px 8px; border-radius:4px; white-space:nowrap; display:none; z-index:9 }
+  /* collapsed: a 64px column of 40px squares, labels as tooltips */
+  .app.collapsed .rail { width:64px; padding:8px 12px 16px }
+  .app.collapsed .item { width:40px; padding:0; justify-content:center }
+  .app.collapsed .item span.lbl { display:none }
+  .app.collapsed .item:hover .tip, .app.collapsed .item.hovered .tip { display:block }
+  .app.collapsed .rhead { display:none !important }
+  /* labels under icons: an 88px column of tiles */
+  body[data-rail="under"] .rail { width:88px; padding:6px 6px 16px; overflow-y:auto }
+  body[data-rail="under"] .item { flex-direction:column; justify-content:center; height:auto; min-height:64px; gap:4px; padding:8px 2px; font-size:12px; line-height:16px; text-align:center; white-space:normal }
+  body[data-rail="under"] .item span.lbl { display:block !important }
+  body[data-rail="under"] .item .tip { display:none !important }
+  body[data-rail="under"] .rhead div { display:none } body[data-rail="under"] .rhead { justify-content:center; padding:8px 0 12px }
+  body[data-rail="under"] .toggle { visibility:hidden }
+
+  .main { position:absolute; top:56px; bottom:0; right:0; left:240px; padding:24px 32px; overflow:hidden; transition:left 240ms cubic-bezier(0.2,0,0.38,0.9) }
+  .app.collapsed .main { left:64px }
+  body[data-rail="under"] .main { left:88px }
+  .app.overlay .main { left:64px }
+  .app.overlay-open .scrim { display:block }
+  .scrim { display:none; position:absolute; inset:56px 0 0 0; background:var(--scrim); z-index:2 }
+
+  /* page content */
+  .ph { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px }
+  .ph h2 { font-size:24px; line-height:32px; font-weight:600; letter-spacing:-0.01em }
+  .btn { height:40px; padding:0 16px; border-radius:8px; background:var(--brand-600); color:#fff; font-size:14px; font-weight:500; display:inline-flex; align-items:center; gap:8px }
+  .filters { display:flex; gap:8px; margin-bottom:16px }
+  .field { width:280px; height:40px; border-radius:8px; background:var(--fill-subtle); display:flex; align-items:center; gap:8px; padding:0 12px; color:var(--ink-300); font-size:15px }
+  .chip { height:40px; padding:0 12px; border-radius:8px; border:1px solid var(--line-control); display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500 }
+  .chip .i { color:var(--ink-800) }
+  table { width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  th { text-align:left; font-size:13px; line-height:18px; font-weight:500; color:var(--ink-900); background:var(--surface-subtle); height:40px; padding:0 16px; border-bottom:1px solid var(--line) }
+  td { height:48px; padding:0 16px; border-bottom:1px solid var(--line-subtle); font-size:15px }
+  td:first-child { font-weight:500 }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums }
+  tr:last-child td { border-bottom:0 }
+  .tag { display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:500; letter-spacing:0.01em }
+  .tag.active { background:var(--tag-active-bg); color:var(--tag-active-text) } .tag.active::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--tag-active-dot) }
+  .tag.draft { background:var(--tag-draft-bg); color:var(--tag-draft-text) }
+  .tag.scheduled { background:var(--tag-scheduled-bg); color:var(--tag-scheduled-text) }
+  .tag.completed { background:var(--tag-completed-bg); color:var(--tag-completed-text) }
+  .muted { color:var(--ink-800) }
+
+  /* the launcher */
+  .launcher { display:none; position:absolute; top:52px; left:60px; width:420px; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow-menu); padding:14px; z-index:6 }
+  .app.launching .launcher { display:block }
+  .lsearch { height:36px; border-radius:6px; border:1px solid var(--line-control); display:flex; align-items:center; gap:8px; padding:0 10px; color:var(--ink-700); font-size:14px; margin-bottom:12px }
+  .lsearch .i { color:var(--ink-700) }
+  .lgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px }
+  .ltile { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 4px; border-radius:8px; font-size:12px; line-height:16px; font-weight:500; text-align:center; cursor:pointer }
+  .ltile:hover { background:var(--hover) }
+  .ltile.cur { background:var(--surface-subtle); box-shadow:inset 0 0 0 1px var(--line-subtle) }
+  .ltile .sq { width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center }
+  .sq.cep { background:var(--brand-100); color:var(--brand-800) } .sq.ins { background:var(--fill-subtle); color:var(--ink-900) }
+  .ltile small { font-size:11px; font-weight:400; color:var(--ink-700) }
+  .lcoming { margin-top:10px; padding-top:10px; border-top:1px solid var(--line-subtle); font-size:12px; line-height:16px; color:var(--ink-800) }
+
+  /* notes */
+  .notes { margin-top:40px; display:grid; grid-template-columns:1fr 1fr; gap:16px }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:16px 20px }
+  .card h3 { font-size:16px; line-height:24px; font-weight:600; margin-bottom:8px }
+  .card ol, .card ul { margin:0; padding-left:20px; font-size:14px; line-height:20px; color:var(--ink-800) }
+  .card li + li { margin-top:6px }
+  .card b { color:var(--ink-900); font-weight:600 }
+  @media (max-width: 900px) { .notes { grid-template-columns:1fr } }
+</style>
+</head>
+<body data-rail="beside" data-head="rail" data-name="dots">
+<div class="wrap">
+  <div class="intro">
+    <h1>Navy Rail Pages</h1>
+    <p>The navy rail now holds the open product’s pages, and the white menu column is gone. Products are switched only in the 9-dot launcher. Every frame is clickable: the toggle collapses and expands, the dots open the launcher, a launcher tile switches the product, and collapsed icons show their label on hover. Approved 2026-11-20: the product’s name heads the rail (no subline), Insights stays one flat list, Contact Lists in title case.</p>
+  </div>
+
+  <h2 class="part">1 · Engagement, Expanded</h2>
+  <p>xl and up: the rail is 240px, open unless the person collapsed it (remembered, as today). Icon and label side by side, the current page on the navy selected fill with white semibold text. Settings stays at the foot under a divider. Content gains 88px over today (240 instead of 88 + 240).</p>
+  <div class="scroller"><div class="app" data-product="cep" data-page="Campaigns"></div></div>
+
+  <h2 class="part">2 · Engagement, Collapsed</h2>
+  <p>The top bar’s toggle shrinks the rail to a 64px column of 40px icon squares; each label is a dark tooltip (shown here on Journeys). Same as today’s collapsed white menu, now on navy.</p>
+  <div class="scroller"><div class="app collapsed" data-product="cep" data-page="Campaigns" data-hover="Journeys"></div></div>
+
+  <h2 class="part">3 · The Launcher, the Only Product Switcher</h2>
+  <p>Unchanged in content: “Find C360 apps”, one tile per product the workspace has (current one marked, a trial shows “Trial to …”), and the “coming” line. Picking a tile opens that product’s Home and swaps the rail’s pages.</p>
+  <div class="scroller"><div class="app launching" data-product="cep" data-page="Home"></div></div>
+
+  <h2 class="part">4 · Insights, Expanded</h2>
+  <p>Insights’ ten pages fit in one column on a 720px-tall window (10 × 44px plus Settings). Items the person can’t use are left out, as today (AI Reports only with AI on; Run Log and Usage for report admins).</p>
+  <div class="scroller"><div class="app" data-product="insights" data-page="Reports"></div></div>
+
+  <h2 class="part">5 · Insights, Collapsed</h2>
+  <div class="scroller"><div class="app collapsed" data-product="insights" data-page="Reports" data-hover="Shared Formulas"></div></div>
+
+  <h2 class="part">6 · Below xl (1024px): Opened Over the Page</h2>
+  <p>Below xl the rail sits collapsed at 64px; the toggle opens it to 240px over the page with the scrim, never pushing the page (today’s behaviour). On phones the toggle opens the 240px rail over the page the same way.</p>
+  <div class="scroller"><div class="app narrow overlay" data-product="cep" data-page="Campaigns"></div></div>
+
+  <div class="notes">
+    <div class="card">
+      <h3>Kept, Moved or Changed</h3>
+      <ul>
+        <li><b>Kept:</b> every page link, permission check, the Journeys feature flag, the AI-gated AI Reports item, Settings for workspace admins, the toggle and its remembered state, tooltips when collapsed, the launcher’s search, tiles and “coming” line.</li>
+        <li><b>Moved:</b> product switching (rail tiles) goes into the launcher only. The rail’s amber “Trial” tag moves beside the top-bar name; the launcher keeps “Trial to …”.</li>
+        <li><b>Dropped (your call):</b> the subline under the product name. The name heads the expanded rail; the tagline stays only as the launcher tile’s tooltip and in its search.</li>
+        <li><b>Gone:</b> the white 240px menu column and the 88px product rail.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Conflicts with Earlier Rulings</h3>
+      <ul>
+        <li><b>2026-10-19 suite nav:</b> “one tile per component on the rail; the launcher only names what’s coming”. This design reverses it; the cep-design README’s App shell entry gets rewritten.</li>
+        <li><b>Template editors’ 64px page rail</b> (kept by your pick, N4) now looks almost the same as the collapsed shell rail. Leave it, or make the editors use the shell’s collapsed rail?</li>
+        <li><b>Title case:</b> “Contact lists” becomes “Contact Lists”.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRODUCTS = {
+  cep: { name:'Engagement', tagline:'Customer Engagement', icon:'megaphone', sq:'cep', home:'Home', pages:[
+    ['Home','home'],['Campaigns','megaphone'],['Journeys','branch'],['Templates','file'],['Contact Lists','users'],['Reports','pie']] },
+  insights: { name:'Insights', tagline:'Reports, dashboards, datasets', icon:'column', sq:'ins', home:'Overview', trial:true, pages:[
+    ['Overview','home'],['AI Reports','sparkles'],['Reports','report'],['Dashboards','grid'],['Scheduled','clock'],['Uploaded Files','upload'],
+    ['Shared Formulas','sigma'],['Benchmarks','target'],['Run Log','log'],['Usage','activity']] },
+}
+const CAMPAIGNS = [
+  ['Black Friday Early Access','active','Active','Email','48,210'],
+  ['Winter Loyalty Points Reminder','scheduled','Scheduled','SMS','12,400'],
+  ['November Newsletter','completed','Completed','Email','96,035'],
+  ['Cart Recovery Test','draft','Draft','Email','—'],
+  ['Store Opening: Fayetteville','completed','Completed','SMS','8,912'],
+]
+const REPORTS = [
+  ['Campaign Revenue by Week','Engagement','Maria','18 Nov 2026'],
+  ['Open Rate by Channel','Engagement','Sam','16 Nov 2026'],
+  ['SMS Opt-Outs','Engagement','Maria','12 Nov 2026'],
+  ['Journey Conversions','Engagement','Priya','9 Nov 2026'],
+  ['Unsubscribes by List','Engagement','Sam','2 Nov 2026'],
+]
+const ic = (n, s = 20) => `<span class="i i${s} i-${n}"></span>`
+
+function page(product, current) {
+  if (product === 'cep') {
+    if (current === 'Home') return `<div class="ph"><h2>Good Morning, Maria</h2></div><p class="muted">Engagement Home</p>`
+    return `<div class="ph"><h2>Campaigns</h2><span class="btn">${ic('plus',16)}Create Campaign</span></div>
+      <div class="filters"><span class="field">${ic('search',16)}Search campaigns</span><span class="chip">Status ${ic('down',16)}</span><span class="chip">Channel ${ic('down',16)}</span><span class="chip">Owner ${ic('down',16)}</span></div>
+      <table><tr><th>Name</th><th>Status</th><th>Channel</th><th class="num">Recipients</th></tr>
+      ${CAMPAIGNS.map(r => `<tr><td>${r[0]}</td><td><span class="tag ${r[1]}">${r[2]}</span></td><td>${r[3]}</td><td class="num">${r[4]}</td></tr>`).join('')}</table>`
+  }
+  return `<div class="ph"><h2>Reports</h2><span class="btn">${ic('plus',16)}Create Report</span></div>
+    <div class="filters"><span class="field">${ic('search',16)}Search reports</span><span class="chip">Folder ${ic('down',16)}</span><span class="chip">Owner ${ic('down',16)}</span></div>
+    <table><tr><th>Name</th><th>Data From</th><th>Owner</th><th>Last Run</th></tr>
+    ${REPORTS.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="muted">${r[3]}</td></tr>`).join('')}</table>`
+}
+
+function render(app) {
+  const p = PRODUCTS[app.dataset.product]
+  const current = app.dataset.page
+  const opened = app.classList.contains('overlay-open')
+  if (app.classList.contains('overlay')) app.classList.toggle('collapsed', !opened)
+  const collapsed = app.classList.contains('collapsed')
+  const item = ([label, icon]) => `<li><span class="item${label === current ? ' cur' : ''}${label === app.dataset.hover ? ' hovered' : ''}" data-page="${label}">${ic(icon)}<span class="lbl">${label}</span><span class="tip">${label}</span></span></li>`
+  const tiles = Object.entries(PRODUCTS).map(([key, x]) => `<span class="ltile${key === app.dataset.product ? ' cur' : ''}" data-product="${key}" title="${x.tagline}"><span class="sq ${x.sq}">${ic(x.icon)}</span>${x.name}${x.trial ? '<small>Trial to 31 Dec</small>' : ''}</span>`).join('')
+  const toggleIcon = app.classList.contains('overlay') ? (opened ? 'close' : 'open') : (collapsed ? 'open' : 'close')
+  app.innerHTML = `
+    <header class="top">
+      <button class="ib toggle" data-act="toggle" title="${toggleIcon === 'close' ? 'Collapse' : 'Expand'} navigation">${ic(toggleIcon)}</button>
+      <button class="ib${app.classList.contains('launching') ? ' on' : ''}" data-act="launch" title="Apps">${ic('grip',22)}</button>
+      <span class="brand"><span class="ctile">C</span><span class="c360">C360</span><span class="vdiv"></span>
+        <span class="pname" data-act="name" title="${p.tagline}">${p.name}${ic('down',16)}</span>${p.trial ? '<span class="trial">Trial</span>' : ''}</span>
+      <div class="search"><div>${ic('search',16)}Search campaigns, journeys, pages…</div></div>
+      <div class="right">Workspace<b>NWA</b><span class="ib">${ic('help')}</span><span class="ib">${ic('bell')}</span><span class="avatar">MR</span><span class="who"><span>Maria Reyes</span><span>Admin</span></span><span class="ib" style="width:24px">${ic('down',16)}</span></div>
+    </header>
+    <div class="scrim" data-act="toggle"></div>
+    <nav class="rail">
+      <div class="rhead"><b>${p.name}</b></div>
+      <ul>${p.pages.map(item).join('')}</ul>
+      <ul class="foot">${item(['Settings','settings'])}</ul>
+    </nav>
+    <main class="main">${page(app.dataset.product, current)}</main>
+    <div class="launcher">
+      <div class="lsearch">${ic('search',16)}Find C360 apps</div>
+      <div class="lgrid">${tiles}</div>
+      <p class="lcoming">CRM, Sales, Purchasing, Inventory and PIM are coming.</p>
+    </div>`
+}
+
+document.querySelectorAll('.app').forEach(app => {
+  if (app.classList.contains('overlay')) app.classList.add('overlay-open')
+  render(app)
+  app.addEventListener('click', e => {
+    const act = e.target.closest('[data-act]')?.dataset.act
+    const tile = e.target.closest('.ltile')
+    const link = e.target.closest('.item')
+    if (act === 'toggle') {
+      if (app.classList.contains('overlay')) app.classList.toggle('overlay-open')
+      else app.classList.toggle('collapsed')
+      app.classList.remove('launching')
+    } else if (act === 'launch' || (act === 'name' && document.body.dataset.name === 'button')) {
+      app.classList.toggle('launching')
+    } else if (tile) {
+      app.dataset.product = tile.dataset.product
+      app.dataset.page = PRODUCTS[tile.dataset.product].home
+      app.classList.remove('launching')
+    } else if (link) {
+      app.dataset.page = link.dataset.page
+      delete app.dataset.hover
+      app.classList.remove('overlay-open')
+    } else if (!e.target.closest('.launcher')) {
+      app.classList.remove('launching')
+    } else return
+    render(app)
+  })
+})
+
+document.querySelectorAll('[data-switch]').forEach(seg => {
+  const key = seg.dataset.switch
+  const sync = () => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === document.body.dataset[key])))
+  seg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; document.body.dataset[key] = b.dataset.v; sync() })
+  sync()
+})
+</script>
+</body>
+</html>
