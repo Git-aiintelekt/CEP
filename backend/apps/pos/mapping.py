@@ -59,17 +59,29 @@ def text_campaign_for(tenant):
     return str(live[0].pk) if len(live) == 1 else None
 
 
+# the countries a register's numbers can be read as: their calling code and how many digits a national number has after any
+# leading 0 (the trunk prefix dialled inside the country: 07911 123456 in the UK, 0412 345 678 in Australia)
+CALLING_CODES = {"US": ("1", (10,)), "CA": ("1", (10,)), "GB": ("44", (9, 10)), "IN": ("91", (10,)), "AU": ("61", (9,))}
+
+
 def e164(phone: str, country: str = "US") -> str | None:
-    """A phone number as the text engines want it: +14249440599. Ten digits are read as North American when the default country is US or CA."""
-    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    """A phone number as the text engines want it: +14249440599. A number sent with + (or 00) and its country code is used as
+    sent; otherwise it is read as a national number of the register's country: +1 for US and CA, +44 for GB, +91 for IN, +61 for AU."""
+    raw = (phone or "").strip()
+    digits = "".join(ch for ch in raw if ch.isdigit())
     if not digits:
         return None
-    if (phone or "").strip().startswith("+") and 8 <= len(digits) <= 15:
+    if raw.startswith("+") and 8 <= len(digits) <= 15:
         return "+" + digits
-    if len(digits) == 10 and country.upper() in ("US", "CA"):
-        return "+1" + digits
-    if len(digits) == 11 and digits.startswith("1") and country.upper() in ("US", "CA"):
-        return "+" + digits
+    if digits.startswith("00") and 8 <= len(digits) - 2 <= 15:
+        return "+" + digits[2:]
+    code, lengths = CALLING_CODES.get((country or "").upper(), (None, ()))
+    if code:
+        national = digits[1:] if digits.startswith("0") else digits
+        if len(national) in lengths:
+            return f"+{code}{national}"
+        if digits.startswith(code) and len(digits) - len(code) in lengths:      # the country code without the +
+            return "+" + digits
     return "+" + digits if 8 <= len(digits) <= 15 else None
 
 
