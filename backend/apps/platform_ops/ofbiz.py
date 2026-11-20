@@ -204,3 +204,66 @@ def signed_out(token) -> bool:
         return False                                        # password and OpenID Connect sign-ins are never affected
     cutoff = cache.get(_cutoff_key(token.get(settings.SIMPLE_JWT.get("USER_ID_CLAIM", "user_id"))))
     return cutoff is not None and launched <= cutoff
+
+
+# Platform administrators view and edit every workspace's sso_config (Settings -> Security -> "Open CEP" Keys).
+# Read and written on the platform connection, since the workspace chosen is usually not the administrator's own.
+
+def _platform_rows(sql: str, args=()) -> list[dict]:
+    with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
+        cursor.execute(sql, args)
+        if cursor.description is None:
+            return []
+        names = [c[0] for c in cursor.description]
+        return [dict(zip(names, row)) for row in cursor.fetchall()]
+
+
+def config_workspaces() -> list[dict]:
+    rows = _platform_rows(f"SELECT code, name, ({COLUMN} ->> 'secret_enc') IS NOT NULL AS configured FROM tenant "
+                          "WHERE deleted_at IS NULL ORDER BY code")
+    return [{"code": r["code"], "name": r["name"], "configured": bool(r["configured"])} for r in rows]
+
+
+def read_config(code: str) -> dict | None:
+    """The workspace's sso_config with secret_enc opened: {code, name, is_active, site_key, api_key, time_zone, roles, problem}."""
+    rows = _platform_rows(f"SELECT code, name, {COLUMN} AS config FROM tenant WHERE code = %s AND deleted_at IS NULL", [code])
+    if not rows:
+        return None
+    config = rows[0]["config"] if isinstance(rows[0]["config"], dict) else json.loads(rows[0]["config"] or "{}")
+    answer = {"code": rows[0]["code"], "name": rows[0]["name"], "is_active": config.get("is_active") is not False,
+              "site_key": "", "api_key": "", "time_zone": "", "roles": {}, "encrypted": False, "problem": None}
+    secret = str(config.get("secret_enc") or "")
+    if not secret:
+        return answer
+    try:
+        answer["encrypted"] = secret.startswith(SEALED_PREFIX)
+        stored = json.loads(crypto.decrypt(secret) if answer["encrypted"] else secret)
+        answer.update(site_key=str(stored.get("site_key") or ""), api_key=str(stored.get("api_key") or ""),
+                      time_zone=str(stored.get("time_zone") or ""), roles={str(k): str(v) for k, v in (stored.get("roles") or {}).items()})
+    except (ValueError, TypeError, AttributeError) as exc:
+        answer["problem"] = str(exc) if "FIELD_ENCRYPTION_KEY" in str(exc) else "The stored value is not valid JSON."
+    return answer
+
+
+def save_config(code: str, data: dict) -> dict:
+    """Validates and stores {is_active, site_key, api_key, time_zone, roles}, the keys encrypted; returns field errors or {}."""
+    errors, values = {}, {}
+    for field in ("site_key", "api_key", "time_zone"):
+        values[field] = str(data.get(field) or "").strip()
+        if not values[field]:
+            errors[field] = "Required."
+    if values["time_zone"] and "time_zone" not in errors:
+        try:
+            ZoneInfo(values["time_zone"])
+        except (ZoneInfoNotFoundError, ValueError):
+            errors["time_zone"] = "Not a time zone, for example America/New_York."
+    roles = data.get("roles") or {}
+    if not isinstance(roles, dict) or any(not str(k).strip() or not str(v).strip() for k, v in roles.items()):
+        errors["roles"] = "Every role needs an iCRM code and a CEP role name."
+    if errors:
+        return errors
+    sealed = crypto.encrypt(json.dumps({**values, "roles": {str(k).strip().upper(): str(v).strip() for k, v in roles.items()}}))
+    config = json.dumps({"is_active": bool(data.get("is_active", True)), "secret_enc": sealed})
+    _platform_rows(f"UPDATE tenant SET {COLUMN} = COALESCE({COLUMN}, '{{}}'::jsonb) || %s::jsonb WHERE code = %s AND deleted_at IS NULL", [config, code])
+    log.info("tenant.%s of %s changed by a platform administrator", COLUMN, code)
+    return {}
