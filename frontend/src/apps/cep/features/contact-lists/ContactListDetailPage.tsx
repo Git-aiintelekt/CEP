@@ -20,6 +20,7 @@ import type { ComplianceRecord, ContactList, ListGovernance, ListMembersPage, Li
 import { CloneDialog, TypeBadge } from './ContactListsPage'
 import { problemText } from './problem'
 import { GovernanceLines } from './UploadReport'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 const PAGE_SIZE = 50
 const MEMBER_SOURCE: Record<string, string> = { UPLOAD: 'Upload', MANUAL: 'Manual', SEGMENT: 'Audience', CLONE: 'Cloned', RULE: 'Rule' }
@@ -321,7 +322,7 @@ export function ContactListDetailPage() {
 
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate font-display text-page-title font-semibold text-ink-900">{data.name}</h1>
+          <span className="flex min-w-0 items-center gap-1.5"><h1 className="truncate font-display text-page-title font-semibold text-ink-900">{data.name}</h1><PageHelp chapter="contact-lists" /></span>
           {data.description && <p className="mt-1 max-w-2xl text-sm text-ink-800">{data.description}</p>}
           <p className="mt-2 flex flex-wrap items-center gap-2">
             <TypeBadge environment={data.list_environment} />

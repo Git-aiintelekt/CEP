@@ -58,19 +58,36 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The message | The text, with live counting of characters and parts: a text over 160 GSM characters, or 70 with an emoji or an accented letter, is sent as more than one part and the carrier bills each. | What is sent. |
-| Insert Personalization Tag | A tag at the cursor. | Filled in per recipient; the counter uses the sample value. |
-| Picture (MMS) | One image, uploaded here, with a public address the aggregator fetches. | |
-| The preview | The message in a phone frame as the sender's number. | |
-| STOP line | A marketing text must tell people how to opt out. | The aggregator refuses a marketing text without one. |
-| Save, Activate, Version History | As in the designer. | |
+| Subject (MMS) | Optional, up to 80 characters. | Sent with the MMS; some phones show it. |
+| Message | The text, up to 1,600 characters (10 parts). Under it, live counting: characters, parts and characters per part, what is left in this part, and the alphabet (GSM-7 or UCS-2). A text over 160 GSM characters, or over 70 once it holds an emoji or a character outside the standard SMS alphabet, is sent as more than one part, and the carrier bills each. With tags, the count uses their sample values; with UTM tracking on for texts, links to your sites are counted as short links. | What is sent. A longer text cannot be saved. |
+| Insert Tag | The workspace's personalization tags, by group, put in at the cursor. | Filled in per recipient at send time. |
+| Emoji | The emoji picker, put in at the cursor. | Makes the text a Unicode (UCS-2) message: 70 characters a part. |
+| Use Plain Punctuation | Shown when only curly quotes, long dashes or ellipses push the text out of the standard SMS alphabet. Swaps them for plain ones. | Brings the text back to 160 characters a part. |
+| Picture (MMS) | **Choose from Library** (the workspace's images) or **Upload**: JPEG, PNG or GIF, up to 1 MB; under 600 KB is delivered reliably by every carrier. **Remove** takes it off. | The picture the MMS carries. An MMS without one cannot be published in a campaign. |
+| Before Sending | Warnings as you type: characters outside the standard alphabet, emoji, more than three parts, unknown tags (sent as typed), and no opt-out wording. | Advice; the text can still be saved. |
+| Opt-out wording | A marketing text must say how to stop, with words such as STOP, unsubscribe or opt out ("Reply STOP to opt out"). | A marketing campaign on a text without it fails the pre-publish check and cannot be published. |
+| The preview | The message in a phone frame, from the workspace's default texting sender, with the tags' sample values. | |
+| History, Activate, Save | **History** lists every saved version; open one and Save to make it the newest. **Activate** (on a draft, once saved) makes the template usable by campaigns. **Save** writes a new version. | As in the designer. The editor is read-only for someone without `template.edit`, for an archived template, and while a live drip uses it. |
 
 ### The receipt editor
 
 | Control | What it is | What it changes |
 |---|---|---|
 | Presentation | Compact, Standard, Itemized, Store Register, or Custom HTML. | The shape of the receipt inside the email. |
-| Receipt Sections | Order header, Customer & fulfillment, Items, Totals, Payment, Loyalty, Returns & support: each on or off (some are fixed), each with its own switches: the order number, date, store and receipt ID; the address shown; the item columns and row height; the totals rows and a savings callout; the payment method, always masked to the last four digits; points and tier progress; the policy text and an in-store return barcode. | What the point of sale's transaction is laid out as, at send time. |
+| Receipt Sections | Order header, Customer & fulfillment, Items, Totals, Payment, Loyalty, Returns & support: each on or off (Order header, Items and Totals are always shown). Select a section to see its own settings, below. | What the point of sale's transaction is laid out as, at send time. |
+
+The sections' settings:
+
+| Section | Setting | What it is | What it changes |
+|---|---|---|---|
+| Order header | Order Number, Order Date, Store or Channel, Receipt ID | A switch each. Receipt ID is needed for expense and tax claims. | Which of these lines the receipt's header shows. |
+| Customer & fulfillment | Address Shown | **Auto from Order** (the delivery address when the order has one, else the pickup place or store), **Ship To**, or **Pickup At**. | Whether the section reads Delivery with the shipping address, or In store with the pickup place or store. An order without that address says "No address on this order". |
+| | Delivery Estimate | On or off. | On: the delivery or pickup estimate the transaction carries ("Arrives Thu, Sep 25", "Ready for pickup Sep 21, 4:00 PM") is shown under the address. A transaction without one shows nothing, whatever the switch says. |
+| Items | Product Image, SKU, Quantity, Unit Price, Amount; Row Height (Compact or Default) | The item table's columns and how tall its rows are. | |
+| Totals | Subtotal, Discounts, Tax, Shipping, Tip; Savings Callout | The totals rows, and a highlighted line on the discount under the total. | Discounts, Shipping and Tip show only when the transaction has them, and Shipping never on an in-store (POS) receipt. The Savings Callout shows only when the transaction has a discount. |
+| Payment | Payment Method, Authorization Time, Billing Address | Payment Method is always masked to the last four digits. | |
+| Loyalty | Points Earned, Points Balance, Tier Progress | A switch each. | Points Balance on: the customer's points balance after this purchase, as the transaction reports it, shown as "Points balance". The whole section shows only when the transaction says the customer is in the loyalty programme; Tier Progress only when the transaction carries it ("620 points to Gold"). |
+| Returns & support | Policy Text, In-Store Return Barcode | The returns wording, and a barcode the store can scan for a return. | |
 | Show Inside Email Shell | Whether the receipt sits inside the outer email design. | |
 | The outer design | The email around the receipt: brand header, marketing block, button, image, divider, footer, in the same designer. | |
 | Sample Transaction | A POS or eCommerce sample to preview with; desktop and mobile; Send a Test. | |
@@ -104,4 +121,4 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 - Only an active template can be published; a draft can be previewed and test sent.
 - A marketing email must carry the unsubscribe link; the designer blocks Activate without it and the campaign cannot publish.
 - Outlook for Windows ignores shadows; the field says so.
-- A text template cannot have a subject line; a campaign on it cannot either.
+- An SMS template cannot have a subject line, and a campaign on it cannot either; an MMS may carry the optional Subject above.

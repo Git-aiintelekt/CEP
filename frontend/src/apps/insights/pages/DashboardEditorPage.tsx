@@ -25,6 +25,7 @@ import { Tabs } from '@/components/Tabs'
 import { PeriodBar } from '../dashboards/PeriodBar'
 import { SlicerEditor } from '../dashboards/SlicerBar'
 import type { DashboardContainer, DashboardLayout, DashboardTheme, DashboardTile, Period } from '../types'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 export function DashboardEditorPage() {
   const { id } = useParams()
@@ -96,6 +97,7 @@ export function DashboardEditorPage() {
           {THEMES.map((theme) => <option key={theme.value} value={theme.value}>{theme.label} Theme</option>)}
         </Select></span>
         <span className="text-xs text-ink-800">{dirty ? 'Not saved yet' : `Version ${data.version}`}</span>
+        <PageHelp chapter="insights" />
         <button type="button" className={buttonSecondary} onClick={() => setAdding(true)}><Plus size={16} strokeWidth={1.5} aria-hidden />Add Tile</button>
         <button type="button" className={buttonSecondary} onClick={() => setWords({ kind: 'text' })}><Type size={16} strokeWidth={1.5} aria-hidden />Add Text</button>
         <button type="button" className={buttonSecondary} onClick={() => setWords({ kind: 'button' })}><MousePointerClick size={16} strokeWidth={1.5} aria-hidden />Add Button</button>

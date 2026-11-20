@@ -17,6 +17,7 @@ import { CreateListWizard } from './CreateListWizard'
 import { jobSummary, resumeLink, uploadedWhen, useImportJobs } from './uploadJobs'
 import { UploadReport } from './UploadReport'
 import { ProgressBar } from './UploadsIndicator'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 const TONE: Record<string, string> = { APPLIED: 'COMPLETED', FAILED: 'FAILED', CANCELLED: 'CANCELLED', REVIEW: 'PAUSED', STAGED: 'PAUSED' }
 
@@ -48,6 +49,7 @@ export function UploadsPage() {
       </nav>
       <PageHeader
         title="List Uploads"
+        help={<PageHelp chapter="contact-lists" />}
         description="Files are read, checked and imported in the background, a few at a time and one per workspace, so a large list never slows C360 down. You can leave this page: you get an alert when an upload is done."
       />
       {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}

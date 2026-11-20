@@ -37,6 +37,7 @@ import { defaultSectionsFor } from './receiptPresets'
 import { DESIGN_NAME, LAYOUT_NAME, conflictNote, olderNote } from './receiptWorkspaceCopy'
 import { RECEIPT_STARTER_MJML } from './receiptStarter'
 import type { SampleTransaction } from './sampleReceiptData'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 export interface ReceiptBackend {
   saveDesign: (input: DesignSaveInput) => Promise<Design>
@@ -434,6 +435,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       {guard.dialog}
       <EditorFrame
         name={templateName}
+        help={<PageHelp chapter="templates" />}
         status={currentStatus}
         nav={
           showNav ?
