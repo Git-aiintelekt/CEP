@@ -52,6 +52,7 @@ import { RolesPage } from './pages/settings/RolesPage'
 import { SecurityPage } from './pages/settings/SecurityPage'
 import { SettingsLayout } from './pages/settings/SettingsLayout'
 import { SuppressionsPage } from './pages/settings/SuppressionsPage'
+import { GovernancePage } from './pages/settings/GovernancePage'
 import { TagsPage } from './pages/settings/TagsPage'
 import { UsersPage } from './pages/settings/UsersPage'
 import { WorkspaceSetupPage } from './pages/settings/WorkspaceSetupPage'
@@ -116,6 +117,7 @@ export default function CepRoutes() {
           <Route path="delivery-warmup" element={<DeliveryWarmUpPage />} />
           <Route path="utm-tracking" element={<UtmTrackingPage />} />
           <Route path="integrations" element={<IntegrationsPage />} />
+          <Route path="governance" element={<GovernancePage />} />
           <Route path="suppressions" element={<SuppressionsPage />} />
           <Route path="preference-center" element={<PreferenceCenterPage />} />
           <Route path="consent" element={<ConsentPolicyPage />} />

@@ -38,6 +38,7 @@ export const HELP_CHAPTERS = {
   'settings-ai-assistant': { title: 'AI Assistant', load: () => import('../../../../../docs/manuals/user-guide/61-ai-assistant.md?raw').then((module) => module.default) },
   'settings-fiscal-year': { title: 'Fiscal Year', load: () => import('../../../../../docs/manuals/user-guide/62-fiscal-year.md?raw').then((module) => module.default) },
   'settings-report-access': { title: 'Report Access', load: () => import('../../../../../docs/manuals/user-guide/63-report-access.md?raw').then((module) => module.default) },
+  'settings-governance': { title: 'Governance', load: () => import('../../../../../docs/manuals/user-guide/64-governance.md?raw').then((module) => module.default) },
   'account-security': { title: 'Account Security', load: () => import('../../../../../docs/manuals/user-guide/55-account-security.md?raw').then((module) => module.default) },
 } as const
 
@@ -70,6 +71,7 @@ export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
   '/settings/plan': 'settings-plan',
   '/settings/email': 'settings-email-server',
   '/settings/notifications': 'settings-notifications',
+  '/settings/governance': 'settings-governance',
   '/settings/suppressions': 'settings-suppressions',
   '/settings/preference-center': 'settings-preference-centre',
   '/settings/consent': 'settings-consent',

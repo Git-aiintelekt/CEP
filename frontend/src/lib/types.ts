@@ -3063,3 +3063,24 @@ export interface UpgradeNotice {
 export interface PlatformStatus {
   upgrade: UpgradeNotice
 }
+
+/** Settings → Governance (GET /workspace/governance/) */
+export interface GovernanceCap {
+  id: string
+  name: string
+  channel: 'ALL' | 'EMAIL' | 'SMS' | 'WHATSAPP'
+  channel_label: string
+  max_messages: number
+  period_days: number
+  rule: string
+  is_active: boolean
+  /** set by the platform for this workspace: shown locked */
+  platform: boolean
+  row_version: number
+}
+export interface GovernanceOverview {
+  caps: GovernanceCap[]
+  activity: { days: number; checked: number; sent: number; capped: number; sent_percent: number | null }
+  text_quiet_hours: { start: string; end: string } | null
+  soft_bounces: number
+}

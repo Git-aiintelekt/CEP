@@ -243,7 +243,7 @@ def _caps(campaign) -> list[tuple]:
     channel = campaign.channel if campaign.channel in TEXT_CHANNELS else "EMAIL"
     with service._conn().cursor() as cursor:
         cursor.execute("""SELECT scope, channel, max_messages, period_days FROM communication_governance_policy
-                           WHERE tenant_id = %s AND is_active ORDER BY priority""", [str(campaign.tenant_id)])
+                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
         rows = cursor.fetchall()
     return [(maximum, days) for scope, own, maximum, days in rows if scope == "GLOBAL" or (scope == "CHANNEL" and (own or channel) == channel)]
 

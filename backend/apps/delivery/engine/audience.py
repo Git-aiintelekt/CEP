@@ -59,7 +59,7 @@ WITH picked AS ({picked}
       FROM picked p LEFT JOIN customer_master cm ON cm.party_id = p.party_id AND cm.tenant_id = %(tenant)s
 ), capped AS (                                            -- the strictest applicable policy that this party has already used up
     SELECT r.party_id, (SELECT g.id FROM communication_governance_policy g
-                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND %(caps)s
+                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND %(caps)s
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND COALESCE(g.channel, 'EMAIL') = 'EMAIL'))
                            AND ((SELECT count(*) FROM mailer_execution x
                                   WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id AND x.status NOT IN ('QUEUED', 'FAILED')
@@ -108,7 +108,7 @@ LOG_SUPPRESSED = """
 INSERT INTO governance_evaluation_log (tenant_id, party_id, campaign_id, campaign_run_id, channel, policy_id, decision, reason)
 SELECT m.tenant_id, m.party_id, %(campaign)s, %(run)s, 'EMAIL',
        CASE WHEN m.suppression_reason = 'FREQUENCY_CAP' THEN
-            (SELECT g.id FROM communication_governance_policy g WHERE g.tenant_id = %(tenant)s AND g.is_active ORDER BY g.priority LIMIT 1) END,
+            (SELECT g.id FROM communication_governance_policy g WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL ORDER BY g.priority LIMIT 1) END,
        'SUPPRESS', m.suppression_reason
   FROM campaign_list_member m
  WHERE m.tenant_id = %(tenant)s AND m.campaign_list_id = %(list)s AND m.status = 'SUPPRESSED'

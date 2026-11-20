@@ -3434,6 +3434,44 @@ INSERT INTO reference_code (code_set, code, label, sort_order) VALUES
     ('tenant.timezone', 'Pacific/Tongatapu', 'Nuku''alofa', 830)
 ON CONFLICT (code_set, code) DO NOTHING;
 
+-- =====================================================================================
+-- PLATFORM GOVERNANCE POLICIES (patch 0088)
+--   A frequency cap the platform team sets in the back-office and applies to every workspace (applies_all, including
+--   workspaces onboarded later), to chosen workspaces (tenant_ids), or to one. Each workspace it applies to gets a copy in
+--   its own communication_governance_policy, linked by platform_policy_id, so the send-time checks read one table. A copy is
+--   the platform's to change: the workspace's Governance page shows it locked. A workspace adds caps of its own beside
+--   them; every cap applies, so a workspace can only ever be stricter than the platform.
+-- =====================================================================================
+CREATE TABLE IF NOT EXISTS platform_governance_policy (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                VARCHAR(200) NOT NULL UNIQUE,
+    scope               VARCHAR(20) NOT NULL DEFAULT 'CHANNEL',              -- GLOBAL (every channel together) or CHANNEL
+    channel             VARCHAR(20),                                         -- EMAIL, SMS, WHATSAPP (scope CHANNEL)
+    max_messages        INTEGER NOT NULL,
+    period_days         INTEGER NOT NULL,
+    applies_to          VARCHAR(20) NOT NULL DEFAULT 'MARKETING',            -- MARKETING, ALL
+    priority            INTEGER NOT NULL DEFAULT 100,
+    applies_all         BOOLEAN NOT NULL DEFAULT FALSE,                      -- every workspace, now and later
+    tenant_ids          UUID[] NOT NULL DEFAULT '{}',                        -- the chosen workspaces when not applies_all
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_platform_governance_policy_scope CHECK (scope IN ('GLOBAL', 'CHANNEL')),
+    CONSTRAINT ck_platform_governance_policy_channel CHECK ((scope = 'GLOBAL' AND channel IS NULL) OR (scope = 'CHANNEL' AND channel IN ('EMAIL', 'SMS', 'WHATSAPP'))),
+    CONSTRAINT ck_platform_governance_policy_applies_to CHECK (applies_to IN ('MARKETING', 'ALL')),
+    CONSTRAINT ck_platform_governance_policy_limits CHECK (max_messages > 0 AND period_days > 0)
+);
+COMMENT ON TABLE platform_governance_policy IS 'Frequency caps set by the platform and copied into the workspaces they apply to (communication_governance_policy.platform_policy_id).';
+DROP TRIGGER IF EXISTS trg_platform_governance_policy_touch ON platform_governance_policy;
+CREATE TRIGGER trg_platform_governance_policy_touch BEFORE UPDATE ON platform_governance_policy FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS platform_policy_id UUID REFERENCES platform_governance_policy(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_communication_governance_policy_platform ON communication_governance_policy(platform_policy_id) WHERE platform_policy_id IS NOT NULL;
+GRANT SELECT, INSERT, UPDATE, DELETE ON platform_governance_policy TO cep_app;               -- written by the back-office only, as platform tags are
+GRANT ALL ON platform_governance_policy TO cep_admin;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.
