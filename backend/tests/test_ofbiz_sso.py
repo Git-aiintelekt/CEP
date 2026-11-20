@@ -26,9 +26,9 @@ from apps.tenants.models import Tenant
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
 
 KEYS = {"site_key": "test-site-key-0123456789", "api_key": "test-api-key-abcdefghij"}
-ICRM_TIME_ZONE = "Asia/Kolkata"
-ROLES = {"ANALYST": "OFBiz Test Analyst", "CAMPAIGN_MANAGER": "OFBiz Test Manager"}
-STORED_KEYS = json.dumps({**KEYS, "time_zone": ICRM_TIME_ZONE, "roles": ROLES})
+ICRM_TIME_ZONE = "Asia/Kolkata"                           # the workspace's tenant.timezone; not UTC, so the wrong zone is caught
+ROLES = {"ANALYST": "Analyst", "CAMPAIGN_MANAGER": "Campaign Manager"}       # cep_role -> the CEP role of that name
+STORED_KEYS = json.dumps(KEYS)
 
 
 def _admin(admin_email):
@@ -40,7 +40,7 @@ def _admin(admin_email):
 
 
 def _link(tenant, stored=STORED_KEYS, *, active=True):
-    """The workspace's tenant.sso_config, as the seed writes it: the keys in plain text; and the roles it maps to."""
+    """The workspace's tenant.sso_config, as the seed writes it: the keys in plain text; and the CEP roles the tokens name."""
     with connections["default"].cursor() as cursor:                  # row-level security, within the test's transaction
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])
     for name in ROLES.values():
@@ -51,7 +51,8 @@ def _link(tenant, stored=STORED_KEYS, *, active=True):
 def _set_link(tenant, link):
     row = Tenant.objects.using("default").get(pk=tenant.id)
     row.sso_config = link or {}
-    row.save(update_fields=["sso_config"])
+    row.timezone = ICRM_TIME_ZONE                                   # the iCRM server's zone, as on staging (America/New_York)
+    row.save(update_fields=["sso_config", "timezone"])
 
 
 def _stored_link(tenant):
@@ -159,7 +160,8 @@ def test_ofbiz_launch_refusals(check, admin_email):
     check("a token sealed with other keys", "invalid or has expired" in error(_ofbiz_token(admin.email, code, keys={**KEYS, "site_key": "x" * 20})))
     check("a damaged token", "invalid or has expired" in error(_ofbiz_token(admin.email, code)[:-6]))
     check("an expired token", "invalid or has expired" in error(_ofbiz_token(admin.email, code, minutes=-5)))
-    check("expiry is read in iCRM's time zone, not CEP's", "invalid or has expired" in error(_ofbiz_token(admin.email, code, expires=_expires(5, "UTC"))))
+    check("expiry is read in the workspace's time zone (tenant.timezone), not UTC", "invalid or has expired" in error(_ofbiz_token(admin.email, code, expires=_expires(5, "UTC"))))
+    check("an exp in epoch seconds needs no time zone", "sso_error" not in (error(_ofbiz_token(admin.email, code, expires="", exp=int(time.time()) + 300)) or ""))
     check("a logout token used as a launch", "invalid or has expired" in error(_ofbiz_token(admin.email, code, aud="cep-logout")))
     check("no token", "invalid or has expired" in error(""))
     check("a token without an email", "invalid or has expired" in error(_ofbiz_token(admin.email, code, email="")))
@@ -168,9 +170,11 @@ def test_ofbiz_launch_refusals(check, admin_email):
     check("a token without a CEP role", "don't have a CEP role" in error(_ofbiz_token(admin.email, code, cep_role="")))
     check("a CEP role the workspace does not have", "no matching role" in error(_ofbiz_token(admin.email, code, cep_role="OWNER")))
     _link(admin.tenant, "a-secret-from-before-the-multipass-tokens-0123456789")
-    check("a stored value that is not the keys and time zone", "not set up" in error(_ofbiz_token(admin.email, code)))
-    _link(admin.tenant, json.dumps(KEYS))
-    check("keys without the iCRM time zone", "not set up" in error(_ofbiz_token(admin.email, code)))
+    check("a stored value that is not the keys", "not set up" in error(_ofbiz_token(admin.email, code)))
+    _link(admin.tenant, json.dumps({"site_key": KEYS["site_key"]}))
+    check("a site key without the API key", "not set up" in error(_ofbiz_token(admin.email, code)))
+    _link(admin.tenant, json.dumps({**KEYS, "time_zone": "America/New_York", "roles": {"ANALYST": "Someone Else"}}))
+    check("a time zone and roles left by an earlier seed are ignored", "sso_error" not in (error(_ofbiz_token(admin.email, code)) or ""))
     _link(admin.tenant, active=False)
     check("switched off for the workspace", "not set up" in error(_ofbiz_token(admin.email, code)))
     _set_link(admin.tenant, None)
@@ -224,7 +228,7 @@ def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
 
     Role.objects.using("default").get_or_create(tenant_id=admin.tenant.id, name="Marketing Admin")
     marketing = launch(_ofbiz_token(email, code, cep_role="MARKETING_ADMIN"))
-    check("iCRM's CEP_MARKETING_ADMIN opens CEP as Marketing Admin, even when the link's roles leave it out",
+    check("iCRM's MARKETING_ADMIN opens CEP as the workspace's role named Marketing Admin",
           "/launch#" in marketing["Location"] and _workspace_user(email)[1] == ["Marketing Admin"], marketing.get("Location"))
 
     AppUser.objects.using("default").filter(pk=user.pk).update(is_active=False)
@@ -236,3 +240,41 @@ def test_ofbiz_launch_creates_the_user_and_sets_the_role(check, admin_email):
     check("an iCRM logout never creates a user", signed_out.status_code == 204 and _workspace_user(stranger)[0] is None)
     check.done()
 
+
+def test_ofbiz_launch_answers_on_the_address_icrm_used(check, admin_email):
+    """iCRM sends the browser to its cep.url + /api/v1/auth/sso/ofbiz/: CEP's answer is a relative redirect, so the browser stays
+    on that address. CEP stores no address for it."""
+    cache.clear()
+    admin = _admin(admin_email)
+    _link(admin.tenant)
+    code = admin.tenant.code
+    client = Client()
+
+    landed = client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code)})
+    check("a good link lands on /launch on the same address", landed.status_code == 302 and landed["Location"].startswith("/launch#"), landed.get("Location"))
+    refused = client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code)[:-6]})
+    check("a refusal lands on /login on the same address", refused.status_code == 302 and refused["Location"].startswith("/login#"), refused.get("Location"))
+    check("sso_config holds no address", "frontend_url" not in _stored_link(admin.tenant), _stored_link(admin.tenant))
+    check.done()
+
+
+def test_workspace_link_saves_the_keys_and_keeps_the_rest(check, admin_email):
+    """Settings -> Integrations: Site Key and API Key only, both shown and required; nothing else is stored."""
+    admin = _admin(admin_email)
+    _link(admin.tenant)
+    code = admin.tenant.code
+
+    link = ofbiz.workspace_link(code) or {}
+    check("the screen shows both stored keys", link.get("site_key") == KEYS["site_key"] and link.get("api_key") == KEYS["api_key"], link)
+    errors = ofbiz.save_workspace_link(code, {"site_key": "new-site-key-000", "api_key": KEYS["api_key"]})
+    stored = ofbiz.read_config(code) or {}
+    check("the site key is saved", not errors and stored.get("site_key") == "new-site-key-000", errors or stored)
+    secret = _stored_link(admin.tenant).get("secret_enc", "")
+    check("the stored secret holds the two keys only", set(json.loads(crypto.decrypt(secret))) == {"site_key", "api_key"}, secret[:20])
+    errors = ofbiz.save_workspace_link(code, {"site_key": "new-site-key-000", "api_key": "new-api-key-111"})
+    check("a new API key replaces the stored one", not errors and (ofbiz.read_config(code) or {}).get("api_key") == "new-api-key-111", errors)
+    link = ofbiz.workspace_link(code) or {}
+    check("the screen shows the new API key", link.get("api_key") == "new-api-key-111" and link.get("configured"), link)
+    errors = ofbiz.save_workspace_link(code, {"site_key": "", "api_key": ""})
+    check("both keys are required", "site_key" in errors and "api_key" in errors, errors)
+    check.done()

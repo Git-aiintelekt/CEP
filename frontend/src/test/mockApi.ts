@@ -1094,6 +1094,7 @@ export function installMockApi(options: MockOptions = {}) {
   const journeyStartersNow: JourneyStarter[] = options.journeyStarters ?? journeyStarters
   let savedTemplatesNow: JourneyTemplate[] = (options.savedTemplates ?? []).map((row) => structuredClone(row))
   let securityNow: SecuritySettings = { ...security }
+  let ofbizLinkNow = { workspace: 'NWA', site_key: '', api_key: '', has_api_key: false, configured: false, problem: null as string | null }
   let governanceNow: GovernanceOverview = structuredClone(governance)
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
@@ -1465,6 +1466,15 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/workspace/usage/')) return json(usage)
     if (path.endsWith('/workspace/invoices/')) return json(invoices)
     if (path.endsWith('/workspace/support-access/')) return json(supportAccess)
+    if (path.endsWith('/workspace/ofbiz-sso/')) {
+      if (method === 'PUT') {
+        const sent = (body ?? {}) as { site_key?: string; api_key?: string }
+        if (!sent.site_key) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { site_key: ["Enter iCRM's site key (common.site.key)."] } }, 400)
+        if (!sent.api_key) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { api_key: ["Enter iCRM's API key (cep.api.key)."] } }, 400)
+        ofbizLinkNow = { ...ofbizLinkNow, site_key: sent.site_key, api_key: sent.api_key, has_api_key: true, configured: true }
+      }
+      return json(ofbizLinkNow)
+    }
     if (path.endsWith('/workspace/governance/')) return json(governanceNow)
     if (path.endsWith('/workspace/governance/standard/') && method === 'POST') {
       const have = new Set(governanceNow.caps.filter((cap) => !cap.platform).map((cap) => cap.channel))

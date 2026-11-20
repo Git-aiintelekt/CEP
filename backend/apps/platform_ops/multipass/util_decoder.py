@@ -42,6 +42,6 @@ def is_valid_token(data: dict | None, leeway: float = 0, time_zone: str | None =
             zone = ZoneInfo(time_zone or getattr(settings, "ICRM_SSO_TIME_ZONE", None) or settings.TIME_ZONE)
             expires = datetime.strptime(str(data["expires"]).strip(), EXPIRES_FORMAT).replace(tzinfo=zone)
             return expires.timestamp() + leeway > time.time()
-    except (TypeError, ValueError):
-        log.warning("Multipass token has an unreadable expiry", exc_info=True)
+    except (TypeError, ValueError, KeyError):                 # KeyError: ZoneInfoNotFoundError, a misspelled zone
+        log.warning("Multipass token has an unreadable expiry or time zone", exc_info=True)
     return False
