@@ -258,10 +258,21 @@ def test_ofbiz_launch_answers_on_the_address_icrm_used(check, admin_email):
     check.done()
 
 
+def _platform_link(tenant, stored=STORED_KEYS):
+    """The link written where the Settings screens read and write it: ofbiz.read_config and save_config use the platform
+    connection. Written on the default connection instead, the platform's UPDATE of the same tenant row would wait for the
+    test's own uncommitted change, and never return."""
+    Tenant.objects.using("platform").filter(pk=tenant.id).update(sso_config={"is_active": True, "secret_enc": stored})
+
+
+def _platform_stored_link(tenant):
+    return Tenant.objects.using("platform").get(pk=tenant.id).sso_config or {}
+
+
 def test_workspace_link_saves_the_keys_and_keeps_the_rest(check, admin_email):
     """Settings -> Integrations: Site Key and API Key only, both shown and required; nothing else is stored."""
     admin = _admin(admin_email)
-    _link(admin.tenant)
+    _platform_link(admin.tenant)
     code = admin.tenant.code
 
     link = ofbiz.workspace_link(code) or {}
@@ -269,7 +280,7 @@ def test_workspace_link_saves_the_keys_and_keeps_the_rest(check, admin_email):
     errors = ofbiz.save_workspace_link(code, {"site_key": "new-site-key-000", "api_key": KEYS["api_key"]})
     stored = ofbiz.read_config(code) or {}
     check("the site key is saved", not errors and stored.get("site_key") == "new-site-key-000", errors or stored)
-    secret = _stored_link(admin.tenant).get("secret_enc", "")
+    secret = _platform_stored_link(admin.tenant).get("secret_enc", "")
     check("the stored secret holds the two keys only", set(json.loads(crypto.decrypt(secret))) == {"site_key", "api_key"}, secret[:20])
     errors = ofbiz.save_workspace_link(code, {"site_key": "new-site-key-000", "api_key": "new-api-key-111"})
     check("a new API key replaces the stored one", not errors and (ofbiz.read_config(code) or {}).get("api_key") == "new-api-key-111", errors)
