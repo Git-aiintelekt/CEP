@@ -82,7 +82,9 @@ jobs:
           DATABASE_URL: postgres://cep_backend:ci-app@localhost:5432/cep_ci
           PLATFORM_DATABASE_URL: postgres://cep_platform:ci-platform@localhost:5432/cep_ci
           OWNER_DATABASE_URL: postgres://postgres:ci-owner@localhost:5432/cep_ci
-        run: python -m pytest -q
+        # A test still running after 4 minutes prints every thread's stack, so a hang names itself in the log; the job's
+        # 30-minute limit then ends it.
+        run: python -m pytest -q -o faulthandler_timeout=240
 
   production-db:
     name: Production database from nothing
