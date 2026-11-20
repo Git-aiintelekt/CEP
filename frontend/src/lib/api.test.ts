@@ -64,6 +64,33 @@ test('another tab signing in to a second workspace leaves this tab its own works
   expect(window.localStorage.getItem('cep.refresh.CITYHT')).toBe('city-refresh')
 })
 
+test('signed out of OFBiz: no refresh is tried, the session ends and says why', async () => {
+  const { api } = await import('./api')
+  window.sessionStorage.setItem('cep.ofbizLaunch.NWA', 'Y')
+  const ended: unknown[] = []
+  window.addEventListener('cep:unauthorized', (event) => ended.push((event as CustomEvent).detail), { once: true })
+  const sent = stubFetch(() => json({ type: 'about:blank', title: 'Ofbiz Signed Out', status: 401, detail: 'You signed out of OFBiz. Open CEP again from OFBiz.' }, 401))
+
+  await expect(api.get('/me/')).rejects.toMatchObject({ status: 401 })
+  expect(ended).toEqual(['ofbiz-signed-out'])
+  expect(sent.some((s) => s.url.includes('/auth/token/refresh/'))).toBe(false)
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
+  expect(window.localStorage.getItem('cep.refresh.NWA')).toBeNull()
+  expect(window.sessionStorage.getItem('cep.ofbizLaunch.NWA')).toBeNull()
+})
+
+test('an expired access token whose refresh is refused for the OFBiz sign-out ends with the OFBiz reason', async () => {
+  const { api } = await import('./api')
+  const ended: unknown[] = []
+  window.addEventListener('cep:unauthorized', (event) => ended.push((event as CustomEvent).detail), { once: true })
+  stubFetch((url) => url.includes('/auth/token/refresh/')
+    ? json({ type: 'about:blank', title: 'Ofbiz Signed Out', status: 401 }, 401)
+    : json({ title: 'Unauthorized' }, 401))
+
+  await expect(api.get('/me/')).rejects.toMatchObject({ status: 401 })
+  expect(ended).toEqual(['ofbiz-signed-out'])
+})
+
 test('a refused refresh signs out only this workspace', async () => {
   const { api } = await import('./api')
   otherTabSignsInToCityHT()

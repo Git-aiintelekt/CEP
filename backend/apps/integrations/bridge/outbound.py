@@ -199,7 +199,7 @@ def guarded_send_many(adapter, messages: list, related_ref: str | None = None) -
 
 
 def _guarded(adapter, message, summary: dict, call, related_ref: str | None):
-    from apps.delivery.providers.base import Outcome, ProviderError
+    from apps.delivery.providers.base import Outcome, ProviderError, RateLimited
 
     guard = getattr(adapter, "guard", None)
     if guard is None:
@@ -220,7 +220,7 @@ def _guarded(adapter, message, summary: dict, call, related_ref: str | None):
         throttle.wait(guard.scope(message), per_minute, burst)
     except throttle.Throttled as exc:
         guard.log(method="SEND", url=synthetic_url, request_body=summary, outcome="THROTTLED", error_message=str(exc))
-        raise ProviderError(f"{guard.system}: {exc}", retryable=True) from None
+        raise RateLimited(f"{guard.system}: {exc}", limit=exc.decision.limit, retry_after=exc.decision.retry_after) from None
 
     before = guard.calls
     watch = logbook.Stopwatch()

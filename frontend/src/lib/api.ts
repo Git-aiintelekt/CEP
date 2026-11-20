@@ -13,7 +13,7 @@ import type { AuthOptions, LoginResult, Page, Problem, TokenPair } from './types
  * workspaces keep their own session and tabs on the same one share it. Each tab remembers its workspace for itself
  * (sessionStorage, kept across a reload); `cep.tenant` is only the last one used, which the login page offers.
  */
-const KEYS = { access: 'cep.access', refresh: 'cep.refresh', tenant: 'cep.tenant' } as const
+const KEYS = { access: 'cep.access', refresh: 'cep.refresh', tenant: 'cep.tenant', ofbizLaunch: 'cep.ofbizLaunch' } as const
 
 function storage(kind: 'local' | 'session'): Storage | null {
   try {
@@ -77,6 +77,13 @@ export const session = {
   get accessToken() {
     return memory.access
   },
+  /** This tab's session was opened from OFBiz ("Open CEP"), so signing out of OFBiz ends it (single logout). */
+  get openedFromOfbiz() {
+    return memory.access !== null && read(workspaceKey(KEYS.ofbizLaunch), 'session') === 'Y'
+  },
+  markOpenedFromOfbiz() {
+    write(workspaceKey(KEYS.ofbizLaunch), 'Y', 'session')
+  },
   /** This tab now works in `tenant`, with whatever session that workspace already has in this browser. */
   setTenant(tenant: string) {
     memory = sessionOf(tenant)
@@ -99,6 +106,7 @@ export const session = {
     memory = { ...memory, access: null, refresh: null }
     write(workspaceKey(KEYS.access), null)
     write(workspaceKey(KEYS.refresh), null)
+    write(workspaceKey(KEYS.ofbizLaunch), null, 'session')
   },
   /** signing out ends the refresh token on the server too; the session is cleared whether or not that call gets through */
   revoke() {
@@ -125,9 +133,11 @@ export function newSsoBinding(): string {
 
 /** Raised when the API ends the session; `detail` says why, for the login page's notice. */
 export const UNAUTHORIZED_EVENT = 'cep:unauthorized'
-export type SignedOutReason = 'expired' | 'unknown-workspace'
+export type SignedOutReason = 'expired' | 'unknown-workspace' | 'ofbiz-signed-out'
 /** the title of the API's 404 when no workspace matches X-Tenant (TenantMiddleware) */
 const UNKNOWN_WORKSPACE_TITLE = 'Unknown tenant'
+/** the title of the API's 401 after the user signed out of OFBiz (OfbizSignedOut): a refresh cannot bring this session back */
+const OFBIZ_SIGNED_OUT_TITLE = 'Ofbiz Signed Out'
 
 export class ApiError extends Error {
   status: number
@@ -197,14 +207,19 @@ function unreachable(): ApiError {
   return new ApiError(0, { type: 'about:blank', title: 'C360 could not be reached', status: 0, detail: 'C360 could not be reached. Check your connection and try again.' })
 }
 
-let refreshing: Promise<boolean> | null = null
+async function isOfbizSignedOut(response: Response): Promise<boolean> {
+  return response.status === 401 && (await parseProblem(response.clone())).title === OFBIZ_SIGNED_OUT_TITLE
+}
+
+type RefreshResult = 'refreshed' | 'refused' | 'ofbiz-signed-out'
+let refreshing: Promise<RefreshResult> | null = null
 
 /** Single-flight: concurrent 401s share one refresh call. */
-function refreshAccessToken(): Promise<boolean> {
+function refreshAccessToken(): Promise<RefreshResult> {
   // a refresh token works once: another tab of this workspace may already have rotated it, so use the latest one stored for it
   const stored = read(workspaceKey(KEYS.refresh))
   if (stored && memory.refresh) memory.refresh = stored
-  if (!memory.refresh) return Promise.resolve(false)
+  if (!memory.refresh) return Promise.resolve('refused')
   refreshing ??= (async () => {
     try {
       const response = await fetch(buildUrl('/auth/token/refresh/'), {
@@ -212,11 +227,11 @@ function refreshAccessToken(): Promise<boolean> {
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Tenant': memory.tenant },
         body: JSON.stringify({ refresh: memory.refresh }),
       })
-      if (!response.ok) return false
+      if (!response.ok) return (await isOfbizSignedOut(response)) ? 'ofbiz-signed-out' : 'refused'
       session.setTokens((await response.json()) as Partial<TokenPair>)
-      return true
+      return 'refreshed'
     } catch {
-      return false
+      return 'refused'
     } finally {
       refreshing = null
     }
@@ -243,11 +258,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   let response = await send()
-  if (response.status === 401 && auth && (await refreshAccessToken())) response = await send()
+  // signed out of OFBiz: no refresh retry, the refresh token is refused for the same reason
+  let ofbizSignedOut = auth && (await isOfbizSignedOut(response))
+  if (response.status === 401 && auth && !ofbizSignedOut) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed === 'refreshed') response = await send()
+    ofbizSignedOut = refreshed === 'ofbiz-signed-out' || (await isOfbizSignedOut(response))
+  }
 
   if (response.status === 401 && auth) {
     session.clear()
-    window.dispatchEvent(new CustomEvent<SignedOutReason>(UNAUTHORIZED_EVENT, { detail: 'expired' }))
+    window.dispatchEvent(new CustomEvent<SignedOutReason>(UNAUTHORIZED_EVENT, { detail: ofbizSignedOut ? 'ofbiz-signed-out' : 'expired' }))
   }
   if (!response.ok) {
     if (UNREACHABLE_STATUSES.includes(response.status)) signalUnreachable()
@@ -284,7 +305,7 @@ export const api = {
   async download(path: string, query?: Query): Promise<Blob> {
     const send = () => fetch(buildUrl(path, query), { headers: { 'X-Tenant': memory.tenant, ...(memory.access ? { Authorization: `Bearer ${memory.access}` } : {}) } })
     let response = await send()
-    if (response.status === 401 && (await refreshAccessToken())) response = await send()
+    if (response.status === 401 && !(await isOfbizSignedOut(response)) && (await refreshAccessToken()) === 'refreshed') response = await send()
     if (!response.ok) throw new ApiError(response.status, await parseProblem(response))
     return response.blob()
   },
@@ -326,5 +347,12 @@ export const api = {
   ssoExchange(tenant: string, code: string, binding: string): Promise<TokenPair & { next: string }> {
     session.setTenant(tenant)
     return request<TokenPair & { next: string }>('/auth/sso/exchange/', { method: 'POST', body: { code, binding }, auth: false })
+  },
+
+  /** After "Open CEP" in OFBiz: the one-time code -> the tokens (for adopt()) and where to go. No binding: the sign-in
+   * started in OFBiz, not in a C360 tab. */
+  ofbizExchange(tenant: string, code: string): Promise<TokenPair & { next: string }> {
+    session.setTenant(tenant)
+    return request<TokenPair & { next: string }>('/auth/sso/ofbiz/exchange/', { method: 'POST', body: { code }, auth: false })
   },
 }
