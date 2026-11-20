@@ -89,6 +89,20 @@ test('inside a visit: the amber line on every page, no Switch Workspace, and Bac
   expect(window.sessionStorage.getItem('cep.tenant')).toBe('PLATFORM')
 })
 
+test('inside a visit, Account Security says the sign-in is managed in the home workspace and asks the server nothing', async () => {
+  const { calls, go } = await renderAppAt('/account/security', {
+    principal: platformAdmin, workspace: { name: 'Demo', plan: { code: 'INSIGHTS', name: 'Insights' } },
+    platform_visit: { home: 'PLATFORM', home_name: 'Platform', started_at: '2026-10-23T14:02:00Z', reason: 'Checking the demo before the call' },
+  })
+  const user = userEvent.setup()
+  const note = (await screen.findByRole('heading', { name: 'Managed in Your Own Workspace' })).parentElement as HTMLElement
+  expect(note.textContent).toContain('You are visiting Demo. Multi-factor authentication for your account is set up in Platform.')
+  expect(calls.some((call) => call.url.includes('/auth/mfa/'))).toBe(false)
+  await user.click(within(note).getByRole('button', { name: 'Back to Platform' }))
+  await vi.waitFor(() => expect(go).toHaveBeenCalledWith('/'))
+  expect(window.sessionStorage.getItem('cep.tenant')).toBe('PLATFORM')
+})
+
 test('Settings → Security lists the workspace’s Platform Visits with their reasons', async () => {
   await renderAppAt('/settings/security')
   const section = (await screen.findByRole('heading', { name: 'Platform Visits' })).closest('section') as HTMLElement
