@@ -45,9 +45,9 @@ test('an editor not ready, an empty design and a failed compile each say so inst
 
 test('a ready outer design is filled for each sample; a message is shown as it is', () => {
   const ready = compileOuter(compiler(RECEIPT_STARTER_MJML, () => ({ html: `<head></head>${RECEIPT_SLOT_MARKER_START}x${RECEIPT_SLOT_MARKER_END}`, errors: [] })))
-  expect(combinedFor(ready, defaultSectionsFor('STANDARD'), DEFAULT_SAMPLE_TRANSACTION)).toContain('$144.11')
+  expect(combinedFor(ready, { layout_preset: 'STANDARD', sections: defaultSectionsFor('STANDARD') }, DEFAULT_SAMPLE_TRANSACTION)).toContain('$144.11')
   const notReady = compileOuter(null)
-  expect(combinedFor(notReady, defaultSectionsFor('STANDARD'), DEFAULT_SAMPLE_TRANSACTION)).toBe(notReady.ready ? '' : notReady.message)
+  expect(combinedFor(notReady, { layout_preset: 'STANDARD', sections: defaultSectionsFor('STANDARD') }, DEFAULT_SAMPLE_TRANSACTION)).toBe(notReady.ready ? '' : notReady.message)
 })
 
 test('either footer counts as the sender address; a design without one does not', () => {

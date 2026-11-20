@@ -13,6 +13,12 @@ export interface SampleLineItem {
   amount: number
   /** the line's own discount, a positive amount; the Store Register layout prints it under the description */
   discount?: number
+  /** what the point of sale sends per line besides; Store Register columns and Item Row tags show them */
+  upc?: string
+  size?: string
+  color?: string
+  tax?: number | null
+  status?: string
 }
 
 /** What the register prints at the top and the bottom: the Store Register layout reads these, the sections never do */
@@ -153,8 +159,8 @@ const SALE_POS3391: SampleTransaction = {
   pickup_location: null,
   delivery_estimate: null,
   line_items: [
-    { sku: 'NL-SK-118', description: 'Trail socks, 3-pack', image_url: null, quantity: 1, unit_price: 14.5, amount: 14.5 },
-    { sku: 'NL-WB-210', description: 'Insulated water bottle', image_url: null, quantity: 1, unit_price: 32, amount: 32 },
+    { sku: 'NL-SK-118', description: 'Trail socks, 3-pack', image_url: null, quantity: 1, unit_price: 14.5, amount: 14.5, upc: '041822007316', size: 'M', color: 'Grey', tax: 0.8, status: 'Sale' },
+    { sku: 'NL-WB-210', description: 'Insulated water bottle', image_url: null, quantity: 1, unit_price: 32, amount: 32, upc: '041822012204', size: '750 ml', color: 'Black', tax: 1.76, status: 'Sale' },
   ],
   subtotal: 46.5,
   discount: null,

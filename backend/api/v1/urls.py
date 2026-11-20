@@ -25,7 +25,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .platform_status_api import PlatformStatusView
-from . import (attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
+from . import (receipt_layouts_api, attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api, governance_api)
 
@@ -40,6 +40,7 @@ router.register("contact-lists", contact_lists_api.ContactListViewSet, basename=
 router.register("template-starters", views.TemplateStarterViewSet, basename="template-starter")
 router.register("media-assets", views.MediaAssetViewSet, basename="media-asset")
 router.register("templates", views.TemplateViewSet, basename="template")
+router.register("receipt-layouts", receipt_layouts_api.ReceiptLayoutViewSet, basename="receipt-layout")
 router.register("personalization-tags", views.PersonalizationTagViewSet, basename="personalization-tag")
 router.register("journeys", journeys_api.JourneyViewSet, basename="journey")
 router.register("journey-starters", journeys_api.JourneyStarterViewSet, basename="journey-starter")

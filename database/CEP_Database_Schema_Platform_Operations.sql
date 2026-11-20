@@ -3489,6 +3489,43 @@ ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_pol
 COMMENT ON COLUMN communication_governance_policy.gap_hours IS 'Gap Between Messages: the hours after a marketing message in which the next is skipped (NULL for a frequency cap).';
 COMMENT ON COLUMN platform_governance_policy.gap_hours IS 'Gap Between Messages: the hours after a marketing message in which the next is skipped (NULL for a frequency cap).';
 
+-- ---- Receipt layouts (patch 0091): the receipt inside an E-Receipt, designed once and picked by as many E-Receipt templates
+-- as want it (Templates -> Receipt Layouts). `content` holds what a template's own receipt layout holds (sections, the Store
+-- Register settings, custom HTML and CSS, the Item Row). A template uses one when its latest receipt state names it
+-- ({"kind": "receipt", "layout_id": ...}); a template without one keeps its own layout, as before. version_number counts saves,
+-- so two people editing at once get a 409, never a silent overwrite. Archiving is refused while a template still uses it.
+CREATE TABLE IF NOT EXISTS receipt_layout (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES tenant(id),
+    name            VARCHAR(120) NOT NULL,
+    layout_preset   VARCHAR(20) NOT NULL,
+    content         JSONB NOT NULL DEFAULT '{}',
+    version_number  INTEGER NOT NULL DEFAULT 1,
+    created_by      UUID REFERENCES app_user(id),
+    updated_by      UUID REFERENCES app_user(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    archived_at     TIMESTAMPTZ,
+    row_version     INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_receipt_layout_preset CHECK (layout_preset IN ('COMPACT', 'STANDARD', 'ITEMIZED', 'REGISTER', 'CUSTOM_HTML')),
+    CONSTRAINT ck_receipt_layout_content CHECK (jsonb_typeof(content) = 'object'),
+    CONSTRAINT ck_receipt_layout_name CHECK (length(btrim(name)) > 0)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_receipt_layout_name ON receipt_layout(tenant_id, lower(name)) WHERE archived_at IS NULL;
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['receipt_layout'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON receipt_layout TO cep_app;
+GRANT ALL ON receipt_layout TO cep_admin;
+COMMENT ON TABLE receipt_layout IS 'A named receipt layout that E-Receipt templates pick (Templates -> Receipt Layouts).';
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

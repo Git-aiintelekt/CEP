@@ -80,7 +80,10 @@ def transaction_from(receipt: dict, store: dict | None, currency: str = "USD") -
         amount = _number(item.get("total", item.get("amount")), None)
         items.append({"sku": str(item.get("sku") or ""), "description": str(item.get("description") or item.get("name") or "Item"),
                       "image_url": item.get("image_url") or None, "quantity": quantity, "unit_price": unit,
-                      "amount": amount if amount is not None else quantity * unit, "discount": abs(_number(item.get("discount"), 0.0))})
+                      "amount": amount if amount is not None else quantity * unit, "discount": abs(_number(item.get("discount"), 0.0)),
+                      # read only by Store Register columns and Item Row tags
+                      "upc": str(item.get("upc") or ""), "size": str(item.get("size") or ""), "color": str(item.get("color") or ""),
+                      "tax": _number(item.get("tax"), None), "status": str(item.get("status") or "")})
     discount_total = _number(receipt.get("discount_total"), 0.0)
     subtotal = _number(receipt.get("subtotal"), None)
     if subtotal is None:
@@ -288,36 +291,143 @@ REGISTER = {"band": "#e4deed", "header": "#ffffff", "columns": "#f5f5f5", "card"
 REGISTER_PRESET = "REGISTER"
 
 
+REGISTER_FIELDS = {"trans_number": "Trans Num", "register": "Register", "store_number": "Store", "trans_at": "Trans Dt", "cashier": "Cashier",
+                   "item_count": "Item(s) Sold"}
+# what a Store Register column can show; Description is always first and Amount always last
+REGISTER_COLUMNS = {"description": "Description", "size": "Size", "color": "Colour", "quantity": "Qty", "unit_price": "Unit Price",
+                    "discount": "Discount", "tax": "Line Tax", "sku": "SKU", "upc": "UPC", "status": "Status", "amount": "Amount"}
+MAX_REGISTER_COLUMNS = 5
+MAX_REGISTER_LABEL = 40
+MAX_REGISTER_TITLE = 60
+MAX_REGISTER_FOOTER = 500
+WIDE_CLASS = "cep-rl-wide"
+NARROW_CLASS = "cep-rl-narrow"
+# on a phone the middle columns fold into a line under the item; clients that ignore media queries keep the columns
+FOLD_RULE = ("@media only screen and (max-width:480px){." + WIDE_CLASS + "{display:none!important;}." + NARROW_CLASS +
+             "{display:block!important;max-height:none!important;overflow:visible!important;}}")
+
+
 def _count_text(value: float) -> str:
     return f"{value:g}"
 
 
-def render_register(t: dict) -> str:
-    """The receipt as the register prints it: YOUR RECEIPT, the transaction's numbers in two rows of three, Description and
-    Amount with each line's discount (green) and its "1 @ $19.99", the lines' sum, then Subtotal, each tax with its rate,
-    TOTAL, every tender with its authorisation, and the change. Nothing in it is configurable."""
+def default_register_settings() -> dict:
+    """The Store Register as it printed before it had settings: these print exactly that."""
+    return {"title": "YOUR RECEIPT", "fields": [{"key": key, "label": label, "visible": True} for key, label in REGISTER_FIELDS.items()],
+            "columns": [{"key": "description", "label": "Description"}, {"key": "amount", "label": "Amount"}],
+            "under_item": {"discount": True, "quantity_at_price": True, "sku": False, "upc": False},
+            "footer_text": "", "footer_align": "CENTER", "phone": "FOLD"}
+
+
+def clean_register_settings(raw) -> tuple[dict | None, dict]:
+    """-> (settings, errors). None stays None: a layout saved without settings prints the fixed Store Register."""
+    if raw is None:
+        return None, {}
+    if not isinstance(raw, dict):
+        return None, {"register": "The Store Register settings must be an object."}
+    errors: dict[str, str] = {}
+    out = default_register_settings()
+    out["title"] = str(raw.get("title", out["title"]) or "").strip()
+    if len(out["title"]) > MAX_REGISTER_TITLE:
+        errors["register"] = f"The title is longer than {MAX_REGISTER_TITLE} characters."
+
+    fields = raw.get("fields", out["fields"])
+    keys = [f.get("key") for f in fields if isinstance(f, dict)] if isinstance(fields, list) else []
+    if sorted(keys) != sorted(REGISTER_FIELDS):
+        errors["register"] = "The header must list each of the six transaction fields once."
+    else:
+        out["fields"] = [{"key": f["key"], "label": str(f.get("label") or "").strip() or REGISTER_FIELDS[f["key"]], "visible": f.get("visible", True) is not False}
+                         for f in fields]
+
+    columns = raw.get("columns", out["columns"])
+    keys = [c.get("key") for c in columns if isinstance(c, dict)] if isinstance(columns, list) else []
+    if not keys or keys[0] != "description" or keys[-1] != "amount" or len(keys) < 2:
+        errors["register"] = "The columns start with the item's description and end with its amount."
+    elif len(keys) > MAX_REGISTER_COLUMNS:
+        errors["register"] = f"At most {MAX_REGISTER_COLUMNS} columns: a sixth does not fit a phone."
+    elif len(set(keys)) != len(keys) or any(key not in REGISTER_COLUMNS for key in keys):
+        errors["register"] = "Each column shows a different value from the list."
+    else:
+        out["columns"] = [{"key": c["key"], "label": str(c.get("label") or "").strip() or REGISTER_COLUMNS[c["key"]]} for c in columns]
+
+    labels = [f["label"] for f in out["fields"]] + [c["label"] for c in out["columns"]]
+    if any(len(label) > MAX_REGISTER_LABEL for label in labels):
+        errors["register"] = f"A label is longer than {MAX_REGISTER_LABEL} characters."
+    under = raw.get("under_item") if isinstance(raw.get("under_item"), dict) else {}
+    out["under_item"] = {key: bool(under.get(key, value)) for key, value in out["under_item"].items()}
+    out["footer_text"] = str(raw.get("footer_text") or "").strip()
+    if len(out["footer_text"]) > MAX_REGISTER_FOOTER:
+        errors["register"] = f"The footer text is longer than {MAX_REGISTER_FOOTER} characters."
+    out["footer_align"] = "LEFT" if raw.get("footer_align") == "LEFT" else "CENTER"
+    out["phone"] = "KEEP" if raw.get("phone") == "KEEP" else "FOLD"
+    return out, errors
+
+
+def column_value(key: str, item: dict, currency: str) -> str:
+    """A Store Register cell: money as money, a discount in brackets, an empty value as nothing."""
+    if key == "quantity":
+        return _count_text(item["quantity"])
+    if key in ("unit_price", "amount"):
+        return money(item[key], currency)
+    if key == "discount":
+        return f"({money(item['discount'], currency)})" if item.get("discount") else ""
+    if key == "tax":
+        return money(item["tax"], currency) if item.get("tax") is not None else ""
+    return str(item.get(key) or "")
+
+
+def folds(settings: dict | None) -> bool:
+    """The receipt carries the phone rule: middle columns that fold under the item."""
+    return bool(settings) and settings.get("phone") != "KEEP" and len(settings.get("columns") or []) > 2
+
+
+def render_register(t: dict, settings: dict | None = None) -> str:
+    """The receipt as the register prints it: the title, the transaction's numbers in rows of three, the columns (Description
+    and Amount at least) with each line's discount (green) and its "1 @ $19.99", the lines' sum, then Subtotal, each tax with
+    its rate, TOTAL, every tender with its authorisation, the change, and the footer text. Without settings (a layout saved
+    before they existed) it prints exactly what it always printed."""
+    s = settings or default_register_settings()
     currency = t.get("currency") or "USD"
     r = t.get("register") or {}
     cell = f'font-size:12px;line-height:18px;color:{REGISTER["text"]};'
     strong = cell + "font-weight:700;"
+    line = f'border-bottom:1px solid {REGISTER["line"]};'
 
     def meta(label, value, align):
         return f'<td align="{align}" style="padding:1px 0;{cell}text-align:{align};"><span style="font-weight:700;">{_e(label)}:</span> {_e(value)}</td>'
 
-    header = (f'<table {TABLE}><tr>{meta("Trans Num", r.get("trans_number", ""), "left")}{meta("Register", r.get("register", ""), "center")}{meta("Store", r.get("store_number", ""), "right")}</tr>'
-              f'<tr>{meta("Trans Dt", r.get("trans_at", ""), "left")}{meta("Cashier", r.get("cashier", ""), "center")}{meta("Item(s) Sold", _count_text(_number(r.get("item_count"), 0.0)), "right")}</tr></table>')
+    values = {"trans_number": r.get("trans_number", ""), "register": r.get("register", ""), "store_number": r.get("store_number", ""),
+              "trans_at": r.get("trans_at", ""), "cashier": r.get("cashier", ""), "item_count": _count_text(_number(r.get("item_count"), 0.0))}
+    shown = [f for f in s["fields"] if f.get("visible", True)]
+    header_rows = "".join("<tr>" + "".join(meta(f["label"], values[f["key"]], ("left", "center", "right")[i]) for i, f in enumerate(shown[at:at + 3])) + "</tr>"
+                          for at in range(0, len(shown), 3))
+    header = f"<table {TABLE}>{header_rows}</table>" if header_rows else ""
 
+    first, *middle, last = s["columns"]
+    fold = folds(s)
+    wide = f' class="{WIDE_CLASS}"' if fold else ""
+    amount_width = ' width="80"' if middle else ""
+    under = s["under_item"]
     lines = []
     for item in t["line_items"]:
-        discount = (f'<br /><span style="color:{REGISTER["discount"]};">Discount: ({_e(money(item["discount"], currency))})</span>' if item.get("discount") else "")
-        lines.append(f'<tr><td valign="bottom" style="padding:10px 0;border-bottom:1px solid {REGISTER["line"]};{cell}">{_e(item["description"])}{discount}'
-                     f'<br /><span>{_e(_count_text(item["quantity"]))} @ {_e(money(item["unit_price"], currency))}</span></td>'
-                     f'<td align="right" valign="bottom" style="padding:10px 0 10px 16px;border-bottom:1px solid {REGISTER["line"]};{cell}{NUMERIC}white-space:nowrap;text-align:right;">{_e(money(item["amount"], currency))}</td></tr>')
+        folded = ""
+        if fold:
+            parts = [f"{column['label']} {value}" for column in middle if (value := column_value(column["key"], item, currency))]
+            folded = (f'<div class="{NARROW_CLASS}" style="display:none;max-height:0;overflow:hidden;mso-hide:all;">{_e(" · ".join(parts))}</div>' if parts else "")
+        discount = (f'<br /><span style="color:{REGISTER["discount"]};">Discount: ({_e(money(item["discount"], currency))})</span>' if under["discount"] and item.get("discount") else "")
+        at_price = f'<br /><span>{_e(_count_text(item["quantity"]))} @ {_e(money(item["unit_price"], currency))}</span>' if under["quantity_at_price"] else ""
+        codes = "".join(f"<br /><span>{label} {_e(item[key])}</span>" for key, label in (("sku", "SKU"), ("upc", "UPC")) if under.get(key) and item.get(key))
+        cells = "".join(f'<td align="center" valign="bottom" width="64"{wide} style="padding:10px 0 10px 12px;{line}{cell}text-align:center;">{_e(column_value(column["key"], item, currency))}</td>'
+                        for column in middle)
+        lines.append(f'<tr><td valign="bottom" style="padding:10px 0;{line}{cell}">{_e(item["description"])}{discount}{at_price}{codes}{folded}</td>{cells}'
+                     f'<td align="right" valign="bottom"{amount_width} style="padding:10px 0 10px 16px;{line}{cell}{NUMERIC}white-space:nowrap;text-align:right;">{_e(money(item["amount"], currency))}</td></tr>')
     lines_total = sum(item["amount"] for item in t["line_items"])
-    columns = (f'<table {TABLE}><tr><td style="padding:0;{strong}">Description</td>'
-               f'<td align="right" style="padding:0;{strong}text-align:right;">Amount</td></tr></table>')
+    heads = "".join(f'<td align="center" width="64"{wide} style="padding:0 0 0 12px;{strong}text-align:center;">{_e(column["label"])}</td>' for column in middle)
+    last_head = (f'<td align="right"{amount_width} style="padding:0 0 0 16px;{strong}text-align:right;">{_e(last["label"])}</td>' if middle
+                 else f'<td align="right" style="padding:0;{strong}text-align:right;">{_e(last["label"])}</td>')
+    columns = f'<table {TABLE}><tr><td style="padding:0;{strong}">{_e(first["label"])}</td>{heads}{last_head}</tr></table>'
     items = (f'<table {TABLE}>{"".join(lines)}'
-             f'<tr><td colspan="2" align="right" style="padding:10px 0;border-bottom:1px solid {REGISTER["line"]};{strong}{NUMERIC}text-align:right;">{_e(money(lines_total, currency))}</td></tr></table>')
+             f'<tr><td colspan="{len(s["columns"])}" align="right" style="padding:10px 0;{line}{strong}{NUMERIC}text-align:right;">{_e(money(lines_total, currency))}</td></tr></table>')
 
     def total_row(label, value, big=False):
         size = "font-size:14px;line-height:20px;" if big else ""
@@ -340,15 +450,50 @@ def render_register(t: dict) -> str:
         return f'          <table data-section="{name}" {TABLE} style="border-radius:4px;border-collapse:separate;background-color:{colour};"><tr><td style="padding:{padding};">{inner}</td></tr></table>\n'
 
     gap = f'          <table {TABLE}><tr><td style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr></table>\n'
-    title = '<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</p>'
-    return (f'<table {TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">\n  <tr>\n    <td style="padding:8px 24px 24px;">\n'
+    title = (f'<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">{_e(s["title"])}</p>'
+             if s["title"] else "")
+    footer = ""
+    if s["footer_text"]:
+        align = "left" if s["footer_align"] == "LEFT" else "center"
+        text = _e(s["footer_text"]).replace("\r\n", "\n").replace("\n", "<br />")
+        footer = gap + block("register-footer", REGISTER["card"], "12px 18px", f'<p style="margin:0;{cell}text-align:{align};">{text}</p>')
+    return ((f"<style>{FOLD_RULE}</style>\n" if fold else "")
+            + f'<table {TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">\n  <tr>\n    <td style="padding:8px 24px 24px;">\n'
             f'      <table {TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:{REGISTER["band"]};font-family:{FONT};color:{REGISTER["text"]};">\n'
             f'        <tr><td style="padding:16px;">\n'
             + block("register-header", REGISTER["header"], "14px 18px 12px", title + header) + gap
             + f'          <table data-section="register-body" {TABLE} style="border-radius:4px;border-collapse:separate;background-color:{REGISTER["card"]};">'
             f'<tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid {REGISTER["line"]};background-color:{REGISTER["columns"]};">{columns}</td></tr>'
             f'<tr><td style="padding:2px 18px 16px;"><div data-section="register-items">{items}</div><div data-section="register-totals" style="margin-top:12px;">{totals}</div></td></tr></table>\n'
+            + footer
             + '        </td></tr>\n      </table>\n    </td>\n  </tr>\n</table>')
+
+
+# ------------------------------------------------------------------------------------------------ Custom HTML: the Item Row
+ITEM_TAG = re.compile(r"\{\{\s*item\.([a-z_]+)\s*\}\}")
+RECEIPT_ITEMS = re.compile(r"\{\{\s*receipt_items\s*\}\}")
+ITEM_TAGS = ("description", "sku", "upc", "size", "color", "quantity", "unit_price", "discount", "tax", "amount", "status")
+
+
+def item_value(key: str, item: dict, currency: str) -> str:
+    """An {{item.*}} tag's value: money as money, a discount only when there is one, an unknown tag as nothing."""
+    if key == "discount":
+        return money(item["discount"], currency) if item.get("discount") else ""
+    if key in ITEM_TAGS:
+        return column_value(key, item, currency)
+    return ""
+
+
+def item_rows(item_row: str, t: dict) -> str:
+    """The Item Row once per line, its {{item.*}} tags filled and escaped."""
+    currency = t.get("currency") or "USD"
+    return "".join(ITEM_TAG.sub(lambda m, item=item: _e(item_value(m.group(1), item, currency)), item_row) for item in t["line_items"])
+
+
+def with_head_style(html: str, css: str) -> str:
+    """Some clients keep only the <style> in <head>, so a phone rule goes there too. No head, no insert."""
+    at = re.search(r"</head>", html, re.I)
+    return html if at is None else f"{html[:at.start()]}<style>{css}</style>{html[at.start():]}"
 
 
 def _support(section: dict, t: dict, barcode_url: str | None) -> str:
@@ -378,11 +523,11 @@ def _body(section: dict, t: dict, currency: str, barcode_url: str | None) -> str
     return ""
 
 
-def render(sections: list[dict], transaction: dict, barcode_url: str | None = None, preset: str | None = None) -> str:
+def render(sections: list[dict], transaction: dict, barcode_url: str | None = None, preset: str | None = None, register: dict | None = None) -> str:
     """The receipt, ready for the slot: the hide-on-phones rule, then one centred 600px table, a hairline between
-    sections and a dashed one above Totals. The Store Register preset has a fixed layout of its own."""
+    sections and a dashed one above Totals. The Store Register preset has a layout of its own, with its settings."""
     if preset == REGISTER_PRESET:
-        return render_register(transaction)
+        return render_register(transaction, register)
     currency = transaction.get("currency") or "USD"
     ordered = sorted((s for s in sections if isinstance(s, dict) and s.get("key") in ORDER), key=lambda s: (s.get("order", ORDER.index(s["key"])), ORDER.index(s["key"])))
     shown = [s for s in ordered if shows(s, transaction)]
@@ -428,15 +573,23 @@ def layout_for(template) -> dict:
 
 
 def apply(template, html: str, receipt: dict, store: dict | None, currency: str, *, barcode_url: str | None = None) -> str:
-    """The outer email with the receipt in its slot. Custom HTML layouts go in as they are (their own tags are filled
-    by the renderer afterwards). Without a slot the outer design is used as it is: its {{receipt_body}} still works."""
+    """The outer email with the receipt in its slot. Custom HTML layouts go in as they are, with their Item Row repeated
+    at {{receipt_items}} (their other tags are filled by the renderer afterwards). Without a slot the outer design is used
+    as it is: its {{receipt_body}} still works. A library layout the template picked is read the same way (receipt_payload)."""
     if not has_slot(html):
         return html
     layout = layout_for(template)
     if layout.get("layout_preset") == "CUSTOM_HTML" and layout.get("custom_html"):
         css = layout.get("custom_css") or ""
-        return inject(html, (f"<style>{css}</style>" if css else "") + layout["custom_html"])
+        body = layout["custom_html"]
+        if layout.get("item_row") and RECEIPT_ITEMS.search(body):
+            rows = item_rows(layout["item_row"], transaction_from(receipt, store, currency))
+            body = RECEIPT_ITEMS.sub(lambda _: rows, body)
+        return inject(html, (f"<style>{css}</style>" if css else "") + body)
     transaction = transaction_from(receipt, store, currency)
     if barcode_url is None and transaction["receipt_id"] and barcode.valid(transaction["receipt_id"]):
         barcode_url = barcode.url(transaction["receipt_id"])
-    return inject(html, render(layout.get("sections") or [], transaction, barcode_url, layout.get("layout_preset")))
+    register = clean_register_settings(layout.get("register"))[0] if layout.get("layout_preset") == REGISTER_PRESET else None
+    if register is not None and folds(register):
+        html = with_head_style(html, FOLD_RULE)
+    return inject(html, render(layout.get("sections") or [], transaction, barcode_url, layout.get("layout_preset"), register))

@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EllipsisVertical, Eye, LayoutGrid, List, Lock, RefreshCw, type LucideIcon } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button, IconButton } from '@/components/Button'
 import { ClearFiltersLink, FilterChip, SingleSelectMenu } from '@/components/FilterChip'
@@ -25,6 +25,8 @@ import type { Preset, SenderProfile, Template } from '@/lib/types'
 import { META_STATUS } from '@/apps/cep/features/messaging/whatsappStatus'
 import { useCursorList } from '@/lib/useCursorList'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
+
+import { ReceiptLayoutLibrary } from '@/apps/cep/features/receipt/ReceiptLayoutLibrary'
 
 import { lookOf, type TemplateChannel } from './channels'
 import { usePresets } from './presetSource'
@@ -76,7 +78,11 @@ interface TemplateLibraryProps {
 
 export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
   const resultsId = useId()
-  const [tab, setTab] = useState<TemplateChannel | 'ALL'>('ALL')
+  // Receipt Layouts is a tab of its own: what E-Receipt templates pick, not templates themselves (?tab=receipt-layouts opens it)
+  const location = useLocation()
+  const layoutsTab = channels.includes('E_RECEIPT')
+  const [tab, setTab] = useState<TemplateChannel | 'ALL' | 'LAYOUTS'>(() => (layoutsTab && new URLSearchParams(location.search).get('tab') === 'receipt-layouts' ? 'LAYOUTS' : 'ALL'))
+  const channel = tab === 'ALL' || tab === 'LAYOUTS' ? undefined : tab
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
   const [view, setViewState] = useState<View>(readView)
@@ -91,8 +97,8 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
     }
   }
 
-  const list = useCursorList<Template>('templates', { channel: tab === 'ALL' ? undefined : tab, status: status || undefined, search: needle || undefined })
-  const { presets } = usePresets(tab === 'ALL' ? channels : [tab])
+  const list = useCursorList<Template>('templates', { channel, status: status || undefined, search: needle || undefined })
+  const { presets } = usePresets(channel ? [channel] : channels)
   const [previewing, setPreviewing] = useState<PreviewItem | null>(null)
 
   // a template's own actions: a draft copy of it, or its removal (asked first; a campaign's template is refused by the server)
@@ -153,7 +159,9 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
   // presets follow the workspace's own templates, so they sit on the last page; they have no status to filter by
   const shownPresets = !list.hasNext && status === '' ? presets.filter((preset) => matches(preset, needle)) : []
   const items: Item[] = [...groupDripTemplates(list.rows).map((template) => ({ kind: 'template' as const, template })), ...shownPresets.map((preset) => ({ kind: 'preset' as const, preset }))]
-  const tabs: { key: TemplateChannel | 'ALL'; label: string }[] = [{ key: 'ALL', label: 'All' }, ...channels.map((channel) => ({ key: channel, label: lookOf(channel).label }))]
+  const tabs: { key: TemplateChannel | 'ALL' | 'LAYOUTS'; label: string }[] = [
+    { key: 'ALL', label: 'All' }, ...channels.map((item) => ({ key: item, label: lookOf(item).label })), ...(layoutsTab ? [{ key: 'LAYOUTS' as const, label: 'Receipt Layouts' }] : []),
+  ]
 
   return (
     <section aria-labelledby={`${resultsId}-title`}>
@@ -180,6 +188,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
         </div>
       </div>
 
+      {tab === 'LAYOUTS' ? <div id={resultsId}><ReceiptLayoutLibrary canEdit={canEdit} /></div> : <>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <SearchField label="Search templates" value={search} onChange={setSearch} />
         <FilterChip label={status ? `Status: ${titleize(status)}` : 'Status'} active={Boolean(status)} menuLabel="Filter by status">
@@ -223,6 +232,8 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
           </div>
         )}
       </div>
+
+      </>}
 
       {previewing && <TemplatePreviewModal item={previewing} canEdit={canEdit} onClose={() => setPreviewing(null)} />}
       {renaming && (

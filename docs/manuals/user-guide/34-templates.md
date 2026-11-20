@@ -73,6 +73,7 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 
 | Control | What it is | What it changes |
 |---|---|---|
+| Layout | **This Template’s Own Layout**, or a layout from Templates → Receipt Layouts. With a library layout picked the settings below are read-only: **Edit Layout** opens it, **Make a Copy for This Template** turns it back into this template’s own. **Save to Receipt Layouts** puts this template’s own layout into the library. | Where the receipt comes from. A library layout reaches every template that picks it. |
 | Presentation | Compact, Standard, Itemized, Store Register, or Custom HTML. | The shape of the receipt inside the email. |
 | Receipt Sections | Order header, Customer & fulfillment, Items, Totals, Payment, Loyalty, Returns & support: each on or off (Order header, Items and Totals are always shown). Select a section to see its own settings, below. | What the point of sale's transaction is laid out as, at send time. |
 
@@ -92,6 +93,22 @@ The sections' settings:
 | The outer design | The email around the receipt: brand header, marketing block, button, image, divider, footer, in the same designer. | |
 | Sample Transaction | A POS or eCommerce sample to preview with; desktop and mobile; Send a Test. | |
 | Checks | What a receipt needs before Activate. | |
+
+The Store Register's settings (select a part under Receipt Parts):
+
+| Part | Setting | What it changes |
+|---|---|---|
+| Title & Header | The title (YOUR RECEIPT), and the six transaction fields: rename, hide, reorder. | The block at the top, in rows of three. |
+| Columns | Rename each header; add up to 5 columns (Size, Colour, Quantity, Unit Price, Discount, Line Tax, SKU, UPC, Status), remove or reorder them. The item is always first and its amount always last. Under the item: Discount, Qty @ Price, SKU, UPC. | The item table. Every value comes from the point of sale's transaction. |
+| Totals & Tenders | Nothing to set. | Subtotal, each tax with its rate, the total, every tender, the change for cash. |
+| Footer Text | Up to 500 characters with tags, centred or left. | Text inside the receipt under the totals; a tag that is empty for a receipt drops out. |
+| On Phones | **Fold Extra Columns Under the Item** or **Keep Every Column**. | On a phone, folded columns move to a line under the item. Mail apps that ignore phone rules show every column. |
+
+A Custom HTML receipt has three parts: **Receipt** (the HTML around the lines, with `{{receipt_items}}` where the rows go), **Item Row** (one line, repeated per item, with `{{item.description}}`, `{{item.sku}}`, `{{item.upc}}`, `{{item.size}}`, `{{item.color}}`, `{{item.quantity}}`, `{{item.unit_price}}`, `{{item.discount}}`, `{{item.tax}}`, `{{item.amount}}`, `{{item.status}}`) and **CSS**. Without an Item Row, `{{receipt_body}}` still gives the built-in item table.
+
+### Receipt Layouts
+
+Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates can pick, with how many templates use each. **New Layout** starts one from Store Register, Standard, Itemized, Compact, Custom HTML, or a copy of another; each row's menu has Edit, Duplicate, Rename and Archive. Editing a layout used by templates names them before you save, because the change reaches all of them; a layout used by a template in a running drip cannot be changed until the drip ends. A layout a template still uses cannot be archived.
 
 ## How to
 
