@@ -123,7 +123,7 @@ test('Governance: contacted and held back as figures, the frequency cap complian
   expect(within(within(governance()).getByRole('list', { name: 'Held back by reason' })).getAllByRole('listitem').map((item) => item.textContent))
     .toEqual(['Frequency Cap21,30055%', 'No Consent9,84025%', 'Suppression List7,80020%'])
   expect(governance().querySelector('[data-no-issues]')).toBeNull()
-  expect(within(governance()).getByRole('link', { name: 'Open Governance' }).getAttribute('href')).toBe('/settings/suppressions')
+  expect(within(governance()).getByRole('link', { name: 'Open Governance' }).getAttribute('href')).toBe('/settings/governance')
   cleanup()
   renderHome({ viewer: { ...SAMPLE_VIEWER, can: (permission) => permission !== 'user.admin' } })
   expect(within(governance()).queryByRole('link')).toBeNull()
