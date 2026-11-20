@@ -2,8 +2,10 @@
 
 OFBiz sends the token of iCRM's UtilCommon.getSSOToken, for both the launch and the logout: a Multipass token (token-app.jar,
 see .multipass) sealed with TenantProperties `security` `common.site.key` and `common.api.key`. In CEP the workspace's tenant row holds
-them in the column sso_config = {"is_active", "secret_enc"}: secret_enc is {"site_key", "api_key", "time_zone", "roles"} (the
-same two keys, the iCRM server's time zone, and the role names), encrypted by the application. One iCRM system per workspace:
+them in the column sso_config = {"is_active", "secret_enc"}: secret_enc is {"site_key", "api_key"}, encrypted by the
+application. Nothing else is stored: the role comes from the workspace's own roles (cep_role MARKETING_ADMIN finds the role
+named "Marketing Admin"), and "expires" is read in the workspace's own time zone, tenant.timezone, which is the iCRM
+server's (an "exp" in epoch seconds, when iCRM sends one, needs no time zone at all). One iCRM system per workspace:
 another system gets its own workspace (tenant row, code) and its own sso_config. CEP stores no address: iCRM sends the
 browser to its cep.url, and the launch answers on that same address (/launch or /login).
 
@@ -14,7 +16,7 @@ Optional fields, checked when present: aud, exp, jti, party_id, next.
 "Open CEP" sends getCepSSOToken's token: the same, plus cep_role (the user's iCRM CEP security group: MARKETING_ADMIN,
 CAMPAIGN_MANAGER or ANALYST) and display_name. iCRM owns the login and the role; CEP keeps only the email, name and role.
 
-  link_for(...)   -> the workspace's keys, iCRM time zone and roles, or None when "Open CEP" is off for it
+  link_for(...)   -> the workspace's two keys and time zone, or None when "Open CEP" is off for it
 
   verify(...)     -> the token's claims, or OfbizError with a sentence for the login page
   find_user(...)  -> the active CEP user of this workspace with the token's email (logout: never created)
@@ -32,7 +34,6 @@ import logging
 import secrets
 import time
 from datetime import timedelta
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
 from django.db import connections, router
@@ -53,8 +54,6 @@ HANDOFF_TTL = 120
 SESSION = timedelta(hours=8)
 DEFAULT_NEXT = "/campaigns"
 COLUMN = "sso_config"
-# cep_role -> CEP role name; the workspace's "roles": {code: role name} adds to it or renames
-DEFAULT_ROLES = {"MARKETING_ADMIN": "Marketing Admin", "CAMPAIGN_MANAGER": "Campaign Manager", "ANALYST": "Analyst"}
 SEALED_PREFIX = "gAAAAA"                                    # every Fernet token starts so; a secret seeded by SQL does not
 
 INVALID_LINK = "This link is invalid or has expired. Open CEP again from OFBiz."
@@ -90,22 +89,19 @@ def _opened(tenant_id, secret: str) -> str:
 
 def link_for(tenant_id) -> dict | None:
     from apps.tenants.models import Tenant
-    config = Tenant.objects.filter(pk=tenant_id).values_list(COLUMN, flat=True).first()
+    row = Tenant.objects.filter(pk=tenant_id).values_list(COLUMN, "timezone").first()
+    config, time_zone = row if row else (None, None)
     if not isinstance(config, dict) or config.get("is_active") is False or not config.get("secret_enc"):
         return None
     try:
         stored = json.loads(_opened(tenant_id, str(config["secret_enc"])))
-        site_key, api_key, time_zone = (str(stored[field]).strip() for field in ("site_key", "api_key", "time_zone"))
-        ZoneInfo(time_zone)
-        roles = stored.get("roles") or {}
-    except (ValueError, TypeError, KeyError, ZoneInfoNotFoundError):
-        log.warning("tenant.%s of %s does not hold {\"site_key\", \"api_key\", \"time_zone\"}: run database/ofbiz_sso_seed.sql",
-                    COLUMN, tenant_id)
+        site_key, api_key = (str(stored[field]).strip() for field in ("site_key", "api_key"))
+    except (ValueError, TypeError, KeyError, AttributeError):
+        log.warning("tenant.%s of %s does not hold {\"site_key\", \"api_key\"}: set them in Settings -> Integrations", COLUMN, tenant_id)
         return None
-    if not (site_key and api_key) or not isinstance(roles, dict):
+    if not (site_key and api_key):
         return None
-    return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone,
-            "roles": {**DEFAULT_ROLES, **{str(code).strip().upper(): str(role).strip() for code, role in roles.items()}}}
+    return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone or "UTC"}
 
 
 def verify(token: str, audience: str, tenant: dict) -> dict:
@@ -121,12 +117,18 @@ def verify(token: str, audience: str, tenant: dict) -> dict:
         raise OfbizError(USED_LINK)
     return {**data, "sub": str(data["user_login_id"]), "tenant": tenant["code"], "party_id": str(data.get("party_id") or ""),
             "email": str(data["email"]).strip().lower(), "cep_role": str(data.get("cep_role") or "").strip().upper(),
-            "display_name": " ".join(str(data.get("display_name") or "").split()), "roles": link["roles"]}
+            "display_name": " ".join(str(data.get("display_name") or "").split())}
 
 
 def find_user(email: str, tenant_id):
     from apps.identity.models import AppUser
     return AppUser.objects.filter(tenant_id=tenant_id, email__iexact=email, is_active=True, deleted_at__isnull=True).first()
+
+
+def role_name_for(cep_role: str) -> str:
+    """iCRM's cep_role is the CEP role's name in capitals with underscores: MARKETING_ADMIN -> "marketing admin", matched
+    without regard to case against the workspace's roles."""
+    return " ".join(str(cep_role or "").replace("_", " ").split())
 
 
 def provision(claims: dict, tenant_id):
@@ -137,8 +139,8 @@ def provision(claims: dict, tenant_id):
     from apps.identity.models import AppUser, Role, UserRole
     if not claims["cep_role"]:
         raise OfbizError(NO_ROLE)
-    role_name = claims["roles"].get(claims["cep_role"])
-    role = Role.objects.filter(tenant_id=tenant_id, name__iexact=role_name or "", deleted_at__isnull=True).first()
+    role_name = role_name_for(claims["cep_role"])
+    role = Role.objects.filter(tenant_id=tenant_id, name__iexact=role_name, deleted_at__isnull=True).first()
     if role is None:
         log.warning("OFBiz sign-in: CEP role %r (%s) does not exist in workspace %s", role_name, claims["cep_role"], tenant_id)
         raise OfbizError(f"Your iCRM role {claims['cep_role']} has no matching role in this CEP workspace. Ask your administrator.")
@@ -227,44 +229,33 @@ def config_workspaces() -> list[dict]:
 
 def read_config(code: str) -> dict | None:
     """The workspace's sso_config with secret_enc opened:
-    {code, name, is_active, site_key, api_key, time_zone, roles, encrypted, problem}."""
+    {code, name, is_active, site_key, api_key, encrypted, problem}."""
     rows = _platform_rows(f"SELECT code, name, {COLUMN} AS config FROM tenant WHERE code = %s AND deleted_at IS NULL", [code])
     if not rows:
         return None
     config = rows[0]["config"] if isinstance(rows[0]["config"], dict) else json.loads(rows[0]["config"] or "{}")
     answer = {"code": rows[0]["code"], "name": rows[0]["name"], "is_active": config.get("is_active") is not False,
-              "site_key": "", "api_key": "", "time_zone": "", "roles": {}, "encrypted": False, "problem": None}
+              "site_key": "", "api_key": "", "encrypted": False, "problem": None}
     secret = str(config.get("secret_enc") or "")
     if not secret:
         return answer
     try:
         answer["encrypted"] = secret.startswith(SEALED_PREFIX)
         stored = json.loads(crypto.decrypt(secret) if answer["encrypted"] else secret)
-        answer.update(site_key=str(stored.get("site_key") or ""), api_key=str(stored.get("api_key") or ""),
-                      time_zone=str(stored.get("time_zone") or ""), roles={str(k): str(v) for k, v in (stored.get("roles") or {}).items()})
+        answer.update(site_key=str(stored.get("site_key") or ""), api_key=str(stored.get("api_key") or ""))
     except (ValueError, TypeError, AttributeError) as exc:
         answer["problem"] = str(exc) if "FIELD_ENCRYPTION_KEY" in str(exc) else "The stored value is not valid JSON."
     return answer
 
 
 def save_config(code: str, data: dict) -> dict:
-    """Validates and stores {is_active, site_key, api_key, time_zone, roles}, the keys encrypted; returns field errors or {}."""
-    errors, values = {}, {}
-    for field in ("site_key", "api_key", "time_zone"):
-        values[field] = str(data.get(field) or "").strip()
-        if not values[field]:
-            errors[field] = "Required."
-    if values["time_zone"] and "time_zone" not in errors:
-        try:
-            ZoneInfo(values["time_zone"])
-        except (ZoneInfoNotFoundError, ValueError):
-            errors["time_zone"] = "Not a time zone, for example America/New_York."
-    roles = data.get("roles") or {}
-    if not isinstance(roles, dict) or any(not str(k).strip() or not str(v).strip() for k, v in roles.items()):
-        errors["roles"] = "Every role needs an iCRM code and a CEP role name."
+    """Validates and stores {is_active, site_key, api_key}, the keys encrypted; returns field errors or {}. Values left by
+    earlier versions (frontend_url, and time_zone and roles inside secret_enc) are dropped."""
+    values = {field: str(data.get(field) or "").strip() for field in ("site_key", "api_key")}
+    errors = {field: "Required." for field, value in values.items() if not value}
     if errors:
         return errors
-    sealed = crypto.encrypt(json.dumps({**values, "roles": {str(k).strip().upper(): str(v).strip() for k, v in roles.items()}}))
+    sealed = crypto.encrypt(json.dumps(values))
     config = json.dumps({"is_active": bool(data.get("is_active", True)), "secret_enc": sealed})
     _platform_rows(f"UPDATE tenant SET {COLUMN} = (COALESCE({COLUMN}, '{{}}'::jsonb) - 'frontend_url') || %s::jsonb WHERE code = %s AND deleted_at IS NULL", [config, code])
     log.info("tenant.%s of %s changed by a platform administrator", COLUMN, code)
@@ -272,9 +263,8 @@ def save_config(code: str, data: dict) -> dict:
 
 
 # The workspace's own administrators (Settings -> Integrations) edit the two keys iCRM seals "Open CEP" tokens with:
-# Site Key (security / common.site.key) and API Key (cep / cep.api.key). The time zone, roles and on/off stay as stored
-# (seed). Both keys are shown to whoever may open the screen (provider.edit), as iCRM's own screen shows them.
-DEFAULT_TIME_ZONE = "America/New_York"                     # iCRM staging (EST5EDT), until the seed sets another
+# Site Key (security / common.site.key) and API Key (cep / cep.api.key); on/off stays as stored. Both keys are shown to
+# whoever may open the screen (provider.edit), as iCRM's own screen shows them.
 
 
 def workspace_link(code: str) -> dict | None:
@@ -290,8 +280,7 @@ def save_workspace_link(code: str, data: dict) -> dict:
     """{site_key, api_key}, both required. Returns field errors or {}."""
     stored = read_config(code) or {}
     errors = save_config(code, {"is_active": stored.get("is_active", True),
-                                "site_key": data.get("site_key"), "api_key": data.get("api_key"),
-                                "time_zone": stored.get("time_zone") or DEFAULT_TIME_ZONE, "roles": stored.get("roles") or {}})
+                                "site_key": data.get("site_key"), "api_key": data.get("api_key")})
     if "api_key" in errors:
         errors["api_key"] = "Enter iCRM's API key (cep.api.key)."
     if "site_key" in errors:
