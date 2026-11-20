@@ -4,7 +4,6 @@ import { useState, type FormEvent } from 'react'
 import { buttonPrimary, Field, TextInput } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
-import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 
 /** GET/PUT /workspace/ofbiz-sso/: this workspace's tenant.sso_config, as iCRM's CEP Configuration screen names it */
@@ -44,7 +43,7 @@ function SignOnForm({ link }: { link: OfbizLink }) {
           {(ids) => <TextInput {...ids} value={siteKey} onChange={(event) => setSiteKey(event.target.value)} autoComplete="off" />}
         </Field>
         <Field label="API Key" required error={errors.api_key} hint="iCRM cep / cep.api.key, character for character. Stored encrypted."
-          labelEnd={<button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} aria-pressed={showKey} onClick={() => setShowKey((shown) => !shown)}>{showKey ? 'Hide' : 'Show'}</button>}>
+          labelEnd={<button type="button" className="text-label font-medium text-brand-800 hover:underline" aria-pressed={showKey} onClick={() => setShowKey((shown) => !shown)}>{showKey ? 'Hide' : 'Show'}</button>}>
           {(ids) => <TextInput {...ids} type={showKey ? 'text' : 'password'} value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="new-password" />}
         </Field>
       </div>
