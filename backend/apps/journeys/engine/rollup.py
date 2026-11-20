@@ -57,7 +57,7 @@ UPDATE journey_master_analytical a SET held_back_count = h.held, failed_count = 
 
 SINCE = """SELECT LEAST(date_trunc('day', now()) - interval '1 day',
                         COALESCE(date_trunc('day', (SELECT max(executed_at) FROM journey_execution_master_analytical WHERE tenant_id = %(tenant)s)),
-                                 '-infinity'::timestamptz))"""
+                                 'epoch'::timestamptz))"""  # not -infinity: Python cannot read it, and a workspace whose journeys never ran has no facts
 
 FACTS = ["DELETE FROM journey_execution_master_analytical WHERE tenant_id = %(tenant)s AND executed_at >= %(since)s", """
 INSERT INTO journey_execution_master_analytical (tenant_id, party_id, journey_id, node_id, event_type, campaign_id, campaign_run_id, channel, outcome, executed_at)
