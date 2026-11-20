@@ -27,7 +27,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .platform_status_api import PlatformStatusView
 from . import (attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
-               home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
+               home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api, governance_api)
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -157,6 +157,10 @@ urlpatterns = [
     path("integrations/<uuid:pk>/pause/", integrations_api.IntegrationPauseView.as_view(), {"pause": True}, name="integration-pause"),
     path("integrations/<uuid:pk>/resume/", integrations_api.IntegrationPauseView.as_view(), {"pause": False}, name="integration-resume"),
     path("sms-inbound/", delivery_api.SmsInboundView.as_view(), name="sms-inbound"),
+    path("workspace/governance/", governance_api.GovernanceView.as_view(), name="workspace-governance"),
+    path("workspace/governance/caps/", governance_api.CapsView.as_view(), name="workspace-governance-caps"),
+    path("workspace/governance/caps/<uuid:pk>/", governance_api.CapView.as_view(), name="workspace-governance-cap"),
+    path("workspace/governance/standard/", governance_api.StandardView.as_view(), name="workspace-governance-standard"),
     path("suppressions/", suppressions_api.SuppressionListView.as_view(), name="suppression-list"),
     path("suppressions/summary/", suppressions_api.SuppressionSummaryView.as_view(), name="suppression-summary"),
     path("suppressions/export.csv", suppressions_api.SuppressionExportView.as_view(), name="suppression-export"),

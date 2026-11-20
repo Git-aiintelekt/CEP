@@ -118,7 +118,7 @@ DATABASE_ROUTERS = ["apps.tenants.router.TenantRouter"]
 CONTROL_PLANE_ALIAS = "default"
 CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config",
                         "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "platform_visit", "tenant_identity_provider",
-                        "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag",
+                        "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag", "platform_governance_policy",
                         "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "security_check", "security_finding", "tenant_quota_grant",
                         "suite_component", "plan_component", "tenant_component",
                         "report_dataset", "report_field", "report_dataset_source", "report_engine_setting", "report_engine_connection", "ai_provider", "report_dataset_link"}

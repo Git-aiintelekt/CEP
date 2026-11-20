@@ -11,7 +11,7 @@ import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
-import type { WarmUp, WarmUpOverview } from '@/lib/types'
+import type { GovernanceCap, GovernanceOverview, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -707,6 +707,18 @@ export const invoices: Invoice[] = [
   { id: 'inv-1', invoice_number: 'INV-NWA-202608', period_month: '2026-08-01', plan_code: 'GROWTH', currency: 'USD', base_amount: '499.00', overage_amount: '2.70', total_amount: '501.70',
     line_items: [], status: 'ISSUED', issued_at: '2026-09-01T06:00:00Z', due_at: '2026-09-15T06:00:00Z', paid_at: null },
 ]
+const CAP_WORDS: Record<string, [string, string, string]> = { EMAIL: ['Email', 'email', 'emails'], SMS: ['Text', 'text', 'texts'], WHATSAPP: ['WhatsApp', 'WhatsApp message', 'WhatsApp messages'], ALL: ['All Channels', 'message', 'messages'] }
+export const governanceCap = (overrides: Partial<GovernanceCap>): GovernanceCap => {
+  const cap = { id: 'cap-1', name: 'Cap', channel: 'EMAIL' as GovernanceCap['channel'], max_messages: 3, period_days: 7, is_active: true, platform: false, row_version: 1, ...overrides }
+  const [label, one, many] = CAP_WORDS[cap.channel]
+  return { ...cap, channel_label: label, rule: `${cap.max_messages} ${cap.max_messages === 1 ? one : many} per ${cap.period_days === 1 ? 'day' : `${cap.period_days} days`}` }
+}
+export const governance: GovernanceOverview = {
+  caps: [governanceCap({ id: 'cap-platform', channel: 'EMAIL', max_messages: 3, period_days: 7, platform: true }), governanceCap({ id: 'cap-own', channel: 'SMS', max_messages: 4, period_days: 30 })],
+  activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
+  text_quiet_hours: { start: '21:00', end: '08:00' },
+  soft_bounces: 3,
+}
 export const security: SecuritySettings = { require_mfa: false, sso_available: true, redirect_uri: 'http://localhost:8000/api/v1/auth/sso/callback/', identity_provider: null }
 export const supportAccess: SupportAccess[] = [
   { id: 'sup-1', staff: 'Pat Support', as_user: 'Devon Okafor', as_email: 'devon@example.com', reason: 'Ticket 4821: cannot find a campaign', mode: 'READ',
@@ -1074,6 +1086,7 @@ export function installMockApi(options: MockOptions = {}) {
   const journeyStartersNow: JourneyStarter[] = options.journeyStarters ?? journeyStarters
   let savedTemplatesNow: JourneyTemplate[] = (options.savedTemplates ?? []).map((row) => structuredClone(row))
   let securityNow: SecuritySettings = { ...security }
+  let governanceNow: GovernanceOverview = structuredClone(governance)
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
   const tagRows: PersonalizationTag[] = (options.tags ?? tags).map((item) => ({ ...item }))
@@ -1444,6 +1457,29 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/workspace/usage/')) return json(usage)
     if (path.endsWith('/workspace/invoices/')) return json(invoices)
     if (path.endsWith('/workspace/support-access/')) return json(supportAccess)
+    if (path.endsWith('/workspace/governance/')) return json(governanceNow)
+    if (path.endsWith('/workspace/governance/standard/') && method === 'POST') {
+      const have = new Set(governanceNow.caps.filter((cap) => !cap.platform).map((cap) => cap.channel))
+      const added = ([['EMAIL', 3, 7], ['SMS', 4, 30], ['WHATSAPP', 2, 7], ['ALL', 5, 7]] as const).filter(([channel]) => !have.has(channel))
+        .map(([channel, most, days], index) => governanceCap({ id: `cap-standard-${index}`, channel, max_messages: most, period_days: days }))
+      governanceNow = { ...governanceNow, caps: [...governanceNow.caps, ...added] }
+      return json({ added: added.map((cap) => cap.rule), caps: governanceNow.caps })
+    }
+    if (path.endsWith('/workspace/governance/caps/') && method === 'POST') {
+      const made = governanceCap({ id: `cap-${governanceNow.caps.length + 1}`, platform: false, ...(body as Partial<GovernanceCap>) })
+      governanceNow = { ...governanceNow, caps: [...governanceNow.caps, made] }
+      return json(made, 201)
+    }
+    const capMatch = path.match(/\/workspace\/governance\/caps\/([^/]+)\/$/)
+    if (capMatch) {
+      const cap = governanceNow.caps.find((item) => item.id === capMatch[1])
+      if (!cap) return problem(404, { detail: 'No such cap.' })
+      if (cap.platform) return problem(403, { detail: 'This cap is set by the platform for your workspace: it is changed in the back-office, not here.' })
+      if (method === 'DELETE') { governanceNow = { ...governanceNow, caps: governanceNow.caps.filter((item) => item.id !== cap.id) }; return new Response(null, { status: 204 }) }
+      const next = governanceCap({ ...cap, ...(body as Partial<GovernanceCap>) })
+      governanceNow = { ...governanceNow, caps: governanceNow.caps.map((item) => (item.id === cap.id ? next : item)) }
+      return json(next)
+    }
     if (path.endsWith('/workspace/security/')) {
       if (method === 'PUT') {
         const custom = options.onSecurityWrite?.(call)
