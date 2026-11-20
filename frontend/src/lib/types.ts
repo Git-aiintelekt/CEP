@@ -3078,8 +3078,29 @@ export interface GovernanceCap {
   platform: boolean
   row_version: number
 }
+/** A Gap Between Messages: no marketing message of the channel within `hours` of the last one */
+export interface GovernanceGap {
+  id: string
+  name: string
+  hours: number
+  rule: string
+  is_active: boolean
+  platform: boolean
+  row_version: number
+}
+export interface GovernanceGapChannel {
+  channel: 'EMAIL' | 'SMS' | 'WHATSAPP'
+  channel_label: string
+  /** the hours a new gap of the workspace's own starts at */
+  recommended_hours: number
+  own: GovernanceGap | null
+  platform: GovernanceGap[]
+  /** a cap of one message that already keeps at least the own gap, so the gap adds nothing while it applies */
+  covered_by: string | null
+}
 export interface GovernanceOverview {
   caps: GovernanceCap[]
+  gaps: GovernanceGapChannel[]
   activity: { days: number; checked: number; sent: number; capped: number; sent_percent: number | null }
   text_quiet_hours: { start: string; end: string } | null
   soft_bounces: number

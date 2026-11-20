@@ -3472,6 +3472,18 @@ CREATE INDEX IF NOT EXISTS ix_communication_governance_policy_platform ON commun
 GRANT SELECT, INSERT, UPDATE, DELETE ON platform_governance_policy TO cep_app;               -- written by the back-office only, as platform tags are
 GRANT ALL ON platform_governance_policy TO cep_admin;
 
+-- Gap Between Messages (patch 0089): a policy with gap_hours skips a person who received a marketing message of its channel in
+-- the last gap_hours hours (Klaviyo's Smart Sending). It is a cap of one message counted over hours instead of days, so the
+-- send-time check is the same; max_messages is 1 and period_days is not read.
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS gap_hours INTEGER;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS gap_hours INTEGER;
+ALTER TABLE communication_governance_policy DROP CONSTRAINT IF EXISTS ck_governance_policy_gap;
+ALTER TABLE communication_governance_policy ADD CONSTRAINT ck_governance_policy_gap CHECK (gap_hours IS NULL OR (gap_hours BETWEEN 1 AND 168 AND max_messages = 1));
+ALTER TABLE platform_governance_policy DROP CONSTRAINT IF EXISTS ck_platform_governance_policy_gap;
+ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_policy_gap CHECK (gap_hours IS NULL OR (gap_hours BETWEEN 1 AND 168 AND max_messages = 1));
+COMMENT ON COLUMN communication_governance_policy.gap_hours IS 'Gap Between Messages: the hours after a marketing message in which the next is skipped (NULL for a frequency cap).';
+COMMENT ON COLUMN platform_governance_policy.gap_hours IS 'Gap Between Messages: the hours after a marketing message in which the next is skipped (NULL for a frequency cap).';
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

@@ -13,7 +13,8 @@ creates the mailer_execution rows. Rules, in order (first match is the recorded 
     UNSUBSCRIBED       consent_status = OPTED_OUT
     NO_CONSENT         no OPTED_IN consent for email
     TOPIC_OPTED_OUT    the person unticked this campaign's topic on the preference page (marketing, preference centre on)
-    FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached
+    FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached, or a Gap Between
+                       Messages policy's gap_hours have not passed since the last message
     DUPLICATE_ADDRESS  another party in this run has the same address (the first keeps it)
 
 Runs on the caller's connection, inside its transaction, under the tenant's row-level security.
@@ -22,6 +23,7 @@ A later drip message (`base_list_id`) takes its people from the first message's 
 lists, all of them whatever their outcome there; every rule above then applies again at its own send.
 """
 from apps.governance import preferences
+from apps.governance.models import POLICY_WINDOW, marketing_only
 
 from . import session
 from .render import subject_of
@@ -63,11 +65,11 @@ WITH picked AS ({picked}
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND COALESCE(g.channel, 'EMAIL') = 'EMAIL'))
                            AND ((SELECT count(*) FROM mailer_execution x
                                   WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id AND x.status NOT IN ('QUEUED', 'FAILED')
-                                    AND x.created_at >= now() - make_interval(days => g.period_days))
+                                    AND x.created_at >= now() - {POLICY_WINDOW} AND {marketing_only('x')})
                                 + CASE WHEN g.scope = 'GLOBAL' THEN                      -- a GLOBAL policy counts every message, texts included
                                        (SELECT count(*) FROM sms_execution y
                                          WHERE y.tenant_id = %(tenant)s AND y.party_id = r.party_id AND y.status NOT IN ('QUEUED', 'FAILED')
-                                           AND y.created_at >= now() - make_interval(days => g.period_days)) ELSE 0 END) >= g.max_messages
+                                           AND y.created_at >= now() - {POLICY_WINDOW} AND {marketing_only('y')}) ELSE 0 END) >= g.max_messages
                          ORDER BY g.priority LIMIT 1) AS policy_id
       FROM resolved r
 ), judged AS (

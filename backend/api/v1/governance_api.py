@@ -5,6 +5,7 @@
     PATCH  /workspace/governance/caps/<id>/    the same fields, and is_active
     DELETE /workspace/governance/caps/<id>/
     POST   /workspace/governance/standard/     the recommended caps for the channels not capped yet
+    PUT    /workspace/governance/gaps/<channel>/   the workspace's own Gap Between Messages for EMAIL, SMS or WHATSAPP: {hours, is_active}
 
 Reading needs campaign.view or governance.edit; changing needs governance.edit. A platform cap is refused with 403.
 """
@@ -80,6 +81,19 @@ class CapView(APIView):
     def delete(self, request, pk, version=None):
         self._run(lambda: workspace.remove_cap(_tenant(), pk, _user(request)))
         return Response(status=204)
+
+
+class GapView(APIView):
+    permission_classes = ACCESS
+
+    @extend_schema(request=None, responses={200: None})
+    def put(self, request, channel, version=None):
+        try:
+            return Response(workspace.set_gap(_tenant(), channel, request.data, _user(request)))
+        except workspace.GovernanceError as exc:
+            raise ValidationError({exc.field: str(exc)}) from None
+        except LookupError:
+            raise NotFound("No such channel.") from None
 
 
 class StandardView(APIView):

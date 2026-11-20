@@ -1,7 +1,8 @@
 /**
  * Settings → Engagement → Governance (docs/mockups/governance.html, option A): how often marketing may reach a person, and what
  * the rules did. The platform's caps are shown locked; the workspace adds its own beside them, and every cap applies, so its
- * own can only make sending stricter. Transactional messages and e-receipts are never capped.
+ * own can only make sending stricter. A Gap Between Messages per channel skips a person who received marketing of that channel
+ * within the last hours. Transactional messages and e-receipts are never capped.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Lock, Plus } from 'lucide-react'
@@ -18,7 +19,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/lib/api'
 import { formatNumber, formatPercent } from '@/lib/format'
 import { saveFailure } from '@/lib/saveFeedback'
-import type { GovernanceCap, GovernanceOverview } from '@/lib/types'
+import type { GovernanceCap, GovernanceGapChannel, GovernanceOverview } from '@/lib/types'
 
 const KEY = ['workspace', 'governance']
 const CHANNELS = [['EMAIL', 'Email'], ['SMS', 'Text'], ['WHATSAPP', 'WhatsApp'], ['ALL', 'All Channels']] as const
@@ -83,6 +84,53 @@ function CapForm({ cap, onClose }: { cap: GovernanceCap | null; onClose: () => v
   )
 }
 
+const GAP_NOUN: Record<GovernanceGapChannel['channel'], string> = { EMAIL: 'email', SMS: 'text', WHATSAPP: 'WhatsApp message' }
+
+function GapRow({ entry, editable }: { entry: GovernanceGapChannel; editable: boolean }) {
+  const queryClient = useQueryClient()
+  const own = entry.own
+  const active = own?.is_active ?? false
+  const [hours, setHours] = useState(String(own?.hours ?? entry.recommended_hours))
+  const save = useMutation({
+    mutationFn: (body: { hours?: number; is_active?: boolean }) => api.put<GovernanceGapChannel>(`/workspace/governance/gaps/${entry.channel}/`, body),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: KEY }),
+  })
+  const errors = save.isError ? saveFailure(save.error, 'The gap was not saved', ['hours']) : null
+  const commit = () => {
+    if (active && own && Number(hours) !== own.hours) save.mutate({ hours: Number(hours) })
+  }
+  const noun = GAP_NOUN[entry.channel]
+  return (
+    <div className="flex flex-col gap-2 border-t border-line-subtle py-3 first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink-900">{entry.channel_label}</p>
+          <p className="text-sm text-ink-800">{active && own ? `Skip a person who received a marketing ${noun} in the last ${own.hours} ${own.hours === 1 ? 'hour' : 'hours'}.` : `Off: no gap of your own between ${noun}s.`}</p>
+        </div>
+        {editable ? (
+          <div className="flex items-center gap-2 text-sm text-ink-800">
+            <div className="w-20">
+              <TextInput type="number" min={1} max={168} inputMode="numeric" aria-label={`${entry.channel_label} gap in hours`} value={hours} disabled={save.isPending}
+                onChange={(event) => setHours(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') commit() }} />
+            </div>
+            hours
+            <Switch checked={active} disabled={save.isPending} onChange={() => save.mutate(active ? { is_active: false } : { hours: Number(hours), is_active: true })}
+              ariaLabel={`${entry.channel_label} gap in use`} />
+          </div>
+        ) : own && <span className="cep-num text-sm text-ink-900">{own.rule} · {own.is_active ? 'On' : 'Off'}</span>}
+      </div>
+      {errors && <p className="text-helper font-medium text-danger-text" role="alert">{errors.fields.hours ?? errors.short}</p>}
+      {entry.covered_by && <p className="text-helper text-ink-800">The cap of {entry.covered_by} already keeps at least this gap, so the gap adds nothing while that cap applies.</p>}
+      {entry.platform.map((gap) => (
+        <p key={gap.id} className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
+          <Tag icon={Building2}>Platform</Tag><span className="cep-num text-ink-900">{gap.rule}</span>{!gap.is_active && <span>Off</span>}
+          <span className="inline-flex items-center gap-1" title="Set by the platform for your workspace; changed in the back-office."><Lock size={14} strokeWidth={1.5} aria-hidden />Locked</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export function GovernancePage() {
   const queryClient = useQueryClient()
   const { can } = useAuth()
@@ -104,7 +152,7 @@ export function GovernancePage() {
 
   if (data.isError) return <ErrorState title="Governance could not be loaded" error={data.error} onRetry={() => void data.refetch()} />
   if (data.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
-  const { caps, activity, text_quiet_hours: quiet, soft_bounces: softBounces } = data.data
+  const { caps, gaps, activity, text_quiet_hours: quiet, soft_bounces: softBounces } = data.data
   const platformCaps = caps.filter((cap) => cap.platform).length
   const ownCaps = caps.length - platformCaps
 
@@ -119,7 +167,7 @@ export function GovernancePage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Figure value={formatNumber(activity.checked)} label="Recipients Checked" />
           <Figure value={activity.sent_percent === null ? '—' : formatPercent(activity.sent_percent)} label="Sent Within the Rules" />
-          <Figure value={formatNumber(activity.capped)} label="Skipped by a Cap" />
+          <Figure value={formatNumber(activity.capped)} label="Skipped by a Cap or Gap" />
         </div>
       </Card>
 
@@ -165,6 +213,12 @@ export function GovernancePage() {
         {recommended.isError && <div className="mt-3"><ErrorState title="The recommended caps were not added" error={recommended.error} /></div>}
         {platformCaps > 0 && <p className="mt-3 text-helper text-ink-800">{platformCaps === 1 ? 'One cap is' : `${platformCaps} caps are`} set by the platform for your workspace. Caps of your own apply as well, so they can only make sending stricter.</p>}
         {(toggle.isError || remove.isError) && <div className="mt-3"><ErrorState title="The cap was not changed" error={toggle.error ?? remove.error} /></div>}
+      </Card>
+
+      <Card title="Gap Between Messages" description="A person who received marketing recently is skipped by the next send of the same channel, counted as Frequency Capped. Like Klaviyo's Smart Sending.">
+        <div aria-label="Gap Between Messages" role="group">
+          {gaps.map((entry) => <GapRow key={`${entry.channel}-${entry.own?.row_version ?? 0}-${entry.own?.hours ?? ''}`} entry={entry} editable={editable} />)}
+        </div>
       </Card>
 
       <Card title="Send Times" description="When marketing may arrive.">

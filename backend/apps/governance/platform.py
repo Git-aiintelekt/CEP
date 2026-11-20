@@ -14,8 +14,8 @@ from django.utils import timezone
 
 from apps.governance.models import CommunicationGovernancePolicy
 
-COPIED = ("scope", "channel", "max_messages", "period_days", "applies_to", "priority", "is_active")
-LOCKED_MESSAGE = "This cap is set by the platform for your workspace: it is changed in the back-office, not here."
+COPIED = ("scope", "channel", "max_messages", "period_days", "gap_hours", "applies_to", "priority", "is_active")
+LOCKED_MESSAGE = "This rule is set by the platform for your workspace: it is changed in the back-office, not here."
 
 
 def _tenant_scope(cursor, tenant_id) -> None:
