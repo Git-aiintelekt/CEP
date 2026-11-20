@@ -143,6 +143,19 @@ def take(code: str, binding: str, tenant_code: str) -> dict | None:
     return entry
 
 
+def in_use(tenant_id, using: str = "default") -> bool:
+    """the workspace signs people in through its identity provider: one is set up and switched on"""
+    from .models import TenantIdentityProvider
+    return TenantIdentityProvider.objects.using(using).filter(tenant_id=tenant_id, is_active=True).exists()
+
+
+def release_users(tenant_id, using: str = "default") -> int:
+    """the workspace's single sign-on is removed: its single sign-on users become password users, so an administrator can send them
+    a password link (their next sign-in through a new provider links them again by email)"""
+    from apps.identity.models import AppUser
+    return AppUser.objects.using(using).filter(tenant_id=tenant_id).exclude(auth_provider="LOCAL").update(auth_provider="LOCAL", external_subject_id=None)
+
+
 def resolve_user(provider, identity: dict):
     """Inside the tenant's request transaction (RLS): returns the active user or raises SsoError."""
     from django.db import IntegrityError, transaction

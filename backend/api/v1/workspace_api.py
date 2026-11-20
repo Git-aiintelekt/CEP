@@ -121,6 +121,7 @@ class SecurityView(APIView):
             if data is None:
                 if provider:
                     provider.delete()
+                    sso.release_users(tenant_id)
             else:
                 form = IdentityProviderSerializer(provider, data=data, partial=provider is not None)
                 form.is_valid(raise_exception=True)
