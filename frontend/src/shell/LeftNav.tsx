@@ -1,7 +1,7 @@
 /**
- * The suite's left navigation, in two columns: the app rail, always there, with one tile per component the workspace
- * has and Workspace Settings at the foot; and beside it the open component's menu, which the top bar's toggle
- * collapses to a column of icons and opens again. Everything is built from the manifests and GET /me/, with no request per click.
+ * The suite's left navigation: one navy rail with the open component's pages and Workspace Settings at the foot. The
+ * top bar's toggle collapses it to a column of icons and opens it again; switching components happens in the launcher.
+ * Everything is built from the manifests and GET /me/, with no request per click.
  */
 import { Link, NavLink } from 'react-router-dom'
 
@@ -10,98 +10,65 @@ import { RailTooltip, useTooltip } from '@/components/Rail'
 import type { EntitledComponent } from './manifests'
 
 const FOCUS = 'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent'
-const TILE = `relative flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-md px-0.5 py-2 text-xs transition-colors duration-fast ease-standard ${FOCUS}`
-const TILE_QUIET = 'font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-on-brand active:bg-sidebar-pressed'
-const TILE_CURRENT = 'bg-sidebar-selected font-semibold text-on-brand hover:bg-sidebar-selected-hover'
+const ROW = `flex h-10 shrink-0 items-center gap-3 rounded-md whitespace-nowrap transition-colors duration-fast ease-standard ${FOCUS}`
+const ROW_QUIET = 'font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-on-brand active:bg-sidebar-pressed'
+const ROW_CURRENT = 'bg-sidebar-selected font-semibold text-on-brand hover:bg-sidebar-selected-hover'
 
-export interface AppRailProps {
-  components: EntitledComponent[]
-  current: EntitledComponent | null
-  /** Workspace Settings, when the person may open it */
-  settings: NavItem | null
-}
-
-/** the 88px rail: each component's icon with its name below, the open one marked; a tile opens that component's Home */
-export function AppRail({ components, current, settings }: AppRailProps) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col px-1.5">
-      <ul aria-label="Components" className="flex flex-col gap-1">
-        {components.map((component) => {
-          const Icon = component.icon
-          const isCurrent = component.key === current?.key
-          return (
-            <li key={component.key}>
-              <Link to={component.home} aria-current={isCurrent ? 'true' : undefined} title={component.tagline} className={`${TILE} ${isCurrent ? TILE_CURRENT : TILE_QUIET}`}>
-                <Icon size={20} strokeWidth={1.5} aria-hidden className={isCurrent ? 'text-on-brand' : 'text-sidebar-icon'} />
-                <span className="max-w-full truncate">{component.name}</span>
-                {component.access === 'TRIAL' && <span className="absolute top-1 right-1 rounded-sm bg-warning px-1 text-[10px] leading-4 font-semibold text-on-warning">Trial</span>}
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
-      {settings && (
-        <ul aria-label="Workspace" className="mt-auto border-t border-sidebar-divider pt-2">
-          <li>
-            <NavLink to={settings.to} className={({ isActive }) => `${TILE} ${isActive ? TILE_CURRENT : TILE_QUIET}`}>
-              {({ isActive }) => (
-                <>
-                  <settings.icon size={20} strokeWidth={1.5} aria-hidden className={isActive ? 'text-on-brand' : 'text-sidebar-icon'} />
-                  <span>Settings</span>
-                </>
-              )}
-            </NavLink>
-          </li>
-        </ul>
-      )}
-    </div>
-  )
-}
-
-const LIGHT_FOCUS = 'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus'
-
-function MenuLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
+function RailRow({ item, label = item.label, collapsed, onNavigate }: { item: NavItem; label?: string; collapsed: boolean; onNavigate?: () => void }) {
   const tooltip = useTooltip(collapsed)
   return (
     <>
       <NavLink
         to={item.to}
         end={item.end}
-        aria-label={collapsed ? item.label : undefined}
+        aria-label={collapsed ? label : undefined}
         onClick={onNavigate}
         {...tooltip.props}
-        className={({ isActive }) => `group flex h-10 items-center gap-3 rounded-md whitespace-nowrap transition-colors duration-fast ease-standard ${LIGHT_FOCUS} ${collapsed ? 'w-10 justify-center' : 'px-3'} ${
-          isActive ? 'bg-brand-100 font-semibold text-brand-800' : 'font-medium text-ink-900 hover:bg-surface-hover'
-        }`}
+        className={({ isActive }) => `group ${ROW} ${collapsed ? 'w-10 justify-center' : 'px-3'} ${isActive ? ROW_CURRENT : ROW_QUIET}`}
       >
         {({ isActive }) => (
           <>
-            <item.icon size={20} strokeWidth={1.5} aria-hidden className={`shrink-0 ${isActive ? 'text-brand-800' : 'text-ink-800'}`} />
-            {!collapsed && <span className="truncate">{item.label}</span>}
+            <item.icon size={20} strokeWidth={1.5} aria-hidden className={`shrink-0 ${isActive ? 'text-on-brand' : 'text-sidebar-text group-hover:text-on-brand'}`} />
+            {!collapsed && <span className="truncate">{label}</span>}
           </>
         )}
       </NavLink>
-      {tooltip.shown && <RailTooltip at={tooltip.shown} label={item.label} />}
+      {tooltip.shown && <RailTooltip at={tooltip.shown} label={label} />}
     </>
   )
 }
 
+export interface PageRailProps {
+  /** the open component; none when the workspace has none this person can open */
+  current: EntitledComponent | null
+  /** Workspace Settings, when the person may open it */
+  settings: NavItem | null
+  collapsed: boolean
+  onNavigate?: () => void
+}
+
 /**
- * The open component's menu, on white: its name and tagline, then its pages, the current one on Blue 100. Collapsed,
- * it is a 64px column of the same pages as icons, each with its label as a tooltip.
+ * The navy rail: the open component's name (a link to its Home), its pages with the current one on the selected fill,
+ * and Settings at the foot under a divider. Collapsed, it is a 64px column of the same pages as icons, each label a tooltip.
  */
-export function ComponentMenu({ current, collapsed = false, onNavigate }: { current: EntitledComponent; collapsed?: boolean; onNavigate?: () => void }) {
+export function PageRail({ current, settings, collapsed, onNavigate }: PageRailProps) {
   return (
-    <div className={`flex flex-col gap-4 pt-4 ${collapsed ? 'w-16 items-center' : 'w-60 px-3'}`}>
-      {!collapsed && (
-        <Link to={current.home} onClick={onNavigate} className={`flex flex-col rounded-md px-3 py-1 leading-tight ${LIGHT_FOCUS}`}>
-          <span className="truncate font-display text-section-title font-semibold text-ink-900">{current.name}</span>
-          <span className="truncate text-sm text-ink-800">{current.tagline}</span>
+    <div className={`flex min-h-full flex-col pt-2 pb-4 ${collapsed ? 'w-16 items-center' : 'w-60 px-3'}`}>
+      {current && !collapsed && (
+        <Link to={current.home} onClick={onNavigate} className={`mb-2 truncate rounded-md px-3 py-2 font-display text-section-title font-semibold text-on-brand ${FOCUS}`}>
+          {current.name}
         </Link>
       )}
-      <ul aria-label={current.name} className="flex flex-col gap-1">
-        {current.menu.map((item) => <li key={item.to}><MenuLink item={item} collapsed={collapsed} onNavigate={onNavigate} /></li>)}
-      </ul>
+      {current && (
+        <ul aria-label={current.name} className="flex flex-col gap-1">
+          {current.menu.map((item) => <li key={item.to}><RailRow item={item} collapsed={collapsed} onNavigate={onNavigate} /></li>)}
+        </ul>
+      )}
+      {settings && (
+        <ul aria-label="Workspace" className={`mt-auto border-t border-sidebar-divider pt-2 ${collapsed ? 'w-10' : ''}`}>
+          <li><RailRow item={settings} label="Settings" collapsed={collapsed} onNavigate={onNavigate} /></li>
+        </ul>
+      )}
     </div>
   )
 }
