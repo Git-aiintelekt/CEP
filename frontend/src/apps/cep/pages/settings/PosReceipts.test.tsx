@@ -60,3 +60,18 @@ test('POS Receipts: what to tell the point of sale, the campaign choice as one P
   await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Received transactions' })).queryByText('S101 No email address')).toBeNull())
   expect(calls.filter((call) => call.url.includes('/workspace/pos/received/') && call.url.includes('code=S100')).length).toBeGreaterThan(0)
 })
+
+test('Download Template saves a CSV with every store column and two sample stores', async () => {
+  installMockApi()
+  const saved: { blob: Blob; name: string }[] = []
+  await renderAppAt('/settings/pos')
+  const module = await import('@/lib/saveFile')                                  // the app's own copy, after renderAppAt reset the modules
+  vi.spyOn(module, 'saveFile').mockImplementation((blob, name) => { saved.push({ blob, name }) })
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Download Template' }))
+  await vi.waitFor(() => expect(saved).toHaveLength(1))
+  expect(saved[0].name).toBe('store-import-template.csv')
+  const lines = (await saved[0].blob.text()).trim().split('\r\n')
+  expect(lines[0]).toBe('store_number,name,brand,address1,address2,city,state,postal_code,country,district,phone,email,manager,return_policy,url1,url2,url3,url4,image_url,is_active')
+  expect(lines).toHaveLength(3)
+  expect(lines[1].startsWith('101,Downtown Flagship,')).toBe(true)
+})
