@@ -32,14 +32,15 @@ const NO_NAMES = ''
 const STEPS = ['Choose a Pack', 'Connect Your Email Data', 'Check and Add']
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-export function BaseReportsDialog({ onClose }: { onClose: () => void }) {
+/** pack: the pack to start on (a dashboard template's), else the first */
+export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string; onClose: () => void }) {
   const navigate = useNavigate()
   const toast = useToast()
   const client = useQueryClient()
   const { tenant } = useAuth()
   const catalog = useQuery({ queryKey: ['insights', 'base-reports'], queryFn: ({ signal }) => baseReportsApi.list(signal) })
   const [step, setStep] = useState(1)
-  const [packKey, setPackKey] = useState<string | null>(null)
+  const [packKey, setPackKey] = useState<string | null>(startPack ?? null)
   const [connecting, setConnecting] = useState(false)
   const [connectionId, setConnectionId] = useState<string | null>(null)
   const [picked, setPicked] = useState<string[] | null>(null)

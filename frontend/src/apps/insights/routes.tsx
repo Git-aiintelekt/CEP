@@ -36,7 +36,6 @@ export default function InsightsRoutes() {
         <Route path="reports/:id" element={<ReportViewerPage />} />
         <Route path="dashboards" element={<DashboardListPage />} />
         <Route path="dashboards/:id" element={<DashboardPage />} />
-        <Route path="dashboards/:id/edit" element={later(<DashboardEditorPage />)} />
         <Route path="runs" element={<RunLogPage />} />
         <Route path="usage" element={later(<UsagePage />)} />
         <Route path="uploads" element={later(<UploadsPage />)} />
@@ -45,9 +44,10 @@ export default function InsightsRoutes() {
         <Route path="scheduled" element={<ScheduledPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
-      {/* the editor takes the whole window: its own bar and panes, no rail or menu */}
+      {/* the editors take the whole window: its own bar and panes, no rail or menu */}
       <Route element={<AppShell workspace />}>
         <Route path="reports/:id/edit" element={later(<ReportEditorPage />)} />
+        <Route path="dashboards/:id/edit" element={later(<DashboardEditorPage />)} />
       </Route>
     </Routes>
   )

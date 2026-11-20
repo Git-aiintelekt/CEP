@@ -1,125 +1,50 @@
 /**
- * Benchmarks: what Good, Watch and Act mean for a measure of a dataset, so Explain → What This Means can say whether a figure is
- * on target. A rate can name the count and the base it is made of; then its 95% range is worked out, and the verdict is "Likely …"
- * when the range crosses a band's edge. An added pack brings its own defaults (Add the Email Campaign Defaults). Everyone with
- * Insights reads them; a report or user administrator changes them.
+ * Benchmarks (docs/mockups/insights-admin-pages.html): what Good, Watch and Needs Action mean for a measure of a dataset, so
+ * Explain → What This Means can say whether a figure is on target. A pack added from Base Reports brings its own suggestions
+ * (the banner); search and Dataset narrow the list (kept in the address). Add a Benchmark takes two steps: what to judge, then
+ * the bands. A rate can name the count and the base it is made of, to be judged fairly when small. Everyone with Insights
+ * reads them; a report or user administrator changes them.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Target, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
-import { iconButtonClass } from '@/components/buttonStyles'
-import { Field, Select, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
-import { Modal } from '@/components/Modal'
+import { ClearFiltersLink, FilterChip, SingleSelectMenu } from '@/components/FilterChip'
+import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Notice } from '@/components/Notice'
 import { PageHeader } from '@/components/ResourceList'
-import { ErrorState, Spinner } from '@/components/States'
+import { SearchField } from '@/components/SearchField'
+import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
-import { benchmarksApi, keys, useCatalog } from '../api'
-import { meaningNumber } from '../components/meaningWords'
-import type { Benchmark, BenchmarkBody } from '../types'
+import { benchmarksApi, keys } from '../api'
+import { BenchmarkFlow } from '../components/BenchmarkFlow'
+import { bandsOf } from '../components/benchmarkWords'
+import { CountBadge } from '../components/CountBadge'
+import { listCardClass, listHeadClass, listRowClass, useListParams } from '../components/listParams'
+import { RowMenu } from '../components/RowMenu'
+import type { Benchmark } from '../types'
 
-function bandsOf(b: Pick<Benchmark, 'higher_is_better' | 'good' | 'act' | 'format'>) {
-  const good = meaningNumber(b.good, b.format)
-  const act = meaningNumber(b.act, b.format)
-  return b.higher_is_better
-    ? { good: `${good} or more`, watch: `${act} to ${good}`, act: `under ${act}` }
-    : { good: `${good} or less`, watch: `${good} to ${act}`, act: `over ${act}` }
+const ICON = { size: 16, strokeWidth: 1.5, 'aria-hidden': true } as const
+const BAND = {
+  good: { dot: 'bg-success', tag: 'bg-success-bg text-success-text' },
+  watch: { dot: 'bg-warning', tag: 'bg-warning-bg text-warning-text' },
+  act: { dot: 'bg-danger', tag: 'bg-danger-bg text-danger-text' },
 }
 
-function BenchmarkDialog({ benchmark, onClose, onSaved }: { benchmark?: Benchmark; onClose: () => void; onSaved: () => void }) {
-  const toast = useToast()
-  const catalog = useCatalog()
-  const datasets = catalog.data?.datasets ?? []
-  const [draft, setDraft] = useState({
-    dataset: benchmark?.dataset ?? '', measure: benchmark?.measure ?? '', higher: benchmark?.higher_is_better ?? true,
-    good: benchmark ? String(benchmark.good) : '', act: benchmark ? String(benchmark.act) : '', count: benchmark?.count_field ?? '', base: benchmark?.base_field ?? '',
-  })
-  const set = (patch: Partial<typeof draft>) => setDraft((now) => ({ ...now, ...patch }))
-  const dataset = datasets.find((d) => d.key === draft.dataset)
-  const measures = (dataset?.fields ?? []).filter((f) => f.role === 'measure')
-  const good = Number(draft.good)
-  const act = Number(draft.act)
-  const numbers = draft.good.trim() !== '' && draft.act.trim() !== '' && Number.isFinite(good) && Number.isFinite(act)
-  const sideways = numbers && (draft.higher ? act > good : act < good)
-  const halfRange = Boolean(draft.count) !== Boolean(draft.base)
-  const body: BenchmarkBody = { higher_is_better: draft.higher, good, act, count_field: draft.count || null, base_field: draft.base || null,
-    ...(benchmark ? { row_version: benchmark.row_version } : { dataset: draft.dataset, measure: draft.measure }) }
-  const save = useMutation({
-    mutationFn: () => (benchmark ? benchmarksApi.update(benchmark.id, body) : benchmarksApi.create(body)),
-    onSuccess: (saved) => { toast.success(benchmark ? 'Benchmark saved' : 'Benchmark added', `${saved.measure_label} on ${saved.dataset_label}`); onSaved() },
-    onError: (error) => toast.failure(error, 'The benchmark was not saved'),
-  })
-  const ready = (benchmark || (draft.dataset && draft.measure)) && numbers && !sideways && !halfRange && !save.isPending
-  const format = measures.find((m) => m.key === draft.measure)?.format ?? benchmark?.format ?? null
-
+function BandTag({ band, children }: { band: keyof typeof BAND; children: string }) {
   return (
-    <Modal title={benchmark ? `Edit ${benchmark.measure_label}` : 'Add a Benchmark'} subtitle={benchmark ? `On ${benchmark.dataset_label}` : 'What good looks like for one measure'} onClose={onClose}
-      footer={(
-        <div className="flex justify-end gap-2">
-          <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
-          <button type="button" className={buttonPrimary} disabled={!ready} onClick={() => save.mutate()}>{benchmark ? 'Save Benchmark' : 'Add Benchmark'}</button>
-        </div>
-      )}>
-      <div className="flex flex-col gap-3">
-        {!benchmark && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Dataset" required>{({ id }) => (
-              <Select id={id} value={draft.dataset} onChange={(e) => set({ dataset: e.target.value, measure: '', count: '', base: '' })}>
-                <option value="">Choose a dataset</option>
-                {datasets.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-              </Select>
-            )}</Field>
-            <Field label="Measure" required>{({ id }) => (
-              <Select id={id} value={draft.measure} onChange={(e) => set({ measure: e.target.value })} disabled={!dataset}>
-                <option value="">Choose a measure</option>
-                {measures.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-              </Select>
-            )}</Field>
-          </div>
-        )}
-        <Field label="Better When">{({ id }) => (
-          <Select id={id} value={draft.higher ? 'higher' : 'lower'} onChange={(e) => set({ higher: e.target.value === 'higher' })}>
-            <option value="higher">Higher is better, like a delivery rate</option>
-            <option value="lower">Lower is better, like a bounce rate</option>
-          </Select>
-        )}</Field>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Good" required hint={draft.higher ? 'Good at or above this' : 'Good at or below this'}>{({ id, describedBy }) => <TextInput id={id} describedBy={describedBy} inputMode="decimal" value={draft.good} onChange={(e) => set({ good: e.target.value })} placeholder="95" />}</Field>
-          <Field label="Act" required hint={draft.higher ? 'Act below this; Watch between' : 'Act above this; Watch between'} error={sideways ? (draft.higher ? 'Act is at or below Good when higher is better.' : 'Act is at or above Good when lower is better.') : undefined}>
-            {({ id, describedBy }) => <TextInput id={id} describedBy={describedBy} invalid={sideways} inputMode="decimal" value={draft.act} onChange={(e) => set({ act: e.target.value })} placeholder="90" />}
-          </Field>
-        </div>
-        {numbers && !sideways && (
-          <p className="text-helper text-ink-800">Good {bandsOf({ higher_is_better: draft.higher, good, act, format }).good} · Watch {bandsOf({ higher_is_better: draft.higher, good, act, format }).watch} · Act {bandsOf({ higher_is_better: draft.higher, good, act, format }).act}</p>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Made Of: Count" hint="For a rate: the count on top, like Delivered">{({ id, describedBy }) => (
-            <Select id={id} describedBy={describedBy} value={draft.count} onChange={(e) => set({ count: e.target.value })} disabled={!benchmark && !dataset}>
-              <option value="">None</option>
-              {(dataset?.fields ?? []).filter((f) => f.role === 'measure').map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-              {benchmark && !dataset && benchmark.count_field && <option value={benchmark.count_field}>{benchmark.count_field}</option>}
-            </Select>
-          )}</Field>
-          <Field label="Made Of: Base" hint="And the base, like Sent" error={halfRange ? 'Give both the count and the base, or neither.' : undefined}>{({ id, describedBy }) => (
-            <Select id={id} describedBy={describedBy} value={draft.base} onChange={(e) => set({ base: e.target.value })} disabled={!benchmark && !dataset}>
-              <option value="">None</option>
-              {(dataset?.fields ?? []).filter((f) => f.role === 'measure').map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-              {benchmark && !dataset && benchmark.base_field && <option value={benchmark.base_field}>{benchmark.base_field}</option>}
-            </Select>
-          )}</Field>
-        </div>
-        <p className="text-helper text-ink-800">With the count and the base, a verdict is given only when the rate&apos;s 95% range clears the band, and not at all under 30 in the base.</p>
-      </div>
-    </Modal>
+    <span className={`cep-num inline-flex h-[22px] items-center gap-1.5 rounded-sm px-2 text-xs font-semibold whitespace-nowrap ${BAND[band].tag}`}>
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${BAND[band].dot}`} />{children.charAt(0).toUpperCase() + children.slice(1)}
+    </span>
   )
 }
 
 export function BenchmarksPage() {
   const toast = useToast()
   const client = useQueryClient()
-  const list = useQuery({ queryKey: keys.benchmarks, queryFn: ({ signal }) => benchmarksApi.list(signal) })
+  const list = useListParams(['q', 'dataset'] as const)
+  const benchmarks = useQuery({ queryKey: keys.benchmarks, queryFn: ({ signal }) => benchmarksApi.list(signal) })
   const [editing, setEditing] = useState<Benchmark | 'new' | null>(null)
   const settle = () => { client.invalidateQueries({ queryKey: keys.benchmarks }); client.invalidateQueries({ queryKey: ['insights', 'meaning'] }) }
   const remove = useMutation({
@@ -129,55 +54,77 @@ export function BenchmarksPage() {
   })
   const defaults = useMutation({
     mutationFn: (pack: string) => benchmarksApi.defaults(pack),
-    onSuccess: (out) => { settle(); toast.success('Defaults added', `${out.added} ${out.added === 1 ? 'benchmark' : 'benchmarks'}`) },
-    onError: (error) => toast.failure(error, 'The defaults were not added'),
+    onSuccess: (out) => { settle(); toast.success('Suggested benchmarks added', `${out.added} ${out.added === 1 ? 'benchmark' : 'benchmarks'}`) },
+    onError: (error) => toast.failure(error, 'The suggested benchmarks were not added'),
   })
-  const state = list.data
+  const state = benchmarks.data
   const editable = Boolean(state?.can_edit && state.ready)
+  const all = state?.benchmarks ?? []
+  const term = list.get('q').trim().toLowerCase()
+  const rows = all.filter((b) => (!term || b.measure_label.toLowerCase().includes(term)) && (!list.get('dataset') || b.dataset === list.get('dataset')))
+  const datasets = Array.from(new Map(all.map((b) => [b.dataset, b.dataset_label])).entries()).sort((a, b) => a[1].localeCompare(b[1]))
+  const datasetLabel = datasets.find(([key]) => key === list.get('dataset'))?.[1]
+  const add = editable ? <button type="button" className={buttonPrimary} onClick={() => setEditing('new')}><Plus {...ICON} />Add a Benchmark</button> : undefined
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Benchmarks" description="What good looks like for a measure. Explain → What This Means judges each figure against them." help={<PageHelp chapter="insights" />}
-        actions={editable ? <button type="button" className={buttonPrimary} onClick={() => setEditing('new')}><Plus size={16} strokeWidth={1.5} aria-hidden />Add a Benchmark</button> : undefined} />
-      {list.isPending ? <Spinner label="Loading the benchmarks" /> : list.isError ? <ErrorState error={list.error} onRetry={() => list.refetch()} /> : !list.data.ready ? (
+      <PageHeader title="Benchmarks" description="What good looks like for a measure. Explain → What This Means judges each figure against them."
+        help={<><CountBadge count={state?.ready ? all.length : undefined} /><PageHelp chapter="insights" /></>} actions={add} />
+      {benchmarks.isPending ? <Spinner label="Loading the benchmarks" /> : benchmarks.isError ? <ErrorState error={benchmarks.error} onRetry={() => benchmarks.refetch()} /> : !benchmarks.data.ready ? (
         <Notice tone="warning" title="Not Available Yet">Benchmarks need a database update (patch 0080). Ask your administrator.</Notice>
       ) : (
         <>
-          {editable && list.data.offers.map((offer) => (
-            <div key={offer.pack} className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">
-              <span className="flex-1">{offer.name} suggests {offer.missing} {offer.missing === 1 ? 'benchmark' : 'benchmarks'} for its email rates: delivery, bounces, clicks and unsubscribes.</span>
-              <button type="button" className={buttonSecondary} onClick={() => defaults.mutate(offer.pack)} disabled={defaults.isPending}>Add the Email Campaign Defaults</button>
+          {editable && benchmarks.data.offers.map((offer) => (
+            <div key={offer.pack} className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-subtle px-4 py-3 text-sm text-ink-900">
+              <Target size={16} strokeWidth={1.5} aria-hidden className="text-brand-600" />
+              <span className="flex-1"><b className="font-semibold">{offer.name}</b> suggests {offer.missing} {offer.missing === 1 ? 'benchmark' : 'benchmarks'} for its email rates: delivery, bounces, clicks and unsubscribes.</span>
+              <button type="button" className={buttonSecondary} onClick={() => defaults.mutate(offer.pack)} disabled={defaults.isPending}>Add the Suggested Benchmarks</button>
             </div>
           ))}
-          {list.data.benchmarks.length === 0 ? (
-            <p className="text-sm text-ink-800">No benchmarks yet. Without one, What This Means states the figures but cannot say whether they are good.</p>
+          {all.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <SearchField label="Search measures" value={list.get('q')} onChange={(next) => list.set({ q: next })} />
+              <FilterChip label={datasetLabel ? `Dataset: ${datasetLabel}` : 'Dataset'} active={Boolean(datasetLabel)} menuLabel="Dataset">
+                {({ close }) => <SingleSelectMenu label="Dataset" value={list.get('dataset')} options={[{ value: '', label: 'All Datasets' }, ...datasets.map(([value, label]) => ({ value, label }))]} onChange={(value) => { list.set({ dataset: value }); close() }} />}
+              </FilterChip>
+              {list.filtering && <ClearFiltersLink onClick={list.clear} />}
+            </div>
+          )}
+          {all.length === 0 ? (
+            <EmptyState icon={Target} title="No Benchmarks Yet"
+              hint={benchmarks.data.offers.length > 0
+                ? 'Add the suggested ones above, or your own. Without one, What This Means states the figures but cannot say whether they are good.'
+                : 'Without one, What This Means states the figures but cannot say whether they are good. Add Base Reports brings suggested ones for email rates.'}
+              action={add} />
+          ) : rows.length === 0 ? (
+            <EmptyState icon={Target} title="No Benchmarks Match These Filters" hint="Try another dataset, or clear the filters." action={<ClearFiltersLink onClick={list.clear} />} />
           ) : (
-            <div className="overflow-x-auto rounded-md border border-line bg-surface">
+            <div className={listCardClass}>
               <table className="w-full text-sm" aria-label="Benchmarks">
                 <thead>
-                  <tr className="text-left text-xs font-semibold tracking-wide text-ink-800 uppercase">
-                    <th className="px-3 py-2">Measure</th><th className="px-3 py-2">Dataset</th><th className="px-3 py-2">Good</th><th className="px-3 py-2">Watch</th><th className="px-3 py-2">Act</th><th className="px-3 py-2">Range From</th>
-                    {editable && <th className="w-20 px-1 py-2"><span className="sr-only">Actions</span></th>}
+                  <tr className={listHeadClass}>
+                    <th className="px-3 py-2">Measure</th><th className="px-3 py-2">Dataset</th><th className="px-3 py-2">Good</th><th className="px-3 py-2">Watch</th><th className="px-3 py-2">Needs Action</th><th className="px-3 py-2">Judged Fairly From</th>
+                    {editable && <th className="w-12 px-1 py-2"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {list.data.benchmarks.map((b) => {
+                  {rows.map((b) => {
                     const bands = bandsOf(b)
                     return (
-                      <tr key={b.id} className="border-t border-line-subtle align-top">
+                      <tr key={b.id} className={listRowClass}>
                         <td className="px-3 py-2 font-medium text-ink-900">{b.measure_label}</td>
                         <td className="px-3 py-2 text-ink-800">{b.dataset_label}</td>
-                        <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-900">{bands.good}</td>
-                        <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-900">{bands.watch}</td>
-                        <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-900">{bands.act}</td>
+                        <td className="px-3 py-2"><BandTag band="good">{bands.good}</BandTag></td>
+                        <td className="px-3 py-2"><BandTag band="watch">{bands.watch}</BandTag></td>
+                        <td className="px-3 py-2"><BandTag band="act">{bands.act}</BandTag></td>
                         <td className="px-3 py-2 text-ink-800">{b.count_field && b.base_field ? `${b.count_label ?? b.count_field} of ${b.base_label ?? b.base_field}` : '—'}</td>
                         {editable && (
-                          <td className="px-1 py-1.5">
-                            <div className="flex justify-end gap-1">
-                              <button type="button" aria-label={`Edit ${b.measure_label}`} className={iconButtonClass({})} onClick={() => setEditing(b)}><Pencil size={16} strokeWidth={1.5} aria-hidden /></button>
-                              <button type="button" aria-label={`Remove ${b.measure_label}`} className={iconButtonClass({})} disabled={remove.isPending}
-                                onClick={() => { if (window.confirm(`Remove the benchmark for ${b.measure_label}?`)) remove.mutate(b) }}><Trash2 size={16} strokeWidth={1.5} aria-hidden /></button>
-                            </div>
+                          <td className="px-1 py-1.5 text-right">
+                            <RowMenu label={`Actions for ${b.measure_label}`} groups={[
+                              [{ title: 'Edit', icon: <Pencil {...ICON} />, onSelect: () => setEditing(b) }],
+                              [{ title: 'Remove…', icon: <Trash2 {...ICON} className="text-danger-text" />, tone: 'error', disabled: remove.isPending,
+                                onSelect: () => { if (window.confirm(`Remove the benchmark for ${b.measure_label}?`)) remove.mutate(b) } }],
+                            ]} />
                           </td>
                         )}
                       </tr>
@@ -189,7 +136,7 @@ export function BenchmarksPage() {
           )}
         </>
       )}
-      {editing && <BenchmarkDialog benchmark={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={() => { settle(); setEditing(null) }} />}
+      {editing && <BenchmarkFlow benchmark={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={() => { settle(); setEditing(null) }} />}
     </div>
   )
 }

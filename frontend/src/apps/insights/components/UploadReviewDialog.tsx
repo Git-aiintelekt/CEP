@@ -8,6 +8,7 @@ import { Modal } from '@/components/Modal'
 import { ErrorState } from '@/components/States'
 import { formatNumber } from '@/lib/format'
 import type { UploadColumn, UploadColumnType, UploadedFile } from '../types'
+import { listHeadClass } from './listParams'
 import { useUploadReview, type UploadReview } from './uploadReview'
 
 const TYPE_LABEL: Record<UploadColumnType, string> = { string: 'Text', number: 'Number', date: 'Date', datetime: 'Date and Time', boolean: 'Yes or No' }
@@ -58,7 +59,7 @@ export function UploadReviewFields({ review }: { review: UploadReview }) {
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="w-full text-sm" aria-label="Columns">
           <thead>
-            <tr className="text-left text-xs font-semibold tracking-wide text-ink-800 uppercase">
+            <tr className={listHeadClass}>
               <th className="px-3 py-2 whitespace-nowrap">In the File</th><th className="px-3 py-2">Label</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Use As</th><th className="px-3 py-2">First Values</th>
             </tr>
           </thead>
@@ -86,7 +87,7 @@ export function UploadReviewFields({ review }: { review: UploadReview }) {
         <h3 className="mb-1.5 text-sm font-semibold text-ink-900">First Rows</h3>
         <div className="overflow-x-auto rounded-md border border-line">
           <table className="w-full text-sm" aria-label="First rows">
-            <thead><tr className="text-left text-xs font-semibold tracking-wide text-ink-800 uppercase">{columns.map((c) => <th key={c.key} className="px-3 py-2 whitespace-nowrap">{c.label}</th>)}</tr></thead>
+            <thead><tr className={listHeadClass}>{columns.map((c) => <th key={c.key} className="px-3 py-2 whitespace-nowrap">{c.label}</th>)}</tr></thead>
             <tbody>
               {sample.slice(0, 5).map((row, index) => (
                 <tr key={index} className="border-t border-line-subtle">{columns.map((c) => <td key={c.key} className={`px-3 py-1.5 whitespace-nowrap ${c.type === 'number' ? 'cep-num text-right' : ''}`}>{shown(row[c.column], c.inferred)}</td>)}</tr>
