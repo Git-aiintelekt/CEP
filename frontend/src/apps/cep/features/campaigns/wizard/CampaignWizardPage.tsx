@@ -213,6 +213,11 @@ export function CampaignWizardPage() {
       setSequenceAttempt((count) => count + 1)
       return
     }
+    // the sender is mandatory to move on from Content (a test needs it too); Save and Close keeps a draft without one
+    if (current === 'content' && !drip && !form.getValues('sender_profile')) {
+      form.setError('sender_profile', { type: 'required', message: 'Choose who this campaign comes from. If none is listed, add one with New Sender.' }, { shouldFocus: true })
+      return
+    }
     const campaign = await commit(FIELDS[current], progressAfter(current, type))
     if (!campaign) return
     const furthest = campaign.setup_complete ? steps.length - 1 : steps.findIndex((item) => item.key === resumeStep(campaign.setup_step, campaign.campaign_type))

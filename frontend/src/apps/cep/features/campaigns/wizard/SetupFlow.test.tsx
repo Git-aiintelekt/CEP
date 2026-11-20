@@ -56,7 +56,7 @@ test('five steps on the rail, one at a time; each Continue says where it goes an
   expect(railButtons()[1].getAttribute('aria-current')).toBe('step')
   const cards = await screen.findByRole('radiogroup', { name: 'Template' })
   await user.click(within(cards).getByRole('radio', { name: /Fall Email/ }))
-  await user.selectOptions(screen.getByLabelText('Send From'), 'snd-email')
+  await user.selectOptions(screen.getByLabelText(/^Send From/), 'snd-email')
   await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
 
   expect(await stepHeading('Test')).toBeTruthy()
@@ -303,7 +303,7 @@ test('every field of the old seven steps is still reachable', async () => {
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
   await user.click(screen.getByRole('button', { name: /^Content/ }))                                     // old step 3
-  expect(await screen.findByLabelText('Send From')).toBeTruthy()
+  expect(await screen.findByLabelText(/^Send From/)).toBeTruthy()
   await user.click(screen.getByRole('button', { name: /^Targets/ }))                                     // old step 5
   for (const label of [/^Target Revenue/, /^Clicks/, /^Conversions/, /^Offer Redemptions/]) expect(await screen.findByLabelText(label)).toBeTruthy()
   await user.click(screen.getByRole('button', { name: /^Test\b/ }))                                        // old step 6
@@ -349,4 +349,25 @@ test('no setup step shows a description under its title', async () => {
   await renderAppAt('/campaigns/c1/edit?step=audience')
   expect(await screen.findByRole('heading', { level: 1, name: 'Audience' })).toBeTruthy()
   expect(screen.queryByText('Attach the contact lists to send to, and the ones to keep out.')).toBeNull()
+})
+
+test('the sender is mandatory to continue from Content; Save and Close still keeps a draft without one', async () => {
+  const calls = installMockApi({ campaign: draft({ setup_step: 2 }) })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns/c1/edit?step=content')
+  expect(await stepHeading('Content')).toBeTruthy()
+  const sender = screen.getByLabelText(/^Send From/) as HTMLSelectElement
+  expect(within(sender).getByRole('option', { name: 'Choose a Sender' })).toBeTruthy()
+  expect(within(sender).queryByRole('option', { name: 'Choose Later' })).toBeNull()
+  await user.click(within(await screen.findByRole('radiogroup', { name: 'Template' })).getByRole('radio', { name: /Fall Email/ }))
+  const before = patches(calls).length
+  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
+  expect(await screen.findByText('Choose who this campaign comes from. If none is listed, add one with New Sender.')).toBeTruthy()
+  expect(patches(calls)).toHaveLength(before)                                                     // nothing saved, still on Content
+  expect(screen.getByRole('heading', { level: 1, name: 'Content' })).toBeTruthy()
+  await user.selectOptions(sender, 'snd-email')
+  expect(screen.queryByText('Choose who this campaign comes from. If none is listed, add one with New Sender.')).toBeNull()
+  await user.selectOptions(sender, '')
+  await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ template: 'tpl-email', sender_profile: null }))
 })
