@@ -119,3 +119,28 @@ test('the call log is paged: rows per page is chosen and remembered, Previous an
   await vi.waitFor(() => expect(calls.filter((call) => call.url.includes('/integrations/log/?')).at(-1)!.url).toContain('failed=1'))
   expect(calls.filter((call) => call.url.includes('/integrations/log/?')).at(-1)!.url).toContain('page=1')
 })
+
+test('sign-on from OFBiz iCRM saves the CEP URL, site key and a write-only API key for this workspace', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/settings/integrations')
+
+  const section = await screen.findByRole('region', { name: 'Sign-On from OFBiz iCRM' })
+  await within(section).findByText('Not Set Up')
+  expect(within(section).getByText('NWA')).toBeTruthy()
+
+  await user.type(within(section).getByLabelText('CEP URL'), 'https://cep.example.com/app')
+  await user.type(within(section).getByLabelText(/Site Key/), 'site-key-123')
+  await user.type(within(section).getByLabelText(/API Key/), 'api-key-456')
+  await user.click(within(section).getByRole('button', { name: 'Save Sign-On' }))
+  expect(await within(section).findByText(/The address only/)).toBeTruthy()
+
+  await user.clear(within(section).getByLabelText('CEP URL'))
+  await user.type(within(section).getByLabelText('CEP URL'), 'https://cep.example.com')
+  await user.click(within(section).getByRole('button', { name: 'Save Sign-On' }))
+  expect(await within(section).findByText('Set Up')).toBeTruthy()
+  const put = calls.filter((call) => call.url.endsWith('/workspace/ofbiz-sso/') && call.method === 'PUT').at(-1)
+  expect(put?.body).toEqual({ frontend_url: 'https://cep.example.com', site_key: 'site-key-123', api_key: 'api-key-456' })
+  expect((within(section).getByLabelText(/API Key/) as HTMLInputElement).value).toBe('')
+  expect(within(section).getByText('A key is stored. Leave this empty to keep it.')).toBeTruthy()
+})

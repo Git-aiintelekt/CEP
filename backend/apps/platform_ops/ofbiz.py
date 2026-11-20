@@ -284,3 +284,31 @@ def save_config(code: str, data: dict) -> dict:
     _platform_rows(f"UPDATE tenant SET {COLUMN} = COALESCE({COLUMN}, '{{}}'::jsonb) || %s::jsonb WHERE code = %s AND deleted_at IS NULL", [config, code])
     log.info("tenant.%s of %s changed by a platform administrator", COLUMN, code)
     return {}
+
+
+# The workspace's own administrators (Settings -> Integrations) edit the three values iCRM's CEP Configuration screen holds:
+# CEP URL, Site Key and API Key. The time zone, roles and on/off stay as stored (seed); the API key is write-only.
+DEFAULT_TIME_ZONE = "America/New_York"                     # iCRM staging (EST5EDT), until the seed sets another
+
+
+def workspace_link(code: str) -> dict | None:
+    config = read_config(code)
+    if config is None:
+        return None
+    return {"workspace": config["code"], "frontend_url": config["frontend_url"], "site_key": config["site_key"],
+            "has_api_key": bool(config["api_key"]), "configured": bool(config["site_key"] and config["api_key"]),
+            "problem": config["problem"]}
+
+
+def save_workspace_link(code: str, data: dict) -> dict:
+    """{frontend_url, site_key, api_key}: an empty api_key keeps the stored one. Returns field errors or {}."""
+    stored = read_config(code) or {}
+    api_key = str(data.get("api_key") or "").strip() or stored.get("api_key", "")
+    errors = save_config(code, {"is_active": stored.get("is_active", True), "frontend_url": data.get("frontend_url"),
+                                "site_key": data.get("site_key"), "api_key": api_key,
+                                "time_zone": stored.get("time_zone") or DEFAULT_TIME_ZONE, "roles": stored.get("roles") or {}})
+    if "api_key" in errors:
+        errors["api_key"] = "Enter iCRM's API key (common.api.key)."
+    if "site_key" in errors:
+        errors["site_key"] = "Enter iCRM's site key (common.site.key)."
+    return errors

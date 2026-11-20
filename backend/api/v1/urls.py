@@ -72,6 +72,7 @@ urlpatterns = [
     path("workspace/support-access/", workspace_api.SupportAccessView.as_view(), name="workspace_support_access"),
     path("workspace/platform-visits/", platform_visits.WorkspaceVisitsView.as_view(), name="workspace_platform_visits"),
     path("platform/workspaces/", platform_visits.WorkspacesView.as_view(), name="platform_workspaces"),
+    path("workspace/ofbiz-sso/", workspace_api.OfbizLinkView.as_view(), name="workspace_ofbiz_sso"),
     path("platform/sso-config/", workspace_api.SsoConfigWorkspacesView.as_view(), name="platform_sso_config_workspaces"),
     path("platform/sso-config/<str:code>/", workspace_api.SsoConfigView.as_view(), name="platform_sso_config"),
     path("platform/visits/", platform_visits.VisitsView.as_view(), name="platform_visits"),

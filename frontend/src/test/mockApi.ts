@@ -1062,6 +1062,7 @@ export function installMockApi(options: MockOptions = {}) {
   const journeyStartersNow: JourneyStarter[] = options.journeyStarters ?? journeyStarters
   let savedTemplatesNow: JourneyTemplate[] = (options.savedTemplates ?? []).map((row) => structuredClone(row))
   let securityNow: SecuritySettings = { ...security }
+  let ofbizLinkNow = { workspace: 'NWA', frontend_url: '', site_key: '', has_api_key: false, configured: false, problem: null as string | null }
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
   const tagRows: PersonalizationTag[] = (options.tags ?? tags).map((item) => ({ ...item }))
@@ -1406,6 +1407,15 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/workspace/usage/')) return json(usage)
     if (path.endsWith('/workspace/invoices/')) return json(invoices)
     if (path.endsWith('/workspace/support-access/')) return json(supportAccess)
+    if (path.endsWith('/workspace/ofbiz-sso/')) {
+      if (method === 'PUT') {
+        const sent = (body ?? {}) as { frontend_url?: string; site_key?: string; api_key?: string }
+        if (sent.frontend_url && !/^https?:\/\/[^/\s]+$/.test(sent.frontend_url)) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { frontend_url: ['The address only, such as https://cep.example.com (no path).'] } }, 400)
+        const hasKey = ofbizLinkNow.has_api_key || Boolean(sent.api_key)
+        ofbizLinkNow = { ...ofbizLinkNow, frontend_url: sent.frontend_url ?? '', site_key: sent.site_key ?? '', has_api_key: hasKey, configured: Boolean(sent.site_key) && hasKey }
+      }
+      return json(ofbizLinkNow)
+    }
     if (path.endsWith('/workspace/security/')) {
       if (method === 'PUT') {
         const custom = options.onSecurityWrite?.(call)

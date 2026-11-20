@@ -333,3 +333,23 @@ class SsoConfigView(APIView):
         if errors:
             raise ValidationError(errors)
         return Response(ofbiz.read_config(code))
+
+
+class OfbizLinkView(APIView):
+    """Settings -> Integrations: sign-on from OFBiz iCRM for this workspace (tenant.sso_config): CEP URL, site key, API key.
+    The API key is write-only; empty on PUT keeps the stored one."""
+    permission_classes = [IsAuthenticated, HasPermissionCode.for_("provider.edit")]
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        link = ofbiz.workspace_link(request.tenant["code"])
+        if link is None:
+            raise NotFound("No workspace has this code.")
+        return Response(link)
+
+    @extend_schema(request=None, responses={200: None})
+    def put(self, request, version=None):
+        errors = ofbiz.save_workspace_link(request.tenant["code"], request.data if isinstance(request.data, dict) else {})
+        if errors:
+            raise ValidationError(errors)
+        return Response(ofbiz.workspace_link(request.tenant["code"]))

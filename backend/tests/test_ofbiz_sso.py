@@ -266,3 +266,19 @@ def test_ofbiz_launch_lands_on_the_workspace_address(check, admin_email):
     errors = ofbiz.save_config(code, {**KEYS, "time_zone": ICRM_TIME_ZONE, "roles": ROLES, "frontend_url": "https://cep-b.example.com/"})
     check("a good address is saved without its trailing slash", not errors
           and ofbiz.read_config(code)["frontend_url"] == "https://cep-b.example.com", errors)
+
+
+def test_workspace_link_saves_url_and_keys_and_keeps_the_rest(check, admin_email):
+    admin = _admin(admin_email)
+    _link(admin.tenant)
+    code = admin.tenant.code
+
+    errors = ofbiz.save_workspace_link(code, {"frontend_url": "https://cep-w.example.com", "site_key": "new-site-key-000", "api_key": ""})
+    stored = ofbiz.read_config(code)
+    check("an empty API key keeps the stored one", not errors and stored["api_key"] == KEYS["api_key"], errors)
+    check("the time zone and roles stay as seeded", stored["time_zone"] == ICRM_TIME_ZONE and stored["roles"] == ROLES, stored)
+    check("the URL and site key are saved", stored["frontend_url"] == "https://cep-w.example.com" and stored["site_key"] == "new-site-key-000", stored)
+    link = ofbiz.workspace_link(code)
+    check("the workspace view never returns the API key", "api_key" not in link and link["has_api_key"] and link["configured"], link)
+    errors = ofbiz.save_workspace_link(code, {"frontend_url": "", "site_key": "", "api_key": ""})
+    check("a site key is required", "site_key" in errors, errors)

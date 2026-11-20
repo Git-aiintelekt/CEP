@@ -8,11 +8,9 @@ import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
-import { useAuth } from '@/auth/AuthContext'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
-import { OfbizSsoConfigDialog } from './OfbizSsoConfigDialog'
 import type { IdentityProvider, PlatformVisit, Role, SecuritySettings, SupportAccess } from '@/lib/types'
 
 const KEY = ['workspace', 'security']
@@ -175,9 +173,6 @@ export function SecurityPage() {
   const settings = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<SecuritySettings>('/workspace/security/', undefined, signal) })
   const roles = useQuery({ queryKey: ['settings', 'roles'], queryFn: ({ signal }) => api.get<Role[]>('/roles/', undefined, signal) })
   const [configuring, setConfiguring] = useState(false)
-  const [keysOpen, setKeysOpen] = useState(false)
-  const { me } = useAuth()
-  const platformAdmin = Boolean(me?.principal.is_platform_admin) && !me?.platform_visit
 
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
   if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading security settings</p>
@@ -187,11 +182,7 @@ export function SecurityPage() {
     <div className="space-y-6">
       <MfaRule settings={data} />
       <section aria-labelledby="sso" className="rounded-lg border border-line bg-surface p-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="sso" className="text-card-title font-semibold text-ink-900">Single Sign-On (OpenID Connect)</h2>
-          {platformAdmin && <button type="button" className={buttonSecondary} onClick={() => setKeysOpen(true)}>Open CEP Keys</button>}
-        </div>
-        {keysOpen && <OfbizSsoConfigDialog initialCode={me?.tenant.code ?? ''} onClose={() => setKeysOpen(false)} />}
+        <h2 id="sso" className="text-card-title font-semibold text-ink-900">Single Sign-On (OpenID Connect)</h2>
         {!data.sso_available ? <p className="mt-1 text-sm text-ink-800">Single sign-on is not part of this workspace's plan. Contact us to add it.</p>
           : data.identity_provider || configuring ? <SsoForm settings={data} roles={roles.data ?? []} />
           : (<>
