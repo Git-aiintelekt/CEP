@@ -80,12 +80,26 @@ export function canvasSkin(root: Element = document.documentElement, zoom = 1): 
   // GrapesJS defines the same selectors, also with !important, in a <style> it puts in the frame BODY — which
   // beats the head on document order. Doubling the class raises specificity, so these win wherever they land.
   return `
-/* The frame's own page scrollbar is hidden: it sits beside the email and reads as part of the design. Wheel,
-   trackpad, keyboard and touch scrolling are unchanged. */
+/* The frame's page scrollbar: thin and quiet beside the email, so a long template shows where you are in it and can be
+   dragged. At the phone width it is hidden, as a phone's own is, so it never narrows the layout. */
 html {
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: ${emphasis} transparent;
 }
 html::-webkit-scrollbar {
+  width: 8px;
+}
+html::-webkit-scrollbar-thumb {
+  background-color: ${emphasis};
+  border-radius: 4px;
+}
+html::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+html[${PHONE_ATTRIBUTE}] {
+  scrollbar-width: none;
+}
+html[${PHONE_ATTRIBUTE}]::-webkit-scrollbar {
   display: none;
 }
 .gjs-dashed.gjs-dashed *[data-gjs-highlightable] {

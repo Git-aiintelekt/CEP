@@ -52,7 +52,10 @@ export function plainPunctuation(text: string): string {
 
 export const canBePlain = (characters: string[]) => characters.some((ch) => ch in PLAIN)
 
-export const OPT_OUT_PATTERN = /\b(stop|unsubscribe|opt[\s-]?out)\b/i
+/** the platform tag holding a marketing text's opt-out line, e.g. Reply STOP to opt out */
+export const OPT_OUT_TAG = 'opt_out_text'
+/** the opt-out wording, or the {{opt_out_text}} tag that carries it (a platform tag set in the back-office) */
+export const OPT_OUT_PATTERN = /\b(stop|unsubscribe|opt[\s-]?out)\b|(\{\{|\$\{)\s*opt_out_text\s*\}/i
 
 export const isEmoji = (ch: string) => /\p{Extended_Pictographic}/u.test(ch)
 
