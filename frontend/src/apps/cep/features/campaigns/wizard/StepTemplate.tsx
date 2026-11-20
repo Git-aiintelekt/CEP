@@ -29,7 +29,7 @@ const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design:
 
 export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const { can } = useAuth()
-  const { register, watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
+  const { register, watch, setValue, clearErrors, formState: { errors } } = useFormContext<CampaignFormValues>()
   const channel = watch('channel')
   const isReceipt = watch('campaign_type') === 'E_RECEIPT'
   const marketing = watch('solicitation_type') === 'MARKETING'
@@ -133,13 +133,13 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
               New Sender <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
             </Link>
           )}>
-          <Field label="Send From" error={errors.sender_profile?.message} help="The name and address, or the number, the message comes from; the sender brings its engine. Only a verified sender can publish to production; test sends work from any."
+          <Field label="Send From" required error={errors.sender_profile?.message} help="The name and address, or the number, the message comes from; the sender brings its engine. Only a verified sender can publish to production; test sends work from any."
             hint={senders.isPending ? 'Loading senders'
               : senderOptions.length === 0 ? `No ${channel} sender is set up yet. ${can('provider.edit') ? 'Add one with New Sender; it appears here when you come back.' : 'An administrator adds one under Settings, Sending Engines.'}`
               : can('provider.edit') ? 'Senders belong to the workspace: one added with New Sender can be used by every campaign.' : undefined}>
             {(ids) => (
-              <Select key={senders.data ? 'ready' : 'loading'} {...ids} {...register('sender_profile')}>
-                <option value="">Choose Later</option>
+              <Select key={senders.data ? 'ready' : 'loading'} {...ids} {...register('sender_profile', { onChange: () => clearErrors('sender_profile') })}>
+                <option value="">Choose a Sender</option>
                 {senderOptions.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.display_name} · {item.from_address ?? item.sender_id ?? item.channel}{item.provider_type === 'SMTP' ? ' · your mail server' : ''}{item.verification_status === 'VERIFIED' ? '' : ' (not verified)'}
