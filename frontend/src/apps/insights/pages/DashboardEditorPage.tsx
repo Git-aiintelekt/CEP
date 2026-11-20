@@ -36,6 +36,7 @@ import { SlicerEditor } from '../dashboards/SlicerBar'
 import { THEMES } from '../dashboards/themes'
 import { addPage, containerOf, FIRST_PAGE, MAX_PAGES, pagesOf, removePage, renamePage, setContainer } from '../dashboards/pages'
 import type { DashboardCell, DashboardContainer, DashboardLayout, DashboardTheme, Period } from '../types'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 const ICON = { size: 16, strokeWidth: 1.5, 'aria-hidden': true } as const
 const WHO = [{ value: 'PRIVATE' as const, label: 'Only Me' }, { value: 'WORKSPACE' as const, label: 'The Workspace' }]
@@ -168,6 +169,7 @@ export function DashboardEditorPage() {
               <span aria-hidden className={`h-2 w-2 rounded-full ${dirty ? 'bg-warning' : 'bg-ink-300'}`} />
               {dirty ? 'Unsaved Changes' : `Saved ${formatDateTime(data.updated_at)} · Version ${data.version}`}
             </span>
+            <PageHelp chapter="insights" />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

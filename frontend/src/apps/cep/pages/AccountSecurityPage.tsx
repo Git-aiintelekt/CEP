@@ -10,6 +10,7 @@ import { api, ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { failureText, saveFailure } from '@/lib/saveFeedback'
 import type { MfaSetup, MfaStatus, TokenPair } from '@/lib/types'
+import { leaveVisit } from '@/lib/visit'
 
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
@@ -51,11 +52,24 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
   )
 }
 
+/** a platform administrator visiting another workspace (Switch Workspace): their sign-in belongs to their own workspace */
+function VisitNote({ workspace, home, homeName }: { workspace: string; home: string; homeName: string }) {
+  const [leaving, setLeaving] = useState(false)
+  return (
+    <div className="rounded-lg border border-line bg-surface p-5">
+      <h2 className="text-card-title font-semibold text-ink-900">Managed in Your Own Workspace</h2>
+      <p className="mt-1 text-sm text-ink-800">You are visiting {workspace}. Multi-factor authentication for your account is set up in {homeName}. Go back to the platform to see or change it.</p>
+      <button type="button" className={`mt-4 ${buttonSecondary}`} disabled={leaving} onClick={() => { setLeaving(true); void leaveVisit(home) }}>Back to Platform</button>
+    </div>
+  )
+}
+
 export function AccountSecurityPage() {
   const { me, adopt } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const status = useQuery({ queryKey: ['mfa'], queryFn: ({ signal }) => api.get<MfaStatus>('/auth/mfa/', undefined, signal) })
+  const visit = me?.platform_visit ?? null
+  const status = useQuery({ queryKey: ['mfa'], queryFn: ({ signal }) => api.get<MfaStatus>('/auth/mfa/', undefined, signal), enabled: !visit })
   const [setup, setSetup] = useState<MfaSetup | null>(null)
   const [code, setCode] = useState('')
   const [codes, setCodes] = useState<string[] | null>(null)
@@ -97,7 +111,8 @@ export function AccountSecurityPage() {
         </p>
       )}
 
-      {codes ? <RecoveryCodes codes={codes} onDone={finish} />
+      {visit ? <VisitNote workspace={me?.workspace?.name ?? me?.tenant.code ?? 'this workspace'} home={visit.home} homeName={visit.home_name ?? visit.home} />
+        : codes ? <RecoveryCodes codes={codes} onDone={finish} />
         : status.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
         : status.isError ? <ErrorState error={status.error} onRetry={() => void status.refetch()} />
         : status.data.sso ? (

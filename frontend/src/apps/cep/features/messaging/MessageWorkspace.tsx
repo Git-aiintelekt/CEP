@@ -21,6 +21,7 @@ import { useUtmSettings, withShortLinks } from '@/apps/cep/pages/settings/utm'
 
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
 import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 export interface MessageBackend {
   save: (input: MessageSaveInput) => Promise<Message>
@@ -234,6 +235,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates
           </Link>
           <h1 className="min-w-0 truncate text-base font-semibold text-ink-900">{templateName}</h1>
+          <PageHelp chapter="templates" />
           <span className="rounded-md bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-ink-800">{channel}</span>
           <StatusBadge status={currentStatus} />
           <span className="text-xs text-ink-800">

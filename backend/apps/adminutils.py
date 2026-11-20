@@ -19,6 +19,11 @@ SEARCHABLE = ("name", "code", "email", "display_name", "subject", "party_id", "k
 FILTERABLE = ("status", "channel", "campaign_type", "run_type", "list_kind", "tag_kind", "auth_provider",
               "isolation_mode", "is_active", "is_staff", "tenant")
 SECRET_FIELDS = {"password", "key_hash"}
+
+
+def is_secret(name: str) -> bool:
+    """a credential column: never listed, shown or edited in the back-office (stored encrypted as *_enc, or hashed)"""
+    return name in SECRET_FIELDS or name.endswith("_enc")
 # what a list page can be searched by when its admin names nothing: these text columns, then the name of a linked record
 FOUND_BY = ("name", "code", "key", "tag_key", "node_key", "label", "title", "display_name", "email", "subject", "file_name", "domain", "url", "version_label")
 
@@ -152,7 +157,7 @@ class GenericAdmin(BaseAdmin):
         names = [f.name for f in fields]
         bulky = (models.JSONField, ArrayField, models.BinaryField)
         columns = [f.name for f in fields
-                   if not isinstance(f, bulky) and f.name not in SECRET_FIELDS
+                   if not isinstance(f, bulky) and not is_secret(f.name)
                    and (f.name not in AUDIT_FIELDS or f.name == "created_at")
                    and not (isinstance(f, models.TextField) and f.name not in SEARCHABLE)]
         self.list_display = columns[:8] or [model._meta.pk.name]
@@ -160,7 +165,7 @@ class GenericAdmin(BaseAdmin):
         self.list_filter = [n for n in FILTERABLE if n in names][:5]
         self.raw_id_fields = [f.name for f in fields if f.is_relation]          # never render a <select> of every row
         self.readonly_fields = [n for n in names if n in AUDIT_FIELDS and n not in self.raw_id_fields]
-        self.exclude = [n for n in names if n in SECRET_FIELDS]
+        self.exclude = [n for n in names if is_secret(n)]
         if "created_at" in names:
             self.ordering = ("-created_at",)
         super().__init__(model, admin_site)

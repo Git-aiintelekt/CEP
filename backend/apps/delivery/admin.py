@@ -9,12 +9,12 @@ from .models import DeliveryProvider
 @admin.register(DeliveryProvider)
 class DeliveryProviderAdmin(BaseAdmin):
     """Tenants manage their providers under Settings -> Delivery. Here: see them across tenants, switch one off in an
-    emergency. The credential (secret_enc) is never shown or edited in the back-office."""
+    emergency. The credentials (secret_enc, transactional_secret_enc) are never shown or edited in the back-office."""
     list_display = ("tenant", "name", "provider_type", "channel", "is_default", "is_active", "show_check", "show_credential")
     list_filter = ("provider_type", "is_active", "tenant")
     search_fields = ("name",)
     ordering = ("tenant__code", "name")
-    exclude = ("secret_enc",)
+    exclude = ("secret_enc", "transactional_secret_enc")
     readonly_fields = ("tenant", "provider_type", "channel", "name", "config", "secret_ref", "is_default", "last_checked_at", "last_check_ok", "last_check_error",
                        "created_by", "updated_by", "created_at", "updated_at", "deleted_at", "row_version")
 

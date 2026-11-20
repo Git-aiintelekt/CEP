@@ -13,6 +13,7 @@ import { DetailCard, Fact, FACTS_GRID } from '@/apps/cep/features/campaigns/part
 import { api } from '@/lib/api'
 import { formatDateTime, formatMoney, titleize } from '@/lib/format'
 import type { CustomerRecord } from '@/lib/types'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 const CHANNEL_LABEL: Record<string, string> = { EMAIL: 'Email', SMS: 'SMS', MMS: 'MMS' }
 /** consent_suppression.marketable_reason, in words */
@@ -54,7 +55,7 @@ export function CustomerPage({ partyId: given }: { partyId?: string } = {}) {
       </Link>
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="font-display text-page-title font-semibold break-words text-ink-900">{customer.name}</h1>
+          <span className="flex min-w-0 items-start gap-1.5"><h1 className="font-display text-page-title font-semibold break-words text-ink-900">{customer.name}</h1><PageHelp chapter="contact-lists" /></span>
           <p className="cep-num text-sm text-ink-800">Customer ID {customer.party_id} · {customer.source_system} · updated {formatDateTime(customer.synced_at)}</p>
           <div className="flex flex-wrap items-center gap-2">
             {consent.map((row) => (

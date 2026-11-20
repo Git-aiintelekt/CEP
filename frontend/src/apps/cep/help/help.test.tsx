@@ -111,6 +111,17 @@ test('every page with a chapter opens it from the icon beside its title: Home, C
   }
 })
 
+test('the pages under a section open its chapter too: a campaign’s set-up and the list uploads', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  for (const [path, title] of [['/campaigns/c1/edit', 'Campaign Set-Up'], ['/contact-lists/uploads', 'Contact Lists']] as const) {
+    await renderAppAt(path)
+    await user.click(await screen.findByRole('button', { name: 'Help for this page' }))
+    expect(await screen.findByRole('complementary', { name: title })).toBeTruthy()
+    cleanup()
+  }
+})
+
 test('every settings page opens its chapter from the icon in the trail; Account Security from its title', async () => {
   installMockApi()
   const user = userEvent.setup()
@@ -128,8 +139,17 @@ test('every settings page opens its chapter from the icon in the trail; Account 
   expect(await screen.findByRole('complementary', { name: 'Account Security' })).toBeTruthy()
 })
 
+test('every page in the Settings menu has a User Guide chapter, and every chapter has its file', async () => {
+  const { HELP_CHAPTERS, HELP_FOR_PAGE } = await import('./chapters')
+  const { SETTINGS_GROUPS } = await import('@/apps/cep/pages/settings/settingsCatalogue')
+  const withoutChapter = SETTINGS_GROUPS.flatMap((group) => group.pages).map((page) => page.to).filter((to) => !HELP_FOR_PAGE[to])
+  expect(withoutChapter).toEqual([])
+  for (const [key, chapter] of Object.entries(HELP_CHAPTERS)) expect(titleOf(await chapter.load()), key).toBeTruthy()
+})
+
 test('every User Guide chapter parses, and a line no block takes (an indented table row) cannot stall the parser', () => {
   expect(parse('1. Step\n\n   | A | B |\n   |---|---|\n\nAfter').length).toBeGreaterThan(1)
-  const chapters = import.meta.glob('../../../docs/manuals/user-guide/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+  const chapters = import.meta.glob('../../../../../docs/manuals/user-guide/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+  expect(Object.keys(chapters).length).toBeGreaterThan(30)
   for (const [file, source] of Object.entries(chapters)) expect(parse(source).length, file).toBeGreaterThan(0)
 })

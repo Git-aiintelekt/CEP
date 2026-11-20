@@ -652,6 +652,7 @@ export const roles: Role[] = [
 export const permissionCatalogue = [
   { code: 'campaign.view', description: 'Campaign view' }, { code: 'campaign.edit', description: 'Campaign edit' },
   { code: 'template.edit', description: 'Template edit' }, { code: 'user.admin', description: 'User admin' },
+  { code: 'report.admin', description: 'Report admin' },
 ]
 const settingsUser = (overrides: Partial<SettingsUser>): SettingsUser => ({
   id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_active: true, auth_provider: 'LOCAL', mfa_enabled: false,

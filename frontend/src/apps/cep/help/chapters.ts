@@ -35,6 +35,9 @@ export const HELP_CHAPTERS = {
   'settings-pos': { title: 'POS Receipts', load: () => import('../../../../../docs/manuals/user-guide/54-pos-receipts.md?raw').then((module) => module.default) },
   'settings-attribution': { title: 'Attribution', load: () => import('../../../../../docs/manuals/user-guide/56-attribution.md?raw').then((module) => module.default) },
   'settings-events': { title: 'Events', load: () => import('../../../../../docs/manuals/user-guide/58-events.md?raw').then((module) => module.default) },
+  'settings-ai-assistant': { title: 'AI Assistant', load: () => import('../../../../../docs/manuals/user-guide/61-ai-assistant.md?raw').then((module) => module.default) },
+  'settings-fiscal-year': { title: 'Fiscal Year', load: () => import('../../../../../docs/manuals/user-guide/62-fiscal-year.md?raw').then((module) => module.default) },
+  'settings-report-access': { title: 'Report Access', load: () => import('../../../../../docs/manuals/user-guide/63-report-access.md?raw').then((module) => module.default) },
   'account-security': { title: 'Account Security', load: () => import('../../../../../docs/manuals/user-guide/55-account-security.md?raw').then((module) => module.default) },
 } as const
 
@@ -44,10 +47,11 @@ export type HelpChapter = keyof typeof HELP_CHAPTERS
 export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
   '/insights': 'insights',
   '/settings/report-databases': 'report-databases',
-  '/settings/report-access': 'insights',
+  '/settings/report-access': 'settings-report-access',
+  '/settings/ai-assistant': 'settings-ai-assistant',
+  '/settings/fiscal-year': 'settings-fiscal-year',
   '/': 'home',
   '/campaigns': 'campaigns',
-  '/campaigns/new': 'campaign-setup',
   '/templates': 'templates',
   '/templates/new': 'templates',
   '/contact-lists': 'contact-lists',

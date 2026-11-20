@@ -41,6 +41,7 @@ import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
 import { formatCell, runWords } from '../components/resultWords'
 import { periodCovers, readAnswers, sentAnswers, unanswered } from '../editor/parameters'
 import type { CommentAnchor, DrillStep, Explanation, ParameterValues, ReportView, ResultColumn } from '../types'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 /** the values a report was opened through, from the address: [{field, value}] */
 function readThrough(raw: string | null): { field: string; value: unknown }[] {
@@ -183,7 +184,7 @@ export function ReportViewerPage() {
           <Link to="/insights/reports" className="mb-3 inline-flex items-center gap-1 text-helper text-brand-800 hover:underline">
             <ChevronLeft {...ICON} /> Reports
           </Link>
-          <h1 className="font-display text-page-title font-semibold text-ink-900">{report.data.name}</h1>
+          <span className="flex items-center gap-1.5"><h1 className="font-display text-page-title font-semibold text-ink-900">{report.data.name}</h1><PageHelp chapter="insights" /></span>
           {report.data.description && <p className="mt-1 max-w-2xl text-sm text-ink-800">{report.data.description}</p>}
         </div>
         <div className="flex items-center gap-1">

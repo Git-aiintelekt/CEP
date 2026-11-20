@@ -34,7 +34,7 @@ test('the bar carries the six destinations, with the editor’s own section mark
     'Campaigns',
     'Journeys',
     'Templates',
-    'Contact lists',
+    'Contact Lists',
     'Reports',
   ])
 

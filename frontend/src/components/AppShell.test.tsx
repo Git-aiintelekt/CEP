@@ -1,4 +1,4 @@
-/** The suite shell: the navy top bar (toggle, brand, launcher, account), the app rail, the component's menu beside it, and collapsing. */
+/** The suite shell: the navy top bar (toggle, brand, launcher, account), the navy rail with the component's pages, and collapsing. */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -14,7 +14,6 @@ async function renderAppAt(path: string) {
 
 const rail = () => screen.getByRole('complementary', { name: 'Sidebar' })
 const nav = () => screen.getByRole('navigation', { name: 'Main' })
-const apps = () => screen.getByRole('navigation', { name: 'Apps' })
 const topBar = () => screen.getByRole('banner')
 
 beforeEach(() => window.localStorage.clear())
@@ -23,7 +22,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('the app rail with Workspace Settings at its foot, the component’s menu beside it, and the brand and toggle in the navy top bar', async () => {
+test('the navy rail with the component’s name, its pages and Settings at the foot, and the brand and toggle in the navy top bar', async () => {
   installMockApi()
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
@@ -35,21 +34,21 @@ test('the app rail with Workspace Settings at its foot, the component’s menu b
   expect(within(topBar()).getByRole('button', { name: 'Collapse navigation' })).toBeTruthy()
   expect(within(rail()).queryByRole('button', { name: /navigation/ })).toBeNull()
 
-  const tiles = within(within(apps()).getByRole('list', { name: 'Components' })).getAllByRole('link')
-  expect(tiles.map((tile) => tile.textContent)).toEqual(['Engagement'])
-  expect(tiles[0].getAttribute('aria-current')).toBe('true')
-  expect(tiles[0].querySelector('[data-current-bar]')).toBeNull()                                   // the fill alone marks it
-  expect(within(within(apps()).getByRole('list', { name: 'Workspace' })).getByRole('link', { name: 'Settings' })).toBeTruthy()
+  expect(screen.queryByRole('navigation', { name: 'Apps' })).toBeNull()                            // components are switched in the launcher only
+  expect(within(nav()).getByRole('link', { name: 'Engagement' }).getAttribute('href')).toBe('/')    // the name heads the rail, no subline
+  expect(within(nav()).queryByText('Customer Engagement')).toBeNull()
+  expect(within(within(nav()).getByRole('list', { name: 'Workspace' })).getByRole('link', { name: 'Settings' })).toBeTruthy()
 
   const menu = within(nav()).getByRole('list', { name: 'Engagement' })
-  expect(within(menu).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Journeys', 'Templates', 'Contact lists', 'Reports'])
+  expect(within(menu).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Journeys', 'Templates', 'Contact Lists', 'Reports'])
   const current = within(menu).getByRole('link', { name: 'Campaigns' })
   expect(current.getAttribute('aria-current')).toBe('page')
-  expect(current.className).toContain('bg-brand-100')
-  expect(nav().parentElement?.className).toContain('bg-surface')
+  expect(current.className).toContain('bg-sidebar-selected')
+  expect(nav().parentElement?.className).toContain('bg-sidebar')
+  expect(document.querySelector('.bg-surface.border-r')).toBeNull()                                   // no white menu column
 })
 
-test('collapsing turns the menu into a 64px column of icons, keeps the rail, and is remembered; expanding brings the labels back', async () => {
+test('collapsing turns the rail into a 64px column of icons and is remembered; expanding brings the labels back', async () => {
   const user = userEvent.setup()
   installMockApi()
   await renderAppAt('/campaigns')
@@ -58,24 +57,24 @@ test('collapsing turns the menu into a 64px column of icons, keeps the rail, and
   expect(toggle.getAttribute('aria-expanded')).toBe('true')
 
   await user.click(toggle)
-  expect(nav().parentElement?.className).toContain('w-16')
+  expect(nav().className).toContain('w-16')
   const campaigns = within(nav()).getByRole('link', { name: 'Campaigns' })
   expect(campaigns.textContent).toBe('')                                                        // icon only, the label is a tooltip
   expect(campaigns.getAttribute('aria-current')).toBe('page')
-  expect(campaigns.className).toContain('bg-brand-100')
-  expect(within(nav()).queryByText('Customer Engagement')).toBeNull()
-  expect(within(apps()).getByRole('link', { name: 'Engagement' })).toBeTruthy()
+  expect(campaigns.className).toContain('bg-sidebar-selected')
+  expect(within(nav()).queryByRole('link', { name: 'Engagement' })).toBeNull()                    // collapsed, no name
+  expect(within(nav()).getByRole('link', { name: 'Settings' }).textContent).toBe('')
   expect(window.localStorage.getItem('cep.nav.collapsed')).toBe('1')
 
   const expand = within(topBar()).getByRole('button', { name: 'Expand navigation' })
   expect(expand.getAttribute('aria-expanded')).toBe('false')
   await user.click(expand)
-  expect(nav().parentElement?.className).toContain('w-60')
+  expect(nav().className).toContain('w-60')
   expect(within(nav()).getByRole('link', { name: 'Campaigns' }).textContent).toBe('Campaigns')
   expect(window.localStorage.getItem('cep.nav.collapsed')).toBe('0')
 })
 
-test('on a phone the top bar’s menu button opens the rail and the menu over the page and closes them again', async () => {
+test('on a phone the top bar’s menu button opens the rail over the page and closes it again', async () => {
   const user = userEvent.setup()
   vi.stubGlobal('matchMedia', (query: string) => ({ media: query, matches: false, addEventListener: () => {}, removeEventListener: () => {} }))
   installMockApi()
@@ -84,8 +83,7 @@ test('on a phone the top bar’s menu button opens the rail and the menu over th
   expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull()
 
   await user.click(within(topBar()).getByRole('button', { name: 'Open navigation' }))
-  expect(within(apps()).getByRole('link', { name: 'Engagement' })).toBeTruthy()
-  expect(within(nav()).getByRole('link', { name: 'Campaigns' })).toBeTruthy()
+  expect(within(nav()).getByRole('link', { name: 'Campaigns' }).textContent).toBe('Campaigns')
   const close = within(topBar()).getByRole('button', { name: 'Close navigation' })
   expect(close.getAttribute('aria-expanded')).toBe('true')
 
@@ -106,17 +104,28 @@ test('the launcher lists the workspace’s components as tiles, marks the open o
   expect(launcher.textContent).toContain('CRM, Sales, Purchasing, Inventory and PIM are coming.')
 })
 
-test('with several components the rail has a tile for each, a trial is marked, and a tile opens that component’s Home', async () => {
-  installMockApi({ me: { ...me, components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'TRIAL', until: '2026-10-31' }] } as never })
+test('with several components the launcher switches between them: the rail shows the open one’s pages, and a trial is marked', async () => {
+  const user = userEvent.setup()
+  installMockApi({ me: { ...me, components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'TRIAL', until: '2026-10-31' }], insights: { mode: 'integrated', standalone_path: '/insights' } } as never })
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
-  const list = within(apps()).getByRole('list', { name: 'Components' })
-  const [engagement, insights] = within(list).getAllByRole('link')
+  expect(within(nav()).getByRole('list', { name: 'Engagement' })).toBeTruthy()
+  expect(within(nav()).queryByRole('link', { name: /Insights/ })).toBeNull()
+  expect(topBar().querySelector('[data-trial]')).toBeNull()
+
+  await user.click(within(topBar()).getByRole('button', { name: 'Apps' }))
+  const launcher = await screen.findByRole('region', { name: 'Apps' })
+  const [engagement, insights] = within(within(launcher).getByRole('list', { name: 'Your apps' })).getAllByRole('link')
   expect(engagement.getAttribute('aria-current')).toBe('true')
-  expect(engagement.getAttribute('href')).toBe('/')
-  expect(insights.textContent).toBe('InsightsTrial')
-  expect(insights.getAttribute('aria-current')).toBeNull()
+  expect(engagement.getAttribute('title')).toBe('Customer Engagement')
   expect(insights.getAttribute('href')).toBe('/insights')
+  expect(insights.textContent).toContain('Trial to')
+
+  await user.click(insights)
+  expect(await screen.findByRole('list', { name: 'Insights' }, { timeout: 5000 })).toBeTruthy()           // the Insights pages load on first open
+  expect(within(nav()).queryByRole('list', { name: 'Engagement' })).toBeNull()
+  expect(topBar().querySelector('[data-component-name]')?.textContent).toBe('Insights')
+  expect(topBar().querySelector('[data-trial]')?.textContent).toBe('Trial')
 })
 
 test('the account menu names the workspace and its plan', async () => {
@@ -132,9 +141,9 @@ test('the account menu names the workspace and its plan', async () => {
 test('a component the workspace does not have is not offered anywhere', async () => {
   installMockApi({ me: { ...me, components: [{ key: 'crm', name: 'CRM', tagline: 'Accounts', access: 'PLAN', until: null }] } as never })
   await renderAppAt('/campaigns')
-  await screen.findByRole('navigation', { name: 'Apps' })
-  expect(within(apps()).queryAllByRole('link', { name: /CRM|Engagement/ })).toEqual([])
-  expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull()
+  await screen.findByRole('navigation', { name: 'Main' })
+  expect(within(nav()).queryAllByRole('link', { name: /CRM|Engagement/ })).toEqual([])
+  expect(within(nav()).getAllByRole('link').map((link) => link.textContent)).toEqual(['Settings'])
   expect(topBar().querySelector('[data-component-name]')).toBeNull()
 })
 
@@ -142,7 +151,7 @@ test('without user.admin there is no Workspace Settings', async () => {
   installMockApi({ me: { ...me, principal: { ...me.principal, permissions: ['campaign.view'] } } as never })
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
-  expect(within(apps()).queryByRole('list', { name: 'Workspace' })).toBeNull()
+  expect(within(nav()).queryByRole('list', { name: 'Workspace' })).toBeNull()
 })
 
 test('/cep/... is Engagement’s alias: it lands on the same page, query and all', async () => {

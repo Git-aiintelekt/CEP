@@ -29,6 +29,7 @@ import { StageBar } from './StageBar'
 import { emptySplit } from './ExtraStepFields'
 import { PreviewRoutePanel } from './PreviewRoutePanel'
 import { stepName } from './templates/templateMeta'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 interface AddRequest {
   path: Path
@@ -207,6 +208,7 @@ export function JourneyBuildWorkspace({
       <StageBar
         journeyName={journey.name}
         stage="build"
+        help={<PageHelp chapter="journeys" />}
         actions={
           <>
             <ReadinessPill validity={validity} />
