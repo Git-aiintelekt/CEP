@@ -11,7 +11,7 @@ import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
-import type { GovernanceBlackout, GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
+import type { GovernanceBlackout, GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceUnengaged, GovernanceUnengagedRule, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -736,6 +736,14 @@ export const governanceBlackout = (overrides: Partial<GovernanceBlackout>): Gove
   const when = item.from === item.to ? dayMonth(item.from) : `${dayMonth(item.from)} – ${dayMonth(item.to)}`
   return { next: item.past ? null : item.from, ...item, rule: item.yearly ? `${when}, every year` : `${when} ${item.to.slice(0, 4)}` }
 }
+export const unengagedRule = (overrides: Partial<GovernanceUnengagedRule>): GovernanceUnengagedRule => {
+  const item = { id: 'unengaged-own', name: 'Unengaged Contacts', days: 180, min_emails: 5, is_active: true, platform: false, row_version: 1, ...overrides }
+  return { ...item, rule: `No engagement in ${item.days} days, after at least ${item.min_emails} marketing email${item.min_emails === 1 ? '' : 's'}` }
+}
+export const unengagedCard = (overrides: Partial<GovernanceUnengaged> = {}): GovernanceUnengaged => ({
+  own: unengagedRule({}), platform: [], applies: { days: 180, min_emails: 5 }, limit: null, recommended: { days: 180, min_emails: 5 },
+  today: { total: 48210, engaged: 39880, unengaged: 2940, too_new: 5390, starts_on: null }, recent: { days: 30, left_out: 8420, came_back: 186 }, ...overrides,
+})
 export const governance: GovernanceOverview = {
   caps: [governanceCap({ id: 'cap-platform', channel: 'EMAIL', max_messages: 3, period_days: 7, platform: true }), governanceCap({ id: 'cap-own', channel: 'SMS', max_messages: 4, period_days: 30 })],
   gaps: [gapChannel('EMAIL', 16, null), gapChannel('SMS', 24, governanceGap('SMS', { hours: 24 })),
@@ -746,6 +754,7 @@ export const governance: GovernanceOverview = {
     windowChannel('WHATSAPP', '09:00', '20:00', null, [], null)],
   blackouts: [governanceBlackout({ id: 'blackout-christmas' }),
     governanceBlackout({ id: 'blackout-new-year', name: 'New Year', from: '2027-01-01', to: '2027-01-01', platform: true })],
+  unengaged: unengagedCard(),
   activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
   text_quiet_hours: { start: '21:00', end: '08:00' },
   soft_bounces: 3,
@@ -1525,6 +1534,26 @@ export function installMockApi(options: MockOptions = {}) {
       governanceNow = { ...governanceNow, windows: governanceNow.windows.map((item) => (item.channel === entry.channel ? next : item)) }
       return json(next)
     }
+    if (path.endsWith('/workspace/governance/unengaged/') && method === 'PUT') {
+      const card = governanceNow.unengaged ?? unengagedCard({ own: null, applies: null })
+      const asked = body as Partial<{ days: number; min_emails: number; is_active: boolean }>
+      const days = asked.days ?? card.own?.days ?? card.recommended.days
+      const emails = asked.min_emails ?? card.own?.min_emails ?? card.recommended.min_emails
+      const top = card.limit?.days ?? 360
+      if (days < 30 || days > top) return problem(400, { errors: { days: [`Between 30 and ${top} days${card.limit ? ` (the platform allows at most ${card.limit.days})` : ''}.`] } })
+      if (emails < 1 || emails > 20) return problem(400, { errors: { min_emails: ['Between 1 and 20 emails.'] } })
+      const own = unengagedRule({ ...card.own, days, min_emails: emails, is_active: asked.is_active ?? card.own?.is_active ?? true, row_version: (card.own?.row_version ?? 0) + 1 })
+      const rules = [own, ...card.platform].filter((rule) => rule.is_active)
+      const applies = rules.length ? { days: Math.min(...rules.map((rule) => rule.days)), min_emails: Math.min(...rules.map((rule) => rule.min_emails)) } : null
+      governanceNow = { ...governanceNow, unengaged: { ...card, own, applies } }
+      return json(governanceNow.unengaged)
+    }
+    if (path.includes('/workspace/governance/unengaged/preview/')) {
+      const params = new URL(url, 'http://test.local').searchParams
+      const days = Number(params.get('days'))
+      return json({ total: 48210, engaged: 39880, unengaged: days <= 120 ? 5115 : 2940, too_new: 48210 - 39880 - (days <= 120 ? 5115 : 2940), starts_on: null })
+    }
+    if (path.endsWith('/workspace/governance/unengaged/people/')) return new Response('party_id,email\nP1,p1@example.com\n', { status: 200, headers: { 'Content-Type': 'text/csv' } })
     if (path.endsWith('/workspace/governance/blackouts/') && method === 'POST') {
       const asked = body as Partial<{ name: string; from: string; to: string; yearly: boolean }>
       if (!asked.name?.trim()) return problem(400, { errors: { name: ['Give the date a name, such as Christmas.'] } })

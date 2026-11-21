@@ -49,6 +49,26 @@ A date can be one day or a run of up to 31 days (24 December to 2 January), once
 
 The list shows the soonest dates first. A one-off date that has passed stays listed, marked **Passed**, until you remove it. A date that is on now is marked **Today**.
 
+## Unengaged Contacts
+
+Mailbox providers such as Gmail and Outlook decide between the inbox and the spam folder partly by how many recipients ignore a sender. Mailing people who stopped reading long ago pulls every other message towards spam. **Unengaged Contacts** leaves those people out of marketing email.
+
+A person is left out when all three are true:
+
+1. Their first marketing email from CEP went out at least **180 days** ago, so CEP has watched them for the whole period.
+2. They were sent at least **5** marketing emails in the last 180 days.
+3. In those 180 days they made no **email click**, **text link click**, **purchase** (an order or an e-receipt) or **preference-page visit**.
+
+Opens are not counted: Apple Mail opens every message on its own, so an open says nothing about the reader. Clicks made by security scanners are not counted either. Nobody is unsubscribed or added to Suppressions: the next click or purchase brings the person back on the next send. Texts, transactional email and e-receipts are never affected.
+
+The card shows what the rule does today: how many of your email contacts it leaves out, how many engaged in the period, and how many are **too new to judge** (mailed for less than the period, or sent fewer emails than the minimum). It also shows the last 30 days: recipients left out, and people who came back after a click or purchase. **Download the People** gives a CSV of everyone left out, to build a win-back list from.
+
+**A new install.** CEP judges a person only after the period has passed since their first marketing email, so for the first 180 days nobody is left out. The card says when it starts: "Starts 18 May 2027" for a workspace whose first marketing email went out on 19 November 2026. People added later each get their own 180 days.
+
+**A win-back campaign** can reach these people: turn on **Include Unengaged Contacts** on the campaign's Schedule step. It is off by default and recorded in the activity log when the campaign is published.
+
+The platform team may set a longest allowed, shown locked on the card ("Platform: at most 270 days"). Your own rule may only be stricter: fewer days, or fewer emails.
+
 ## Who can use it
 
 | | |
@@ -85,6 +105,13 @@ The list shows the soonest dates first. A one-off date that has passed stays lis
 | Every Year | A tick. | Repeats the dates every year. Off: the dates happen once. |
 | Blackout Dates · Switch | On or off, on each of your own dates. | Off: the date stays listed but holds nothing back. |
 | Blackout Dates · Edit, Remove | On your own dates; Remove asks first. | Changes or removes the date from the next send. Platform dates are locked. |
+| Unengaged Contacts · Use 180 Days | Shown when no rule applies. | Adds the recommended rule: 180 days, at least 5 marketing emails. |
+| Unengaged Contacts · Edit | Opens the rule: No Engagement In and After at Least. | Changes the rule from the next send. |
+| No Engagement In | 30 to 360 days, or up to the platform's longest. Click history is kept 12 months. | The period a person must have gone without engaging. |
+| After at Least | 1 to 20 marketing emails sent in the period. | A person sent fewer is never left out. The dialog shows how many would be left out today before you save. |
+| Unengaged Contacts · Switch | On or off. | Off: nobody is left out. |
+| Download the People | A CSV: customer ID, email, name, emails in the period, first marketing email, last engagement. | Nothing: a list to upload as a win-back audience. |
+| Include Unengaged Contacts | On a marketing email campaign's Schedule step; off by default. | On: the campaign reaches unengaged contacts too. Recorded in the activity log. |
 | Priority and Exemptions | Read-only. | Transactional messages and e-receipts are never capped. A campaign can ignore the caps with **Apply Corporate Frequency Limits** off on its Schedule step; that is recorded in the activity log. |
 | List Hygiene | Read-only. | A hard bounce or a spam complaint blocks an address at once; soft bounces block it after the number shown. Blocked addresses are listed under Suppressions. |
 
@@ -97,6 +124,10 @@ The list shows the soonest dates first. A one-off date that has passed stays lis
 **Keep at least a day and a half between texts.** Gap Between Messages → Text: type **36** in the hours box, switch it on.
 
 **No marketing texts on Sunday, and only from 10:00 to 20:00.** Send Windows → Text: From **10:00**, To **20:00**, click **Sun** off, switch it on.
+
+**Stop mailing people who stopped reading.** Unengaged Contacts → Use 180 Days. To be stricter: Edit → No Engagement In **120** → watch the count change → Save Rule.
+
+**Send a last "Do you still want our emails?" message.** Unengaged Contacts → Download the People → upload the CSV as a contact list → a new email campaign to that list → Schedule step → turn on **Include Unengaged Contacts**.
 
 **No marketing over the holidays, every year.** Blackout Dates → Add Date → Name **Holidays**, From **24 Dec**, To **26 Dec**, tick **Every Year** → Add Date.
 
@@ -112,5 +143,8 @@ The list shows the soonest dates first. A one-off date that has passed stays lis
 - A journey's marketing messages are checked like a campaign's: a customer at a cap or within a gap skips that message and moves on. They also count towards the caps and gaps.
 - A cap of 1 per day on email still lets a transactional email through the same day.
 - A blackout date holds back a journey's marketing messages too: customers who reach that step wait together and are sent the next clear day.
+- Unengaged Contacts applies to journeys' and drips' marketing emails too. A drip's Review step says so, with the share of your email contacts it leaves out today.
+- A customer's page shows when they last engaged and whether marketing email leaves them out, under Engagement.
+- The counts on the card are refreshed every 10 minutes.
 - A drip whose message falls on a blackout date says so on its Review step, with the day it will go out instead.
 - Removing a cap does not resend anything to people it skipped earlier.

@@ -93,6 +93,8 @@ class CommunicationGovernancePolicy(models.Model):
     blackout_from = models.DateField(null=True, blank=True)  # patch 0093: a blackout date (not a cap); name is its label
     blackout_to = models.DateField(null=True, blank=True)
     blackout_yearly = models.BooleanField(default=False)
+    unengaged_days = models.IntegerField(null=True, blank=True)  # patch 0094: unengaged contacts (not a cap), email only
+    unengaged_min_emails = models.IntegerField(null=True, blank=True)
     platform_policy = models.ForeignKey('platform_ops.PlatformGovernancePolicy', on_delete=models.SET_NULL, db_column='platform_policy_id', related_name='copies', null=True, blank=True)  # patch 0088: the platform's copy, locked
     created_at = models.DateTimeField(db_default=Now())
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)

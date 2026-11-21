@@ -150,6 +150,7 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
           <Definition label="When">{when}</Definition>
           {!isReceipt && <Definition label="Local Time">{campaign.timezone_optimization ? "Each recipient's own time zone" : 'One time for everyone'}</Definition>}
           <Definition label="Frequency Limits">{campaign.respect_governance ? 'Applied' : 'Switched off for this campaign'}</Definition>
+          {campaign.solicitation_type === 'MARKETING' && campaign.include_unengaged && <Definition label="Unengaged Contacts">Included (a win-back campaign)</Definition>}
           <Definition label="Messages per Hour">{campaign.rate_limit_per_hour ? `At most ${formatNumber(campaign.rate_limit_per_hour)}` : 'No limit of its own'}</Definition>
         </Section>
         <Section title="Targets & Economics" step={4} onEdit={onEdit}>

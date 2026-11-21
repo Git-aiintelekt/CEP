@@ -13,6 +13,8 @@ creates the mailer_execution rows. Rules, in order (first match is the recorded 
     UNSUBSCRIBED       consent_status = OPTED_OUT
     NO_CONSENT         no OPTED_IN consent for email
     TOPIC_OPTED_OUT    the person unticked this campaign's topic on the preference page (marketing, preference centre on)
+    UNENGAGED          an Unengaged Contacts rule applies and the person has not engaged in its days (apps/governance/unengaged.py;
+                       marketing, unless the campaign includes unengaged contacts)
     FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached, or a Gap Between
                        Messages policy's gap_hours have not passed since the last message
     DUPLICATE_ADDRESS  another party in this run has the same address (the first keeps it)
@@ -22,7 +24,7 @@ Runs on the caller's connection, inside its transaction, under the tenant's row-
 A later drip message (`base_list_id`) takes its people from the first message's Campaign List instead of the contact
 lists, all of them whatever their outcome there; every rule above then applies again at its own send.
 """
-from apps.governance import preferences
+from apps.governance import preferences, unengaged
 from apps.governance.models import POLICY_WINDOW, marketing_only
 
 from . import session
@@ -61,7 +63,7 @@ WITH picked AS ({picked}
       FROM picked p LEFT JOIN customer_master cm ON cm.party_id = p.party_id AND cm.tenant_id = %(tenant)s
 ), capped AS (                                            -- the strictest applicable policy that this party has already used up
     SELECT r.party_id, (SELECT g.id FROM communication_governance_policy g
-                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL AND g.blackout_from IS NULL AND %(caps)s
+                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL AND g.blackout_from IS NULL AND g.unengaged_days IS NULL AND %(caps)s
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND COALESCE(g.channel, 'EMAIL') = 'EMAIL'))
                            AND ((SELECT count(*) FROM mailer_execution x
                                   WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id AND x.status NOT IN ('QUEUED', 'FAILED')
@@ -85,6 +87,7 @@ WITH picked AS ({picked}
                 WHEN %(marketing)s AND COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT'
                 WHEN %(topic)s::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM party_topic_preference tp WHERE tp.tenant_id = %(tenant)s AND tp.party_id = r.party_id
                                                              AND tp.topic_id = %(topic)s::uuid AND tp.opted_out) THEN 'TOPIC_OPTED_OUT'
+                WHEN {unengaged.SQL('r.party_id')} THEN 'UNENGAGED'
                 WHEN k.policy_id IS NOT NULL THEN 'FREQUENCY_CAP'
            END AS reason
       FROM resolved r
@@ -109,8 +112,9 @@ BUILD_FROM_BASE = _build_sql(FROM_BASE)
 LOG_SUPPRESSED = """
 INSERT INTO governance_evaluation_log (tenant_id, party_id, campaign_id, campaign_run_id, channel, policy_id, decision, reason)
 SELECT m.tenant_id, m.party_id, %(campaign)s, %(run)s, 'EMAIL',
-       CASE WHEN m.suppression_reason = 'FREQUENCY_CAP' THEN
-            (SELECT g.id FROM communication_governance_policy g WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL AND g.blackout_from IS NULL ORDER BY g.priority LIMIT 1) END,
+       CASE WHEN m.suppression_reason = 'UNENGAGED' THEN %(ue_policy)s::uuid
+            WHEN m.suppression_reason = 'FREQUENCY_CAP' THEN
+            (SELECT g.id FROM communication_governance_policy g WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL AND g.blackout_from IS NULL AND g.unengaged_days IS NULL ORDER BY g.priority LIMIT 1) END,
        'SUPPRESS', m.suppression_reason
   FROM campaign_list_member m
  WHERE m.tenant_id = %(tenant)s AND m.campaign_list_id = %(list)s AND m.status = 'SUPPRESSED'
@@ -134,6 +138,8 @@ def build(*, tenant_id, campaign, run, campaign_list, content, provider_id, step
             "caps": marketing and bool(getattr(campaign, "respect_governance", True)),     # corporate frequency limits: marketing only (BRD 12), unless switched off for this campaign
             "content": str(content.pk), "version": content.version_number, "subject": subject_of(campaign, content, step)[:300], "provider": str(provider_id),
             "topic": preferences.topic_filter(campaign), "base": str(base_list_id) if base_list_id else None}
+    leave_out = marketing and not getattr(campaign, "include_unengaged", False)     # a win-back campaign reaches them
+    args.update(unengaged.params(tenant_id, unengaged.rule(tenant_id, using=session.connection().alias) if leave_out else None))
     with session.connection().cursor() as cursor:
         cursor.execute(BUILD_FROM_BASE if base_list_id else BUILD, args)
         cursor.execute(LOG_SUPPRESSED, args)

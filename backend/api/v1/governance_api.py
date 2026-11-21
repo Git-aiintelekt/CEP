@@ -10,6 +10,9 @@
     POST   /workspace/governance/blackouts/        a blackout date of the workspace's own: {name, from: "YYYY-MM-DD", to, yearly, is_active}
     PATCH  /workspace/governance/blackouts/<id>/   the same fields
     DELETE /workspace/governance/blackouts/<id>/
+    PUT    /workspace/governance/unengaged/        the workspace's own Unengaged Contacts rule: {days, min_emails, is_active}
+    GET    /workspace/governance/unengaged/people/ everyone the rule leaves out now, as CSV (for a win-back campaign)
+    GET    /workspace/governance/unengaged/preview/?days=&min_emails=   what a rule of those numbers would do today
 
 Reading needs campaign.view or governance.edit; changing needs governance.edit. A platform cap is refused with 403.
 """
@@ -144,6 +147,40 @@ class BlackoutView(APIView):
     @extend_schema(responses={200: None})
     def delete(self, request, pk, version=None):
         return Response(self._run(lambda: workspace.remove_blackout(_tenant(), pk, _user(request))))
+
+
+class UnengagedView(APIView):
+    permission_classes = ACCESS
+
+    @extend_schema(request=None, responses={200: None})
+    def put(self, request, version=None):
+        try:
+            return Response(workspace.set_unengaged(_tenant(), request.data, _user(request)))
+        except workspace.GovernanceError as exc:
+            raise ValidationError({exc.field: str(exc)}) from None
+
+
+class UnengagedPreviewView(APIView):
+    permission_classes = ACCESS
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        try:
+            return Response(workspace.unengaged_preview(_tenant(), request.query_params))
+        except workspace.GovernanceError as exc:
+            raise ValidationError({exc.field: str(exc)}) from None
+
+
+class UnengagedPeopleView(APIView):
+    permission_classes = ACCESS
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        from django.http import HttpResponse
+        text, _rows = workspace.unengaged_people_csv(_tenant())
+        response = HttpResponse(text, content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="unengaged-contacts.csv"'
+        return response
 
 
 class StandardView(APIView):

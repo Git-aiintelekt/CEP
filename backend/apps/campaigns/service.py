@@ -438,7 +438,7 @@ def clone(campaign, user=None, code: str | None = None, scheduled_at: datetime |
     """Settings, lists and targets; never status, runs or results. A drip's messages come along, each with its own new
     template copy; the start date does not (`scheduled_at`, when given, is the copy's)."""
     copied = ("campaign_type", "channel", "solicitation_type", "template_id", "sender_profile_id", "description", "tags", "send_type", "send_timezone", "recurring_config",
-              "drip_config", "respect_governance", "rate_limit_per_hour", "timezone_optimization", "receipt_config", "setup_step", "subject_line", "preheader")
+              "drip_config", "respect_governance", "include_unengaged", "rate_limit_per_hour", "timezone_optimization", "receipt_config", "setup_step", "subject_line", "preheader")
     values = {name: getattr(campaign, name) for name in copied}
     if campaign.campaign_type == Campaign.CampaignType.JOURNEY:                 # a copy is a campaign someone runs by hand
         values["campaign_type"] = Campaign.CampaignType.REGULAR_MARKETING

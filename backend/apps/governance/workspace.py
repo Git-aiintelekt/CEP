@@ -1,5 +1,5 @@
-"""A workspace's Governance page (Settings → Engagement → Governance): its frequency caps, gaps between messages, send windows
-and blackout dates (the platform's copies, locked, and its own), the rules the send engine applies besides them, and what they did in the last 30 days.
+"""A workspace's Governance page (Settings → Engagement → Governance): its frequency caps, gaps between messages, send windows,
+blackout dates and unengaged contacts rule (the platform's copies, locked, and its own), the rules the send engine applies besides them, and what they did in the last 30 days.
 
 Every cap and gap applies: a person who has reached any cap, or received a marketing message of the channel within a gap, is
 skipped by a marketing send (apps/delivery/engine/audience*.py, reason FREQUENCY_CAP). A gap is a policy row with gap_hours
@@ -48,6 +48,8 @@ def window_rule(start, end, days, channel: str | None) -> str:
 
 
 def _describe(values: dict) -> str:
+    if values.get("unengaged_days"):
+        return "Unengaged Contacts"
     if values.get("window_start"):
         return window_rule(values["window_start"], values["window_end"], values["window_days"], values["channel"])
     if values.get("gap_hours"):
@@ -65,7 +67,7 @@ def _row(policy: CommunicationGovernancePolicy) -> dict:
 def caps(tenant_id) -> list[dict]:
     """the platform's copies first, then the workspace's own; each by channel (All Channels, Email, Text, WhatsApp) and period"""
     order = ["ALL", *CHANNELS]
-    rows = [_row(p) for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True)]
+    rows = [_row(p) for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True, unengaged_days__isnull=True)]
     return sorted(rows, key=lambda row: (not row["platform"], order.index(row["channel"]) if row["channel"] in order else len(order), row["period_days"], row["max_messages"]))
 
 
@@ -228,6 +230,98 @@ def remove_blackout(tenant_id, policy_id, user_id) -> dict:
     return {"blackouts": blackouts(tenant_id)}
 
 
+def _unengaged_row(policy: CommunicationGovernancePolicy) -> dict:
+    from apps.governance.unengaged import describe
+    return {"id": str(policy.pk), "name": policy.name, "days": policy.unengaged_days, "min_emails": policy.unengaged_min_emails,
+            "rule": describe(policy.unengaged_days, policy.unengaged_min_emails), "is_active": policy.is_active,
+            "platform": policy.platform_policy_id is not None, "row_version": policy.row_version}
+
+
+def _unengaged_policies(tenant_id) -> list[CommunicationGovernancePolicy]:
+    return list(CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, unengaged_days__isnull=False).order_by("created_at"))
+
+
+def _limit(policies: list[CommunicationGovernancePolicy]) -> dict | None:
+    """the platform's longest allowed: its rules' fewest days and fewest emails"""
+    platform = [p for p in policies if p.platform_policy_id is not None and p.is_active]
+    if not platform:
+        return None
+    return {"days": min(p.unengaged_days for p in platform), "min_emails": min(p.unengaged_min_emails for p in platform)}
+
+
+def unengaged(tenant_id) -> dict:
+    """The Unengaged Contacts card: the workspace's own rule (or none), the platform's, the rule that applies (the strictest), the
+    platform's limit, what the rule does to the workspace's email contacts today and what it did in the last 30 days."""
+    from apps.governance import unengaged as rules
+    policies = _unengaged_policies(tenant_id)
+    own = next((p for p in policies if p.platform_policy_id is None), None)
+    active = rules.rule(tenant_id)
+    return {"own": _unengaged_row(own) if own else None, "platform": [_unengaged_row(p) for p in policies if p.platform_policy_id is not None],
+            "applies": {"days": active.days, "min_emails": active.min_emails} if active else None, "limit": _limit(policies),
+            "recommended": {"days": rules.RECOMMENDED_DAYS, "min_emails": rules.RECOMMENDED_EMAILS},
+            "today": rules.today(tenant_id, active), "recent": rules.recent(tenant_id)}
+
+
+def set_unengaged(tenant_id, data: dict, user_id) -> dict:
+    """The workspace's own Unengaged Contacts rule, made or changed: {days, min_emails, is_active}. It may only be stricter than the
+    platform's: no more days and no more emails. Returns unengaged()."""
+    from apps.governance import unengaged as rules
+    policies = _unengaged_policies(tenant_id)
+    own = next((p for p in policies if p.platform_policy_id is None), None)
+    limit = _limit(policies)
+    values = {}
+    for field, stored, low, high, words in (("days", own.unengaged_days if own else rules.RECOMMENDED_DAYS, rules.MIN_DAYS, rules.MAX_DAYS, "days"),
+                                            ("min_emails", own.unengaged_min_emails if own else rules.RECOMMENDED_EMAILS, rules.MIN_EMAILS, rules.MAX_EMAILS, "emails")):
+        try:
+            number = int(data.get(field, stored))
+        except (TypeError, ValueError):
+            raise GovernanceError(field, "A whole number.") from None
+        top = min(high, limit[field]) if limit else high
+        if not low <= number <= top:
+            why = f" (the platform allows at most {limit[field]})" if limit and limit[field] < high else ""
+            raise GovernanceError(field, f"Between {low} and {top} {words}{why}.")
+        values[field] = number
+    fields = {"scope": "CHANNEL", "channel": "EMAIL", "max_messages": 1, "period_days": 1, "unengaged_days": values["days"],
+              "unengaged_min_emails": values["min_emails"], "is_active": bool(data["is_active"]) if "is_active" in data else (own.is_active if own else True)}
+    if own is None:
+        CommunicationGovernancePolicy.objects.create(tenant_id=tenant_id, name=_name(tenant_id, fields), applies_to="MARKETING", priority=100,
+                                                     created_by_id=user_id, **fields)
+    else:
+        for field, value in fields.items():
+            setattr(own, field, value)
+        own.updated_by_id = user_id
+        own.save(update_fields=[*fields, "updated_by"])
+    return unengaged(tenant_id)
+
+
+def unengaged_preview(tenant_id, data: dict) -> dict:
+    """What a rule of other days and emails would do today, for the edit dialog: today() for {days, min_emails}."""
+    from apps.governance import unengaged as rules
+    try:
+        days, emails = int(data.get("days")), int(data.get("min_emails"))
+    except (TypeError, ValueError):
+        raise GovernanceError("days", "Whole numbers.") from None
+    if not (rules.MIN_DAYS <= days <= rules.MAX_DAYS and rules.MIN_EMAILS <= emails <= rules.MAX_EMAILS):
+        raise GovernanceError("days", f"Days {rules.MIN_DAYS} to {rules.MAX_DAYS}, emails {rules.MIN_EMAILS} to {rules.MAX_EMAILS}.")
+    return rules.today(tenant_id, rules.Rule(days, emails, ""))
+
+
+def unengaged_people_csv(tenant_id) -> tuple[str, int]:
+    """Everyone the rule leaves out now, as CSV for a win-back campaign's list. (text, rows); no rule: a header alone."""
+    import csv
+    import io
+
+    from apps.governance import unengaged as rules
+    active = rules.rule(tenant_id)
+    rows = rules.people(tenant_id, active) if active else []
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["party_id", "email", "first_name", "last_name", "marketing_emails_in_period", "first_marketing_email", "last_engaged"])
+    for party, email, first, last, emails, first_at, engaged_at in rows:
+        writer.writerow([party, email or "", first or "", last or "", emails, f"{first_at:%Y-%m-%d}" if first_at else "", f"{engaged_at:%Y-%m-%d}" if engaged_at else ""])
+    return out.getvalue(), len(rows)
+
+
 def activity(tenant_id, days: int = 30) -> dict:
     """What the rules did to marketing and transactional sends alike over the last `days` days: people checked, sent, skipped by a cap."""
     since = timezone.now() - timezone.timedelta(days=days)
@@ -245,7 +339,8 @@ def overview(tenant_id) -> dict:
     window = params.get("messaging.sms_quiet_hours", {}) or {}
     quiet = {"start": window["start"], "end": window["end"]} if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"] else None
     cap_rows = caps(tenant_id)
-    return {"caps": cap_rows, "gaps": gaps(tenant_id, cap_rows), "windows": windows(tenant_id), "blackouts": blackouts(tenant_id), "activity": activity(tenant_id),
+    return {"caps": cap_rows, "gaps": gaps(tenant_id, cap_rows), "windows": windows(tenant_id), "blackouts": blackouts(tenant_id), "unengaged": unengaged(tenant_id),
+            "activity": activity(tenant_id),
             "text_quiet_hours": quiet, "soft_bounces": SOFT_BOUNCE_BLOCK_AFTER}
 
 
@@ -279,7 +374,7 @@ def _name(tenant_id, values: dict, exclude=None, using: str = "default") -> str:
 
 
 def _own(tenant_id, policy_id) -> CommunicationGovernancePolicy:
-    policy = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, pk=policy_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True).first()
+    policy = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, pk=policy_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True, unengaged_days__isnull=True).first()
     if policy is None:
         raise LookupError("No such cap.")
     if policy.platform_policy_id is not None:
@@ -385,7 +480,8 @@ def set_window(tenant_id, channel: str, data: dict, user_id) -> dict:
 
 
 def add_standard(tenant_id, user_id) -> dict:
-    """the recommended caps for the channels the workspace does not cap yet (apps/governance/standard.py)"""
+    """the recommended caps for the channels the workspace does not cap yet, and the recommended Unengaged Contacts rule when it
+    has none of its own (apps/governance/standard.py)"""
     from apps.governance import standard
     added = standard.workspace_caps(tenant_id, user_id=user_id)
-    return {"added": added, "caps": caps(tenant_id)}
+    return {"added": added, "caps": caps(tenant_id), "unengaged": unengaged(tenant_id)}

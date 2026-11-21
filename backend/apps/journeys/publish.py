@@ -117,7 +117,7 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
     channels = _channels_used(version)
     if not channels:
         return {"ok": True, "description": "This journey sends no messages, so no frequency cap or quiet hours apply."}
-    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, window_start__isnull=True, blackout_from__isnull=True).order_by("priority"))
+    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, window_start__isnull=True, blackout_from__isnull=True, unengaged_days__isnull=True).order_by("priority"))
     sentences = []
     for channel in channels:
         word = "Emails" if channel == "EMAIL" else "Texts"
@@ -146,6 +146,12 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
     if blackouts:
         listed = "; ".join(blackouts[:3]) + (f" and {len(blackouts) - 3} more" if len(blackouts) > 3 else "")
         sentences.append(f"No marketing goes out on the blackout dates ({listed}): a message due on one waits for the next day.")
+    if "EMAIL" in channels:
+        from apps.governance import unengaged
+        active = unengaged.rule(journey.tenant_id)
+        if active is not None:
+            sentences.append(f"Unengaged contacts (no engagement in {active.days} days, after at least {active.min_emails} marketing emails) are left out of "
+                             f"its marketing emails, as at a cap.")
     return {"ok": True, "description": " ".join(sentences)}
 
 

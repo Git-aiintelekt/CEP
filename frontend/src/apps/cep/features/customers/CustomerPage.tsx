@@ -11,7 +11,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { DetailCard, Fact, FACTS_GRID } from '@/apps/cep/features/campaigns/parts'
 import { api } from '@/lib/api'
-import { formatDateTime, formatMoney, titleize } from '@/lib/format'
+import { formatDateTime, formatDay, formatMoney, titleize } from '@/lib/format'
 import type { CustomerRecord } from '@/lib/types'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
@@ -45,7 +45,7 @@ export function CustomerPage({ partyId: given }: { partyId?: string } = {}) {
   const query = useQuery({ queryKey: ['customers', partyId], queryFn: ({ signal }) => api.get<CustomerRecord>(`/customers/${encodeURIComponent(partyId)}/`, undefined, signal) })
   if (query.isPending) return <p className="flex items-center gap-3 text-sm text-ink-800"><Spinner /> Loading the customer</p>
   if (query.isError) return <ErrorState title="This customer could not be loaded" error={query.error} onRetry={() => void query.refetch()} />
-  const { customer, consent, lists, events, orders, messages, journeys, journey_suppressions: suppressed } = query.data
+  const { customer, consent, lists, events, orders, messages, journeys, journey_suppressions: suppressed, engagement } = query.data
   const attributes = Object.entries(customer.custom_attributes ?? {})
   const address = addressLines(customer.primary_address)
   return (
@@ -95,6 +95,21 @@ export function CustomerPage({ partyId: given }: { partyId?: string } = {}) {
             ]} />
           )}
         </DetailCard>
+
+        {engagement && (
+          <DetailCard title="Engagement" description="What Unengaged Contacts (Settings → Governance) sees: the last click, purchase or preference visit, and the marketing emails sent in its period.">
+            <dl className={FACTS_GRID}>
+              <Fact label="Last Engaged">{engagement.last_engaged_at ? formatDateTime(engagement.last_engaged_at) : <span className="text-ink-300">Never, in the kept history</span>}</Fact>
+              <Fact label="Marketing Email">
+                {!engagement.rule_on ? 'No Unengaged Contacts rule applies'
+                  : engagement.unengaged ? <span className="flex flex-col gap-1"><Tag>{engagement.unengaged_since ? `Unengaged since ${formatDay(engagement.unengaged_since)}` : 'Unengaged'}</Tag>
+                    <span className="text-helper text-ink-800">Left out of marketing email until they click, buy or visit the preference page. Transactional email and e-receipts still go out.</span></span>
+                  : 'Gets marketing email'}
+              </Fact>
+              {engagement.days !== null && <Fact label={`Emails, ${engagement.days} Days`}><span className="cep-num">{engagement.emails} marketing email{engagement.emails === 1 ? '' : 's'}</span></Fact>}
+            </dl>
+          </DetailCard>
+        )}
 
         <DetailCard title="Custom Attributes" flush description="The fields C360 sends with the record, which conditions, splits, date entries and time-of-day waits read.">
           {attributes.length === 0 ? <p className="p-6 text-sm text-ink-800">The record carries no custom attributes.</p> : (

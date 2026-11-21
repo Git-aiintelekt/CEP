@@ -143,6 +143,13 @@ export function formatShortDay(day: string): string {
   return `${date.getUTCDate()} ${new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(date)}`
 }
 
+/** "18 May 2027" for a YYYY-MM-DD workspace day, never shifted by the browser's zone */
+export function formatDay(day: string): string {
+  const date = new Date(`${day.slice(0, 10)}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return '—'
+  return `${formatShortDay(day.slice(0, 10))} ${date.getUTCFullYear()}`
+}
+
 const safeZone = (zone: string) => {
   try {
     new Intl.DateTimeFormat(undefined, { timeZone: zone })

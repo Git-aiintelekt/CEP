@@ -336,7 +336,7 @@ class CampaignSerializer(s.CampaignSerializer):
     def update(self, campaign, validated_data):
         include, exclude, targets = validated_data.pop("contact_lists", None), validated_data.pop("excluded_lists", None), validated_data.pop("targets", None)
         words = {"name": "name", "description": "description", "template": "template", "sender_profile": "sender", "scheduled_at": "schedule", "send_type": "send type",
-                 "recurring_config": "recurrence", "drip_config": "series", "tags": "tags", "owner_user": "owner", "respect_governance": "governance setting",
+                 "recurring_config": "recurrence", "drip_config": "series", "tags": "tags", "owner_user": "owner", "respect_governance": "governance setting", "include_unengaged": "unengaged contacts setting",
                  "rate_limit_per_hour": "send rate", "timezone_optimization": "time zone delivery", "send_timezone": "time zone", "receipt_config": "receipt settings",
                  "ab_config": "subject line test", "subject_line": "subject line", "preheader": "preheader", "topic": "topic",
                  "solicitation_type": "message kind", "campaign_type": "type", "channel": "channel", "code": "code"}
@@ -671,6 +671,10 @@ class CampaignViewSet(views.CampaignViewSet):
         if campaign.solicitation_type == "MARKETING" and not campaign.respect_governance:
             service.record(campaign, "WARNING", "Corporate frequency limits are switched off for this marketing campaign. Consent, unsubscribes and blocked addresses still apply.",
                            user=request.user, severity="WARNING")
+        from apps.delivery.engine import runs as engine_runs
+        if campaign.solicitation_type == "MARKETING" and campaign.include_unengaged and engine_runs.family(campaign) == "EMAIL":
+            service.record(campaign, "WARNING", "Unengaged contacts are included in this campaign (a win-back campaign): people with no engagement in the Unengaged "
+                                                "Contacts period get it too.", user=request.user, severity="WARNING")
         for run in runs:
             if run.scheduled_at is None or run.scheduled_at <= timezone.now():
                 transaction.on_commit(lambda run_id=str(run.pk): views._enqueue_run(str(campaign.tenant_id), run_id), using=context.require().db_alias)

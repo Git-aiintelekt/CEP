@@ -116,6 +116,7 @@ function explain(code: string, channel: string): string {
     TOPIC_OPTED_OUT: "Unticked this campaign's topic on the preference page",
     EXCLUDED_LIST: 'Also in a list this campaign excludes',
     LIST_NOT_APPROVED: 'Only in a list that waits for approval under the consent policy',
+    UNENGAGED: 'No click, purchase or preference visit in the Unengaged Contacts period (Settings → Governance)',
   }
   return EXPLAIN[code] ?? 'Left out by the send rules'
 }

@@ -50,6 +50,7 @@ export const campaignSchema = z
       max_runs: z.string().trim(),
     }),
     respect_governance: z.boolean(),
+    include_unengaged: z.boolean(),
     rate_limit_per_hour: count,
     timezone_optimization: z.boolean(),
     targets: z.object({
@@ -88,7 +89,7 @@ export const STEP_FIELDS = [
   ['name', 'code', 'description', 'campaign_type', 'channel', 'solicitation_type', 'owner_user', 'tags'],
   ['contact_lists', 'excluded_lists'],
   ['template', 'sender_profile', 'subject_line', 'preheader', 'topic'],
-  ['send_type', 'scheduled_at', 'send_timezone', 'recurring', 'respect_governance', 'rate_limit_per_hour', 'timezone_optimization'],
+  ['send_type', 'scheduled_at', 'send_timezone', 'recurring', 'respect_governance', 'include_unengaged', 'rate_limit_per_hour', 'timezone_optimization'],
   ['targets'],
   [],
   [],
@@ -97,7 +98,7 @@ export const STEP_FIELDS = [
 /** which step shows the field the API complained about */
 const API_FIELD_STEP: Record<string, number> = {
   name: 0, code: 0, description: 0, campaign_type: 0, channel: 0, solicitation_type: 0, owner_user: 0, tags: 0, contact_lists: 1, excluded_lists: 1, template: 2, sender_profile: 2, subject_line: 2, preheader: 2, topic: 2,
-  send_type: 3, scheduled_at: 3, send_timezone: 3, recurring_config: 3, drip_config: 3, respect_governance: 3, rate_limit_per_hour: 3, timezone_optimization: 3, targets: 4,
+  send_type: 3, scheduled_at: 3, send_timezone: 3, recurring_config: 3, drip_config: 3, respect_governance: 3, include_unengaged: 3, rate_limit_per_hour: 3, timezone_optimization: 3, targets: 4,
 }
 export const stepOfApiField = (field: string): number => API_FIELD_STEP[field] ?? 0
 /** the form names a nested group differently from the API */
@@ -108,7 +109,7 @@ export function emptyValues(zone: string, owner: string): CampaignFormValues {
     name: '', code: '', description: '', campaign_type: 'REGULAR_MARKETING', channel: 'EMAIL', solicitation_type: 'MARKETING', owner_user: owner, tags: [],
     contact_lists: [], excluded_lists: [], template: '', sender_profile: '', subject_line: '', preheader: '', topic: '', send_type: 'IMMEDIATE', scheduled_at: '', send_timezone: zone,
     recurring: { frequency: 'WEEKLY', interval: '1', weekdays: [], day_of_month: '1', time: '09:00', ends: 'NEVER', end_date: '', max_runs: '' },
-    respect_governance: true, rate_limit_per_hour: '', timezone_optimization: false,
+    respect_governance: true, include_unengaged: false, rate_limit_per_hour: '', timezone_optimization: false,
     targets: { target_revenue: '', target_opens: '', target_clicks: '', target_conversions: '', target_redemptions: '', planned_cost: '', planned_offer_cost: '', notes: '' },
   }
 }
@@ -136,7 +137,7 @@ export function fromCampaign(campaign: Campaign, workspaceZone: string): Campaig
           time: recurring.time || '09:00', ends: recurring.max_runs ? 'AFTER' : recurring.end_date ? 'ON' : 'NEVER', end_date: recurring.end_date ?? '', max_runs: text(recurring.max_runs),
         }
       : base.recurring,
-    respect_governance: campaign.respect_governance ?? true, rate_limit_per_hour: text(campaign.rate_limit_per_hour), timezone_optimization: campaign.timezone_optimization ?? false,
+    respect_governance: campaign.respect_governance ?? true, include_unengaged: campaign.include_unengaged ?? false, rate_limit_per_hour: text(campaign.rate_limit_per_hour), timezone_optimization: campaign.timezone_optimization ?? false,
     targets: targets
       ? {
           target_revenue: plainMoney(targets.target_revenue), target_opens: text(targets.target_opens), target_clicks: text(targets.target_clicks),
@@ -200,6 +201,7 @@ export function toInput(values: CampaignFormValues, rowVersion?: number): Campai
     send_timezone: values.send_timezone || null,
     recurring_config: recurring,
     respect_governance: values.respect_governance,
+    include_unengaged: values.include_unengaged,
     rate_limit_per_hour: whole(values.rate_limit_per_hour),
     timezone_optimization: values.timezone_optimization,
     targets,

@@ -3,7 +3,8 @@
 Two levels:
   PLATFORM   the platform's own outer limit, applied to every workspace and locked there: at most one marketing message per
              channel per day, so nobody is sent a burst.
-  WORKSPACE  the usual marketing caps, added to each workspace as its OWN caps, which it may change, switch off or remove.
+  WORKSPACE  the usual marketing caps, and Unengaged Contacts at 180 days and 5 emails, added to each workspace as its OWN rules,
+             which it may change, switch off or remove.
 
 `apply()` makes both: it creates the platform standards that do not exist yet and pushes them, then gives each workspace the
 workspace standards for the channels it does not cap yet. Running it again changes nothing. Onboarding calls `for_new_workspace()`.
@@ -35,7 +36,7 @@ GAPS = {"EMAIL": 16, "SMS": 24, "WHATSAPP": 24}
 def _own_channels(tenant_id, using: str) -> set[str]:
     """the channels the workspace already caps itself (ALL for a cap on every channel together)"""
     from apps.governance.models import CommunicationGovernancePolicy
-    rows = CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, platform_policy_id__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True)
+    rows = CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, platform_policy_id__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True, unengaged_days__isnull=True)
     return {"ALL" if row.scope == "GLOBAL" else (row.channel or "EMAIL") for row in rows}
 
 
@@ -52,7 +53,24 @@ def workspace_caps(tenant_id, *, using: str = "default", user_id=None) -> list[s
         CommunicationGovernancePolicy.objects.using(using).create(tenant_id=tenant_id, name=workspace._name(tenant_id, values, using=using), applies_to="MARKETING",
                                                                  priority=100, created_by_id=user_id, **values)
         added.append(workspace.rule(values["max_messages"], values["period_days"], values["channel"]))
+    if not CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, platform_policy_id__isnull=True,
+                                                                     unengaged_days__isnull=False).exists():
+        from apps.governance import unengaged
+        fields = {"scope": "CHANNEL", "channel": "EMAIL", "max_messages": 1, "period_days": 1,
+                  "unengaged_days": unengaged.RECOMMENDED_DAYS, "unengaged_min_emails": unengaged.RECOMMENDED_EMAILS}
+        if _platform_allows(tenant_id, using, fields):
+            CommunicationGovernancePolicy.objects.using(using).create(tenant_id=tenant_id, name=workspace._name(tenant_id, fields, using=using), applies_to="MARKETING",
+                                                                     priority=100, created_by_id=user_id, **fields)
+            added.append(unengaged.describe(fields["unengaged_days"], fields["unengaged_min_emails"]))
     return added
+
+
+def _platform_allows(tenant_id, using: str, fields: dict) -> bool:
+    """the recommended unengaged rule is no looser than any the platform sets (a stricter platform rule makes it pointless)"""
+    from apps.governance.models import CommunicationGovernancePolicy
+    platform = CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, is_active=True, platform_policy_id__isnull=False,
+                                                                         unengaged_days__isnull=False)
+    return all(p.unengaged_days >= fields["unengaged_days"] and p.unengaged_min_emails >= fields["unengaged_min_emails"] for p in platform)
 
 
 def platform_policies(*, using: str, user_id=None) -> list:
@@ -82,6 +100,12 @@ def apply(*, using: str, user_id=None, dry_run: bool = False) -> dict:
                 cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.pk)])
                 have = _own_channels(tenant.pk, using)
             report["workspaces"][tenant.code] = [f"{cap['channel']} {cap['max_messages']}/{cap['period_days']}d" for cap in WORKSPACE if cap["channel"] not in have]
+            with transaction.atomic(using=using), connections[using].cursor() as cursor:
+                cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.pk)])
+                from apps.governance.models import CommunicationGovernancePolicy
+                if not CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant.pk, deleted_at__isnull=True, platform_policy_id__isnull=True,
+                                                                                 unengaged_days__isnull=False).exists():
+                    report["workspaces"][tenant.code].append("Unengaged Contacts 180 days / 5 emails")
         return report
     for policy in platform_policies(using=using, user_id=user_id):
         report["platform"][policy.name] = platform.summary(platform.push(policy, using=using, user_id=user_id))

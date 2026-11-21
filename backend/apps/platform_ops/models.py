@@ -572,6 +572,8 @@ class PlatformGovernancePolicy(models.Model):
     blackout_from = models.DateField(null=True, blank=True)  # patch 0093: a blackout date instead of a cap
     blackout_to = models.DateField(null=True, blank=True)
     blackout_yearly = models.BooleanField(default=False)
+    unengaged_days = models.IntegerField(null=True, blank=True)  # patch 0094: unengaged contacts instead of a cap: the most days a workspace may use
+    unengaged_min_emails = models.IntegerField(null=True, blank=True)
     applies_to = models.CharField(max_length=20, choices=AppliesTo.choices, default=AppliesTo.MARKETING)
     priority = models.IntegerField(default=100)
     applies_all = models.BooleanField(default=False)
@@ -597,6 +599,9 @@ class PlatformGovernancePolicy(models.Model):
 
     def rule(self) -> str:
         what = "messages" if self.scope == "GLOBAL" else {"EMAIL": "emails", "SMS": "texts", "WHATSAPP": "WhatsApp messages"}.get(self.channel or "", "messages")
+        if self.unengaged_days:
+            from apps.governance.unengaged import describe as unengaged
+            return unengaged(self.unengaged_days, self.unengaged_min_emails)
         if self.blackout_from:
             from apps.governance.blackout import describe as dates
             return f"No marketing {dates(self.blackout_from, self.blackout_to, self.blackout_yearly)}"

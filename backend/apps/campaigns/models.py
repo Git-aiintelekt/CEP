@@ -84,6 +84,7 @@ class Campaign(models.Model):
     recurring_config = models.JSONField(null=True, blank=True)  # {frequency, interval, weekdays[], day_of_month, time, end_date, max_runs}
     drip_config = models.JSONField(null=True, blank=True)  # {steps: [{day}], time}
     respect_governance = models.BooleanField(default=True)
+    include_unengaged = models.BooleanField(default=False)  # patch 0094: a win-back campaign reaches unengaged contacts
     rate_limit_per_hour = models.IntegerField(null=True, blank=True)
     timezone_optimization = models.BooleanField(default=False)
     receipt_config = models.JSONField(null=True, blank=True)
