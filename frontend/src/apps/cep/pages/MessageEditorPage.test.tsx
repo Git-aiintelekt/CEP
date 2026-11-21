@@ -33,7 +33,7 @@ test('SMS: loads the stored text, previews it with sample values and counts part
   expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true) // nothing changed yet
 })
 
-test('SMS: a tag is inserted at the caret, pasted smart punctuation is flagged and can be made plain, and the save carries the version lock', async () => {
+test('SMS: a tag is inserted at the caret, pasted smart punctuation lands plain, Keep as Pasted flags it and it can be made plain again, and the save carries the version lock', async () => {
   const calls = installMockApi()
   const user = userEvent.setup()
   await renderAppAt('/templates/tpl-sms/message')
@@ -50,11 +50,17 @@ test('SMS: a tag is inserted at the caret, pasted smart punctuation is flagged a
   await user.click(body)
   body.setSelectionRange(body.value.length, body.value.length)              // paste at the end, wherever the click left the caret
   await user.paste(' – it’s “yours”')
+  expect(body.value).toBe('Use {{offer_code}} today - it\'s "yours"')                     // a paste lands plain and says so
+  expect(counter()).toContain('GSM-7')
+  expect(screen.getByText(/Changed 4 pasted characters/)).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: 'Keep as Pasted' }))                  // kept as pasted: flagged as before
+  expect(body.value).toBe('Use {{offer_code}} today – it’s “yours”')
   expect(counter()).toContain('UCS-2')
   expect(screen.getByText(/outside the standard SMS alphabet/)).toBeTruthy()
   expect(screen.getByText(/No opt-out wording/)).toBeTruthy()
 
-  expect(screen.getByText(/Swaps curly quotes, long dashes and ellipses for plain ones/)).toBeTruthy()      // the hint says what the button does
+  expect(screen.getByText(/Swaps curly quotes, long dashes, ellipses and invisible spaces for plain ones/)).toBeTruthy()      // the hint says what the button does
   await user.click(screen.getByRole('button', { name: 'Use Plain Punctuation' }))
   expect(counter()).toContain('GSM-7')
   expect(body.value).toBe('Use {{offer_code}} today - it\'s "yours"')
@@ -127,7 +133,7 @@ test('SMS: emoji are named as a cost, not a fault; a stray curly quote is still 
   expect(screen.queryByText(/outside the standard SMS alphabet/)).toBeNull()
   expect(screen.queryByRole('button', { name: 'Use Plain Punctuation' })).toBeNull()                             // nothing to make plain: emoji are meant
 
-  await user.paste(' ’')
+  await user.type(body, ' ’')                                                                                    // typed: a paste would land plain
   expect(screen.getByText(/’ \(U\+2019\) is outside the standard SMS alphabet/)).toBeTruthy()                     // the quote is named; the emoji note stays
   expect(screen.getByText(/^Emoji \(💳\) make this a Unicode message/)).toBeTruthy()
 })
