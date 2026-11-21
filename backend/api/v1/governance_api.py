@@ -7,6 +7,9 @@
     POST   /workspace/governance/standard/     the recommended caps for the channels not capped yet
     PUT    /workspace/governance/gaps/<channel>/   the workspace's own Gap Between Messages for EMAIL, SMS or WHATSAPP: {hours, is_active}
     PUT    /workspace/governance/windows/<channel>/   the workspace's own send window: {start: "HH:MM", end, days: [1-7], is_active}
+    POST   /workspace/governance/blackouts/        a blackout date of the workspace's own: {name, from: "YYYY-MM-DD", to, yearly, is_active}
+    PATCH  /workspace/governance/blackouts/<id>/   the same fields
+    DELETE /workspace/governance/blackouts/<id>/
 
 Reading needs campaign.view or governance.edit; changing needs governance.edit. A platform cap is refused with 403.
 """
@@ -108,6 +111,39 @@ class WindowView(APIView):
             raise ValidationError({exc.field: str(exc)}) from None
         except LookupError:
             raise NotFound("No such channel.") from None
+
+
+class BlackoutsView(APIView):
+    permission_classes = ACCESS
+
+    @extend_schema(request=None, responses={201: None})
+    def post(self, request, version=None):
+        try:
+            return Response(workspace.add_blackout(_tenant(), request.data, _user(request)), status=201)
+        except workspace.GovernanceError as exc:
+            raise ValidationError({exc.field: str(exc)}) from None
+
+
+class BlackoutView(APIView):
+    permission_classes = ACCESS
+
+    def _run(self, call):
+        try:
+            return call()
+        except workspace.GovernanceError as exc:
+            raise ValidationError({exc.field: str(exc)}) from None
+        except workspace.Locked as exc:
+            raise PermissionDenied(str(exc)) from None
+        except LookupError:
+            raise NotFound("No such blackout date.") from None
+
+    @extend_schema(request=None, responses={200: None})
+    def patch(self, request, pk, version=None):
+        return Response(self._run(lambda: workspace.change_blackout(_tenant(), pk, request.data, _user(request))))
+
+    @extend_schema(responses={200: None})
+    def delete(self, request, pk, version=None):
+        return Response(self._run(lambda: workspace.remove_blackout(_tenant(), pk, _user(request))))
 
 
 class StandardView(APIView):

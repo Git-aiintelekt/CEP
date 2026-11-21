@@ -35,7 +35,7 @@ GAPS = {"EMAIL": 16, "SMS": 24, "WHATSAPP": 24}
 def _own_channels(tenant_id, using: str) -> set[str]:
     """the channels the workspace already caps itself (ALL for a cap on every channel together)"""
     from apps.governance.models import CommunicationGovernancePolicy
-    rows = CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, platform_policy_id__isnull=True, gap_hours__isnull=True, window_start__isnull=True)
+    rows = CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, platform_policy_id__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True)
     return {"ALL" if row.scope == "GLOBAL" else (row.channel or "EMAIL") for row in rows}
 
 

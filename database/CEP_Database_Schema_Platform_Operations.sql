@@ -3549,6 +3549,29 @@ ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_pol
 COMMENT ON COLUMN communication_governance_policy.window_start IS 'Send window: when marketing of the channel may start going out, workspace time zone (NULL: not a window).';
 COMMENT ON COLUMN platform_governance_policy.window_start IS 'Send window: when marketing of the channel may start going out, workspace time zone (NULL: not a window).';
 
+-- Blackout dates (patch 0093): a policy with blackout_from/blackout_to is a day, or a run of up to 31 days, with no marketing on
+-- any channel, in the workspace's time zone. blackout_yearly repeats it every year on the same dates (25 December). A run due
+-- on one waits for the next day that is not blacked out (and then for its send window); it is not skipped. Every blackout
+-- applies, the platform's and the workspace's own. Not a cap: the frequency checks ignore these rows. `name` is its label.
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS blackout_from DATE;
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS blackout_to DATE;
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS blackout_yearly BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS blackout_from DATE;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS blackout_to DATE;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS blackout_yearly BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE communication_governance_policy DROP CONSTRAINT IF EXISTS ck_governance_policy_blackout;
+ALTER TABLE communication_governance_policy ADD CONSTRAINT ck_governance_policy_blackout CHECK (
+    (blackout_from IS NULL AND blackout_to IS NULL AND NOT blackout_yearly)
+    OR (blackout_from IS NOT NULL AND blackout_to IS NOT NULL AND blackout_to >= blackout_from AND blackout_to - blackout_from <= 30
+        AND scope = 'GLOBAL' AND channel IS NULL AND max_messages = 1 AND gap_hours IS NULL AND window_start IS NULL));
+ALTER TABLE platform_governance_policy DROP CONSTRAINT IF EXISTS ck_platform_governance_policy_blackout;
+ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_policy_blackout CHECK (
+    (blackout_from IS NULL AND blackout_to IS NULL AND NOT blackout_yearly)
+    OR (blackout_from IS NOT NULL AND blackout_to IS NOT NULL AND blackout_to >= blackout_from AND blackout_to - blackout_from <= 30
+        AND scope = 'GLOBAL' AND channel IS NULL AND max_messages = 1 AND gap_hours IS NULL AND window_start IS NULL));
+COMMENT ON COLUMN communication_governance_policy.blackout_from IS 'Blackout date: the first day with no marketing, workspace time zone (NULL: not a blackout).';
+COMMENT ON COLUMN platform_governance_policy.blackout_from IS 'Blackout date: the first day with no marketing, workspace time zone (NULL: not a blackout).';
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

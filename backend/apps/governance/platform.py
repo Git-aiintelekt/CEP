@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from apps.governance.models import CommunicationGovernancePolicy
 
-COPIED = ("scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "window_days", "applies_to", "priority", "is_active")
+COPIED = ("scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "window_days", "blackout_from", "blackout_to", "blackout_yearly", "applies_to", "priority", "is_active")
 LOCKED_MESSAGE = "This rule is set by the platform for your workspace: it is changed in the back-office, not here."
 
 

@@ -2,7 +2,8 @@
  * Settings → Engagement → Governance (docs/mockups/governance.html, option A): how often marketing may reach a person, and what
  * the rules did. The platform's caps are shown locked; the workspace adds its own beside them, and every cap applies, so its
  * own can only make sending stricter. A Gap Between Messages per channel skips a person who received marketing of that channel
- * within the last hours. Transactional messages and e-receipts are never capped.
+ * within the last hours; send windows say when it may go out, and blackout dates which days it may not. Transactional messages
+ * and e-receipts are never capped or held.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Lock, Plus } from 'lucide-react'
@@ -15,12 +16,13 @@ import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { Switch } from '@/components/Switch'
+import { BlackoutDates, BlackoutForm } from './BlackoutDates'
 import { SendWindows } from './SendWindows'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/lib/api'
 import { formatNumber, formatPercent } from '@/lib/format'
 import { saveFailure } from '@/lib/saveFeedback'
-import type { GovernanceCap, GovernanceGapChannel, GovernanceOverview } from '@/lib/types'
+import type { GovernanceBlackout, GovernanceCap, GovernanceGapChannel, GovernanceOverview } from '@/lib/types'
 
 const KEY = ['workspace', 'governance']
 const CHANNELS = [['EMAIL', 'Email'], ['SMS', 'Text'], ['WHATSAPP', 'WhatsApp'], ['ALL', 'All Channels']] as const
@@ -132,11 +134,13 @@ function GapRow({ entry, editable }: { entry: GovernanceGapChannel; editable: bo
   )
 }
 
-export function GovernancePage() {
+/** `canEdit` stands in for the governance.edit permission in the /dev/settings playground, where nobody is signed in */
+export function GovernancePage({ canEdit }: { canEdit?: boolean } = {}) {
   const queryClient = useQueryClient()
   const { can } = useAuth()
-  const editable = can('governance.edit')
+  const editable = canEdit ?? can('governance.edit')
   const [editing, setEditing] = useState<GovernanceCap | 'new' | null>(null)
+  const [editingDate, setEditingDate] = useState<GovernanceBlackout | 'new' | null>(null)
   const data = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<GovernanceOverview>('/workspace/governance/', undefined, signal) })
   const toggle = useMutation({
     mutationFn: (cap: GovernanceCap) => api.patch<GovernanceCap>(`/workspace/governance/caps/${cap.id}/`, { is_active: !cap.is_active }),
@@ -153,7 +157,7 @@ export function GovernancePage() {
 
   if (data.isError) return <ErrorState title="Governance could not be loaded" error={data.error} onRetry={() => void data.refetch()} />
   if (data.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
-  const { caps, gaps, windows, activity, soft_bounces: softBounces } = data.data
+  const { caps, gaps, windows, blackouts = [], activity, soft_bounces: softBounces } = data.data
   const platformCaps = caps.filter((cap) => cap.platform).length
   const ownCaps = caps.length - platformCaps
 
@@ -227,6 +231,11 @@ export function GovernancePage() {
         <p className="mt-3 text-helper text-ink-800">A campaign can also go out at the same clock time in each person's own time zone: Send at Each Recipient's Local Time on its Schedule step. Its window is checked when the send starts.</p>
       </Card>
 
+      <Card title="Blackout Dates" description="Days with no marketing on any channel, in the workspace's time zone. A send due on one waits for the next day, then for its send window; nobody is skipped."
+        actions={editable && <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} onClick={() => setEditingDate('new')}><Plus size={14} strokeWidth={1.5} aria-hidden />Add Date</button>}>
+        <BlackoutDates blackouts={blackouts} editable={editable} onEdit={setEditingDate} />
+      </Card>
+
       <Card title="Priority and Exemptions" description="What the caps leave alone.">
         <ul className="space-y-2 text-sm text-ink-900">
           <li><span className="font-semibold">Transactional messages and e-receipts</span> are never capped and do not count towards a cap.</li>
@@ -243,6 +252,7 @@ export function GovernancePage() {
       </Card>
 
       {editing && <CapForm cap={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {editingDate && <BlackoutForm blackout={editingDate === 'new' ? null : editingDate} onClose={() => setEditingDate(null)} />}
     </div>
   )
 }

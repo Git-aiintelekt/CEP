@@ -39,6 +39,16 @@ A window can run past midnight (22:00 to 02:00); it belongs to the day it opens.
 
 A campaign set to **Send at Each Recipient's Local Time** is checked against its window when its send starts, in the workspace's time zone; each person's message then goes at their own local time.
 
+## Blackout Dates
+
+A blackout date is a day with no marketing at all, on any channel: Christmas Day, a national day of mourning, the day of a system change. It is read in the workspace's time zone, from midnight to midnight.
+
+A marketing send due on a blackout date is not skipped: it **waits** for the next day that is not blacked out, and then for that channel's send window. With an email window of 07:00 to 21:00 and blackout dates on 25 and 26 December, a campaign scheduled for Christmas morning goes out on 27 December at 07:00. Transactional messages, e-receipts and test sends to testers never wait.
+
+A date can be one day or a run of up to 31 days (24 December to 2 January), once or **Every Year** on the same dates. Holidays that move from year to year, such as Thanksgiving, Easter or Eid, are added for each year. The platform team may set dates for your workspace too; they are listed locked, marked **Platform**, and every date applies.
+
+The list shows the soonest dates first. A one-off date that has passed stays listed, marked **Passed**, until you remove it. A date that is on now is marked **Today**.
+
 ## Who can use it
 
 | | |
@@ -69,6 +79,12 @@ A campaign set to **Send at Each Recipient's Local Time** is checked against its
 | Send Windows · Days | Mon to Sun; at least one. Saved on each click. | The days the window opens. |
 | Send Windows · Switch | On or off, per channel. It starts at the recommended hours: email 07:00 to 21:00, texts and WhatsApp 09:00 to 20:00, every day. | On: sends of the channel wait for the window from the next send. Off: kept with its hours but not checked. |
 | Send Windows · Bar | The 24 hours, with the window marked. | Nothing: a picture of the hours. |
+| Blackout Dates · Add Date | Opens the date form: Name, From, To, Every Year. | Adds a blackout date of your own. It applies from the next send. |
+| Name | Up to 120 characters, such as Christmas; no two rules share a name. | Shown in the list and in a waiting campaign's activity log. |
+| From, To | Dates in the workspace's time zone. To empty means one day; at most 31 days in all. A one-off date must not have passed. | The days no marketing goes out. |
+| Every Year | A tick. | Repeats the dates every year. Off: the dates happen once. |
+| Blackout Dates · Switch | On or off, on each of your own dates. | Off: the date stays listed but holds nothing back. |
+| Blackout Dates · Edit, Remove | On your own dates; Remove asks first. | Changes or removes the date from the next send. Platform dates are locked. |
 | Priority and Exemptions | Read-only. | Transactional messages and e-receipts are never capped. A campaign can ignore the caps with **Apply Corporate Frequency Limits** off on its Schedule step; that is recorded in the activity log. |
 | List Hygiene | Read-only. | A hard bounce or a spam complaint blocks an address at once; soft bounces block it after the number shown. Blocked addresses are listed under Suppressions. |
 
@@ -82,6 +98,8 @@ A campaign set to **Send at Each Recipient's Local Time** is checked against its
 
 **No marketing texts on Sunday, and only from 10:00 to 20:00.** Send Windows → Text: From **10:00**, To **20:00**, click **Sun** off, switch it on.
 
+**No marketing over the holidays, every year.** Blackout Dates → Add Date → Name **Holidays**, From **24 Dec**, To **26 Dec**, tick **Every Year** → Add Date.
+
 **Pause a cap for a big launch.** Switch its **In Use** off, and on again afterwards. Or switch **Apply Corporate Frequency Limits** off on that one campaign's Schedule step.
 
 ## What happens behind the scenes
@@ -93,4 +111,6 @@ A campaign set to **Send at Each Recipient's Local Time** is checked against its
 
 - A journey's marketing messages are checked like a campaign's: a customer at a cap or within a gap skips that message and moves on. They also count towards the caps and gaps.
 - A cap of 1 per day on email still lets a transactional email through the same day.
+- A blackout date holds back a journey's marketing messages too: customers who reach that step wait together and are sent the next clear day.
+- A drip whose message falls on a blackout date says so on its Review step, with the day it will go out instead.
 - Removing a cap does not resend anything to people it skipped earlier.

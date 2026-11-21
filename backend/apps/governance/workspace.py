@@ -1,5 +1,5 @@
-"""A workspace's Governance page (Settings → Engagement → Governance): its frequency caps and its gaps between messages (the
-platform's copies, locked, and its own), the rules the send engine applies besides them, and what they did in the last 30 days.
+"""A workspace's Governance page (Settings → Engagement → Governance): its frequency caps, gaps between messages, send windows
+and blackout dates (the platform's copies, locked, and its own), the rules the send engine applies besides them, and what they did in the last 30 days.
 
 Every cap and gap applies: a person who has reached any cap, or received a marketing message of the channel within a gap, is
 skipped by a marketing send (apps/delivery/engine/audience*.py, reason FREQUENCY_CAP). A gap is a policy row with gap_hours
@@ -65,7 +65,7 @@ def _row(policy: CommunicationGovernancePolicy) -> dict:
 def caps(tenant_id) -> list[dict]:
     """the platform's copies first, then the workspace's own; each by channel (All Channels, Email, Text, WhatsApp) and period"""
     order = ["ALL", *CHANNELS]
-    rows = [_row(p) for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True)]
+    rows = [_row(p) for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True)]
     return sorted(rows, key=lambda row: (not row["platform"], order.index(row["channel"]) if row["channel"] in order else len(order), row["period_days"], row["max_messages"]))
 
 
@@ -126,6 +126,108 @@ def windows(tenant_id) -> list[dict]:
     return entries
 
 
+def _today(tenant_id):
+    """today in the workspace's time zone, which blackout dates are read in"""
+    from zoneinfo import ZoneInfo
+
+    from apps.tenants.models import Tenant
+    zone = Tenant.objects.filter(pk=tenant_id).values_list("timezone", flat=True).first() or "UTC"
+    try:
+        return timezone.now().astimezone(ZoneInfo(zone)).date()
+    except Exception:                                          # noqa: BLE001  (an unknown zone: UTC)
+        return timezone.now().date()
+
+
+def _blackout_row(policy: CommunicationGovernancePolicy, today) -> dict:
+    from apps.governance import blackout as rules
+    item = rules.Blackout(policy.blackout_from, policy.blackout_to, policy.blackout_yearly, policy.name)
+    upcoming = item.next_start(today)
+    return {"id": str(policy.pk), "name": policy.name, "from": policy.blackout_from.isoformat(), "to": policy.blackout_to.isoformat(),
+            "yearly": policy.blackout_yearly, "rule": rules.describe(policy.blackout_from, policy.blackout_to, policy.blackout_yearly),
+            "next": upcoming.isoformat() if upcoming else None, "today": item.covers(today), "past": upcoming is None,
+            "is_active": policy.is_active, "platform": policy.platform_policy_id is not None, "row_version": policy.row_version}
+
+
+def blackouts(tenant_id) -> list[dict]:
+    """Every blackout date that applies, the platform's (locked) and the workspace's own, soonest first; one-off dates that
+    have passed come last, the latest of them first."""
+    today = _today(tenant_id)
+    rows = [_blackout_row(p, today) for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, blackout_from__isnull=False)]
+    upcoming = sorted((row for row in rows if not row["past"]), key=lambda row: (row["next"], row["name"]))
+    passed = sorted((row for row in rows if row["past"]), key=lambda row: row["from"], reverse=True)
+    return upcoming + passed
+
+
+def _own_blackout(tenant_id, policy_id) -> CommunicationGovernancePolicy:
+    policy = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, pk=policy_id, deleted_at__isnull=True, blackout_from__isnull=False).first()
+    if policy is None:
+        raise LookupError("No such blackout date.")
+    if policy.platform_policy_id is not None:
+        raise Locked(LOCKED_MESSAGE)
+    return policy
+
+
+def _clean_blackout(tenant_id, data: dict, own: CommunicationGovernancePolicy | None = None) -> dict:
+    from datetime import date
+
+    from apps.governance import blackout as rules
+    name = " ".join(str(data.get("name", own.name if own else "") or "").split())
+    if not name:
+        raise GovernanceError("name", "Give the date a name, such as Christmas.")
+    if len(name) > 120:
+        raise GovernanceError("name", "At most 120 characters.")
+    days = {}
+    for field, stored in (("from", own.blackout_from if own else None), ("to", own.blackout_to if own else None)):
+        raw = data.get(field, stored.isoformat() if stored else None)
+        if field == "to" and raw in (None, ""):
+            days[field] = days["from"]
+            continue
+        try:
+            days[field] = raw if isinstance(raw, date) else date.fromisoformat(str(raw)[:10])
+        except (TypeError, ValueError):
+            raise GovernanceError(field, "A date such as 2026-12-25.") from None
+    if days["to"] < days["from"]:
+        raise GovernanceError("to", "The last day is on or after the first.")
+    if (days["to"] - days["from"]).days >= rules.MAX_DAYS:
+        raise GovernanceError("to", f"A blackout is at most {rules.MAX_DAYS} days.")
+    yearly = bool(data["yearly"]) if "yearly" in data else (own.blackout_yearly if own else False)
+    moved = own is None or (days["from"], days["to"], yearly) != (own.blackout_from, own.blackout_to, own.blackout_yearly)
+    if moved and not yearly and days["to"] < _today(tenant_id):
+        raise GovernanceError("from", "These dates have passed. Choose dates from today on, or turn on Every Year.")
+    clash = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, name=name).exclude(pk=own.pk if own else None).exists()
+    if clash:
+        raise GovernanceError("name", f"Another rule is already called {name}. Choose another name.")
+    values = {"name": name, "scope": "GLOBAL", "channel": None, "max_messages": 1, "period_days": 1,
+              "blackout_from": days["from"], "blackout_to": days["to"], "blackout_yearly": yearly}
+    if "is_active" in data:
+        values["is_active"] = bool(data["is_active"])
+    return values
+
+
+def add_blackout(tenant_id, data: dict, user_id) -> dict:
+    """A blackout date of the workspace's own: {name, from, to (defaults to from), yearly, is_active}. Returns {blackouts}."""
+    values = _clean_blackout(tenant_id, data)
+    CommunicationGovernancePolicy.objects.create(tenant_id=tenant_id, applies_to="MARKETING", priority=100, created_by_id=user_id, **values)
+    return {"blackouts": blackouts(tenant_id)}
+
+
+def change_blackout(tenant_id, policy_id, data: dict, user_id) -> dict:
+    policy = _own_blackout(tenant_id, policy_id)
+    values = _clean_blackout(tenant_id, data, own=policy)
+    for field, value in values.items():
+        setattr(policy, field, value)
+    policy.updated_by_id = user_id
+    policy.save(update_fields=[*values, "updated_by"])
+    return {"blackouts": blackouts(tenant_id)}
+
+
+def remove_blackout(tenant_id, policy_id, user_id) -> dict:
+    policy = _own_blackout(tenant_id, policy_id)
+    policy.deleted_at, policy.is_active, policy.updated_by_id = timezone.now(), False, user_id
+    policy.save(update_fields=["deleted_at", "is_active", "updated_by"])
+    return {"blackouts": blackouts(tenant_id)}
+
+
 def activity(tenant_id, days: int = 30) -> dict:
     """What the rules did to marketing and transactional sends alike over the last `days` days: people checked, sent, skipped by a cap."""
     since = timezone.now() - timezone.timedelta(days=days)
@@ -143,8 +245,8 @@ def overview(tenant_id) -> dict:
     window = params.get("messaging.sms_quiet_hours", {}) or {}
     quiet = {"start": window["start"], "end": window["end"]} if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"] else None
     cap_rows = caps(tenant_id)
-    return {"caps": cap_rows, "gaps": gaps(tenant_id, cap_rows), "windows": windows(tenant_id), "activity": activity(tenant_id), "text_quiet_hours": quiet,
-            "soft_bounces": SOFT_BOUNCE_BLOCK_AFTER}
+    return {"caps": cap_rows, "gaps": gaps(tenant_id, cap_rows), "windows": windows(tenant_id), "blackouts": blackouts(tenant_id), "activity": activity(tenant_id),
+            "text_quiet_hours": quiet, "soft_bounces": SOFT_BOUNCE_BLOCK_AFTER}
 
 
 def _clean(data: dict) -> dict:
@@ -177,7 +279,7 @@ def _name(tenant_id, values: dict, exclude=None, using: str = "default") -> str:
 
 
 def _own(tenant_id, policy_id) -> CommunicationGovernancePolicy:
-    policy = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, pk=policy_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True).first()
+    policy = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, pk=policy_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True, blackout_from__isnull=True).first()
     if policy is None:
         raise LookupError("No such cap.")
     if policy.platform_policy_id is not None:

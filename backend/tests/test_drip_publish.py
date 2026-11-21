@@ -284,6 +284,13 @@ def test_review_timeline_and_warnings(world, check):
     check("QUIET_HOURS: a marketing text at 21:30 waits until 08:00; one at noon doesn't",
           late[0]["warnings"] == [{"code": "QUIET_HOURS", "message": f"Sends at 21:30 {zone}, inside quiet hours for texts. It will wait until 08:00."}]
           and late[1]["warnings"] == [] and late[0]["subject"] == "ZS: tonight only. Reply STOP to opt out.", late)
+    first_day = world.start(days=4).date()
+    world.sql("""INSERT INTO communication_governance_policy (tenant_id, name, scope, max_messages, period_days, applies_to, priority, blackout_from, blackout_to)
+                 VALUES (%s, 'ZS Shutdown', 'GLOBAL', 1, 1, 'MARKETING', 1, %s, %s)""", [world.tenant, first_day, first_day])
+    held = world.api("get", f"/api/v1/campaigns/{cid}/steps/review/").json()["messages"]
+    check("BLACKOUT: the first email falls on a blackout date and says when it will go instead; the others do not",
+          [item["code"] for item in held[0]["warnings"]] == ["BLACKOUT"] and "a blackout date (ZS Shutdown). It will wait until" in held[0]["warnings"][0]["message"]
+          and not any(item["code"] == "BLACKOUT" for row in held[1:] for item in row["warnings"]), held)
     check.done()
 
 
