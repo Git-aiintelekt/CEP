@@ -2,8 +2,8 @@
  * Settings → Engagement → Governance (docs/mockups/governance.html, option A): how often marketing may reach a person, and what
  * the rules did. The platform's caps are shown locked; the workspace adds its own beside them, and every cap applies, so its
  * own can only make sending stricter. A Gap Between Messages per channel skips a person who received marketing of that channel
- * within the last hours; send windows say when it may go out, and blackout dates which days it may not. Transactional messages
- * and e-receipts are never capped or held.
+ * within the last hours; send windows say when it may go out, and blackout dates which days it may not. Unengaged Contacts leaves
+ * out of marketing email people who stopped engaging long ago. Transactional messages and e-receipts are never capped or held.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Lock, Plus } from 'lucide-react'
@@ -18,6 +18,7 @@ import { Tag } from '@/components/StatusBadge'
 import { Switch } from '@/components/Switch'
 import { BlackoutDates, BlackoutForm } from './BlackoutDates'
 import { SendWindows } from './SendWindows'
+import { UnengagedActions, UnengagedContacts, UnengagedForm } from './UnengagedContacts'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/lib/api'
 import { formatNumber, formatPercent } from '@/lib/format'
@@ -141,6 +142,7 @@ export function GovernancePage({ canEdit }: { canEdit?: boolean } = {}) {
   const editable = canEdit ?? can('governance.edit')
   const [editing, setEditing] = useState<GovernanceCap | 'new' | null>(null)
   const [editingDate, setEditingDate] = useState<GovernanceBlackout | 'new' | null>(null)
+  const [editingUnengaged, setEditingUnengaged] = useState(false)
   const data = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<GovernanceOverview>('/workspace/governance/', undefined, signal) })
   const toggle = useMutation({
     mutationFn: (cap: GovernanceCap) => api.patch<GovernanceCap>(`/workspace/governance/caps/${cap.id}/`, { is_active: !cap.is_active }),
@@ -157,7 +159,7 @@ export function GovernancePage({ canEdit }: { canEdit?: boolean } = {}) {
 
   if (data.isError) return <ErrorState title="Governance could not be loaded" error={data.error} onRetry={() => void data.refetch()} />
   if (data.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
-  const { caps, gaps, windows, blackouts = [], activity, soft_bounces: softBounces } = data.data
+  const { caps, gaps, windows, blackouts = [], unengaged, activity, soft_bounces: softBounces } = data.data
   const platformCaps = caps.filter((cap) => cap.platform).length
   const ownCaps = caps.length - platformCaps
 
@@ -236,10 +238,18 @@ export function GovernancePage({ canEdit }: { canEdit?: boolean } = {}) {
         <BlackoutDates blackouts={blackouts} editable={editable} onEdit={setEditingDate} />
       </Card>
 
+      {unengaged && (
+        <Card title="Unengaged Contacts" description="Marketing email leaves out people who have not engaged for a long time, to keep the workspace out of spam folders. Nobody is unsubscribed: one click or purchase brings a person back on the next send."
+          actions={<UnengagedActions card={unengaged} editable={editable} onEdit={() => setEditingUnengaged(true)} />}>
+          <UnengagedContacts card={unengaged} editable={editable} />
+        </Card>
+      )}
+
       <Card title="Priority and Exemptions" description="What the caps leave alone.">
         <ul className="space-y-2 text-sm text-ink-900">
           <li><span className="font-semibold">Transactional messages and e-receipts</span> are never capped and do not count towards a cap.</li>
           <li><span className="font-semibold">A campaign</span> can be set to ignore the caps: Apply Corporate Frequency Limits on its Schedule step, on by default. Switching it off is recorded in the activity log.</li>
+          <li><span className="font-semibold">A win-back campaign</span> can reach unengaged contacts: Include Unengaged Contacts on its Schedule step, off by default, also recorded.</li>
         </ul>
       </Card>
 
@@ -252,6 +262,7 @@ export function GovernancePage({ canEdit }: { canEdit?: boolean } = {}) {
       </Card>
 
       {editing && <CapForm cap={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {editingUnengaged && unengaged && <UnengagedForm card={unengaged} onClose={() => setEditingUnengaged(false)} />}
       {editingDate && <BlackoutForm blackout={editingDate === 'new' ? null : editingDate} onClose={() => setEditingDate(null)} />}
     </div>
   )

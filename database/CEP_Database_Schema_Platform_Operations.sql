@@ -3572,6 +3572,31 @@ ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_pol
 COMMENT ON COLUMN communication_governance_policy.blackout_from IS 'Blackout date: the first day with no marketing, workspace time zone (NULL: not a blackout).';
 COMMENT ON COLUMN platform_governance_policy.blackout_from IS 'Blackout date: the first day with no marketing, workspace time zone (NULL: not a blackout).';
 
+-- Unengaged contacts (patch 0094): a policy with unengaged_days leaves out of marketing email anyone whose first marketing email
+-- went out at least that many days ago, who was sent at least unengaged_min_emails marketing emails in those days, and who made
+-- no email click, text link click, purchase, e-receipt or preference-page visit in them (opens are not counted). Email only; the
+-- strictest active rule applies (fewest days, fewest emails). Not a cap: the frequency checks ignore these rows. Nobody is
+-- unsubscribed: the next engagement brings a person back. campaign.include_unengaged lets a win-back campaign reach them.
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS unengaged_days INTEGER;
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS unengaged_min_emails INTEGER;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS unengaged_days INTEGER;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS unengaged_min_emails INTEGER;
+ALTER TABLE communication_governance_policy DROP CONSTRAINT IF EXISTS ck_governance_policy_unengaged;
+ALTER TABLE communication_governance_policy ADD CONSTRAINT ck_governance_policy_unengaged CHECK (
+    (unengaged_days IS NULL AND unengaged_min_emails IS NULL)
+    OR (unengaged_days BETWEEN 30 AND 360 AND unengaged_min_emails BETWEEN 1 AND 20 AND scope = 'CHANNEL' AND channel = 'EMAIL'
+        AND max_messages = 1 AND gap_hours IS NULL AND window_start IS NULL AND blackout_from IS NULL));
+ALTER TABLE platform_governance_policy DROP CONSTRAINT IF EXISTS ck_platform_governance_policy_unengaged;
+ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_policy_unengaged CHECK (
+    (unengaged_days IS NULL AND unengaged_min_emails IS NULL)
+    OR (unengaged_days BETWEEN 30 AND 360 AND unengaged_min_emails BETWEEN 1 AND 20 AND scope = 'CHANNEL' AND channel = 'EMAIL'
+        AND max_messages = 1 AND gap_hours IS NULL AND window_start IS NULL AND blackout_from IS NULL));
+COMMENT ON COLUMN communication_governance_policy.unengaged_days IS 'Unengaged contacts: days without engagement that leave a person out of marketing email (NULL: not this rule).';
+COMMENT ON COLUMN platform_governance_policy.unengaged_days IS 'Unengaged contacts: the most days a workspace may use (NULL: not this rule).';
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS include_unengaged BOOLEAN NOT NULL DEFAULT FALSE;
+COMMENT ON COLUMN campaign.include_unengaged IS 'A win-back campaign: unengaged contacts are not left out of it (recorded in the activity log).';
+CREATE INDEX IF NOT EXISTS ix_attributed_order_party ON attributed_order(tenant_id, party_id, ordered_at DESC) WHERE party_id IS NOT NULL;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

@@ -480,6 +480,8 @@ export interface Campaign extends Audited {
   recurring_config: RecurringConfig | null
   drip_config: DripConfig | null
   respect_governance: boolean
+  /** a win-back campaign: unengaged contacts are not left out (patch 0094) */
+  include_unengaged?: boolean
   rate_limit_per_hour: number | null
   timezone_optimization: boolean
   targets: CampaignTargets | null
@@ -717,7 +719,11 @@ export interface DripReview {
     estimated_recipients: number
     warnings: { code: DripWarningCode; message: string }[]
   }[]
-  summary: { count: number; first_send_at: string | null; last_send_at: string | null; estimated_recipients: number }
+  summary: {
+    count: number; first_send_at: string | null; last_send_at: string | null; estimated_recipients: number
+    /** the Unengaged Contacts rule the drip's emails meet; null for texts, a win-back drip, or no rule */
+    unengaged?: { days: number; min_emails: number; left_out: number; of: number; starts_on: string | null } | null
+  }
 }
 
 /** GET /resume-plan/: what Resume does to a paused drip, without doing it (times in the campaign's zone) */
@@ -907,6 +913,7 @@ export interface CampaignInput {
   recurring_config?: RecurringConfig | null
   drip_config?: DripConfig | null
   respect_governance?: boolean
+  include_unengaged?: boolean
   rate_limit_per_hour?: number | null
   timezone_optimization?: boolean
   targets?: Partial<CampaignTargets> | null
@@ -3007,6 +3014,8 @@ export interface CustomerRecord {
     where: { node_key: string; node_type: string; label: string; next_scheduled_at: string | null } | null
   }[]
   journey_suppressions: { journey_id: string; journey_name: string; note: string | null; created_at: string }[]
+  /** Unengaged Contacts as it sees this person: emails counts marketing emails in the rule's days */
+  engagement?: { last_engaged_at: string | null; emails: number; days: number | null; rule_on: boolean; unengaged: boolean; unengaged_since: string | null }
 }
 
 /** GET /reports/journeys/ : the Journeys dataset, per journey per day over the period (apps/reporting/journey_reports.py) */
@@ -3224,12 +3233,48 @@ export interface GovernanceBlackout {
   platform: boolean
   row_version: number
 }
+export interface GovernanceUnengagedRule {
+  id: string
+  name: string
+  days: number
+  min_emails: number
+  /** 'No engagement in 180 days, after at least 5 marketing emails' */
+  rule: string
+  is_active: boolean
+  platform: boolean
+  row_version: number
+}
+
+/** what a rule does to the workspace's email contacts (marketing consent, a valid address) today */
+export interface GovernanceUnengagedToday {
+  total: number
+  engaged: number
+  unengaged: number
+  too_new: number
+  /** with nobody left out yet: the first day anyone can be (the rule's days after the earliest first marketing email) */
+  starts_on: string | null
+}
+
+/** Governance → Unengaged Contacts (patch 0094): marketing email leaves out people with no click, purchase or preference visit */
+export interface GovernanceUnengaged {
+  own: GovernanceUnengagedRule | null
+  platform: GovernanceUnengagedRule[]
+  /** the rule that applies: the fewest days and emails of the active ones; null when none is on */
+  applies: { days: number; min_emails: number } | null
+  /** the platform's longest allowed; the workspace's own may only be stricter */
+  limit: { days: number; min_emails: number } | null
+  recommended: { days: number; min_emails: number }
+  today: GovernanceUnengagedToday
+  recent: { days: number; left_out: number; came_back: number }
+}
+
 export interface GovernanceOverview {
   caps: GovernanceCap[]
   gaps: GovernanceGapChannel[]
   windows: GovernanceWindowChannel[]
   /** soonest first; one-off dates that have passed last */
   blackouts: GovernanceBlackout[]
+  unengaged?: GovernanceUnengaged
   activity: { days: number; checked: number; sent: number; capped: number; sent_percent: number | null }
   text_quiet_hours: { start: string; end: string } | null
   soft_bounces: number

@@ -283,6 +283,12 @@ const SAMPLE_GOVERNANCE: GovernanceOverview = {
     blackoutDate('b4', 'Store System Change', '2027-02-08', '2027-02-09', '8 Feb – 9 Feb 2027', { yearly: false, is_active: false }),
     blackoutDate('b5', 'Day of Mourning', '2026-09-30', '2026-09-30', '30 Sep 2026', { yearly: false, next: null, past: true }),
   ],
+  unengaged: {
+    own: { id: 'u1', name: 'Unengaged Contacts', days: 180, min_emails: 5, rule: 'No engagement in 180 days, after at least 5 marketing emails', is_active: true, platform: false, row_version: 1 },
+    platform: [{ id: 'u2', name: 'Platform Standard: Unengaged Contacts', days: 270, min_emails: 5, rule: 'No engagement in 270 days, after at least 5 marketing emails', is_active: true, platform: true, row_version: 1 }],
+    applies: { days: 180, min_emails: 5 }, limit: { days: 270, min_emails: 5 }, recommended: { days: 180, min_emails: 5 },
+    today: { total: 48210, engaged: 39880, unengaged: 2940, too_new: 5390, starts_on: null }, recent: { days: 30, left_out: 8420, came_back: 186 },
+  },
   activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
   text_quiet_hours: null,
   soft_bounces: 3,

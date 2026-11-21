@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import type { Column } from '@/components/DataTable'
 import { DataTable } from '@/components/DataTable'
 import { SkeletonLine } from '@/components/States'
+import { formatDay as dayLabel, formatPercent } from '@/lib/format'
 import type { DripReview, DripStep } from '@/lib/types'
 
 import { whenInZone, type Series } from '../dripSequence'
@@ -55,6 +56,13 @@ export function ReviewTimeline({ campaignId, review, steps, series, error, onRet
         : (
           <>
             <p className="cep-num border-b border-line-subtle px-6 py-3 text-sm text-ink-900" data-review-summary>{reviewSummary(review, series)}</p>
+            {review.summary.unengaged && (
+              <p className="border-b border-line-subtle px-6 py-3 text-sm text-ink-800" data-review-unengaged>
+                Unengaged contacts are left out of this drip's emails: people with no engagement in {review.summary.unengaged.days} days, after at least {review.summary.unengaged.min_emails} marketing emails.
+                {review.summary.unengaged.starts_on ? ` Nobody is left out before ${dayLabel(review.summary.unengaged.starts_on)}.`
+                  : review.summary.unengaged.of > 0 ? ` About ${formatPercent((100 * review.summary.unengaged.left_out) / review.summary.unengaged.of)} of the workspace's email contacts today.` : ''}
+              </p>
+            )}
             <div className="overflow-x-auto">
               <div className="min-w-[720px]">
                 <DataTable caption="Review Timeline" columns={columns} rows={review.messages} rowKey={(row) => row.id} framed={false} inset="card" phone="table" />

@@ -123,5 +123,7 @@ def record(tenant_id, party_id: str) -> dict | None:
                                                                                            "next_scheduled_at": next_at}})
         cursor.execute(SUPPRESSED_SQL, args)
         suppressed = [{"journey_id": pk, "journey_name": name, "note": note, "created_at": created} for pk, name, note, created in cursor.fetchall()]
+        from apps.governance import unengaged
+        engagement = unengaged.for_party(tenant_id, party_id, cursor, using=session.connection().alias)
     return {"customer": customer, "consent": consent, "lists": lists, "events": events, "orders": orders, "messages": messages, "journeys": journeys,
-            "journey_suppressions": suppressed}
+            "journey_suppressions": suppressed, "engagement": engagement}

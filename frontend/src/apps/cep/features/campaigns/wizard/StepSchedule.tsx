@@ -155,6 +155,9 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
           <CheckRow id="respect-governance" checked={watch('respect_governance')} onChange={(value) => setValue('respect_governance', value, touch)}
             label="Apply Corporate Frequency Limits"
             hint={marketing ? 'Recommended. Switching this off is recorded in the activity log. Consent, unsubscribes and blocked addresses always apply.' : 'Service and transactional messages may be exempt. Unsubscribes of texts and blocked addresses always apply.'} />
+          {marketing && !texts && <CheckRow id="include-unengaged" checked={watch('include_unengaged')} onChange={(value) => setValue('include_unengaged', value, touch)}
+            label="Include Unengaged Contacts"
+            hint="Off: people with no click, purchase or preference visit in the Unengaged Contacts period (Settings → Governance) are left out. On: they get this campaign too; use it for a win-back campaign. Recorded in the activity log." />}
           <CheckRow id="zone-optimization" checked={watch('timezone_optimization')} onChange={(value) => setValue('timezone_optimization', value, touch)}
             label="Send at Each Recipient's Local Time"
             hint="The same clock time in each recipient's own time zone, from their address (a US or Canadian state, or a country with one zone) or a timezone attribute. The send starts as the first zone reaches the time and ends with the last." />

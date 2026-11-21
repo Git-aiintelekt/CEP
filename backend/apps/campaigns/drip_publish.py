@@ -244,7 +244,7 @@ def _caps(campaign) -> list[tuple]:
     channel = campaign.channel if campaign.channel in TEXT_CHANNELS else "EMAIL"
     with service._conn().cursor() as cursor:
         cursor.execute("""SELECT scope, channel, max_messages, period_days, gap_hours FROM communication_governance_policy
-                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL AND window_start IS NULL AND blackout_from IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
+                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL AND window_start IS NULL AND blackout_from IS NULL AND unengaged_days IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
         rows = cursor.fetchall()
     limits = []
     for scope, own, maximum, days, hours in rows:
@@ -311,4 +311,18 @@ def review(campaign) -> dict:
         rows.append({"id": str(step.pk), "position": index + 1, "name": step.name, "day": step.day, "scheduled_for": drip.scheduled_for(campaign, step),
                      "subject": subject, "estimated_recipients": estimate, "warnings": warnings})
     return {"messages": rows, "summary": {"count": len(rows), "first_send_at": rows[0]["scheduled_for"] if rows else None,
-                                          "last_send_at": rows[-1]["scheduled_for"] if rows else None, "estimated_recipients": estimate}}
+                                          "last_send_at": rows[-1]["scheduled_for"] if rows else None, "estimated_recipients": estimate,
+                                          "unengaged": _unengaged(campaign) if marketing and not texts else None}}
+
+
+def _unengaged(campaign) -> dict | None:
+    """The Unengaged Contacts rule this drip's emails meet, in numbers for its Review step; None when none applies or the drip
+    includes unengaged contacts (a win-back series)."""
+    from apps.governance import unengaged
+    if campaign.include_unengaged:
+        return None
+    active = unengaged.rule(campaign.tenant_id)
+    if active is None:
+        return None
+    today = unengaged.today(campaign.tenant_id, active)
+    return {"days": active.days, "min_emails": active.min_emails, "left_out": today["unengaged"], "of": today["total"], "starts_on": today["starts_on"]}
