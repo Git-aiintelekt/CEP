@@ -244,7 +244,7 @@ def _caps(campaign) -> list[tuple]:
     channel = campaign.channel if campaign.channel in TEXT_CHANNELS else "EMAIL"
     with service._conn().cursor() as cursor:
         cursor.execute("""SELECT scope, channel, max_messages, period_days, gap_hours FROM communication_governance_policy
-                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
+                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL AND window_start IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
         rows = cursor.fetchall()
     limits = []
     for scope, own, maximum, days, hours in rows:
@@ -264,7 +264,6 @@ def _moment(campaign, step) -> datetime | None:
 
 
 def review(campaign) -> dict:
-    from apps.delivery.engine import runs as engine_runs
     from apps.delivery.engine.render import subject_of
     steps = drip.steps_of(campaign)
     contents = drip._contents(steps)
@@ -288,14 +287,18 @@ def review(campaign) -> dict:
                 warnings.append({"code": "FREQUENCY", "message": f"This drip sends {window} {noun} within {words}; "
                                                                  f"the limit is {maximum}, so this message will skip people."})
                 break
-        if texts and marketing and drip._clock(campaign, step, campaign.scheduled_at) is not None:
+        if marketing and drip._clock(campaign, step, campaign.scheduled_at) is not None:
             from zoneinfo import ZoneInfo
+
+            from apps.governance import windows
             moment = drip.scheduled_for(campaign, step) or datetime.combine(timezone.now().astimezone(service.zone_of(campaign)).date(),
                                                                             drip._clock(campaign, step, None), tzinfo=service.zone_of(campaign))
-            opens = engine_runs.quiet_until(tenant_zone, now=moment)
+            with service._conn().cursor() as cursor:
+                opens, words = windows.hold_until(cursor, campaign.tenant_id, campaign.channel if texts else "EMAIL", tenant_zone, now=moment)
             if opens is not None:
                 local = moment.astimezone(ZoneInfo(tenant_zone))
-                warnings.append({"code": "QUIET_HOURS", "message": f"Sends at {local:%H:%M %Z}, inside quiet hours for texts. It will wait until {opens:%H:%M}."})
+                warnings.append({"code": "QUIET_HOURS", "message": f"Sends at {local:%H:%M %Z}, inside quiet hours for texts. It will wait until {opens:%H:%M}."
+                                 if words.startswith("Quiet hours") else f"Sends at {local:%H:%M %Z}, outside the send window for {noun}. It will wait until {opens:%a %H:%M}."})
         if texts:
             subject = ((getattr(content, "sms_body", None) or "").strip()[:80]) or None
         else:

@@ -10,12 +10,17 @@ workspace standards for the channels it does not cap yet. Running it again chang
 """
 from __future__ import annotations
 
+from datetime import time
+
 from django.db import connections, transaction
 
 PLATFORM = [
     {"name": "Platform Standard: Email, 1 per Day", "scope": "CHANNEL", "channel": "EMAIL", "max_messages": 1, "period_days": 1, "priority": 10},
     {"name": "Platform Standard: Text, 1 per Day", "scope": "CHANNEL", "channel": "SMS", "max_messages": 1, "period_days": 1, "priority": 10},
     {"name": "Platform Standard: WhatsApp, 1 per Day", "scope": "CHANNEL", "channel": "WHATSAPP", "max_messages": 1, "period_days": 1, "priority": 10},
+    # texts 08:00 to 21:00 every day: the quiet hours 21:00 to 08:00 that US texting rules expect, which messaging.sms_quiet_hours held before
+    {"name": "Platform Standard: Text Send Window, 08:00-21:00", "scope": "CHANNEL", "channel": "SMS", "max_messages": 1, "period_days": 1, "priority": 10,
+     "window_start": time(8, 0), "window_end": time(21, 0), "window_days": [1, 2, 3, 4, 5, 6, 7]},
 ]
 WORKSPACE = [
     {"channel": "EMAIL", "max_messages": 3, "period_days": 7},
@@ -30,7 +35,7 @@ GAPS = {"EMAIL": 16, "SMS": 24, "WHATSAPP": 24}
 def _own_channels(tenant_id, using: str) -> set[str]:
     """the channels the workspace already caps itself (ALL for a cap on every channel together)"""
     from apps.governance.models import CommunicationGovernancePolicy
-    rows = CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, platform_policy_id__isnull=True, gap_hours__isnull=True)
+    rows = CommunicationGovernancePolicy.objects.using(using).filter(tenant_id=tenant_id, deleted_at__isnull=True, platform_policy_id__isnull=True, gap_hours__isnull=True, window_start__isnull=True)
     return {"ALL" if row.scope == "GLOBAL" else (row.channel or "EMAIL") for row in rows}
 
 

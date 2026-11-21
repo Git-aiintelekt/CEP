@@ -13,7 +13,8 @@ from .models import PlatformGovernancePolicy
 
 P = settings.PLATFORM_ALIAS
 ALL, SELECTED, ONE = "ALL", "SELECTED", "ONE"
-CAP, GAP = "CAP", "GAP"
+CAP, GAP, WINDOW = "CAP", "GAP", "WINDOW"
+DAYS = [("1", "Mon"), ("2", "Tue"), ("3", "Wed"), ("4", "Thu"), ("5", "Fri"), ("6", "Sat"), ("7", "Sun")]
 MAX_GAP_HOURS = 168
 
 
@@ -25,7 +26,10 @@ def _workspaces() -> list[tuple[str, str]]:
 class PlatformPolicyForm(forms.ModelForm):
     kind = forms.ChoiceField(label="Kind", widget=UnfoldAdminRadioSelectWidget, initial=CAP, choices=[
         (CAP, "Frequency Cap: the most marketing messages one person receives in a number of days"),
-        (GAP, "Gap Between Messages: the hours that must pass after one marketing message before the next (one channel)")])
+        (GAP, "Gap Between Messages: the hours that must pass after one marketing message before the next (one channel)"),
+        (WINDOW, "Send Window: the hours and days marketing of one channel may go out, in each workspace's time zone; outside them a send waits")])
+    days = forms.MultipleChoiceField(label="Window Days", required=False, choices=DAYS, widget=forms.CheckboxSelectMultiple, initial=[d for d, _ in DAYS],
+                                     help_text="For a Send Window: the days it opens. A window past midnight (22:00 to 02:00) belongs to the day it opens.")
     reach = forms.ChoiceField(label="Applies To", widget=UnfoldAdminRadioSelectWidget, initial=ALL, choices=[
         (ALL, "All Workspaces: every workspace now and every workspace onboarded later"),
         (SELECTED, "Selected Workspaces: the workspaces chosen below; one added later is not included until chosen"),
@@ -36,8 +40,8 @@ class PlatformPolicyForm(forms.ModelForm):
 
     class Meta:
         model = PlatformGovernancePolicy
-        fields = ("name", "scope", "channel", "max_messages", "period_days", "gap_hours", "priority", "is_active")
-        labels = {"gap_hours": "Gap (Hours)"}
+        fields = ("name", "scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "priority", "is_active")
+        labels = {"gap_hours": "Gap (Hours)", "window_start": "Window From", "window_end": "Window To"}
         help_texts = {
             "name": "Shown to each workspace on its Governance page, locked.",
             "scope": "One Channel counts that channel's messages; All Channels Together counts every email, text and WhatsApp message.",
@@ -45,6 +49,8 @@ class PlatformPolicyForm(forms.ModelForm):
             "max_messages": "The most marketing messages one person may receive within the period. A message over it is skipped for that person (Frequency Capped); transactional messages and e-receipts are never capped.",
             "period_days": "The rolling window the messages are counted in, in days.",
             "gap_hours": "For a Gap Between Messages: 1 to 168. A person who received a marketing message of the channel in the last this many hours is skipped (Frequency Capped).",
+            "window_start": "For a Send Window: when marketing may start going out, as HH:MM in each workspace's time zone.",
+            "window_end": "For a Send Window: when it stops. Earlier than From runs past midnight (22:00 to 02:00).",
             "priority": "Lower comes first when the send log names the cap that held a person back.",
             "is_active": "Off: the workspaces keep a copy that does not apply, so it can be switched on again in one place.",
         }
@@ -58,7 +64,9 @@ class PlatformPolicyForm(forms.ModelForm):
             self.fields[field].required = False
         policy = self.instance
         if policy and policy.pk:
-            self.fields["kind"].initial = GAP if policy.gap_hours else CAP
+            self.fields["kind"].initial = WINDOW if policy.window_start else GAP if policy.gap_hours else CAP
+            if policy.window_days:
+                self.fields["days"].initial = [str(day) for day in policy.window_days]
             chosen = [str(t) for t in policy.tenant_ids]
             self.fields["reach"].initial = ALL if policy.applies_all else ONE if len(chosen) == 1 else SELECTED
             self.fields["workspaces"].initial = chosen
@@ -70,15 +78,28 @@ class PlatformPolicyForm(forms.ModelForm):
             data["channel"] = None
         elif not data.get("channel"):
             self.add_error("channel", "Choose the channel this cap counts.")
-        if data.get("kind") == GAP:
-            if data.get("scope") == PlatformGovernancePolicy.Scope.GLOBAL:
-                self.add_error("scope", "A gap is for one channel: choose One Channel.")
+        kind = data.get("kind")
+        if kind in (GAP, WINDOW) and data.get("scope") == PlatformGovernancePolicy.Scope.GLOBAL:
+            self.add_error("scope", f"A {'gap' if kind == GAP else 'send window'} is for one channel: choose One Channel.")
+        if kind == WINDOW:
+            if data.get("window_start") is None:
+                self.add_error("window_start", "Required for a send window.")
+            if data.get("window_end") is None:
+                self.add_error("window_end", "Required for a send window.")
+            elif data.get("window_start") == data.get("window_end"):
+                self.add_error("window_end", "It must end at a different time from its start.")
+            if not data.get("days"):
+                self.add_error("days", "Choose at least one day.")
+            data["max_messages"], data["period_days"], data["gap_hours"] = 1, 1, None
+        elif kind == GAP:
             hours = data.get("gap_hours")
             if hours is None or not 1 <= hours <= MAX_GAP_HOURS:
                 self.add_error("gap_hours", f"Between 1 and {MAX_GAP_HOURS} hours.")
             data["max_messages"], data["period_days"] = 1, 1
         else:
             data["gap_hours"] = None
+        if kind != WINDOW:
+            data["window_start"] = data["window_end"] = None
             for field in ("max_messages", "period_days"):
                 if data.get(field) is None:
                     self.add_error(field, "Required for a frequency cap.")
@@ -95,6 +116,10 @@ class PlatformPolicyForm(forms.ModelForm):
         policy = super().save(commit=False)
         policy.max_messages, policy.period_days, policy.gap_hours = (self.cleaned_data["max_messages"], self.cleaned_data["period_days"],
                                                                      self.cleaned_data["gap_hours"])
+        window = self.cleaned_data.get("kind") == WINDOW
+        policy.window_start = self.cleaned_data["window_start"] if window else None
+        policy.window_end = self.cleaned_data["window_end"] if window else None
+        policy.window_days = sorted(int(day) for day in self.cleaned_data.get("days") or []) if window else None
         reach = self.cleaned_data["reach"]
         policy.applies_all = reach == ALL
         policy.tenant_ids = [] if reach == ALL else [self.cleaned_data["workspace"]] if reach == ONE else list(self.cleaned_data["workspaces"])
@@ -114,8 +139,8 @@ class PlatformGovernancePolicyAdmin(BaseAdmin):
     readonly_fields = ("created_at", "updated_at")
     actions = ["push_again"]
     fieldsets = (
-        ("The Rule", {"fields": ("name", "kind", "scope", "channel", "max_messages", "period_days", "gap_hours", "priority", "is_active"),
-                      "description": "A Frequency Cap uses Most and Days; a Gap Between Messages uses Gap (Hours)."}),
+        ("The Rule", {"fields": ("name", "kind", "scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "days", "priority", "is_active"),
+                      "description": "A Frequency Cap uses Most and Days; a Gap Between Messages uses Gap (Hours); a Send Window uses Window From, Window To and Window Days."}),
         ("Applies To", {"fields": ("reach", "workspaces", "workspace"),
                         "description": "Each workspace it applies to gets a locked copy on its Governance page. Taking a workspace off removes its copy."}),
     )

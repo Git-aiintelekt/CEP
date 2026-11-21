@@ -41,7 +41,15 @@ def gap_rule(hours: int, channel: str | None) -> str:
     return f"{hours} hour{'s' if hours != 1 else ''} between {WORDS.get(channel, WORDS[None])[1]}"
 
 
+def window_rule(start, end, days, channel: str | None) -> str:
+    from apps.governance.windows import describe
+    noun = WORDS.get(channel, WORDS[None])[1]
+    return f"{noun[:1].upper() + noun[1:]} {describe(start, end, days)}"
+
+
 def _describe(values: dict) -> str:
+    if values.get("window_start"):
+        return window_rule(values["window_start"], values["window_end"], values["window_days"], values["channel"])
     if values.get("gap_hours"):
         return gap_rule(values["gap_hours"], values["channel"])
     return rule(values["max_messages"], values["period_days"], values["channel"])
@@ -57,7 +65,7 @@ def _row(policy: CommunicationGovernancePolicy) -> dict:
 def caps(tenant_id) -> list[dict]:
     """the platform's copies first, then the workspace's own; each by channel (All Channels, Email, Text, WhatsApp) and period"""
     order = ["ALL", *CHANNELS]
-    rows = [_row(p) for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, gap_hours__isnull=True)]
+    rows = [_row(p) for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True)]
     return sorted(rows, key=lambda row: (not row["platform"], order.index(row["channel"]) if row["channel"] in order else len(order), row["period_days"], row["max_messages"]))
 
 
@@ -89,6 +97,35 @@ def gaps(tenant_id, cap_rows: list[dict] | None = None) -> list[dict]:
     return entries
 
 
+def _window_row(policy: CommunicationGovernancePolicy) -> dict:
+    return {"id": str(policy.pk), "name": policy.name, "start": f"{policy.window_start:%H:%M}", "end": f"{policy.window_end:%H:%M}",
+            "days": sorted(policy.window_days or []), "rule": window_rule(policy.window_start, policy.window_end, policy.window_days, policy.channel or "EMAIL"),
+            "is_active": policy.is_active, "platform": policy.platform_policy_id is not None, "row_version": policy.row_version}
+
+
+def _legacy_quiet() -> dict | None:
+    from apps.platform_ops import params
+    window = params.get("messaging.sms_quiet_hours", {}) or {}
+    return {"start": window["start"], "end": window["end"]} if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"] else None
+
+
+def windows(tenant_id) -> list[dict]:
+    """One entry per channel: the workspace's own window (or none), the platform's, the hours a new one starts at, and for texts
+    with no window at all the older quiet hours that still apply."""
+    from apps.governance import windows as rules
+    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, window_start__isnull=False).order_by("created_at"))
+    entries = []
+    for channel, label in CHANNELS.items():
+        mine = [p for p in policies if (p.channel or "EMAIL") == channel]
+        own = next((p for p in mine if p.platform_policy_id is None), None)
+        start, end = rules.RECOMMENDED[channel]
+        active = [p for p in mine if p.is_active]
+        entries.append({"channel": channel, "channel_label": label, "recommended": {"start": start, "end": end, "days": list(rules.EVERY_DAY)},
+                        "own": _window_row(own) if own else None, "platform": [_window_row(p) for p in mine if p.platform_policy_id is not None],
+                        "quiet_hours": _legacy_quiet() if channel == "SMS" and not active else None})
+    return entries
+
+
 def activity(tenant_id, days: int = 30) -> dict:
     """What the rules did to marketing and transactional sends alike over the last `days` days: people checked, sent, skipped by a cap."""
     since = timezone.now() - timezone.timedelta(days=days)
@@ -106,7 +143,7 @@ def overview(tenant_id) -> dict:
     window = params.get("messaging.sms_quiet_hours", {}) or {}
     quiet = {"start": window["start"], "end": window["end"]} if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"] else None
     cap_rows = caps(tenant_id)
-    return {"caps": cap_rows, "gaps": gaps(tenant_id, cap_rows), "activity": activity(tenant_id), "text_quiet_hours": quiet,
+    return {"caps": cap_rows, "gaps": gaps(tenant_id, cap_rows), "windows": windows(tenant_id), "activity": activity(tenant_id), "text_quiet_hours": quiet,
             "soft_bounces": SOFT_BOUNCE_BLOCK_AFTER}
 
 
@@ -140,7 +177,7 @@ def _name(tenant_id, values: dict, exclude=None, using: str = "default") -> str:
 
 
 def _own(tenant_id, policy_id) -> CommunicationGovernancePolicy:
-    policy = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, pk=policy_id, deleted_at__isnull=True, gap_hours__isnull=True).first()
+    policy = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, pk=policy_id, deleted_at__isnull=True, gap_hours__isnull=True, window_start__isnull=True).first()
     if policy is None:
         raise LookupError("No such cap.")
     if policy.platform_policy_id is not None:
@@ -196,6 +233,53 @@ def set_gap(tenant_id, channel: str, data: dict, user_id) -> dict:
         own.name, own.updated_by_id = name, user_id
         own.save(update_fields=[*values, "name", "updated_by"])
     return next(entry for entry in gaps(tenant_id) if entry["channel"] == channel)
+
+
+def set_window(tenant_id, channel: str, data: dict, user_id) -> dict:
+    """The workspace's own send window for one channel, made or changed: {start, end, days, is_active}. It must share some
+    hours with the platform's windows for the channel, or no marketing of that channel could ever go out. Returns the
+    channel's entry of windows()."""
+    from apps.governance import windows as rules
+    channel = str(channel or "").upper()
+    if channel not in CHANNELS:
+        raise LookupError("No such channel.")
+    own = CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, window_start__isnull=False, platform_policy_id__isnull=True,
+                                                       channel=channel).order_by("created_at").first()
+    values = {}
+    for field, stored in (("start", own.window_start if own else None), ("end", own.window_end if own else None)):
+        raw = data.get(field, stored)
+        try:
+            values[field] = rules.parse_time(raw)
+        except (TypeError, ValueError):
+            raise GovernanceError(field, "A time such as 07:00.") from None
+    if values["start"] == values["end"]:
+        raise GovernanceError("end", "The window must end at a different time from its start.")
+    days = data.get("days", own.window_days if own else list(rules.EVERY_DAY))
+    try:
+        days = sorted({int(day) for day in days or []})
+    except (TypeError, ValueError):
+        raise GovernanceError("days", "Choose the days by number, 1 (Monday) to 7 (Sunday).") from None
+    if not days or not set(days) <= set(rules.EVERY_DAY):
+        raise GovernanceError("days", "Choose at least one day.")
+    active = bool(data["is_active"]) if "is_active" in data else (own.is_active if own else True)
+    if active:
+        platform = [rules.Window(p.window_start, p.window_end, tuple(p.window_days or rules.EVERY_DAY))
+                    for p in CommunicationGovernancePolicy.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, is_active=True, window_start__isnull=False,
+                                                                          platform_policy_id__isnull=False, channel=channel)]
+        if platform and not rules.ever_open([*platform, rules.Window(values["start"], values["end"], tuple(days))]):
+            allowed = "; ".join(rules.describe(w.start, w.end, w.days) for w in platform)
+            raise GovernanceError("start", f"These hours never meet the platform's window ({allowed}), so nothing could go out. Choose hours inside it.")
+    fields = {"scope": "CHANNEL", "channel": channel, "max_messages": 1, "period_days": 1, "window_start": values["start"], "window_end": values["end"],
+              "window_days": days, "is_active": active}
+    name = _name(tenant_id, fields, exclude=own.pk if own else None)
+    if own is None:
+        CommunicationGovernancePolicy.objects.create(tenant_id=tenant_id, name=name, applies_to="MARKETING", priority=100, created_by_id=user_id, **fields)
+    else:
+        for field, value in fields.items():
+            setattr(own, field, value)
+        own.name, own.updated_by_id = name, user_id
+        own.save(update_fields=[*fields, "name", "updated_by"])
+    return next(entry for entry in windows(tenant_id) if entry["channel"] == channel)
 
 
 def add_standard(tenant_id, user_id) -> dict:

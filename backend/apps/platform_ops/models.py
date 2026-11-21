@@ -566,6 +566,9 @@ class PlatformGovernancePolicy(models.Model):
     max_messages = models.IntegerField()
     period_days = models.IntegerField()
     gap_hours = models.IntegerField(null=True, blank=True)  # patch 0089: Gap Between Messages instead of a cap
+    window_start = models.TimeField(null=True, blank=True)  # patch 0092: a send window instead of a cap
+    window_end = models.TimeField(null=True, blank=True)
+    window_days = ArrayField(models.SmallIntegerField(), null=True, blank=True)
     applies_to = models.CharField(max_length=20, choices=AppliesTo.choices, default=AppliesTo.MARKETING)
     priority = models.IntegerField(default=100)
     applies_all = models.BooleanField(default=False)
@@ -591,6 +594,9 @@ class PlatformGovernancePolicy(models.Model):
 
     def rule(self) -> str:
         what = "messages" if self.scope == "GLOBAL" else {"EMAIL": "emails", "SMS": "texts", "WHATSAPP": "WhatsApp messages"}.get(self.channel or "", "messages")
+        if self.window_start:
+            from apps.governance.windows import describe
+            return f"{what[:1].upper() + what[1:]} {describe(self.window_start, self.window_end, self.window_days)}"
         if self.gap_hours:
             return f"{self.gap_hours} hour{'s' if self.gap_hours != 1 else ''} between {what}"
         return f"{self.max_messages} {what} per {self.period_days} day{'s' if self.period_days != 1 else ''}"

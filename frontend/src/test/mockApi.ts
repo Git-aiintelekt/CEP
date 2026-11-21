@@ -11,7 +11,7 @@ import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
-import type { GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, WarmUp, WarmUpOverview } from '@/lib/types'
+import type { GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -719,10 +719,24 @@ export const governanceGap = (channel: GovernanceGapChannel['channel'], override
 }
 const gapChannel = (channel: GovernanceGapChannel['channel'], recommended: number, own: GovernanceGap | null, platform: GovernanceGap[] = []): GovernanceGapChannel =>
   ({ channel, channel_label: CAP_WORDS[channel][0], recommended_hours: recommended, own, platform, covered_by: null })
+const EVERY_DAY = [1, 2, 3, 4, 5, 6, 7]
+export const governanceWindow = (channel: GovernanceWindowChannel['channel'], overrides: Partial<GovernanceWindow>): GovernanceWindow => {
+  const window = { id: `window-${channel.toLowerCase()}`, name: 'Window', start: '07:00', end: '21:00', days: EVERY_DAY, is_active: true, platform: false, row_version: 1, ...overrides }
+  const which = window.days.length === 7 ? 'every day' : window.days.join() === '1,2,3,4,5' ? 'Mon–Fri' : window.days.join(', ')
+  const noun = CAP_WORDS[channel][2]
+  return { ...window, rule: `${noun[0].toUpperCase()}${noun.slice(1)} ${window.start}–${window.end}, ${which}` }
+}
+const windowChannel = (channel: GovernanceWindowChannel['channel'], start: string, end: string, own: GovernanceWindow | null, platform: GovernanceWindow[] = [],
+  quiet: GovernanceWindowChannel['quiet_hours'] = null): GovernanceWindowChannel =>
+  ({ channel, channel_label: CAP_WORDS[channel][0], recommended: { start, end, days: EVERY_DAY }, own, platform, quiet_hours: quiet })
 export const governance: GovernanceOverview = {
   caps: [governanceCap({ id: 'cap-platform', channel: 'EMAIL', max_messages: 3, period_days: 7, platform: true }), governanceCap({ id: 'cap-own', channel: 'SMS', max_messages: 4, period_days: 30 })],
   gaps: [gapChannel('EMAIL', 16, null), gapChannel('SMS', 24, governanceGap('SMS', { hours: 24 })),
     gapChannel('WHATSAPP', 24, null, [governanceGap('WHATSAPP', { id: 'gap-platform', hours: 24, platform: true })])],
+  windows: [windowChannel('EMAIL', '07:00', '21:00', null),
+    windowChannel('SMS', '09:00', '20:00', governanceWindow('SMS', { start: '10:00', end: '20:00', days: [1, 2, 3, 4, 5] }),
+      [governanceWindow('SMS', { id: 'window-platform', start: '08:00', end: '21:00', platform: true })]),
+    windowChannel('WHATSAPP', '09:00', '20:00', null, [], null)],
   activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
   text_quiet_hours: { start: '21:00', end: '08:00' },
   soft_bounces: 3,
@@ -1487,6 +1501,20 @@ export function installMockApi(options: MockOptions = {}) {
       const made = governanceCap({ id: `cap-${governanceNow.caps.length + 1}`, platform: false, ...(body as Partial<GovernanceCap>) })
       governanceNow = { ...governanceNow, caps: [...governanceNow.caps, made] }
       return json(made, 201)
+    }
+    const windowMatch = path.match(/\/workspace\/governance\/windows\/([^/]+)\/$/)
+    if (windowMatch && method === 'PUT') {
+      const entry = governanceNow.windows.find((item) => item.channel === windowMatch[1])
+      if (!entry) return problem(404, { detail: 'No such channel.' })
+      const asked = body as Partial<{ start: string; end: string; days: number[]; is_active: boolean }>
+      const start = asked.start ?? entry.own?.start ?? entry.recommended.start
+      const end = asked.end ?? entry.own?.end ?? entry.recommended.end
+      if (start === end) return problem(400, { end: ['The window must end at a different time from its start.'] })
+      const days = asked.days ?? entry.own?.days ?? entry.recommended.days
+      if (!days.length) return problem(400, { days: ['Choose at least one day.'] })
+      const next = { ...entry, own: governanceWindow(entry.channel, { ...entry.own, start, end, days, is_active: asked.is_active ?? entry.own?.is_active ?? true }) }
+      governanceNow = { ...governanceNow, windows: governanceNow.windows.map((item) => (item.channel === entry.channel ? next : item)) }
+      return json(next)
     }
     const gapMatch = path.match(/\/workspace\/governance\/gaps\/([^/]+)\/$/)
     if (gapMatch && method === 'PUT') {

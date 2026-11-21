@@ -273,3 +273,21 @@ def test_a_gap_between_messages_skips_whoever_got_marketing_within_its_hours(wor
     third = world.send(cid, 4)
     check("17 hours later the gap has passed", set(world.members(third).values()) == {"ELIGIBLE"}, world.members(third))
     check.done()
+
+
+def test_a_marketing_send_outside_its_send_window_waits_and_goes_once_it_opens(world, check):
+    body = world.template("ZS window email", "EMAIL", subject="Hi", html="<p>Hi</p>")
+    cid = world.drip("ZS window", "EMAIL", [(0, body, {})], lists=[world.three])
+    world.publish(cid)
+    zone = world.sql("SELECT COALESCE(timezone, 'UTC') FROM tenant WHERE id = %s", [world.tenant], True)[0][0]
+    policy = str(world.sql("""INSERT INTO communication_governance_policy (tenant_id, name, scope, channel, max_messages, period_days, window_start, window_end,
+                                                                          window_days, applies_to, priority)
+                              VALUES (%s, 'ZS email window, shut now', 'CHANNEL', 'EMAIL', 1, 1, ((now() AT TIME ZONE %s) + interval '2 hours')::time,
+                                      ((now() AT TIME ZONE %s) + interval '3 hours')::time, '{1,2,3,4,5,6,7}', 'MARKETING', 1) RETURNING id""",
+                           [world.tenant, zone, zone], True)[0][0])
+    held = world.send(cid, 0)
+    check("outside the email window the run waits, nobody is queued", held.status == "SCHEDULED" and not world.members(held), (held.status, world.members(held)))
+    world.sql("UPDATE communication_governance_policy SET is_active = FALSE WHERE id = %s", [policy])
+    sent = world.send(cid, 0)
+    check("with the window open the same run goes out", sent.status != "SCHEDULED" and set(world.members(sent).values()) == {"ELIGIBLE"}, (sent.status, world.members(sent)))
+    check.done()

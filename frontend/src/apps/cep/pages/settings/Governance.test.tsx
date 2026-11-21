@@ -51,7 +51,6 @@ test('the platform cap is locked, the workspace adds, switches off and removes i
   await user.click(within(ownRow).getByRole('button', { name: 'Remove' }))
   await vi.waitFor(() => expect(within(table).queryByText('4 texts per 30 days')).toBeNull())
 
-  expect(screen.getByText(/quiet hours/).textContent).toContain('21:00–08:00')
   expect(within(screen.getByRole('heading', { name: 'List Hygiene' }).closest('section') as HTMLElement).getByRole('link', { name: 'Suppressions' }).getAttribute('href')).toBe('/settings/suppressions')
 })
 
@@ -105,4 +104,41 @@ test('gap between messages: switched on at the recommended hours, changed, switc
 
   expect(within(gaps).getByText('24 hours between WhatsApp messages')).toBeTruthy()
   expect(within(gaps).getAllByText('Locked')).toHaveLength(1)
+})
+
+test('send windows: email switched on at the recommended hours, a day taken off, the text window narrowed; the platform window is locked', async () => {
+  const calls = installMockApi({ me: { principal: { ...me.principal, kind: 'user' as const, permissions: [...me.principal.permissions, 'governance.edit'] } } as never })
+  const user = userEvent.setup()
+  await renderAppAt('/settings/governance')
+  const box = await screen.findByRole('group', { name: 'Send Windows' })
+  expect(within(box).getByText('Off: no window of your own for emails.')).toBeTruthy()
+  expect((within(box).getByLabelText('Email window from') as HTMLInputElement).value).toBe('07:00')
+
+  await user.click(within(box).getByRole('switch', { name: 'Email send window in use' }))
+  expect(await within(box).findByText(/Marketing emails go out 07:00–21:00, every day\./)).toBeTruthy()
+  expect(calls.find((call) => call.method === 'PUT' && call.url.endsWith('/workspace/governance/windows/EMAIL/'))?.body)
+    .toEqual({ start: '07:00', end: '21:00', days: [1, 2, 3, 4, 5, 6, 7], is_active: true })
+
+  const sunday = within(within(box).getByRole('group', { name: 'Email window days' })).getByRole('button', { name: 'Sun' })
+  await user.click(sunday)
+  await vi.waitFor(() => expect(calls.filter((call) => call.url.endsWith('/windows/EMAIL/')).at(-1)?.body).toEqual({ days: [1, 2, 3, 4, 5, 6] }))
+  expect(await within(box).findByText(/Marketing emails go out 07:00–21:00, Mon, Tue, Wed, Thu, Fri, Sat\./)).toBeTruthy()
+
+  expect(within(box).getByText(/Marketing texts go out 10:00–20:00, Mon–Fri\./)).toBeTruthy()
+  const from = within(box).getByLabelText('Text window from')
+  await user.clear(from)
+  await user.type(from, '11:00')
+  await user.tab()
+  await vi.waitFor(() => expect(calls.filter((call) => call.url.endsWith('/windows/SMS/')).at(-1)?.body).toEqual({ start: '11:00' }))
+  expect(within(box).getByText('Texts 08:00–21:00, every day')).toBeTruthy()
+  expect(within(box).getAllByText('Locked')).toHaveLength(1)
+})
+
+test('without governance.edit the windows are shown, not edited', async () => {
+  installMockApi()
+  await renderAppAt('/settings/governance')
+  const box = await screen.findByRole('group', { name: 'Send Windows' })
+  expect(within(box).queryByRole('switch')).toBeNull()
+  expect(within(box).queryByLabelText('Text window from')).toBeNull()
+  expect(within(box).getByText(/Marketing texts go out 10:00–20:00, Mon–Fri\./)).toBeTruthy()
 })

@@ -117,7 +117,7 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
     channels = _channels_used(version)
     if not channels:
         return {"ok": True, "description": "This journey sends no messages, so no frequency cap or quiet hours apply."}
-    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True).order_by("priority"))
+    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, window_start__isnull=True).order_by("priority"))
     sentences = []
     for channel in channels:
         word = "Emails" if channel == "EMAIL" else "Texts"
@@ -129,10 +129,17 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
             sentences.append(f"{word}: {limits}{more}. A customer who has reached a cap is held back, not sent.")
         else:
             sentences.append(f"{word}: no frequency cap applies.")
-    if "SMS" in channels:
-        window = params.get("messaging.sms_quiet_hours", {}) or {}
-        if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"]:
-            sentences.append(f"Texts wait out quiet hours, {window['start']} to {window['end']} in the workspace's time zone.")
+    from apps.governance.windows import describe
+    for channel in channels:
+        word = "Emails" if channel == "EMAIL" else "Texts"
+        hours = [describe(p.window_start, p.window_end, p.window_days) for p in CommunicationGovernancePolicy.objects.filter(
+            tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, window_start__isnull=False, channel="EMAIL" if channel == "EMAIL" else "SMS")]
+        if hours:
+            sentences.append(f"{word} go out only within the send window ({'; '.join(hours)}) in the workspace's time zone.")
+        elif channel == "SMS":
+            window = params.get("messaging.sms_quiet_hours", {}) or {}
+            if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"]:
+                sentences.append(f"Texts wait out quiet hours, {window['start']} to {window['end']} in the workspace's time zone.")
     return {"ok": True, "description": " ".join(sentences)}
 
 
