@@ -21,3 +21,19 @@ test('a message without opt-out words gets the Opt-Out Text tag at its end in on
   expect(screen.queryByText(/No opt-out wording/)).toBeNull()
   expect(screen.getAllByText(/Reply STOP to opt out/).length).toBeGreaterThan(0)
 })
+
+test('text pasted from a document lands in plain punctuation, says so, and Keep as Pasted puts it back as it was', async () => {
+  const user = userEvent.setup()
+  render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><MessagePlayground /></MemoryRouter></QueryClientProvider>)
+  const message = screen.getByLabelText('Message') as HTMLTextAreaElement
+  await user.click(message)
+  await user.paste('It\u2019s our \u201cbig\u201d sale\u200b \u2014 today only.')
+  expect(message.value).toBe('It\'s our "big" sale - today only.')
+  expect(screen.getByText(/Changed 5 pasted characters/)).toBeTruthy()
+  expect(screen.getByText('GSM-7')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Keep as Pasted' }))
+  expect(message.value).toBe('It\u2019s our \u201cbig\u201d sale\u200b \u2014 today only.')
+  expect(screen.queryByText(/Changed 5 pasted characters/)).toBeNull()
+  expect(screen.getByText('UCS-2')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Use Plain Punctuation' })).toBeTruthy()
+})

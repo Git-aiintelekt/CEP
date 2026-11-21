@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 
 import type { PersonalizationTag } from '@/lib/types'
 
-import { canBePlain, OPT_OUT_PATTERN, plainPunctuation, renderWithSamples, smsMetrics } from './sms'
+import { canBePlain, describeCharacter, OPT_OUT_PATTERN, plainChanges, plainPunctuation, renderWithSamples, smsMetrics } from './sms'
 
 const tag = (tag_key: string, sample_value: string | null, default_value: string | null = null): PersonalizationTag => ({
   id: tag_key, tag_key, label: tag_key, tag_kind: 'STANDARD', data_type: 'STRING', applies_to_channels: ['SMS'], description: null,
@@ -48,4 +48,14 @@ test('plainPunctuation brings a pasted message back to GSM-7', () => {
 test('the Opt-Out Text tag counts as opt-out wording, as the server check does', () => {
   for (const body of ['Shop now {{opt_out_text}}', 'Shop now {{ opt_out_text }}', 'Shop now ${opt_out_text}', 'Reply STOP to opt out', 'Text UNSUBSCRIBE']) expect(OPT_OUT_PATTERN.test(body), body).toBe(true)
   for (const body of ['Shop {{shop_url}}', 'Use code {{offer_code}}']) expect(OPT_OUT_PATTERN.test(body), body).toBe(false)
+})
+
+test('curly quotes, long dashes, ellipses and the invisible characters from a pasted document become plain, and the text standard again', () => {
+  const pasted = 'O\u2019Brien\u200b \u2014 it\u2019s here\u2026\u00a0\u201cnow\u201d\u00ad'
+  expect(plainPunctuation(pasted)).toBe('O\'Brien - it\'s here... "now"')
+  expect(plainChanges(pasted)).toBe(9)
+  expect(smsMetrics(pasted).encoding).toBe('UCS-2')
+  expect(smsMetrics(plainPunctuation(pasted)).encoding).toBe('GSM-7')
+  expect(describeCharacter('\u200b')).toBe('zero-width space (U+200B)')
+  expect(canBePlain(['\u2060'])).toBe(true)
 })

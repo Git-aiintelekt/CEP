@@ -20,7 +20,9 @@ import type { DesignVersion, MediaAsset, Message, MessageSaveInput, Personalizat
 import { useUtmSettings, withShortLinks } from '@/apps/cep/pages/settings/utm'
 
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
+import { PasteNote, PlainPunctuationNotice } from './PlainText'
 import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, OPT_OUT_TAG, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
+import { usePlainPaste } from './usePlainPaste'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
 export interface MessageBackend {
@@ -68,6 +70,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   const textarea = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [body, setBody] = useState(message.sms_body)
+  const paste = usePlainPaste(body, setBody)
   const [subject, setSubject] = useState(message.subject_line)
   const [media, setMedia] = useState<Media>(message.media_asset)
   const [saved, setSaved] = useState({ body: message.sms_body, subject: message.subject_line, mediaId: message.media_asset?.id ?? null, version: message.latest_version, shown: message.version_number })
@@ -311,7 +314,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             </div>
             <textarea id="sms-body" ref={textarea} rows={7} value={body} disabled={readOnly} spellCheck
               aria-invalid={Boolean(fieldErrors.sms_body) || tooLong || undefined} aria-describedby="sms-counter"
-              onChange={(event) => { setBody(event.target.value); setFieldErrors((current) => ({ ...current, sms_body: '' })) }}
+              onChange={(event) => { setBody(event.target.value); setFieldErrors((current) => ({ ...current, sms_body: '' })) }} onPaste={paste.onPaste}
               placeholder="Northwind: Hi {{first_name}}, ... Reply STOP to opt out."
               className={`mt-2 w-full rounded-sm border bg-surface px-3 py-2.5 text-sm leading-6 text-ink-900 ${fieldErrors.sms_body || tooLong ? 'border-danger' : 'border-line-control'}`} />
             <div id="sms-counter" aria-live="polite" className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${counterTone}`}>
@@ -322,15 +325,11 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
               {used.length > 0 && <span className="text-xs text-ink-800">estimated with sample values; real lengths vary per recipient</span>}
               {shortened && <span className="text-xs text-ink-800">links to your sites counted as short links</span>}
             </div>
+            <div className="mt-1"><PasteNote note={paste.note} /></div>
             {tooLong && <p className="mt-1 text-xs font-medium text-danger-text">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
             {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-danger-text">{fieldErrors.sms_body}</p>}
             {metrics.encoding === 'UCS-2' && canBePlain(metrics.nonGsmCharacters) && !readOnly && (
-              <div className="mt-3 flex flex-col items-start gap-0.5">
-                <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setBody(plainPunctuation(body))}>
-                  Use Plain Punctuation
-                </button>
-                <p className="text-helper text-ink-800">Swaps curly quotes, long dashes and ellipses for plain ones, so the text stays in the standard SMS alphabet.</p>
-              </div>
+              <div className="mt-3"><PlainPunctuationNotice text={sample} onPlain={() => setBody(plainPunctuation(body))} /></div>
             )}
           </div>
 

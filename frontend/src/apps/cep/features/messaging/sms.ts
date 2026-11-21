@@ -40,15 +40,29 @@ export function renderWithSamples(text: string, tags: PersonalizationTag[]): str
   return text.replace(TAG_PATTERN, (whole, key: string) => samples.get(key) || whole)
 }
 
+/** Typographer's punctuation and invisible characters, and their plain twins. The same table is on the server
+ * (apps/templates/design.py, PLAIN), which applies it again to every text just before it goes to the gateway. */
 const PLAIN: Record<string, string> = {
-  '‘': "'", '’': "'", '‚': "'", '“': '"', '”': '"', '„': '"', '–': '-', '—': '-', '…': '...',
-  ' ': ' ', '•': '*', '«': '"', '»': '"', '′': "'", '″': '"',
+  '\u2018': "'", '\u2019': "'", '\u201a': "'", '\u201b': "'", '\u2032': "'", '\u2039': "'", '\u203a': "'",
+  '\u201c': '"', '\u201d': '"', '\u201e': '"', '\u201f': '"', '\u2033': '"', '\u00ab': '"', '\u00bb': '"',
+  '\u2010': '-', '\u2011': '-', '\u2012': '-', '\u2013': '-', '\u2014': '-', '\u2015': '-', '\u2212': '-',
+  '\u2026': '...', '\u2022': '*',
+  '\u00a0': ' ', '\u2002': ' ', '\u2003': ' ', '\u2007': ' ', '\u2009': ' ', '\u200a': ' ', '\u202f': ' ',
+  '\u200b': '', '\u200c': '', '\u2060': '', '\ufeff': '', '\u00ad': '',
+}
+const INVISIBLE: Record<string, string> = {
+  '\u00a0': 'no-break space', '\u2002': 'en space', '\u2003': 'em space', '\u2007': 'figure space', '\u2009': 'thin space', '\u200a': 'hair space',
+  '\u202f': 'narrow no-break space', '\u200b': 'zero-width space', '\u200c': 'zero-width non-joiner', '\u2060': 'word joiner', '\ufeff': 'byte-order mark',
+  '\u00ad': 'soft hyphen',
 }
 
-/** Word processors insert curly quotes, long dashes and ellipses; their plain twins keep the message in GSM-7. */
+/** Word processors insert curly quotes, long dashes, ellipses and invisible spaces; their plain twins keep the message in GSM-7. */
 export function plainPunctuation(text: string): string {
   return Array.from(text, (ch) => PLAIN[ch] ?? ch).join('')
 }
+
+/** how many characters plainPunctuation would change */
+export const plainChanges = (text: string) => Array.from(text).filter((ch) => ch in PLAIN).length
 
 export const canBePlain = (characters: string[]) => characters.some((ch) => ch in PLAIN)
 
@@ -67,5 +81,5 @@ export function plainSegments(text: string): number {
 
 export function describeCharacter(ch: string): string {
   const code = ch.codePointAt(0) ?? 0
-  return `${ch === ' ' || ch === ' ' ? 'space' : ch} (U+${code.toString(16).toUpperCase().padStart(4, '0')})`
+  return `${INVISIBLE[ch] ?? (ch === ' ' ? 'space' : ch)} (U+${code.toString(16).toUpperCase().padStart(4, '0')})`
 }

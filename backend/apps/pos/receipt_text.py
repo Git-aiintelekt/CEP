@@ -72,7 +72,7 @@ def send(tenant_id, *, campaign_ref: str, to_number: str, receipt: dict, store: 
     renderer = Renderer(campaign=campaign, run=run, content=text_content(content), tags=tags)
     rendered = renderer.render(customer=customer, member={"custom_value_pairs": receipts.coupon_values(receipt)}, system={"phone": to_number},
                                sources={"RECEIPT": {"receipt": shown}, "STORE": store or {}, **(extra_sources or {})})
-    text = (rendered.get("text") or "").strip()
+    text, _ = design.gsm_safe((rendered.get("text") or "").strip())       # a store or item name copied from elsewhere stays plain
     if not text:
         raise ReceiptRefused("The text campaign's message rendered empty.", "campaign", 409)
     metrics = design.sms_metrics(text)

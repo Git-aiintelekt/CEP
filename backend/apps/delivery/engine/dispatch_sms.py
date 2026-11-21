@@ -133,6 +133,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 if tagger.on:
                     with session.tx():
                         text = tagger.sms(text)                 # short links count, not the tagged addresses
+                text, _ = design.gsm_safe(text)                 # a curly quote in someone's data must not double their parts
                 metrics = design.sms_metrics(text)
                 if not text or len(text) > design.MAX_MESSAGE_CHARS:
                     _record(tenant_id, execution_id, member_id, status="FAILED", text=text or None, segments=metrics["segments"], used=renderer.used,
@@ -234,7 +235,7 @@ def send_test(tenant_id, campaign, to: list[str], *, step=None, prefix: str = "[
     results = []
     with registry.for_provider(provider_row) as provider:
         for number in to:
-            text = f"{prefix} " + rendered["text"].strip()
+            text, _ = design.gsm_safe(f"{prefix} " + rendered["text"].strip())
             result = provider.send(SmsMessage(to_number=number, from_sender=sender.sender_id or "", text=text, media_url=media,
                                               idempotency_key=f"test:{campaign.pk}:{getattr(step, 'pk', '')}:{timezone.now().timestamp():.0f}", tag="test"))
             results.append({"to": number, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id,
