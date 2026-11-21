@@ -435,6 +435,31 @@ URL_RE = re.compile(r"https?://\S+", re.I)
 GSM7_BASIC = set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑܧ¿abcdefghijklmnopqrstuvwxyzäöñüà")
 GSM7_EXTENDED = set("^{}\\[~]|€\f")          # sent as ESC + char: two septets each
 
+# Word processors and web pages put typographer's punctuation and invisible characters in copied text. Each one is outside
+# GSM-7, so one of them turns a whole message into UCS-2 (70 / 67 characters a part instead of 160 / 153). Their plain twins
+# keep it in GSM-7. The same table is in frontend/src/apps/cep/features/messaging/sms.ts (PLAIN).
+PLAIN = {"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'", "\u2032": "'", "\u2039": "'", "\u203a": "'",
+         "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"', "\u2033": '"', "\u00ab": '"', "\u00bb": '"',
+         "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-", "\u2015": "-", "\u2212": "-",
+         "\u2026": "...", "\u2022": "*",
+         "\u00a0": " ", "\u2002": " ", "\u2003": " ", "\u2007": " ", "\u2009": " ", "\u200a": " ", "\u202f": " ",
+         "\u200b": "", "\u200c": "", "\u2060": "", "\ufeff": "", "\u00ad": ""}     # zero-width spaces, word joiner, byte-order mark, soft hyphen
+
+
+def plain_punctuation(text: str) -> str:
+    return "".join(PLAIN.get(ch, ch) for ch in text)
+
+
+def gsm_safe(text: str) -> tuple[str, int]:
+    """The text as it goes to the SMS gateway, and how many characters were changed: invisible characters dropped always;
+    typographer's punctuation made plain when that keeps the whole message in GSM-7. A message that stays UCS-2 anyway (an
+    emoji, a non-Latin script) keeps its punctuation as written, since changing it would save nothing."""
+    invisible = {ch for ch, plain in PLAIN.items() if plain == ""}
+    visible = "".join(ch for ch in text if ch not in invisible)
+    plain = plain_punctuation(visible)
+    chosen = plain if all(ch in GSM7_BASIC or ch in GSM7_EXTENDED for ch in plain) else visible
+    return chosen, sum(1 for ch in text if ch in PLAIN) if chosen == plain else len(text) - len(visible)
+
 
 def sms_metrics(text: str) -> dict:
     """Encoding and segment count the way carriers bill it. One character outside GSM-7 (a curly quote, an emoji)

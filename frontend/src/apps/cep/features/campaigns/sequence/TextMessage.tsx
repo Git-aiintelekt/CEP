@@ -11,7 +11,9 @@ import { TextArea } from '@/components/Form'
 import { Spinner } from '@/components/States'
 import { asToken, groupTags } from '@/apps/cep/features/designer/tags'
 import { BUBBLE, PhoneFrame } from '@/apps/cep/features/messaging/PhoneFrame'
-import { renderWithSamples } from '@/apps/cep/features/messaging/sms'
+import { PasteNote, PlainPunctuationNotice } from '@/apps/cep/features/messaging/PlainText'
+import { plainPunctuation, renderWithSamples } from '@/apps/cep/features/messaging/sms'
+import { usePlainPaste } from '@/apps/cep/features/messaging/usePlainPaste'
 import { api, ApiError } from '@/lib/api'
 import type { MediaAsset } from '@/lib/types'
 
@@ -111,6 +113,7 @@ export function TextComposer({ draft, onDraft, mms, sender, imageUrl, when }: { 
   const chips = useMemo(() => groupTags(catalogue, mms ? 'MMS' : 'SMS').flatMap((group) => group.tags), [catalogue, mms])
   const counter = counterText(draft, catalogue, mms)
   const sample = renderWithSamples(draft, catalogue)
+  const paste = usePlainPaste(draft, onDraft)
 
   function insert(token: string) {
     const element = area.current
@@ -130,11 +133,13 @@ export function TextComposer({ draft, onDraft, mms, sender, imageUrl, when }: { 
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <label htmlFor="drip-text" className="text-sm font-semibold text-ink-800">Message Text</label>
-        <TextArea ref={area} id="drip-text" data-autofocus rows={5} value={draft} onChange={(event) => onDraft(event.target.value)} placeholder="e.g. Your first reward is unlocked. Reply STOP to opt out." />
+        <TextArea ref={area} id="drip-text" data-autofocus rows={5} value={draft} onChange={(event) => onDraft(event.target.value)} onPaste={paste.onPaste} placeholder="e.g. Your first reward is unlocked. Reply STOP to opt out." />
         <div className="flex items-start justify-between gap-3">
           <span className="text-helper text-ink-800">Personalised fields are counted with their sample values.</span>
           <span className={`cep-num shrink-0 text-xs font-semibold ${counter.over ? 'text-warning-text' : 'text-ink-800'}`} data-sms-counter>{counter.text}</span>
         </div>
+        <PasteNote note={paste.note} />
+        <PlainPunctuationNotice text={sample} onPlain={() => onDraft(plainPunctuation(draft))} showCharacters />
       </div>
       {chips.length > 0 && (
         <div className="flex flex-col gap-2">
