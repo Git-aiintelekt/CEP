@@ -20,6 +20,7 @@ Every page of the app has a chapter, and every chapter has the same shape:
 - **The help icon** beside a page's title opens that page's chapter in a panel, so the guide is one click away from the page it describes. Close it with the cross or the Escape key.
 - **The small information icon** beside a field opens a note on that one field: what it is and what it affects.
 - **The keyboard icon** in the header lists the keyboard shortcuts. Pressing `?` on any page does the same.
+- **Grey suggestions.** Some boxes offer a suggestion in grey, with a small **Tab** tag at the right while you are in the box. Press Tab (or the right arrow) while the box is empty to put the suggestion in, then change it or keep it. On a phone or tablet, tap **Use**. Once the box has text, or when it shows an "e.g." example, Tab moves to the next field as usual. Suggestions are offered in Ask for a Report and Change With a Prompt (Insights), the campaign name (from the type, the channel and the month), Subject B of a subject line test (the subject line), and an empty text message (the opt-out line, kept as the last line).
 - **The foot of every page** carries the platform's copyright line and a link to the Terms of Use, which also opens from the sign-in page without signing in.
 
 ## Three ideas that run through everything

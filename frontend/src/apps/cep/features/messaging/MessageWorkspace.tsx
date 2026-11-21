@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom'
 
 import { ArrowLeft, Lock, X } from 'lucide-react'
 import { buttonPrimary } from '@/components/Form'
+import { useSuggestion } from '@/components/useSuggestion'
 import { Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
@@ -21,7 +22,7 @@ import { useUtmSettings, withShortLinks } from '@/apps/cep/pages/settings/utm'
 
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
 import { PasteNote, PlainPunctuationNotice } from './PlainText'
-import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, OPT_OUT_TAG, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
+import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, OPT_OUT_TAG, optOutSuggestion, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
 import { usePlainPaste } from './usePlainPaste'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
@@ -110,6 +111,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   if (metrics.segments > 3) warnings.push(`${metrics.segments} parts per recipient. Each part is billed as one message.`)
   if (unknown.length > 0) warnings.push(`Unknown tags (they would be sent as typed): ${unknown.map(asToken).join(', ')}`)
   const optOutTag = tags.find((tag) => tag.tag_key === OPT_OUT_TAG)
+  const offer = useSuggestion<HTMLTextAreaElement>({ suggestion: readOnly ? null : optOutSuggestion(tags), placeholder: 'Northwind: Hi {{first_name}}, ... Reply STOP to opt out.', describedBy: 'sms-counter', cursor: 'start', placement: 'bottom' })
   const missingOptOut = Boolean(body.trim()) && !OPT_OUT_PATTERN.test(body)
   if (missingOptOut) warnings.push(optOutTag
     ? `No opt-out wording. Marketing messages must say how to stop them: add the Opt-Out Text tag (${asToken(OPT_OUT_TAG)}, “${optOutTag.static_value ?? optOutTag.sample_value ?? 'Reply STOP to opt out'}”), or write your own.`
@@ -312,11 +314,14 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                 </span>
               )}
             </div>
-            <textarea id="sms-body" ref={textarea} rows={7} value={body} disabled={readOnly} spellCheck
-              aria-invalid={Boolean(fieldErrors.sms_body) || tooLong || undefined} aria-describedby="sms-counter"
-              onChange={(event) => { setBody(event.target.value); setFieldErrors((current) => ({ ...current, sms_body: '' })) }} onPaste={paste.onPaste}
-              placeholder="Northwind: Hi {{first_name}}, ... Reply STOP to opt out."
-              className={`mt-2 w-full rounded-sm border bg-surface px-3 py-2.5 text-sm leading-6 text-ink-900 ${fieldErrors.sms_body || tooLong ? 'border-danger' : 'border-line-control'}`} />
+            <div className="relative">
+              <textarea id="sms-body" ref={textarea} rows={7} value={body} disabled={readOnly} spellCheck
+                aria-invalid={Boolean(fieldErrors.sms_body) || tooLong || undefined}
+                onChange={(event) => { setBody(event.target.value); setFieldErrors((current) => ({ ...current, sms_body: '' })) }} onPaste={paste.onPaste}
+                {...offer.controlProps}
+                className={`peer mt-2 w-full rounded-sm border bg-surface px-3 py-2.5 text-sm leading-6 text-ink-900 ${fieldErrors.sms_body || tooLong ? 'border-danger' : 'border-line-control'}`} />
+              {offer.extra}
+            </div>
             <div id="sms-counter" aria-live="polite" className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${counterTone}`}>
               <span className="font-medium tabular-nums">{metrics.units} characters</span>
               <span className="tabular-nums">{metrics.segments} part{metrics.segments === 1 ? '' : 's'} · {metrics.perSegment} per part</span>

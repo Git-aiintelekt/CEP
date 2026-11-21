@@ -58,6 +58,19 @@ test('the Test step: a second subject, the sample, the metric and the wait are s
   expect(await (await card()).findByText('Saved')).toBeTruthy()
 })
 
+test('Subject B is offered the campaign’s own subject line, tags and all, to change a word of', async () => {
+  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 3, subject_line: 'Fall is here, {{first_name}}' }) })
+  const user = userEvent.setup()
+  await renderAppAt(TEST_STEP)
+  const box = await card()
+  await user.click(box.getByRole('switch', { name: 'Test a Second Subject Line' }))
+  const b = box.getByLabelText(/^B/) as HTMLInputElement
+  expect(b.placeholder).toBe('Fall is here, {{first_name}}')
+  await user.click(b)
+  await user.tab()
+  expect(b.value).toBe('Fall is here, {{first_name}}')
+})
+
 test('a test send with the subject test on goes out with both subjects, and says so', async () => {
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 3, ab_config: AB }) })
   const user = userEvent.setup()

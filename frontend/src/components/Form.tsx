@@ -6,6 +6,7 @@ import { formatNumber } from '@/lib/format'
 import { limitTone, type Limit } from '@/lib/fieldRules'
 
 import { CONTROL_BASE, FILL, borderClass, controlClass, type ControlSize, type ControlTone } from './controlStyles'
+import { useSuggestion } from './useSuggestion'
 
 import { FieldNote } from '@/apps/cep/help/HelpPanel'
 
@@ -78,27 +79,38 @@ export function Counter({ used, max, soft }: Limit) {
 type Wired = { invalid?: boolean; describedBy?: string }
 /** `size` is taken by the native attribute, hence controlSize */
 type Styled = { controlSize?: ControlSize; tone?: ControlTone; warning?: boolean }
+/**
+ * Grey text that Tab puts in while the box is empty (components/useSuggestion). Pass null while there is none: a box
+ * given the prop keeps the same shape with or without a suggestion, so it never loses focus when one arrives.
+ */
+type Suggesting = { suggestion?: string | null; suggestionCursor?: 'start' | 'end' }
 
-export function TextInput({ invalid = false, warning = false, describedBy, controlSize, tone, className = '', ...props }: InputHTMLAttributes<HTMLInputElement> & Wired & Styled & { ref?: Ref<HTMLInputElement> }) {
-  return (
+export function TextInput({ invalid = false, warning = false, describedBy, controlSize, tone, className = '', suggestion, suggestionCursor, ...props }: InputHTMLAttributes<HTMLInputElement> & Wired & Styled & Suggesting & { ref?: Ref<HTMLInputElement> }) {
+  const offer = useSuggestion<HTMLInputElement>({ suggestion, placeholder: props.placeholder, describedBy, onKeyDown: props.onKeyDown, cursor: suggestionCursor })
+  const input = (
     <input
       {...props}
+      {...(suggestion === undefined ? { 'aria-describedby': describedBy } : offer.controlProps)}
       aria-invalid={invalid || undefined}
-      aria-describedby={describedBy}
-      className={`${controlClass({ size: controlSize, tone, invalid, warning })} ${className}`}
+      className={`${controlClass({ size: controlSize, tone, invalid, warning })} ${suggestion === undefined ? '' : 'peer pr-14'} ${className}`}
     />
   )
+  if (suggestion === undefined) return input
+  return <span className="relative block">{input}{offer.extra}</span>
 }
 
-export function TextArea({ invalid = false, warning = false, describedBy, tone, className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Wired & Omit<Styled, 'controlSize'> & { ref?: Ref<HTMLTextAreaElement> }) {
-  return (
+export function TextArea({ invalid = false, warning = false, describedBy, tone, className = '', suggestion, suggestionCursor, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Wired & Omit<Styled, 'controlSize'> & Suggesting & { ref?: Ref<HTMLTextAreaElement> }) {
+  const offer = useSuggestion<HTMLTextAreaElement>({ suggestion, placeholder: props.placeholder, describedBy, onKeyDown: props.onKeyDown, cursor: suggestionCursor, placement: 'bottom' })
+  const area = (
     <textarea
       {...props}
+      {...(suggestion === undefined ? { 'aria-describedby': describedBy } : offer.controlProps)}
       aria-invalid={invalid || undefined}
-      aria-describedby={describedBy}
-      className={`${CONTROL_BASE} mt-1 rounded-md px-3 py-2 ${FILL[tone ?? 'default']} ${borderClass(invalid, warning)} ${className}`}
+      className={`${CONTROL_BASE} mt-1 rounded-md px-3 py-2 ${FILL[tone ?? 'default']} ${borderClass(invalid, warning)} ${suggestion === undefined ? '' : 'peer'} ${className}`}
     />
   )
+  if (suggestion === undefined) return area
+  return <span className="relative block">{area}{offer.extra}</span>
 }
 
 export function Select({ invalid = false, warning = false, describedBy, controlSize, tone, className = '', children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & Wired & Styled) {

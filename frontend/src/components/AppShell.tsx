@@ -80,6 +80,7 @@ const SHORTCUTS: { keys: string; does: string; engagement?: true }[] = [
   { keys: 'g then t', does: 'Go to Templates', engagement: true },
   { keys: 'g then l', does: 'Go to Contact Lists', engagement: true },
   { keys: 'g then h', does: 'Go to Home', engagement: true },
+  { keys: 'Tab', does: 'In an empty box, use the grey suggestion' },
   { keys: '?', does: 'Show these shortcuts' },
   { keys: 'Esc', does: 'Close a menu or a pop-up' },
 ]

@@ -57,6 +57,18 @@ test('the box sits above the list with the month’s use and the examples; Gener
   expect(window.location.pathname).toBe('/insights/reports/rep-ai/edit')
 })
 
+test('the empty box offers an example prompt; Tab puts it in to change or send', async () => {
+  await renderAppAt('/insights/ai-reports')
+  const user = userEvent.setup()
+  const box = await screen.findByRole('region', { name: 'Ask for a Report' })
+  const prompt = within(box).getByRole('textbox', { name: 'What do you want to see?' }) as HTMLTextAreaElement
+  expect(prompt.placeholder).toBe('Revenue by channel and month for the last quarter, as a pivot.')
+  await user.click(prompt)
+  await user.tab()
+  expect(prompt.value).toBe('Revenue by channel and month for the last quarter, as a pivot.')
+  expect(document.activeElement).toBe(prompt)
+})
+
 test('a question back offers its answers as buttons, and an answer is sent as the next prompt without a count', async () => {
   const calls = await renderAppAt('/insights/ai-reports')
   const user = userEvent.setup()

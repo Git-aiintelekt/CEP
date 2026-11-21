@@ -7,10 +7,16 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { buttonSecondary } from '@/components/Form'
+import { useSuggestion } from '@/components/useSuggestion'
 import { ApiError } from '@/lib/api'
 import { assistantApi, useAssistant } from '../api'
 import { AiPill } from '../components/AskForReport'
 import type { ReportDefinition } from '../types'
+
+/** one change that suits every report of its view: a table to a chart, anything else to a table */
+function changeSuggestion(definition: ReportDefinition) {
+  return definition.view?.type === 'chart' ? 'Show it as a table' : 'Show it as a bar chart'
+}
 
 export function ChangeWithPrompt({ dataset, definition, onChange }: { dataset: string; definition: ReportDefinition; onChange: (next: ReportDefinition) => void }) {
   const assistant = useAssistant()
@@ -33,13 +39,17 @@ export function ChangeWithPrompt({ dataset, definition, onChange }: { dataset: s
     },
     onError: (error) => setSaid(error instanceof ApiError ? error.problem?.detail ?? error.message : 'The change did not come back. Try again.'),
   })
+  const offer = useSuggestion<HTMLInputElement>({ suggestion: changeSuggestion(definition) })
   if (!assistant.data?.enabled) return null
   return (
     <form aria-label="Change with a prompt" className="flex flex-col gap-1.5" onSubmit={(event) => { event.preventDefault(); if (prompt.trim()) change.mutate() }}>
       <div className="flex items-center gap-2">
         <AiPill />
-        <input aria-label="What to change" value={prompt} maxLength={1000} onChange={(event) => setPrompt(event.target.value)} placeholder="Change it with a prompt: by channel only, as a bar chart"
-          className="h-8 min-w-0 flex-1 rounded-control-md border border-line-control bg-surface px-2.5 text-sm text-ink-900 placeholder:text-ink-700 focus-visible:border-focus focus-visible:outline-none" />
+        <span className="relative flex min-w-0 flex-1">
+          <input aria-label="What to change" value={prompt} maxLength={1000} onChange={(event) => setPrompt(event.target.value)} {...offer.controlProps}
+            className="peer h-8 min-w-0 flex-1 rounded-control-md border border-line-control bg-surface pr-14 pl-2.5 text-sm text-ink-900 placeholder:text-ink-700 focus-visible:border-focus focus-visible:outline-none" />
+          {offer.extra}
+        </span>
         <button type="submit" className={buttonSecondary} disabled={!prompt.trim() || change.isPending}>{change.isPending ? 'Changing…' : 'Change'}</button>
         {before && <button type="button" className={buttonSecondary} onClick={() => { onChange(before); setBefore(null); setSaid('The change was undone.') }}>Undo</button>}
       </div>
