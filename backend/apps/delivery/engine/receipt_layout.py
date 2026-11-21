@@ -311,7 +311,7 @@ CORE_TOTALS = ("subtotal", "taxes", "total", "tenders", "change")       # always
 
 
 def default_register_style() -> dict:
-    return {"theme": "LILAC", "colors": None, "font": "HELVETICA", "size": "M", "title_size": "M", "title_align": "CENTER", "bold_labels": True, "upper_headers": False}
+    return {"theme": "LILAC", "colors": None, "font": "HELVETICA", "size": "M", "title_size": "M", "title_align": "CENTER", "bold_labels": True, "upper_headers": False, "outside": None}
 
 
 def default_register_totals() -> dict:
@@ -349,7 +349,8 @@ def register_look(style: dict) -> dict:
             "cell": f"font-size:{cell_size}px;line-height:{cell_line}px;", "big": f"font-size:{big_size}px;line-height:{big_line}px;",
             "title": f"font-size:{title_size}px;line-height:{title_line}px;", "title_align": "left" if style.get("title_align") == "LEFT" else "center",
             "label_weight": 400 if style.get("bold_labels") is False else 700,
-            "upper": "text-transform:uppercase;letter-spacing:0.04em;" if style.get("upper_headers") else ""}
+            "upper": "text-transform:uppercase;letter-spacing:0.04em;" if style.get("upper_headers") else "",
+            "outside": f"background-color:{style['outside']};" if isinstance(style.get("outside"), str) and HEX.match(style["outside"]) else ""}
 
 
 REGISTER_FIELDS = {"trans_number": "Trans Num", "register": "Register", "store_number": "Store", "trans_at": "Trans Dt", "cashier": "Cashier",
@@ -449,6 +450,11 @@ def _clean_style(raw) -> tuple[dict, str | None]:
         if not isinstance(colors, dict) or set(colors) != set(COLOR_KEYS) or not all(isinstance(colors[key], str) and HEX.match(colors[key]) for key in COLOR_KEYS):
             return style, "Each colour is a hex code such as #1f1f1f."
         style["colors"] = {key: colors[key].lower() for key in COLOR_KEYS}
+    outside = raw.get("outside")
+    if outside is not None:
+        if not isinstance(outside, str) or not HEX.match(outside):
+            return style, "The colour around the receipt is a hex code such as #ffffff."
+        style["outside"] = outside.lower()
     return style, None
 
 
@@ -615,7 +621,7 @@ def render_register(t: dict, settings: dict | None = None) -> str:
         text = _e(s["footer_text"]).replace("\r\n", "\n").replace("\n", "<br />")
         footer = gap + block("register-footer", look["card"], "12px 18px", f'<p style="margin:0;{cell}text-align:{align};">{text}</p>')
     return ((f"<style>{FOLD_RULE}</style>\n" if fold else "")
-            + f'<table {TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">\n  <tr>\n    <td style="padding:8px 24px 24px;">\n'
+            + f'<table {TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">\n  <tr>\n    <td style="padding:8px 24px 24px;{look["outside"]}">\n'
             f'      <table {TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:{look["band"]};font-family:{look["font"]};color:{look["text"]};">\n'
             f'        <tr><td style="padding:16px;">\n'
             + block("register-header", look["header"], "14px 18px 12px", title + header) + gap

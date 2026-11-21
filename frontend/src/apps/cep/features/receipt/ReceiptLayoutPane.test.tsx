@@ -254,6 +254,22 @@ test('Store Register: Colours & Text sets a theme, a colour of its own, the font
   expect(html).toContain('text-transform:uppercase')
 })
 
+test('Store Register: Around the Receipt colours the space around the frame, and goes back to the email’s own', async () => {
+  const { onChange, user } = setup()
+  await user.click(preset(/Store Register/))
+  await user.click(screen.getByRole('button', { name: /Colours & Text/ }))
+  expect(screen.getByTestId('register-preview').innerHTML).toContain('<td style="padding:8px 24px 24px;">')     // none: the email shows through
+  await user.click(screen.getByRole('button', { name: 'Choose a Colour' }))
+  const hex = screen.getByLabelText('Around the Receipt Hex')
+  await user.clear(hex)
+  await user.type(hex, '#F2EFEA{Enter}')
+  expect(last(onChange).register?.style?.outside).toBe('#f2efea')
+  expect(screen.getByTestId('register-preview').innerHTML).toContain('<td style="padding:8px 24px 24px;background-color:#f2efea;">')
+  await user.click(screen.getByRole('button', { name: "Use the Email's Background" }))
+  expect(last(onChange).register?.style?.outside).toBeNull()
+  expect(screen.getByRole('button', { name: 'Choose a Colour' })).toBeTruthy()
+})
+
 test('the email shell switch wraps the receipt', async () => {
   const { user } = setup()
   expect(screen.queryByTestId('email-shell')).toBeNull()
