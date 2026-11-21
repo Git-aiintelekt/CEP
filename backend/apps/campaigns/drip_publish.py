@@ -244,7 +244,7 @@ def _caps(campaign) -> list[tuple]:
     channel = campaign.channel if campaign.channel in TEXT_CHANNELS else "EMAIL"
     with service._conn().cursor() as cursor:
         cursor.execute("""SELECT scope, channel, max_messages, period_days, gap_hours FROM communication_governance_policy
-                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL AND window_start IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
+                           WHERE tenant_id = %s AND is_active AND deleted_at IS NULL AND window_start IS NULL AND blackout_from IS NULL ORDER BY priority""", [str(campaign.tenant_id)])
         rows = cursor.fetchall()
     limits = []
     for scope, own, maximum, days, hours in rows:
@@ -295,7 +295,12 @@ def review(campaign) -> dict:
                                                                             drip._clock(campaign, step, None), tzinfo=service.zone_of(campaign))
             with service._conn().cursor() as cursor:
                 opens, words = windows.hold_until(cursor, campaign.tenant_id, campaign.channel if texts else "EMAIL", tenant_zone, now=moment)
-            if opens is not None:
+            if opens is not None and words.startswith("Blackout date"):
+                local = moment.astimezone(ZoneInfo(tenant_zone))
+                label = words[len("Blackout date"):].split(":", 1)[0].strip(" ()")
+                warnings.append({"code": "BLACKOUT", "message": f"Sends on {local.day} {local:%b}, a blackout date{f' ({label})' if label else ''}. "
+                                                                f"It will wait until {opens:%a} {opens.day} {opens:%b %H:%M}."})
+            elif opens is not None:
                 local = moment.astimezone(ZoneInfo(tenant_zone))
                 warnings.append({"code": "QUIET_HOURS", "message": f"Sends at {local:%H:%M %Z}, inside quiet hours for texts. It will wait until {opens:%H:%M}."
                                  if words.startswith("Quiet hours") else f"Sends at {local:%H:%M %Z}, outside the send window for {noun}. It will wait until {opens:%a %H:%M}."})

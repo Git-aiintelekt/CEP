@@ -61,7 +61,7 @@ WITH picked AS ({picked}
       FROM picked p LEFT JOIN customer_master cm ON cm.party_id = p.party_id AND cm.tenant_id = %(tenant)s
 ), capped AS (
     SELECT r.party_id, (SELECT g.id FROM communication_governance_policy g
-                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL AND %(caps)s
+                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL AND g.blackout_from IS NULL AND %(caps)s
                            -- a text cap (SMS) covers SMS and MMS; WhatsApp has its own
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND (COALESCE(g.channel, %(channel)s) = %(channel)s OR (g.channel = 'SMS' AND %(channel)s = 'MMS'))))
                            AND (CASE WHEN g.scope = 'GLOBAL' THEN
@@ -117,7 +117,7 @@ LOG_SUPPRESSED = """
 INSERT INTO governance_evaluation_log (tenant_id, party_id, campaign_id, campaign_run_id, channel, policy_id, decision, reason)
 SELECT m.tenant_id, m.party_id, %(campaign)s, %(run)s, %(channel)s,
        CASE WHEN m.suppression_reason = 'FREQUENCY_CAP' THEN
-            (SELECT g.id FROM communication_governance_policy g WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL ORDER BY g.priority LIMIT 1) END,
+            (SELECT g.id FROM communication_governance_policy g WHERE g.tenant_id = %(tenant)s AND g.is_active AND g.deleted_at IS NULL AND g.window_start IS NULL AND g.blackout_from IS NULL ORDER BY g.priority LIMIT 1) END,
        'SUPPRESS', m.suppression_reason
   FROM campaign_list_member m
  WHERE m.tenant_id = %(tenant)s AND m.campaign_list_id = %(list)s AND m.status = 'SUPPRESSED'

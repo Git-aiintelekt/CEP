@@ -701,7 +701,7 @@ export interface RunSkippedPage {
   by_reason: Record<string, number>
 }
 
-export type DripWarningCode = 'TOO_CLOSE' | 'FREQUENCY' | 'QUIET_HOURS'
+export type DripWarningCode = 'TOO_CLOSE' | 'FREQUENCY' | 'QUIET_HOURS' | 'BLACKOUT'
 
 /** GET /steps/review/: the Test & Publish timeline */
 export interface DripReview {
@@ -3172,10 +3172,30 @@ export interface GovernanceWindowChannel {
   /** texts with no window at all: the platform's older quiet hours, which still apply */
   quiet_hours: { start: string; end: string } | null
 }
+/** A blackout date: no marketing on any channel from `from` to `to` (ISO dates, workspace time zone), every year when `yearly` */
+export interface GovernanceBlackout {
+  id: string
+  /** its label, such as Christmas */
+  name: string
+  from: string
+  to: string
+  yearly: boolean
+  /** '25 Dec, every year' / '30 Nov – 1 Dec 2026' */
+  rule: string
+  /** the first day of its next occurrence (today's when it is on now); null once a one-off date has passed */
+  next: string | null
+  today: boolean
+  past: boolean
+  is_active: boolean
+  platform: boolean
+  row_version: number
+}
 export interface GovernanceOverview {
   caps: GovernanceCap[]
   gaps: GovernanceGapChannel[]
   windows: GovernanceWindowChannel[]
+  /** soonest first; one-off dates that have passed last */
+  blackouts: GovernanceBlackout[]
   activity: { days: number; checked: number; sent: number; capped: number; sent_percent: number | null }
   text_quiet_hours: { start: string; end: string } | null
   soft_bounces: number

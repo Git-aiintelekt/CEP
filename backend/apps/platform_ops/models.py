@@ -569,6 +569,9 @@ class PlatformGovernancePolicy(models.Model):
     window_start = models.TimeField(null=True, blank=True)  # patch 0092: a send window instead of a cap
     window_end = models.TimeField(null=True, blank=True)
     window_days = ArrayField(models.SmallIntegerField(), null=True, blank=True)
+    blackout_from = models.DateField(null=True, blank=True)  # patch 0093: a blackout date instead of a cap
+    blackout_to = models.DateField(null=True, blank=True)
+    blackout_yearly = models.BooleanField(default=False)
     applies_to = models.CharField(max_length=20, choices=AppliesTo.choices, default=AppliesTo.MARKETING)
     priority = models.IntegerField(default=100)
     applies_all = models.BooleanField(default=False)
@@ -594,6 +597,9 @@ class PlatformGovernancePolicy(models.Model):
 
     def rule(self) -> str:
         what = "messages" if self.scope == "GLOBAL" else {"EMAIL": "emails", "SMS": "texts", "WHATSAPP": "WhatsApp messages"}.get(self.channel or "", "messages")
+        if self.blackout_from:
+            from apps.governance.blackout import describe as dates
+            return f"No marketing {dates(self.blackout_from, self.blackout_to, self.blackout_yearly)}"
         if self.window_start:
             from apps.governance.windows import describe
             return f"{what[:1].upper() + what[1:]} {describe(self.window_start, self.window_end, self.window_days)}"

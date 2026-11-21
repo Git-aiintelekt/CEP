@@ -11,7 +11,7 @@ import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
-import type { GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
+import type { GovernanceBlackout, GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -729,6 +729,13 @@ export const governanceWindow = (channel: GovernanceWindowChannel['channel'], ov
 const windowChannel = (channel: GovernanceWindowChannel['channel'], start: string, end: string, own: GovernanceWindow | null, platform: GovernanceWindow[] = [],
   quiet: GovernanceWindowChannel['quiet_hours'] = null): GovernanceWindowChannel =>
   ({ channel, channel_label: CAP_WORDS[channel][0], recommended: { start, end, days: EVERY_DAY }, own, platform, quiet_hours: quiet })
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const dayMonth = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`
+export const governanceBlackout = (overrides: Partial<GovernanceBlackout>): GovernanceBlackout => {
+  const item = { id: 'blackout-1', name: 'Christmas', from: '2026-12-25', to: '2026-12-25', yearly: true, today: false, past: false, is_active: true, platform: false, row_version: 1, ...overrides }
+  const when = item.from === item.to ? dayMonth(item.from) : `${dayMonth(item.from)} – ${dayMonth(item.to)}`
+  return { next: item.past ? null : item.from, ...item, rule: item.yearly ? `${when}, every year` : `${when} ${item.to.slice(0, 4)}` }
+}
 export const governance: GovernanceOverview = {
   caps: [governanceCap({ id: 'cap-platform', channel: 'EMAIL', max_messages: 3, period_days: 7, platform: true }), governanceCap({ id: 'cap-own', channel: 'SMS', max_messages: 4, period_days: 30 })],
   gaps: [gapChannel('EMAIL', 16, null), gapChannel('SMS', 24, governanceGap('SMS', { hours: 24 })),
@@ -737,6 +744,8 @@ export const governance: GovernanceOverview = {
     windowChannel('SMS', '09:00', '20:00', governanceWindow('SMS', { start: '10:00', end: '20:00', days: [1, 2, 3, 4, 5] }),
       [governanceWindow('SMS', { id: 'window-platform', start: '08:00', end: '21:00', platform: true })]),
     windowChannel('WHATSAPP', '09:00', '20:00', null, [], null)],
+  blackouts: [governanceBlackout({ id: 'blackout-christmas' }),
+    governanceBlackout({ id: 'blackout-new-year', name: 'New Year', from: '2027-01-01', to: '2027-01-01', platform: true })],
   activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
   text_quiet_hours: { start: '21:00', end: '08:00' },
   soft_bounces: 3,
@@ -1515,6 +1524,25 @@ export function installMockApi(options: MockOptions = {}) {
       const next = { ...entry, own: governanceWindow(entry.channel, { ...entry.own, start, end, days, is_active: asked.is_active ?? entry.own?.is_active ?? true }) }
       governanceNow = { ...governanceNow, windows: governanceNow.windows.map((item) => (item.channel === entry.channel ? next : item)) }
       return json(next)
+    }
+    if (path.endsWith('/workspace/governance/blackouts/') && method === 'POST') {
+      const asked = body as Partial<{ name: string; from: string; to: string; yearly: boolean }>
+      if (!asked.name?.trim()) return problem(400, { errors: { name: ['Give the date a name, such as Christmas.'] } })
+      if (!asked.from) return problem(400, { errors: { from: ['A date such as 2026-12-25.'] } })
+      if (governanceNow.blackouts.some((item) => item.name === asked.name?.trim())) return problem(400, { errors: { name: [`Another rule is already called ${asked.name.trim()}. Choose another name.`] } })
+      const made = governanceBlackout({ id: `blackout-${governanceNow.blackouts.length + 1}`, name: asked.name.trim(), from: asked.from, to: asked.to || asked.from, yearly: !!asked.yearly })
+      governanceNow = { ...governanceNow, blackouts: [...governanceNow.blackouts, made].sort((a, b) => (a.next ?? '').localeCompare(b.next ?? '')) }
+      return json({ blackouts: governanceNow.blackouts }, 201)
+    }
+    const blackoutMatch = path.match(/\/workspace\/governance\/blackouts\/([^/]+)\/$/)
+    if (blackoutMatch && (method === 'PATCH' || method === 'DELETE')) {
+      const item = governanceNow.blackouts.find((entry) => entry.id === blackoutMatch[1])
+      if (!item) return problem(404, { detail: 'No such blackout date.' })
+      if (item.platform) return problem(403, { detail: 'This rule is set by the platform for your workspace: it is changed in the back-office, not here.' })
+      const blackouts = method === 'DELETE' ? governanceNow.blackouts.filter((entry) => entry.id !== item.id)
+        : governanceNow.blackouts.map((entry) => (entry.id === item.id ? governanceBlackout({ ...entry, ...(body as Partial<GovernanceBlackout>), row_version: entry.row_version + 1 }) : entry))
+      governanceNow = { ...governanceNow, blackouts }
+      return json({ blackouts })
     }
     const gapMatch = path.match(/\/workspace\/governance\/gaps\/([^/]+)\/$/)
     if (gapMatch && method === 'PUT') {

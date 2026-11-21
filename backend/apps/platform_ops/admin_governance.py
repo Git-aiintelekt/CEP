@@ -1,4 +1,5 @@
-"""Back-office → Consent and Governance → Platform Policies: frequency caps and gaps between messages (patch 0089) applied to
+"""Back-office → Consent and Governance → Platform Policies: frequency caps, gaps between messages (patch 0089), send windows
+(patch 0092) and blackout dates (patch 0093) applied to
 every workspace, to chosen ones, or to one (patch 0088). Saving pushes the policy into the workspaces (apps/governance/platform.py)."""
 from django import forms
 from django.conf import settings
@@ -13,7 +14,7 @@ from .models import PlatformGovernancePolicy
 
 P = settings.PLATFORM_ALIAS
 ALL, SELECTED, ONE = "ALL", "SELECTED", "ONE"
-CAP, GAP, WINDOW = "CAP", "GAP", "WINDOW"
+CAP, GAP, WINDOW, BLACKOUT = "CAP", "GAP", "WINDOW", "BLACKOUT"
 DAYS = [("1", "Mon"), ("2", "Tue"), ("3", "Wed"), ("4", "Thu"), ("5", "Fri"), ("6", "Sat"), ("7", "Sun")]
 MAX_GAP_HOURS = 168
 
@@ -27,7 +28,8 @@ class PlatformPolicyForm(forms.ModelForm):
     kind = forms.ChoiceField(label="Kind", widget=UnfoldAdminRadioSelectWidget, initial=CAP, choices=[
         (CAP, "Frequency Cap: the most marketing messages one person receives in a number of days"),
         (GAP, "Gap Between Messages: the hours that must pass after one marketing message before the next (one channel)"),
-        (WINDOW, "Send Window: the hours and days marketing of one channel may go out, in each workspace's time zone; outside them a send waits")])
+        (WINDOW, "Send Window: the hours and days marketing of one channel may go out, in each workspace's time zone; outside them a send waits"),
+        (BLACKOUT, "Blackout Date: a day, or up to 31 days, with no marketing on any channel, in each workspace's time zone; a send due then waits")])
     days = forms.MultipleChoiceField(label="Window Days", required=False, choices=DAYS, widget=forms.CheckboxSelectMultiple, initial=[d for d, _ in DAYS],
                                      help_text="For a Send Window: the days it opens. A window past midnight (22:00 to 02:00) belongs to the day it opens.")
     reach = forms.ChoiceField(label="Applies To", widget=UnfoldAdminRadioSelectWidget, initial=ALL, choices=[
@@ -40,8 +42,10 @@ class PlatformPolicyForm(forms.ModelForm):
 
     class Meta:
         model = PlatformGovernancePolicy
-        fields = ("name", "scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "priority", "is_active")
-        labels = {"gap_hours": "Gap (Hours)", "window_start": "Window From", "window_end": "Window To"}
+        fields = ("name", "scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "blackout_from", "blackout_to",
+                  "blackout_yearly", "priority", "is_active")
+        labels = {"gap_hours": "Gap (Hours)", "window_start": "Window From", "window_end": "Window To", "blackout_from": "Blackout From",
+                  "blackout_to": "Blackout To", "blackout_yearly": "Every Year"}
         help_texts = {
             "name": "Shown to each workspace on its Governance page, locked.",
             "scope": "One Channel counts that channel's messages; All Channels Together counts every email, text and WhatsApp message.",
@@ -51,6 +55,9 @@ class PlatformPolicyForm(forms.ModelForm):
             "gap_hours": "For a Gap Between Messages: 1 to 168. A person who received a marketing message of the channel in the last this many hours is skipped (Frequency Capped).",
             "window_start": "For a Send Window: when marketing may start going out, as HH:MM in each workspace's time zone.",
             "window_end": "For a Send Window: when it stops. Earlier than From runs past midnight (22:00 to 02:00).",
+            "blackout_from": "For a Blackout Date: the first day with no marketing, in each workspace's time zone. The Name is shown as its label (Christmas).",
+            "blackout_to": "For a Blackout Date: the last day; empty for one day. At most 31 days in all.",
+            "blackout_yearly": "For a Blackout Date: repeat it on the same dates every year (25 December). Moving holidays are added each year.",
             "priority": "Lower comes first when the send log names the cap that held a person back.",
             "is_active": "Off: the workspaces keep a copy that does not apply, so it can be switched on again in one place.",
         }
@@ -64,7 +71,7 @@ class PlatformPolicyForm(forms.ModelForm):
             self.fields[field].required = False
         policy = self.instance
         if policy and policy.pk:
-            self.fields["kind"].initial = WINDOW if policy.window_start else GAP if policy.gap_hours else CAP
+            self.fields["kind"].initial = BLACKOUT if policy.blackout_from else WINDOW if policy.window_start else GAP if policy.gap_hours else CAP
             if policy.window_days:
                 self.fields["days"].initial = [str(day) for day in policy.window_days]
             chosen = [str(t) for t in policy.tenant_ids]
@@ -74,14 +81,26 @@ class PlatformPolicyForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        kind = data.get("kind")
+        if kind == BLACKOUT:
+            data["scope"], data["channel"] = PlatformGovernancePolicy.Scope.GLOBAL, None
         if data.get("scope") == PlatformGovernancePolicy.Scope.GLOBAL:
             data["channel"] = None
         elif not data.get("channel"):
             self.add_error("channel", "Choose the channel this cap counts.")
-        kind = data.get("kind")
         if kind in (GAP, WINDOW) and data.get("scope") == PlatformGovernancePolicy.Scope.GLOBAL:
             self.add_error("scope", f"A {'gap' if kind == GAP else 'send window'} is for one channel: choose One Channel.")
-        if kind == WINDOW:
+        if kind == BLACKOUT:
+            start, end = data.get("blackout_from"), data.get("blackout_to") or data.get("blackout_from")
+            if start is None:
+                self.add_error("blackout_from", "Required for a blackout date.")
+            elif end < start:
+                self.add_error("blackout_to", "On or after the first day.")
+            elif (end - start).days >= 31:
+                self.add_error("blackout_to", "At most 31 days.")
+            data["blackout_to"] = end
+            data["max_messages"], data["period_days"], data["gap_hours"] = 1, 1, None
+        elif kind == WINDOW:
             if data.get("window_start") is None:
                 self.add_error("window_start", "Required for a send window.")
             if data.get("window_end") is None:
@@ -98,8 +117,12 @@ class PlatformPolicyForm(forms.ModelForm):
             data["max_messages"], data["period_days"] = 1, 1
         else:
             data["gap_hours"] = None
+        if kind != BLACKOUT:
+            data["blackout_from"] = data["blackout_to"] = None
+            data["blackout_yearly"] = False
         if kind != WINDOW:
             data["window_start"] = data["window_end"] = None
+        if kind not in (WINDOW, BLACKOUT):
             for field in ("max_messages", "period_days"):
                 if data.get(field) is None:
                     self.add_error(field, "Required for a frequency cap.")
@@ -120,6 +143,10 @@ class PlatformPolicyForm(forms.ModelForm):
         policy.window_start = self.cleaned_data["window_start"] if window else None
         policy.window_end = self.cleaned_data["window_end"] if window else None
         policy.window_days = sorted(int(day) for day in self.cleaned_data.get("days") or []) if window else None
+        policy.blackout_from, policy.blackout_to = self.cleaned_data.get("blackout_from"), self.cleaned_data.get("blackout_to")
+        policy.blackout_yearly = bool(self.cleaned_data.get("blackout_yearly")) and policy.blackout_from is not None
+        if policy.blackout_from is not None:
+            policy.scope, policy.channel = PlatformGovernancePolicy.Scope.GLOBAL, None
         reach = self.cleaned_data["reach"]
         policy.applies_all = reach == ALL
         policy.tenant_ids = [] if reach == ALL else [self.cleaned_data["workspace"]] if reach == ONE else list(self.cleaned_data["workspaces"])
@@ -130,7 +157,7 @@ class PlatformPolicyForm(forms.ModelForm):
 
 @admin.register(PlatformGovernancePolicy)
 class PlatformGovernancePolicyAdmin(BaseAdmin):
-    """Frequency caps and gaps the platform sets for workspaces. A workspace sees its copy locked and adds stricter rules of its own."""
+    """Caps, gaps, send windows and blackout dates the platform sets for workspaces. A workspace sees its copy locked and adds stricter rules of its own."""
     form = PlatformPolicyForm
     list_display = ("name", "show_rule", "show_reach", "is_active")
     list_filter = ("is_active", "scope", "channel", "applies_all")
@@ -139,8 +166,10 @@ class PlatformGovernancePolicyAdmin(BaseAdmin):
     readonly_fields = ("created_at", "updated_at")
     actions = ["push_again"]
     fieldsets = (
-        ("The Rule", {"fields": ("name", "kind", "scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "days", "priority", "is_active"),
-                      "description": "A Frequency Cap uses Most and Days; a Gap Between Messages uses Gap (Hours); a Send Window uses Window From, Window To and Window Days."}),
+        ("The Rule", {"fields": ("name", "kind", "scope", "channel", "max_messages", "period_days", "gap_hours", "window_start", "window_end", "days",
+                                 "blackout_from", "blackout_to", "blackout_yearly", "priority", "is_active"),
+                      "description": "A Frequency Cap uses Most and Days; a Gap Between Messages uses Gap (Hours); a Send Window uses Window From, Window To and "
+                                     "Window Days; a Blackout Date uses Blackout From, Blackout To and Every Year, on every channel."}),
         ("Applies To", {"fields": ("reach", "workspaces", "workspace"),
                         "description": "Each workspace it applies to gets a locked copy on its Governance page. Taking a workspace off removes its copy."}),
     )

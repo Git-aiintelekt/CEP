@@ -117,7 +117,7 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
     channels = _channels_used(version)
     if not channels:
         return {"ok": True, "description": "This journey sends no messages, so no frequency cap or quiet hours apply."}
-    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, window_start__isnull=True).order_by("priority"))
+    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, window_start__isnull=True, blackout_from__isnull=True).order_by("priority"))
     sentences = []
     for channel in channels:
         word = "Emails" if channel == "EMAIL" else "Texts"
@@ -140,6 +140,12 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
             window = params.get("messaging.sms_quiet_hours", {}) or {}
             if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"]:
                 sentences.append(f"Texts wait out quiet hours, {window['start']} to {window['end']} in the workspace's time zone.")
+    from apps.governance.blackout import describe as dates
+    blackouts = [f"{p.name} ({dates(p.blackout_from, p.blackout_to, p.blackout_yearly)})" for p in CommunicationGovernancePolicy.objects.filter(
+        tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, blackout_from__isnull=False).order_by("blackout_from")]
+    if blackouts:
+        listed = "; ".join(blackouts[:3]) + (f" and {len(blackouts) - 3} more" if len(blackouts) > 3 else "")
+        sentences.append(f"No marketing goes out on the blackout dates ({listed}): a message due on one waits for the next day.")
     return {"ok": True, "description": " ".join(sentences)}
 
 

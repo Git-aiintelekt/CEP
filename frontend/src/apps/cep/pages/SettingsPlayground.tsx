@@ -1,4 +1,4 @@
-/** /dev/settings (dev builds only): the Settings menu panel beside a stand-in page, every feature on, nothing from the API; Set-Up, Attribution and Sending Engines are the real pages on sample data. */
+/** /dev/settings (dev builds only): the Settings menu panel beside a stand-in page, every feature on, nothing from the API; Set-Up, Attribution, Sending Engines and Governance are the real pages on sample data. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { FormProvider, useForm } from 'react-hook-form'
@@ -8,6 +8,7 @@ import { SettingsMenuPanel } from '@/apps/cep/pages/settings/SettingsMenu'
 import { WorkspaceSetupPage } from '@/apps/cep/pages/settings/WorkspaceSetupPage'
 import { AttributionPage } from '@/apps/cep/pages/settings/AttributionPage'
 import { DeliveryPage } from '@/apps/cep/pages/settings/DeliveryPage'
+import { GovernancePage } from '@/apps/cep/pages/settings/GovernancePage'
 import { DOMAINS } from '@/apps/cep/pages/settings/sendingDomains'
 import { UtmTrackingPage } from '@/apps/cep/pages/settings/UtmTrackingPage'
 import { ReportDatabasesPage } from '@/apps/cep/pages/settings/ReportDatabasesPage'
@@ -17,7 +18,7 @@ import type { ReportDatabase, SourceColumns, SourceList } from '@/apps/insights/
 import { UTM_KEY } from '@/apps/cep/pages/settings/utm'
 import { LinkTrackingCard } from '@/apps/cep/features/campaigns/wizard/LinkTrackingCard'
 import type { CampaignFormValues } from '@/apps/cep/features/campaigns/schema'
-import type { AttributedOrder, AttributionSettings, Campaign, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, ProviderType, SendingDomains, UtmPreview, UtmSettings } from '@/lib/types'
+import type { AttributedOrder, AttributionSettings, Campaign, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, GovernanceBlackout, GovernanceOverview, ProviderType, SendingDomains, UtmPreview, UtmSettings } from '@/lib/types'
 import { SETTINGS_GROUPS, pageAt } from '@/apps/cep/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/apps/cep/features/setup/sampleSetup'
@@ -252,6 +253,50 @@ function SampleReportDatabases({ map = false }: { map?: boolean }) {
   return <QueryClientProvider client={client}>{map ? <Routes><Route path=":id/map" element={<MapDatasetPage />} /></Routes> : <ReportDatabasesPage />}</QueryClientProvider>
 }
 
+const EVERY_DAY = [1, 2, 3, 4, 5, 6, 7]
+const blackoutDate = (id: string, name: string, from: string, to: string, rule: string, fields: Partial<GovernanceBlackout> = {}): GovernanceBlackout =>
+  ({ id, name, from, to, yearly: true, rule, next: from, today: false, past: false, is_active: true, platform: false, row_version: 1, ...fields })
+
+/** Governance as a retail workspace has it: the platform's caps, window and New Year locked, its own caps, gaps, windows and dates */
+const SAMPLE_GOVERNANCE: GovernanceOverview = {
+  caps: [
+    { id: 'c1', name: 'Platform Standard: Email, 1 per Day', channel: 'EMAIL', channel_label: 'Email', max_messages: 1, period_days: 1, rule: '1 email per day', is_active: true, platform: true, row_version: 1 },
+    { id: 'c2', name: '3 emails per 7 days', channel: 'EMAIL', channel_label: 'Email', max_messages: 3, period_days: 7, rule: '3 emails per 7 days', is_active: true, platform: false, row_version: 1 },
+    { id: 'c3', name: '4 texts per 30 days', channel: 'SMS', channel_label: 'Text', max_messages: 4, period_days: 30, rule: '4 texts per 30 days', is_active: true, platform: false, row_version: 1 },
+  ],
+  gaps: [
+    { channel: 'EMAIL', channel_label: 'Email', recommended_hours: 16, own: { id: 'g1', name: 'Gap', hours: 36, rule: '36 hours between emails', is_active: true, platform: false, row_version: 1 }, platform: [], covered_by: null },
+    { channel: 'SMS', channel_label: 'Text', recommended_hours: 24, own: null, platform: [], covered_by: null },
+    { channel: 'WHATSAPP', channel_label: 'WhatsApp', recommended_hours: 24, own: null, platform: [], covered_by: null },
+  ],
+  windows: [
+    { channel: 'EMAIL', channel_label: 'Email', recommended: { start: '07:00', end: '21:00', days: EVERY_DAY },
+      own: { id: 'w1', name: 'Window', start: '07:00', end: '21:00', days: EVERY_DAY, rule: 'Emails 07:00–21:00, every day', is_active: true, platform: false, row_version: 1 }, platform: [], quiet_hours: null },
+    { channel: 'SMS', channel_label: 'Text', recommended: { start: '09:00', end: '20:00', days: EVERY_DAY }, own: null,
+      platform: [{ id: 'w2', name: 'Platform Standard: Text Send Window', start: '08:00', end: '21:00', days: EVERY_DAY, rule: 'Texts 08:00–21:00, every day', is_active: true, platform: true, row_version: 1 }], quiet_hours: null },
+    { channel: 'WHATSAPP', channel_label: 'WhatsApp', recommended: { start: '09:00', end: '20:00', days: EVERY_DAY }, own: null, platform: [], quiet_hours: null },
+  ],
+  blackouts: [
+    blackoutDate('b1', 'Thanksgiving', '2026-11-26', '2026-11-26', '26 Nov 2026', { yearly: false }),
+    blackoutDate('b2', 'Holidays', '2026-12-24', '2026-12-26', '24 Dec – 26 Dec, every year'),
+    blackoutDate('b3', 'New Year', '2027-01-01', '2027-01-01', '1 Jan, every year', { platform: true }),
+    blackoutDate('b4', 'Store System Change', '2027-02-08', '2027-02-09', '8 Feb – 9 Feb 2027', { yearly: false, is_active: false }),
+    blackoutDate('b5', 'Day of Mourning', '2026-09-30', '2026-09-30', '30 Sep 2026', { yearly: false, next: null, past: true }),
+  ],
+  activity: { days: 30, checked: 212480, sent: 208654, capped: 1522, sent_percent: 98.2 },
+  text_quiet_hours: null,
+  soft_bounces: 3,
+}
+
+function SampleGovernance() {
+  const [client] = useState(() => {
+    const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+    seeded.setQueryData(['workspace', 'governance'], SAMPLE_GOVERNANCE)
+    return seeded
+  })
+  return <QueryClientProvider client={client}><GovernancePage canEdit /></QueryClientProvider>
+}
+
 export default function SettingsPlayground() {
   const [params] = useSearchParams()
   const components = params.get('components')?.split(',')                                          // ?components=insights: a workspace sold Insights alone
@@ -267,9 +312,10 @@ export default function SettingsPlayground() {
               <Route path="attribution" element={<SampleAttribution />} />
               <Route path="delivery" element={<SampleEngines />} />
               <Route path="utm-tracking" element={<SampleUtm />} />
+              <Route path="governance" element={<SampleGovernance />} />
               <Route path="report-databases" element={<SampleReportDatabases />} />
               <Route path="report-databases/*" element={<SampleReportDatabases map />} />
-              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking', '/settings/report-databases'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
+              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking', '/settings/report-databases', '/settings/governance'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
               <Route index element={<StandIn path="/settings/users" />} />
             </Route>
           </Routes>

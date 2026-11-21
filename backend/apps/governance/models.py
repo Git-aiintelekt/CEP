@@ -90,6 +90,9 @@ class CommunicationGovernancePolicy(models.Model):
     window_start = models.TimeField(null=True, blank=True)  # patch 0092: a send window (not a cap); workspace time zone
     window_end = models.TimeField(null=True, blank=True)
     window_days = ArrayField(models.SmallIntegerField(), null=True, blank=True)  # ISO weekdays, 1 = Monday
+    blackout_from = models.DateField(null=True, blank=True)  # patch 0093: a blackout date (not a cap); name is its label
+    blackout_to = models.DateField(null=True, blank=True)
+    blackout_yearly = models.BooleanField(default=False)
     platform_policy = models.ForeignKey('platform_ops.PlatformGovernancePolicy', on_delete=models.SET_NULL, db_column='platform_policy_id', related_name='copies', null=True, blank=True)  # patch 0088: the platform's copy, locked
     created_at = models.DateTimeField(db_default=Now())
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)

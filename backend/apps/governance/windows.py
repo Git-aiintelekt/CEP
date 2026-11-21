@@ -7,6 +7,7 @@ them. A marketing run due outside waits (apps/delivery/engine/runs.py starts it 
 Texts cover SMS and MMS. Test sends to testers and transactional messages never wait.
 
 A workspace with no text window keeps the platform's older quiet hours for texts (global parameter messaging.sms_quiet_hours).
+Blackout dates (apps/governance/blackout.py) are checked here too: a send due on one waits for the next clear day.
 """
 from __future__ import annotations
 
@@ -98,25 +99,47 @@ def rows(cursor, tenant_id, channel: str) -> list[Window]:
     return [Window(parse_time(start), parse_time(end), tuple(days or EVERY_DAY)) for start, end, days in cursor.fetchall()]   # to the minute
 
 
+def _opening(windows: list[Window], family: str, tenant_zone: str | None, moment: datetime) -> datetime | None:
+    """`moment` when the channel may go out then, the moment it next may otherwise, None when its windows never meet"""
+    if windows:
+        return next_opening(windows, moment)
+    if family == "SMS":
+        from apps.delivery.engine.runs import quiet_until
+        return quiet_until(tenant_zone, now=moment) or moment
+    return moment
+
+
 def hold_until(cursor, tenant_id, channel: str, tenant_zone: str | None, now: datetime | None = None) -> tuple[datetime | None, str]:
-    """When a marketing send of `channel` due `now` may go out: (None, '') to go now, otherwise (the moment the windows
-    open, in the workspace's zone, and the words for the run's log). Without windows for texts, the older quiet hours."""
+    """When a marketing send of `channel` due `now` may go out: (None, '') to go now, otherwise (the moment it may, in the
+    workspace's zone, and the words for the run's log). Blackout dates (apps/governance/blackout.py) move it to the next day
+    that is not blacked out; the send windows then apply on that day. Without windows for texts, the older quiet hours."""
     from django.utils import timezone
+
+    from apps.governance import blackout
 
     zone = ZoneInfo(tenant_zone or "UTC")
     local = (now or timezone.now()).astimezone(zone)
     family = channel_family(channel)
     windows = rows(cursor, tenant_id, family)
+    blackouts = blackout.rows(cursor, tenant_id)
+    held_by, moment = None, local
+    for _ in range(12):                                       # a blackout, then a window opening on another blackout, and so on
+        hit = blackout.blacked_out(blackouts, moment.date())
+        if hit is not None:
+            held_by = held_by or hit
+            moment = datetime.combine(blackout.next_clear_day(blackouts, moment.date()), time(0, 0), tzinfo=zone)
+        opens = _opening(windows, family, tenant_zone, moment)
+        if opens is None:                                     # windows that never meet do not hold a send forever; the page refuses them
+            break
+        moment = opens
+        if blackout.blacked_out(blackouts, moment.date()) is None:
+            break
+    if moment == local:
+        return None, ""
+    if held_by is not None:
+        label = f" ({held_by.name})" if held_by.name else ""
+        return moment, f"Blackout date{label}: no marketing that day. The run starts {moment:%a %d %b %H:%M} ({tenant_zone})."
     if not windows:
-        if family == "SMS":
-            from apps.delivery.engine.runs import quiet_until
-            opens = quiet_until(tenant_zone, now=now)
-            return (opens, f"Quiet hours for marketing texts: the run starts at {opens:%H:%M} ({tenant_zone}).") if opens else (None, "")
-        return None, ""
-    opens = next_opening(windows, local)
-    if opens == local:
-        return None, ""
+        return moment, f"Quiet hours for marketing texts: the run starts at {moment:%H:%M} ({tenant_zone})."
     noun = {"EMAIL": "emails", "SMS": "texts", "WHATSAPP": "WhatsApp messages"}[family]
-    if opens is None:
-        return None, ""                                           # windows that never meet do not hold a send forever; the page refuses them
-    return opens, f"Outside the send window for marketing {noun}: the run starts {opens:%a %d %b %H:%M} ({tenant_zone})."
+    return moment, f"Outside the send window for marketing {noun}: the run starts {moment:%a %d %b %H:%M} ({tenant_zone})."

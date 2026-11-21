@@ -1,6 +1,6 @@
 /** Settings → Governance (docs/mockups/governance.html, option A): the last 30 days, the platform's caps locked beside the
  * workspace's own, and adding, switching off and removing a cap of the workspace's own. */
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -141,4 +141,47 @@ test('without governance.edit the windows are shown, not edited', async () => {
   expect(within(box).queryByRole('switch')).toBeNull()
   expect(within(box).queryByLabelText('Text window from')).toBeNull()
   expect(within(box).getByText(/Marketing texts go out 10:00–20:00, Mon–Fri\./)).toBeTruthy()
+})
+
+test('blackout dates: the platform date is locked, the workspace adds a yearly date, switches one off and removes it', async () => {
+  const calls = installMockApi({ me: { principal: { ...me.principal, kind: 'user' as const, permissions: [...me.principal.permissions, 'governance.edit'] } } as never })
+  const user = userEvent.setup()
+  await renderAppAt('/settings/governance')
+  const list = await screen.findByRole('list', { name: 'Blackout Dates' })
+  const newYear = within(list).getByText('1 Jan, every year').closest('li') as HTMLElement
+  expect(within(newYear).getByText('Platform')).toBeTruthy()
+  expect(within(newYear).getByText('Locked')).toBeTruthy()
+  expect(within(newYear).queryByRole('button', { name: 'Edit' })).toBeNull()
+
+  await user.click(screen.getByRole('button', { name: 'Add Date' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Add Blackout Date' })
+  await user.type(within(dialog).getByLabelText(/^Name/), 'Christmas')
+  fireEvent.change(within(dialog).getByLabelText(/^From/), { target: { value: '2027-12-25' } })
+  await user.click(within(dialog).getByRole('button', { name: 'Add Date' }))
+  expect(await within(dialog).findByText(/Another rule is already called Christmas/)).toBeTruthy()          // the server's word, on Name
+  await user.clear(within(dialog).getByLabelText(/^Name/))
+  await user.type(within(dialog).getByLabelText(/^Name/), 'Independence Day')
+  fireEvent.change(within(dialog).getByLabelText(/^From/), { target: { value: '2027-07-04' } })
+  await user.click(within(dialog).getByRole('checkbox', { name: 'Every Year, on the same dates' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Add Date' }))
+  expect(await within(list).findByText('4 Jul, every year')).toBeTruthy()
+  expect(calls.filter((call) => call.method === 'POST' && call.url.endsWith('/workspace/governance/blackouts/')).at(-1)?.body)
+    .toEqual({ name: 'Independence Day', from: '2027-07-04', to: '2027-07-04', yearly: true })
+
+  const christmas = within(list).getByText('25 Dec, every year').closest('li') as HTMLElement
+  await user.click(within(christmas).getByRole('switch', { name: 'Christmas in use' }))
+  await vi.waitFor(() => expect(calls.find((call) => call.method === 'PATCH' && call.url.endsWith('/blackouts/blackout-christmas/'))?.body).toEqual({ is_active: false }))
+
+  const added = within(list).getByText('4 Jul, every year').closest('li') as HTMLElement
+  await user.click(within(added).getByRole('button', { name: 'Remove' }))
+  await vi.waitFor(() => expect(within(list).queryByText('4 Jul, every year')).toBeNull())
+})
+
+test('without governance.edit the blackout dates are listed, not changed', async () => {
+  installMockApi()
+  await renderAppAt('/settings/governance')
+  const list = await screen.findByRole('list', { name: 'Blackout Dates' })
+  expect(within(list).getByText('25 Dec, every year')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Add Date' })).toBeNull()
+  expect(within(list).queryByRole('switch')).toBeNull()
 })
