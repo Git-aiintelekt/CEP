@@ -104,11 +104,16 @@ def test_store_register_colours_text_and_totals(check):
           ">2,424</td>" in rl.render([], with_points, None, "REGISTER", settings) and "Balance" not in html)
     own = rl.render([], t, None, "REGISTER", _settings(style={**style, "colors": {"frame": "#FAFAFA", "cards": "#222222", "columns": "#333333", "text": "#111111", "accent": "#00aa00"}}))
     check("own colours, text on the dark cards turns white", "background-color:#fafafa" in own and "color:#ffffff;" in own)
+    around = _settings(style={**style, "outside": "#F2EFEA"})
+    check("a colour around the frame is kept in small letters and fills the space around it",
+          around["style"]["outside"] == "#f2efea" and '<td style="padding:8px 24px 24px;background-color:#f2efea;">' in rl.render([], t, None, "REGISTER", around))
+    check("none around the frame: the email's own background shows", '<td style="padding:8px 24px 24px;">' in html and settings["style"]["outside"] is None)
 
     bad = lambda **changes: rl.clean_register_settings({**rl.default_register_settings(), **changes})[1]   # noqa: E731
     check("an unknown theme is refused", "register" in bad(style={**style, "theme": "NEON"}))
     check("a colour that is not a hex code is refused", "register" in bad(style={**style, "colors": {"frame": "red", "cards": "#fff", "columns": "#000000", "text": "#000000", "accent": "#000000"}}))
     check("a register row cannot be left out", "register" in bad(totals={**totals, "rows": [row for row in totals["rows"] if row["key"] != "subtotal"]}))
+    check("a colour around the frame that is not a hex code is refused", "register" in bad(style={**style, "outside": "beige"}))
     check("an unknown row is refused", "register" in bad(totals={**totals, "rows": [*totals["rows"], {"key": "lottery"}]}))
     check("TOTAL cannot be hidden", next(r for r in _settings(totals={**totals, "rows": [dict(r, visible=False) for r in totals["rows"]]})["totals"]["rows"] if r["key"] == "total")["visible"])
     check.done()

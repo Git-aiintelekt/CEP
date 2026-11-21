@@ -332,7 +332,7 @@ export function renderRegisterEmailHtml(transaction: SampleTransaction, settings
     : ''
   return `${fold ? `<style>${FOLD_RULE}</style>\n` : ''}<table ${TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">
   <tr>
-    <td style="padding:8px 24px 24px;">
+    <td style="padding:8px 24px 24px;${look.outside}">
       <table ${TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:${look.band};font-family:${look.font};color:${look.text};">
         <tr><td style="padding:16px;">
 ${block('register-header', look.header, '14px 18px 12px', title + header)}${gap}          <table data-section="register-body" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${look.card};"><tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid ${look.line};background-color:${look.columns};">${columns}</td></tr><tr><td style="padding:2px 18px 16px;"><div data-section="register-items">${items}</div><div data-section="register-totals" style="margin-top:12px;">${totals}</div></td></tr></table>

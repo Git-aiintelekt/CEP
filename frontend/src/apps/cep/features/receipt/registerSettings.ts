@@ -96,7 +96,7 @@ const TITLE_SIZES: Record<RegisterStyle['title_size'], [number, number]> = { S: 
 const HEX = /^#[0-9a-f]{6}$/i
 
 export function defaultRegisterStyle(): RegisterStyle {
-  return { theme: 'LILAC', colors: null, font: 'HELVETICA', size: 'M', title_size: 'M', title_align: 'CENTER', bold_labels: true, upper_headers: false }
+  return { theme: 'LILAC', colors: null, font: 'HELVETICA', size: 'M', title_size: 'M', title_align: 'CENTER', bold_labels: true, upper_headers: false, outside: null }
 }
 
 /** 0 (black) to 1 (white), as WCAG weighs the channels */
@@ -133,6 +133,7 @@ export function registerLook(style: RegisterStyle) {
     title: `font-size:${titleSize}px;line-height:${titleLine}px;`, titleAlign: style.title_align === 'LEFT' ? 'left' : 'center',
     labelWeight: style.bold_labels === false ? 400 : 700,
     upper: style.upper_headers ? 'text-transform:uppercase;letter-spacing:0.04em;' : '',
+    outside: style.outside && HEX.test(style.outside) ? `background-color:${style.outside};` : '',
   }
 }
 

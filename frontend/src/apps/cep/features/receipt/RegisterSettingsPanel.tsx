@@ -416,6 +416,20 @@ function LookSettings({ settings, onChange, disabled }: { settings: RegisterSett
           </div>
         )}
       </div>
+      <div className="flex flex-col gap-1.5" role="group" aria-label="Around the Receipt">
+        <p className="text-sm font-medium text-ink-900">Around the Receipt</p>
+        {style.outside ? (
+          <>
+            <ColourRow label="Around the Receipt" value={style.outside} disabled={disabled} onChange={(outside) => set({ outside })} />
+            <button type="button" disabled={disabled} onClick={() => set({ outside: null })} className="w-fit text-sm font-semibold text-link hover:underline">Use the Email's Background</button>
+          </>
+        ) : (
+          <>
+            <Help>The email's own background shows around the frame.</Help>
+            <button type="button" disabled={disabled} onClick={() => set({ outside: '#ffffff' })} className="w-fit text-sm font-semibold text-link hover:underline">Choose a Colour</button>
+          </>
+        )}
+      </div>
       <div className="flex flex-col gap-1.5">
         <p className="text-sm font-medium text-ink-900">Font</p>
         <SegmentedControl label="Font" variant="outline" disabled={disabled} value={style.font}

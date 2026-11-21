@@ -1554,6 +1554,8 @@ export interface RegisterStyle {
   bold_labels: boolean
   /** the column headers in capitals */
   upper_headers: boolean
+  /** the colour around the frame, inside the email; null or absent: none, the email's own background shows */
+  outside?: string | null
 }
 export type RegisterTotalKey =
   | 'subtotal' | 'order_discount' | 'savings' | 'shipping' | 'tip' | 'taxes' | 'total' | 'tenders' | 'change' | 'items' | 'points_earned' | 'points_balance'
