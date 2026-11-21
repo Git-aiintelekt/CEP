@@ -158,11 +158,17 @@ test('Store Register: renamed headers, an added column and footer text reach the
   await user.click(preset(/Store Register/))
   expect(last(onChange).register).toEqual(defaultRegisterSettings())
 
+  expect(screen.queryByLabelText('Header: Description')).toBeNull()                                       // one line per column until Edit
+  await user.click(screen.getByRole('button', { name: 'Edit Column: Description' }))
   await user.clear(screen.getByLabelText('Header: Description'))
   await user.type(screen.getByLabelText('Header: Description'), 'Item')
+  await user.click(screen.getByRole('button', { name: 'Done' }))
+  expect(screen.queryByLabelText('Header: Description')).toBeNull()
   await user.click(screen.getByRole('button', { name: 'Add Column' }))
   await user.click(within(screen.getByRole('list', { name: 'Add Column' })).getByRole('button', { name: /Size/ }))
   expect(last(onChange).register?.columns.map((column) => column.key)).toEqual(['description', 'size', 'amount'])
+  expect(screen.getByLabelText('Shows: Size')).toBeTruthy()                                               // the added column opens for editing
+  expect(screen.getAllByRole('combobox', { name: /^Shows:/ })).toHaveLength(1)                            // and only it: no box twice per column
   const html = screen.getByTestId('register-preview').innerHTML
   expect(html).toContain('>Item</td>')
   expect(html).toContain('>Size</td>')
@@ -183,6 +189,69 @@ test('Store Register: renamed headers, an added column and footer text reach the
   await user.click(screen.getAllByRole('checkbox', { name: 'Show' })[1])
   expect(last(onChange).register?.fields[1]).toMatchObject({ key: 'register', visible: false })
   expect(screen.getByTestId('register-preview').innerHTML).not.toContain('Register:</span>')
+})
+
+test('Store Register: a renamed column says what it shows; Shows changes what it prints', async () => {
+  const { onChange, user } = setup()
+  await user.click(preset(/Store Register/))
+  await user.click(screen.getByRole('button', { name: 'Add Column' }))
+  await user.click(within(screen.getByRole('list', { name: 'Add Column' })).getByRole('button', { name: /Quantity/ }))
+  await user.selectOptions(screen.getByLabelText('Shows: Quantity'), 'discount')
+  expect(last(onChange).register?.columns[1]).toEqual({ key: 'discount', label: 'Discount' })
+  await user.clear(screen.getByLabelText('Header: Discount'))
+  await user.type(screen.getByLabelText('Header: Discount'), 'Savings')
+  await user.click(screen.getByRole('button', { name: 'Done' }))
+  const columns = screen.getByRole('list', { name: 'Columns' })
+  expect(within(columns).getByText('Savings')).toBeTruthy()
+  expect(within(columns).getByText('Shows Discount')).toBeTruthy()
+})
+
+test('Store Register: Totals & Tenders rows are renamed, hidden and added, and print in their order', async () => {
+  const { onChange, user } = setup()
+  await user.click(preset(/Store Register/))
+  await user.click(screen.getByRole('button', { name: /Totals & Tenders/ }))
+  await user.clear(screen.getByLabelText('Label: Subtotal'))
+  await user.type(screen.getByLabelText('Label: Subtotal'), 'Sub-Total')
+  await user.click(screen.getByRole('checkbox', { name: 'With the authorisation (Auth: 096837)' }))
+  await user.click(screen.getByRole('button', { name: 'Add Row' }))
+  await user.click(within(screen.getByRole('list', { name: 'Add Row' })).getByRole('button', { name: /Points Balance/ }))
+  await user.click(screen.getByRole('button', { name: 'Add Row' }))
+  await user.click(within(screen.getByRole('list', { name: 'Add Row' })).getByRole('button', { name: /Items Sold/ }))
+  const totals = last(onChange).register?.totals
+  expect(totals?.rows.map((row) => row.key)).toEqual(['subtotal', 'taxes', 'total', 'tenders', 'change', 'items', 'points_balance'])
+  expect(totals?.tender_auth).toBe(false)
+  const html = screen.getByTestId('register-preview').innerHTML
+  expect(html).toContain('Sub-Total:</td>')
+  expect(html).toContain('Items Sold:</td>')
+  expect(html).not.toContain('Auth:')
+  await user.click(screen.getByRole('radio', { name: 'Label Left' }))
+  expect(screen.getByTestId('register-preview').innerHTML).toContain('>Sub-Total</td>')
+  await user.click(screen.getByRole('button', { name: 'Remove Row: Items Sold' }))
+  expect(last(onChange).register?.totals?.rows.map((row) => row.key)).not.toContain('items')
+  expect(screen.queryByRole('button', { name: 'Remove Row: Subtotal' })).toBeNull()                       // the register's own rows hide, never go
+})
+
+test('Store Register: Colours & Text sets a theme, a colour of its own, the font and the size', async () => {
+  const { onChange, user } = setup()
+  await user.click(preset(/Store Register/))
+  await user.click(screen.getByRole('button', { name: /Colours & Text/ }))
+  await user.click(screen.getByRole('radio', { name: /Ink/ }))
+  expect(last(onChange).register?.style).toMatchObject({ theme: 'INK', colors: null })
+  expect(screen.getByTestId('register-preview').innerHTML).toContain('background-color:#1f1f1f')
+  expect(screen.getByTestId('register-preview').innerHTML).toContain('color:#ffffff;font-weight:700;')     // headers on the dark band turn white
+  await user.click(screen.getByRole('button', { name: 'Customise Colours' }))
+  const hex = screen.getByLabelText('Discounts and Savings Hex')
+  await user.clear(hex)
+  await user.type(hex, '#C0392B{Enter}')
+  expect(last(onChange).register?.style?.colors).toMatchObject({ frame: '#1f1f1f', accent: '#c0392b' })
+  expect(screen.getByRole('radio', { name: /Ink/ }).getAttribute('aria-checked')).toBe('false')
+  await user.click(screen.getByRole('radio', { name: 'Courier' }))
+  await user.click(screen.getByRole('radio', { name: 'Large' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Column headers in capitals' }))
+  expect(last(onChange).register?.style).toMatchObject({ font: 'COURIER', size: 'L', upper_headers: true })
+  const html = screen.getByTestId('register-preview').innerHTML
+  expect(html).toContain("font-family:'Courier New', Courier, monospace")
+  expect(html).toContain('text-transform:uppercase')
 })
 
 test('the email shell switch wraps the receipt', async () => {

@@ -83,6 +83,37 @@ def test_store_register_settings(check):
     check.done()
 
 
+def test_store_register_colours_text_and_totals(check):
+    _, t = _sale()
+    style = {"theme": "INK", "colors": None, "font": "COURIER", "size": "L", "title_size": "S", "title_align": "LEFT", "bold_labels": False, "upper_headers": True}
+    totals = {"rows": [{"key": "points_balance", "label": "Balance"}, *rl.default_register_totals()["rows"], {"key": "items", "label": ""}],
+              "layout": "SPREAD", "tax_rate": False, "tender_auth": False, "total_large": True}
+    settings = _settings(style=style, totals=totals)
+    check("the rows are kept in their printed order, an empty label takes the row's name",
+          [row["key"] for row in settings["totals"]["rows"]] == ["subtotal", "taxes", "total", "tenders", "change", "items", "points_balance"]
+          and settings["totals"]["rows"][5]["label"] == "Items Sold", settings["totals"]["rows"])
+    html = rl.render([], t, None, "REGISTER", settings)
+    check("Ink: the dark band, headers on it in white and in capitals", "background-color:#1f1f1f" in html and "color:#ffffff;font-weight:700;text-transform:uppercase" in html)
+    check("Courier at the large size, a small left title, plain header labels",
+          "font-family:'Courier New', Courier, monospace" in html and "font-size:14px;line-height:20px;" in html
+          and "font-size:13px;line-height:18px;font-weight:700;letter-spacing:0.02em;text-align:left;" in html and '<span style="font-weight:400;">' in html)
+    check("label left, no colons, no rate, no authorisation; Items Sold printed", ">Subtotal</td>" in html and "Subtotal:" not in html and "%)" not in html
+          and "Auth:" not in html and ">Items Sold</td>" in html, html[-1500:])
+    with_points = dict(t, loyalty={"points_earned": 44, "points_balance": 2424, "tier_progress": ""})
+    check("a member's balance with a thousands comma; without loyalty the row drops out",
+          ">2,424</td>" in rl.render([], with_points, None, "REGISTER", settings) and "Balance" not in html)
+    own = rl.render([], t, None, "REGISTER", _settings(style={**style, "colors": {"frame": "#FAFAFA", "cards": "#222222", "columns": "#333333", "text": "#111111", "accent": "#00aa00"}}))
+    check("own colours, text on the dark cards turns white", "background-color:#fafafa" in own and "color:#ffffff;" in own)
+
+    bad = lambda **changes: rl.clean_register_settings({**rl.default_register_settings(), **changes})[1]   # noqa: E731
+    check("an unknown theme is refused", "register" in bad(style={**style, "theme": "NEON"}))
+    check("a colour that is not a hex code is refused", "register" in bad(style={**style, "colors": {"frame": "red", "cards": "#fff", "columns": "#000000", "text": "#000000", "accent": "#000000"}}))
+    check("a register row cannot be left out", "register" in bad(totals={**totals, "rows": [row for row in totals["rows"] if row["key"] != "subtotal"]}))
+    check("an unknown row is refused", "register" in bad(totals={**totals, "rows": [*totals["rows"], {"key": "lottery"}]}))
+    check("TOTAL cannot be hidden", next(r for r in _settings(totals={**totals, "rows": [dict(r, visible=False) for r in totals["rows"]]})["totals"]["rows"] if r["key"] == "total")["visible"])
+    check.done()
+
+
 def test_custom_html_item_row(check):
     _, t = _sale()
     row = "<tr><td>{{item.description}}</td><td>{{ item.size }}</td><td>{{item.amount}}</td><td>{{item.nope}}</td></tr>"

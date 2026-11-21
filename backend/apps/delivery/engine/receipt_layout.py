@@ -287,8 +287,69 @@ def barcode_block(number: str, image_url: str) -> str:
 
 
 # ------------------------------------------------------------------------------------------------ the Store Register layout
-REGISTER = {"band": "#e4deed", "header": "#ffffff", "columns": "#f5f5f5", "card": "#ffffff", "text": "#1f1f1f", "line": "#e6e2ed", "discount": "#2e9e3a"}
 REGISTER_PRESET = "REGISTER"
+
+# Colours & Text: the colours each theme prints with; "line" (the hairlines) is the theme's and not set on its own
+REGISTER_THEMES = {
+    "LILAC": {"colors": {"frame": "#e4deed", "cards": "#ffffff", "columns": "#f5f5f5", "text": "#1f1f1f", "accent": "#2e9e3a"}, "line": "#e6e2ed"},
+    "PAPER": {"colors": {"frame": "#f1f1f1", "cards": "#ffffff", "columns": "#ffffff", "text": "#1f1f1f", "accent": "#2e7d32"}, "line": "#d9d9d9"},
+    "INK": {"colors": {"frame": "#1f1f1f", "cards": "#ffffff", "columns": "#1f1f1f", "text": "#1f1f1f", "accent": "#2e7d32"}, "line": "#e0e0e0"},
+    "BLUE": {"colors": {"frame": "#dee9fc", "cards": "#ffffff", "columns": "#2b4dd0", "text": "#1f1f1f", "accent": "#2e9e3a"}, "line": "#dde3f0"},
+}
+REGISTER_FONTS = {"HELVETICA": "Helvetica, Arial, sans-serif", "GEORGIA": "Georgia, 'Times New Roman', serif", "COURIER": "'Courier New', Courier, monospace"}
+TEXT_SIZES = {"S": ((11, 16), (13, 18)), "M": ((12, 18), (14, 20)), "L": ((14, 20), (16, 22))}   # the text, and TOTAL a size larger
+TITLE_SIZES = {"S": (13, 18), "M": (15, 20), "L": (18, 24)}
+COLOR_KEYS = ("frame", "cards", "columns", "text", "accent")
+HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+# Totals & Tenders: each row's own name, in the order printed
+REGISTER_TOTALS = {"subtotal": "Subtotal", "order_discount": "Order Discount", "savings": "You Saved", "shipping": "Shipping", "tip": "Tip", "taxes": "Taxes",
+                   "total": "TOTAL", "tenders": "Paid with", "change": "Cash Change", "items": "Items Sold", "points_earned": "Points Earned",
+                   "points_balance": "Points Balance"}
+TOTAL_ORDER = list(REGISTER_TOTALS)
+CORE_TOTALS = ("subtotal", "taxes", "total", "tenders", "change")       # always listed: hidden, never removed
+
+
+def default_register_style() -> dict:
+    return {"theme": "LILAC", "colors": None, "font": "HELVETICA", "size": "M", "title_size": "M", "title_align": "CENTER", "bold_labels": True, "upper_headers": False}
+
+
+def default_register_totals() -> dict:
+    return {"rows": [{"key": key, "label": "" if key == "taxes" else REGISTER_TOTALS[key], "visible": True} for key in CORE_TOTALS],
+            "layout": "BESIDE", "tax_rate": True, "tender_auth": True, "total_large": True}
+
+
+def _luminance(hex_colour: str) -> float:
+    def channel(at):
+        value = int(hex_colour[at:at + 2], 16) / 255
+        return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
+
+
+def readable_on(background: str, text: str) -> str:
+    """`text` on `background`, unless the two are both dark or both light: then white or near-black, whichever reads"""
+    if not HEX.match(background or "") or not HEX.match(text or ""):
+        return text
+    bg, fg = _luminance(background), _luminance(text)
+    if (max(bg, fg) + 0.05) / (min(bg, fg) + 0.05) >= 3:
+        return text
+    return "#ffffff" if bg < 0.4 else "#1f1f1f"
+
+
+def register_look(style: dict) -> dict:
+    """Everything the Store Register draws with, from its Colours & Text. The defaults are the values it always used."""
+    theme = REGISTER_THEMES.get(style.get("theme"), REGISTER_THEMES["LILAC"])
+    colors = {**theme["colors"], **(style.get("colors") or {})}
+    text = readable_on(colors["cards"], colors["text"])
+    (cell_size, cell_line), (big_size, big_line) = TEXT_SIZES.get(style.get("size"), TEXT_SIZES["M"])
+    title_size, title_line = TITLE_SIZES.get(style.get("title_size"), TITLE_SIZES["M"])
+    return {"band": colors["frame"], "header": colors["cards"], "card": colors["cards"], "columns": colors["columns"], "line": theme["line"],
+            "discount": colors["accent"], "text": text, "columns_text": readable_on(colors["columns"], text),
+            "font": REGISTER_FONTS.get(style.get("font"), REGISTER_FONTS["HELVETICA"]),
+            "cell": f"font-size:{cell_size}px;line-height:{cell_line}px;", "big": f"font-size:{big_size}px;line-height:{big_line}px;",
+            "title": f"font-size:{title_size}px;line-height:{title_line}px;", "title_align": "left" if style.get("title_align") == "LEFT" else "center",
+            "label_weight": 400 if style.get("bold_labels") is False else 700,
+            "upper": "text-transform:uppercase;letter-spacing:0.04em;" if style.get("upper_headers") else ""}
 
 
 REGISTER_FIELDS = {"trans_number": "Trans Num", "register": "Register", "store_number": "Store", "trans_at": "Trans Dt", "cashier": "Cashier",
@@ -360,7 +421,103 @@ def clean_register_settings(raw) -> tuple[dict | None, dict]:
         errors["register"] = f"The footer text is longer than {MAX_REGISTER_FOOTER} characters."
     out["footer_align"] = "LEFT" if raw.get("footer_align") == "LEFT" else "CENTER"
     out["phone"] = "KEEP" if raw.get("phone") == "KEEP" else "FOLD"
+    if raw.get("style") is not None:
+        out["style"], problem = _clean_style(raw["style"])
+        if problem:
+            errors["register"] = problem
+    if raw.get("totals") is not None:
+        out["totals"], problem = _clean_totals(raw["totals"])
+        if problem:
+            errors["register"] = problem
     return out, errors
+
+
+def _clean_style(raw) -> tuple[dict, str | None]:
+    style = default_register_style()
+    if not isinstance(raw, dict):
+        return style, "Colours & Text must be an object."
+    choices = {"theme": REGISTER_THEMES, "font": REGISTER_FONTS, "size": TEXT_SIZES, "title_size": TITLE_SIZES, "title_align": ("CENTER", "LEFT")}
+    for key, allowed in choices.items():
+        value = raw.get(key, style[key])
+        if value not in allowed:
+            return style, f"Colours & Text: {value!r} is not one of the offered choices."
+        style[key] = value
+    style["bold_labels"] = raw.get("bold_labels", True) is not False
+    style["upper_headers"] = bool(raw.get("upper_headers", False))
+    colors = raw.get("colors")
+    if colors is not None:
+        if not isinstance(colors, dict) or set(colors) != set(COLOR_KEYS) or not all(isinstance(colors[key], str) and HEX.match(colors[key]) for key in COLOR_KEYS):
+            return style, "Each colour is a hex code such as #1f1f1f."
+        style["colors"] = {key: colors[key].lower() for key in COLOR_KEYS}
+    return style, None
+
+
+def _clean_totals(raw) -> tuple[dict, str | None]:
+    totals = default_register_totals()
+    if not isinstance(raw, dict) or not isinstance(raw.get("rows"), list):
+        return totals, "Totals & Tenders must list its rows."
+    rows = [row for row in raw["rows"] if isinstance(row, dict)]
+    keys = [row.get("key") for row in rows]
+    if any(key not in REGISTER_TOTALS for key in keys) or len(set(keys)) != len(keys) or not set(CORE_TOTALS) <= set(keys):
+        return totals, "Totals & Tenders lists each row once, Subtotal, the taxes, TOTAL, the tenders and the change among them."
+    cleaned = []
+    for row in sorted(rows, key=lambda row: TOTAL_ORDER.index(row["key"])):
+        label = str(row.get("label") or "").strip()
+        if len(label) > MAX_REGISTER_LABEL:
+            return totals, f"A label is longer than {MAX_REGISTER_LABEL} characters."
+        cleaned.append({"key": row["key"], "label": label if row["key"] in ("taxes", "tenders") else label or REGISTER_TOTALS[row["key"]],
+                        "visible": row["key"] == "total" or row.get("visible", True) is not False})
+    totals.update(rows=cleaned, layout="SPREAD" if raw.get("layout") == "SPREAD" else "BESIDE", tax_rate=raw.get("tax_rate", True) is not False,
+                  tender_auth=raw.get("tender_auth", True) is not False, total_large=raw.get("total_large", True) is not False)
+    return totals, None
+
+
+def register_total_lines(t: dict, totals: dict) -> list[dict]:
+    """The Totals & Tenders lines of a transaction, in order: hidden rows and rows with nothing for this receipt left out.
+    Each is {label (without the colon), value, big, accent}."""
+    currency = t.get("currency") or "USD"
+    r = t.get("register") or {}
+    tenders = r.get("tenders") or []
+    loyalty = t.get("loyalty")
+    out = []
+
+    def add(label, value, big=False, accent=False):
+        out.append({"label": label, "value": value, "big": big, "accent": accent})
+
+    for row in sorted(totals["rows"], key=lambda row: TOTAL_ORDER.index(row["key"])):
+        key, label = row["key"], row["label"]
+        if not row.get("visible", True) and key != "total":
+            continue
+        if key == "subtotal":
+            add(label, money(t["subtotal"], currency))
+        elif key == "order_discount" and (t.get("discount") or {}).get("amount"):
+            code = t["discount"].get("code")
+            add(f"{label} ({code})" if code else label, f"({money(t['discount']['amount'], currency)})")
+        elif key == "savings":
+            saved = sum(item.get("discount") or 0 for item in t["line_items"]) + ((t.get("discount") or {}).get("amount") or 0)
+            if saved > 0:
+                add(label, money(saved, currency), accent=True)
+        elif key == "shipping" and t.get("shipping"):
+            add(label, money(t["shipping"], currency))
+        elif key == "tip" and t.get("tip"):
+            add(label, money(t["tip"], currency))
+        elif key == "taxes":
+            for tax in r.get("taxes") or []:
+                rate = f" ({_count_text(tax['percent'])}%)" if totals["tax_rate"] and tax.get("percent") is not None else ""
+                add(f"{tax['label']}{rate}", money(tax["amount"], currency))
+        elif key == "total":
+            add(label, money(t["total"], currency), big=totals["total_large"])
+        elif key == "tenders":
+            for tender in tenders:
+                auth = f" (Auth: {tender['auth']})" if totals["tender_auth"] and tender.get("auth") else ""
+                add(f"{label + ' ' if label else ''}{tender['label']}{auth}", money(tender["amount"], currency))
+        elif key == "change" and (any((tender.get("label") or "").startswith("CASH") for tender in tenders) or r.get("change_due")):
+            add(label, money(_number(r.get("change_due"), 0.0), currency))
+        elif key == "items":
+            add(label, _count_text(_number(r.get("item_count"), 0.0)))
+        elif key in ("points_earned", "points_balance") and loyalty:
+            add(label, f"{int(loyalty.get(key) or 0):,}")
+    return out
 
 
 def column_value(key: str, item: dict, currency: str) -> str:
@@ -387,14 +544,17 @@ def render_register(t: dict, settings: dict | None = None) -> str:
     its rate, TOTAL, every tender with its authorisation, the change, and the footer text. Without settings (a layout saved
     before they existed) it prints exactly what it always printed."""
     s = settings or default_register_settings()
+    look = register_look(s.get("style") or default_register_style())
+    totals_settings = s.get("totals") or default_register_totals()
     currency = t.get("currency") or "USD"
     r = t.get("register") or {}
-    cell = f'font-size:12px;line-height:18px;color:{REGISTER["text"]};'
+    cell = f'{look["cell"]}color:{look["text"]};'
     strong = cell + "font-weight:700;"
-    line = f'border-bottom:1px solid {REGISTER["line"]};'
+    head = f'{look["cell"]}color:{look["columns_text"]};font-weight:700;{look["upper"]}'
+    line = f'border-bottom:1px solid {look["line"]};'
 
     def meta(label, value, align):
-        return f'<td align="{align}" style="padding:1px 0;{cell}text-align:{align};"><span style="font-weight:700;">{_e(label)}:</span> {_e(value)}</td>'
+        return f'<td align="{align}" style="padding:1px 0;{cell}text-align:{align};"><span style="font-weight:{look["label_weight"]};">{_e(label)}:</span> {_e(value)}</td>'
 
     values = {"trans_number": r.get("trans_number", ""), "register": r.get("register", ""), "store_number": r.get("store_number", ""),
               "trans_at": r.get("trans_at", ""), "cashier": r.get("cashier", ""), "item_count": _count_text(_number(r.get("item_count"), 0.0))}
@@ -414,7 +574,7 @@ def render_register(t: dict, settings: dict | None = None) -> str:
         if fold:
             parts = [f"{column['label']} {value}" for column in middle if (value := column_value(column["key"], item, currency))]
             folded = (f'<div class="{NARROW_CLASS}" style="display:none;max-height:0;overflow:hidden;mso-hide:all;">{_e(" · ".join(parts))}</div>' if parts else "")
-        discount = (f'<br /><span style="color:{REGISTER["discount"]};">Discount: ({_e(money(item["discount"], currency))})</span>' if under["discount"] and item.get("discount") else "")
+        discount = (f'<br /><span style="color:{look["discount"]};">Discount: ({_e(money(item["discount"], currency))})</span>' if under["discount"] and item.get("discount") else "")
         at_price = f'<br /><span>{_e(_count_text(item["quantity"]))} @ {_e(money(item["unit_price"], currency))}</span>' if under["quantity_at_price"] else ""
         codes = "".join(f"<br /><span>{label} {_e(item[key])}</span>" for key, label in (("sku", "SKU"), ("upc", "UPC")) if under.get(key) and item.get(key))
         cells = "".join(f'<td align="center" valign="bottom" width="64"{wide} style="padding:10px 0 10px 12px;{line}{cell}text-align:center;">{_e(column_value(column["key"], item, currency))}</td>'
@@ -422,48 +582,45 @@ def render_register(t: dict, settings: dict | None = None) -> str:
         lines.append(f'<tr><td valign="bottom" style="padding:10px 0;{line}{cell}">{_e(item["description"])}{discount}{at_price}{codes}{folded}</td>{cells}'
                      f'<td align="right" valign="bottom"{amount_width} style="padding:10px 0 10px 16px;{line}{cell}{NUMERIC}white-space:nowrap;text-align:right;">{_e(money(item["amount"], currency))}</td></tr>')
     lines_total = sum(item["amount"] for item in t["line_items"])
-    heads = "".join(f'<td align="center" width="64"{wide} style="padding:0 0 0 12px;{strong}text-align:center;">{_e(column["label"])}</td>' for column in middle)
-    last_head = (f'<td align="right"{amount_width} style="padding:0 0 0 16px;{strong}text-align:right;">{_e(last["label"])}</td>' if middle
-                 else f'<td align="right" style="padding:0;{strong}text-align:right;">{_e(last["label"])}</td>')
-    columns = f'<table {TABLE}><tr><td style="padding:0;{strong}">{_e(first["label"])}</td>{heads}{last_head}</tr></table>'
+    heads = "".join(f'<td align="center" width="64"{wide} style="padding:0 0 0 12px;{head}text-align:center;">{_e(column["label"])}</td>' for column in middle)
+    last_head = (f'<td align="right"{amount_width} style="padding:0 0 0 16px;{head}text-align:right;">{_e(last["label"])}</td>' if middle
+                 else f'<td align="right" style="padding:0;{head}text-align:right;">{_e(last["label"])}</td>')
+    columns = f'<table {TABLE}><tr><td style="padding:0;{head}">{_e(first["label"])}</td>{heads}{last_head}</tr></table>'
     items = (f'<table {TABLE}>{"".join(lines)}'
              f'<tr><td colspan="{len(s["columns"])}" align="right" style="padding:10px 0;{line}{strong}{NUMERIC}text-align:right;">{_e(money(lines_total, currency))}</td></tr></table>')
 
-    def total_row(label, value, big=False):
-        size = "font-size:14px;line-height:20px;" if big else ""
-        return (f'<tr><td align="right" style="padding:2px 0;{strong}{size}text-align:right;">{_e(label)}:</td>'
-                f'<td align="right" width="96" style="padding:2px 0 2px 12px;{cell}{size}{NUMERIC}text-align:right;">{_e(value)}</td></tr>')
+    spread = totals_settings["layout"] == "SPREAD"
 
-    rows = [total_row("Subtotal", money(t["subtotal"], currency))]
-    for tax in r.get("taxes") or []:
-        rate = f" ({_count_text(tax['percent'])}%)" if tax.get("percent") is not None else ""
-        rows.append(total_row(f"{tax['label']}{rate}", money(tax["amount"], currency)))
-    rows.append(total_row("TOTAL", money(t["total"], currency), big=True))
-    for tender in r.get("tenders") or []:
-        auth = f" (Auth: {tender['auth']})" if tender.get("auth") else ""
-        rows.append(total_row(f"Paid with {tender['label']}{auth}", money(tender["amount"], currency)))
-    if any((tender.get("label") or "").startswith("CASH") for tender in r.get("tenders") or []) or r.get("change_due"):
-        rows.append(total_row("Cash Change", money(_number(r.get("change_due"), 0.0), currency)))
-    totals = f'<table {TABLE}>{"".join(rows)}</table>'
+    def total_row(entry):
+        size = look["big"] if entry["big"] else ""
+        tone = f'color:{look["discount"]};' if entry["accent"] else ""
+        if spread:
+            weight = "font-weight:700;" if entry["big"] else ""
+            return (f'<tr><td align="left" style="padding:2px 0;{cell}{weight}{size}{tone}text-align:left;">{_e(entry["label"])}</td>'
+                    f'<td align="right" width="96" style="padding:2px 0 2px 12px;{cell}{weight}{size}{tone}{NUMERIC}text-align:right;">{_e(entry["value"])}</td></tr>')
+        return (f'<tr><td align="right" style="padding:2px 0;{strong}{size}{tone}text-align:right;">{_e(entry["label"])}:</td>'
+                f'<td align="right" width="96" style="padding:2px 0 2px 12px;{cell}{size}{tone}{NUMERIC}text-align:right;">{_e(entry["value"])}</td></tr>')
+
+    totals = f'<table {TABLE}>{"".join(total_row(entry) for entry in register_total_lines(t, totals_settings))}</table>'
 
     def block(name, colour, padding, inner):
         return f'          <table data-section="{name}" {TABLE} style="border-radius:4px;border-collapse:separate;background-color:{colour};"><tr><td style="padding:{padding};">{inner}</td></tr></table>\n'
 
     gap = f'          <table {TABLE}><tr><td style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr></table>\n'
-    title = (f'<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">{_e(s["title"])}</p>'
+    title = (f'<p data-section="register-title" style="margin:0 0 10px;{look["title"]}font-weight:700;letter-spacing:0.02em;text-align:{look["title_align"]};">{_e(s["title"])}</p>'
              if s["title"] else "")
     footer = ""
     if s["footer_text"]:
         align = "left" if s["footer_align"] == "LEFT" else "center"
         text = _e(s["footer_text"]).replace("\r\n", "\n").replace("\n", "<br />")
-        footer = gap + block("register-footer", REGISTER["card"], "12px 18px", f'<p style="margin:0;{cell}text-align:{align};">{text}</p>')
+        footer = gap + block("register-footer", look["card"], "12px 18px", f'<p style="margin:0;{cell}text-align:{align};">{text}</p>')
     return ((f"<style>{FOLD_RULE}</style>\n" if fold else "")
             + f'<table {TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">\n  <tr>\n    <td style="padding:8px 24px 24px;">\n'
-            f'      <table {TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:{REGISTER["band"]};font-family:{FONT};color:{REGISTER["text"]};">\n'
+            f'      <table {TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:{look["band"]};font-family:{look["font"]};color:{look["text"]};">\n'
             f'        <tr><td style="padding:16px;">\n'
-            + block("register-header", REGISTER["header"], "14px 18px 12px", title + header) + gap
-            + f'          <table data-section="register-body" {TABLE} style="border-radius:4px;border-collapse:separate;background-color:{REGISTER["card"]};">'
-            f'<tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid {REGISTER["line"]};background-color:{REGISTER["columns"]};">{columns}</td></tr>'
+            + block("register-header", look["header"], "14px 18px 12px", title + header) + gap
+            + f'          <table data-section="register-body" {TABLE} style="border-radius:4px;border-collapse:separate;background-color:{look["card"]};">'
+            f'<tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid {look["line"]};background-color:{look["columns"]};">{columns}</td></tr>'
             f'<tr><td style="padding:2px 18px 16px;"><div data-section="register-items">{items}</div><div data-section="register-totals" style="margin-top:12px;">{totals}</div></td></tr></table>\n'
             + footer
             + '        </td></tr>\n      </table>\n    </td>\n  </tr>\n</table>')

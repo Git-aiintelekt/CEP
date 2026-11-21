@@ -13,7 +13,7 @@ import { barcodeUrl } from './barcode'
 import { inOrder } from './receiptPresets'
 import { formatMoney, fulfillmentOf, showsSection, totalsRows } from './receiptRules'
 import type { RegisterDetails, SampleTransaction } from './sampleReceiptData'
-import { FOLD_RULE, ITEM_TAG, NARROW_CLASS, RECEIPT_ITEMS, WIDE_CLASS, columnValue, defaultRegisterSettings, folds, itemValue, normalRegisterSettings } from './registerSettings'
+import { FOLD_RULE, ITEM_TAG, NARROW_CLASS, RECEIPT_ITEMS, WIDE_CLASS, columnValue, defaultRegisterSettings, folds, inTotalOrder, itemValue, normalRegisterSettings, registerLook } from './registerSettings'
 
 /** The values ReceiptPreview draws with (the app's tokens in index.css), written out because email has no variables. */
 const COLOR = {
@@ -189,7 +189,6 @@ function body(section: ReceiptSection, transaction: SampleTransaction): string {
 }
 
 // ---------------------------------------------------------------- the Store Register layout (receipt_layout.render_register on the server)
-const REGISTER = { band: '#e4deed', header: '#ffffff', columns: '#f5f5f5', card: '#ffffff', text: '#1f1f1f', line: '#e6e2ed', discount: '#2e9e3a' } as const
 
 const count = (value: number) => String(Number(value.toFixed(3)))
 
@@ -205,20 +204,78 @@ export function registerDetails(transaction: SampleTransaction): RegisterDetails
   }
 }
 
+/** One Totals & Tenders line as printed: its label (without the colon), its figure, and how it stands out. */
+export interface RegisterTotalLine { label: string; value: string; big?: boolean; accent?: boolean }
+
+/** The Totals & Tenders lines of a transaction, in order: hidden rows and rows with nothing for this receipt left out. */
+export function registerTotalLines(transaction: SampleTransaction, settings: ReturnType<typeof normalRegisterSettings>): RegisterTotalLine[] {
+  const r = registerDetails(transaction)
+  const totals = settings.totals
+  const out: RegisterTotalLine[] = []
+  for (const row of inTotalOrder(totals.rows)) {
+    if (!row.visible && row.key !== 'total') continue
+    switch (row.key) {
+      case 'subtotal':
+        out.push({ label: row.label, value: formatMoney(transaction.subtotal) })
+        break
+      case 'order_discount':
+        if (transaction.discount?.amount) out.push({ label: `${row.label}${transaction.discount.code ? ` (${transaction.discount.code})` : ''}`, value: `(${formatMoney(transaction.discount.amount)})` })
+        break
+      case 'savings': {
+        const saved = transaction.line_items.reduce((sum, item) => sum + (item.discount ?? 0), 0) + (transaction.discount?.amount ?? 0)
+        if (saved > 0) out.push({ label: row.label, value: formatMoney(saved), accent: true })
+        break
+      }
+      case 'shipping':
+        if (transaction.shipping) out.push({ label: row.label, value: formatMoney(transaction.shipping) })
+        break
+      case 'tip':
+        if (transaction.tip) out.push({ label: row.label, value: formatMoney(transaction.tip) })
+        break
+      case 'taxes':
+        for (const tax of r.taxes) out.push({ label: `${tax.label}${totals.tax_rate && tax.percent !== null ? ` (${count(tax.percent)}%)` : ''}`, value: formatMoney(tax.amount) })
+        break
+      case 'total':
+        out.push({ label: row.label, value: formatMoney(transaction.total), big: totals.total_large })
+        break
+      case 'tenders':
+        for (const tender of r.tenders) {
+          out.push({ label: `${row.label ? `${row.label} ` : ''}${tender.label}${totals.tender_auth && tender.auth ? ` (Auth: ${tender.auth})` : ''}`, value: formatMoney(tender.amount) })
+        }
+        break
+      case 'change':
+        if (r.tenders.some((tender) => tender.label.startsWith('CASH')) || r.change_due) out.push({ label: row.label, value: formatMoney(r.change_due) })
+        break
+      case 'items':
+        out.push({ label: row.label, value: count(r.item_count) })
+        break
+      case 'points_earned':
+        if (transaction.loyalty) out.push({ label: row.label, value: transaction.loyalty.points_earned.toLocaleString('en-US') })
+        break
+      case 'points_balance':
+        if (transaction.loyalty) out.push({ label: row.label, value: transaction.loyalty.points_balance.toLocaleString('en-US') })
+        break
+    }
+  }
+  return out
+}
+
 /**
  * The receipt as the register prints it: the title, the transaction's numbers in rows of three, the columns (Description
- * and Amount at least) with each line's discount (green) and its "1 @ $19.99", the lines' sum, then Subtotal, each tax with
- * its rate, TOTAL, every tender with its authorisation, the change, and the footer text. Without settings (a layout saved
- * before they existed) it prints exactly what it always printed.
+ * and Amount at least) with each line's discount and its "1 @ $19.99", the lines' sum, then the Totals & Tenders rows and
+ * the footer text, in the colours, font and sizes of its Colours & Text. Without settings (a layout saved before they
+ * existed) it prints exactly what it always printed.
  */
 export function renderRegisterEmailHtml(transaction: SampleTransaction, settings?: RegisterSettings | null): string {
   const s = normalRegisterSettings(settings ?? defaultRegisterSettings())
+  const look = registerLook(s.style)
   const r = registerDetails(transaction)
-  const cell = `font-size:12px;line-height:18px;color:${REGISTER.text};`
+  const cell = `${look.cell}color:${look.text};`
   const strong = `${cell}font-weight:700;`
-  const line = `border-bottom:1px solid ${REGISTER.line};`
+  const head = `${look.cell}color:${look.columnsText};font-weight:700;${look.upper}`
+  const line = `border-bottom:1px solid ${look.line};`
   const meta = (label: string, value: string, align: 'left' | 'center' | 'right') =>
-    `<td align="${align}" style="padding:1px 0;${cell}text-align:${align};"><span style="font-weight:700;">${escapeHtml(label)}:</span> ${escapeHtml(value)}</td>`
+    `<td align="${align}" style="padding:1px 0;${cell}text-align:${align};"><span style="font-weight:${look.labelWeight};">${escapeHtml(label)}:</span> ${escapeHtml(value)}</td>`
   const values: Record<RegisterFieldKey, string> = {
     trans_number: r.trans_number, register: r.register, store_number: r.store_number, trans_at: r.trans_at, cashier: r.cashier, item_count: count(r.item_count),
   }
@@ -240,44 +297,45 @@ export function renderRegisterEmailHtml(transaction: SampleTransaction, settings
       const parts = middle.map((column) => [column.label, columnValue(column.key, item)] as const).filter(([, value]) => value).map(([label, value]) => `${label} ${value}`)
       if (parts.length) folded = `<div class="${NARROW_CLASS}" style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(parts.join(' · '))}</div>`
     }
-    const discount = s.under_item.discount && item.discount ? `<br /><span style="color:${REGISTER.discount};">Discount: (${escapeHtml(formatMoney(item.discount))})</span>` : ''
+    const discount = s.under_item.discount && item.discount ? `<br /><span style="color:${look.discount};">Discount: (${escapeHtml(formatMoney(item.discount))})</span>` : ''
     const atPrice = s.under_item.quantity_at_price ? `<br /><span>${escapeHtml(count(item.quantity))} @ ${escapeHtml(formatMoney(item.unit_price))}</span>` : ''
     const codes = (['sku', 'upc'] as const).filter((key) => s.under_item[key] && item[key]).map((key) => `<br /><span>${key.toUpperCase()} ${escapeHtml(String(item[key]))}</span>`).join('')
     const cells = middle.map((column) => `<td align="center" valign="bottom" width="64"${wide} style="padding:10px 0 10px 12px;${line}${cell}text-align:center;">${escapeHtml(columnValue(column.key, item))}</td>`).join('')
     return `<tr><td valign="bottom" style="padding:10px 0;${line}${cell}">${escapeHtml(item.description)}${discount}${atPrice}${codes}${folded}</td>${cells}<td align="right" valign="bottom"${amountWidth} style="padding:10px 0 10px 16px;${line}${cell}${NUMERIC}white-space:nowrap;text-align:right;">${escapeHtml(formatMoney(item.amount))}</td></tr>`
   })
   const linesTotal = transaction.line_items.reduce((sum, item) => sum + item.amount, 0)
-  const heads = middle.map((column) => `<td align="center" width="64"${wide} style="padding:0 0 0 12px;${strong}text-align:center;">${escapeHtml(column.label)}</td>`).join('')
+  const heads = middle.map((column) => `<td align="center" width="64"${wide} style="padding:0 0 0 12px;${head}text-align:center;">${escapeHtml(column.label)}</td>`).join('')
   const lastHead = middle.length ?
-      `<td align="right"${amountWidth} style="padding:0 0 0 16px;${strong}text-align:right;">${escapeHtml(last.label)}</td>`
-    : `<td align="right" style="padding:0;${strong}text-align:right;">${escapeHtml(last.label)}</td>`
-  const columns = `<table ${TABLE}><tr><td style="padding:0;${strong}">${escapeHtml(first.label)}</td>${heads}${lastHead}</tr></table>`
+      `<td align="right"${amountWidth} style="padding:0 0 0 16px;${head}text-align:right;">${escapeHtml(last.label)}</td>`
+    : `<td align="right" style="padding:0;${head}text-align:right;">${escapeHtml(last.label)}</td>`
+  const columns = `<table ${TABLE}><tr><td style="padding:0;${head}">${escapeHtml(first.label)}</td>${heads}${lastHead}</tr></table>`
   const items = `<table ${TABLE}>${lines.join('')}<tr><td colspan="${s.columns.length}" align="right" style="padding:10px 0;${line}${strong}${NUMERIC}text-align:right;">${escapeHtml(formatMoney(linesTotal))}</td></tr></table>`
 
-  const totalRow = (label: string, value: string, big = false) => {
-    const size = big ? 'font-size:14px;line-height:20px;' : ''
-    return `<tr><td align="right" style="padding:2px 0;${strong}${size}text-align:right;">${escapeHtml(label)}:</td><td align="right" width="96" style="padding:2px 0 2px 12px;${cell}${size}${NUMERIC}text-align:right;">${escapeHtml(value)}</td></tr>`
+  const spread = s.totals.layout === 'SPREAD'
+  const totalRow = ({ label, value, big = false, accent = false }: RegisterTotalLine) => {
+    const size = big ? look.big : ''
+    const tone = accent ? `color:${look.discount};` : ''
+    if (spread) {
+      const weight = big ? 'font-weight:700;' : ''
+      return `<tr><td align="left" style="padding:2px 0;${cell}${weight}${size}${tone}text-align:left;">${escapeHtml(label)}</td><td align="right" width="96" style="padding:2px 0 2px 12px;${cell}${weight}${size}${tone}${NUMERIC}text-align:right;">${escapeHtml(value)}</td></tr>`
+    }
+    return `<tr><td align="right" style="padding:2px 0;${strong}${size}${tone}text-align:right;">${escapeHtml(label)}:</td><td align="right" width="96" style="padding:2px 0 2px 12px;${cell}${size}${tone}${NUMERIC}text-align:right;">${escapeHtml(value)}</td></tr>`
   }
-  const rows = [totalRow('Subtotal', formatMoney(transaction.subtotal))]
-  for (const tax of r.taxes) rows.push(totalRow(`${tax.label}${tax.percent !== null ? ` (${count(tax.percent)}%)` : ''}`, formatMoney(tax.amount)))
-  rows.push(totalRow('TOTAL', formatMoney(transaction.total), true))
-  for (const tender of r.tenders) rows.push(totalRow(`Paid with ${tender.label}${tender.auth ? ` (Auth: ${tender.auth})` : ''}`, formatMoney(tender.amount)))
-  if (r.tenders.some((tender) => tender.label.startsWith('CASH')) || r.change_due) rows.push(totalRow('Cash Change', formatMoney(r.change_due)))
-  const totals = `<table ${TABLE}>${rows.join('')}</table>`
+  const totals = `<table ${TABLE}>${registerTotalLines(transaction, s).map(totalRow).join('')}</table>`
 
   const block = (name: string, colour: string, padding: string, inner: string) =>
     `          <table data-section="${name}" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${colour};"><tr><td style="padding:${padding};">${inner}</td></tr></table>\n`
   const gap = `          <table ${TABLE}><tr><td style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr></table>\n`
-  const title = s.title ? `<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">${escapeHtml(s.title)}</p>` : ''
+  const title = s.title ? `<p data-section="register-title" style="margin:0 0 10px;${look.title}font-weight:700;letter-spacing:0.02em;text-align:${look.titleAlign};">${escapeHtml(s.title)}</p>` : ''
   const footer = s.footer_text ?
-      gap + block('register-footer', REGISTER.card, '12px 18px', `<p style="margin:0;${cell}text-align:${s.footer_align === 'LEFT' ? 'left' : 'center'};">${escapeHtml(s.footer_text).replace(/\r?\n/g, '<br />')}</p>`)
+      gap + block('register-footer', look.card, '12px 18px', `<p style="margin:0;${cell}text-align:${s.footer_align === 'LEFT' ? 'left' : 'center'};">${escapeHtml(s.footer_text).replace(/\r?\n/g, '<br />')}</p>`)
     : ''
   return `${fold ? `<style>${FOLD_RULE}</style>\n` : ''}<table ${TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">
   <tr>
     <td style="padding:8px 24px 24px;">
-      <table ${TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:${REGISTER.band};font-family:${FONT};color:${REGISTER.text};">
+      <table ${TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:${look.band};font-family:${look.font};color:${look.text};">
         <tr><td style="padding:16px;">
-${block('register-header', REGISTER.header, '14px 18px 12px', title + header)}${gap}          <table data-section="register-body" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${REGISTER.card};"><tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid ${REGISTER.line};background-color:${REGISTER.columns};">${columns}</td></tr><tr><td style="padding:2px 18px 16px;"><div data-section="register-items">${items}</div><div data-section="register-totals" style="margin-top:12px;">${totals}</div></td></tr></table>
+${block('register-header', look.header, '14px 18px 12px', title + header)}${gap}          <table data-section="register-body" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${look.card};"><tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid ${look.line};background-color:${look.columns};">${columns}</td></tr><tr><td style="padding:2px 18px 16px;"><div data-section="register-items">${items}</div><div data-section="register-totals" style="margin-top:12px;">${totals}</div></td></tr></table>
 ${footer}        </td></tr>
       </table>
     </td>

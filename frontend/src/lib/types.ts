@@ -1534,6 +1534,40 @@ export interface RegisterSettings {
   footer_align: 'CENTER' | 'LEFT'
   /** FOLD: on a phone the middle columns move to a line under the item */
   phone: 'FOLD' | 'KEEP'
+  /** Colours & Text; absent: the Lilac look the register always had */
+  style?: RegisterStyle
+  /** Totals & Tenders; absent: Subtotal, each tax with its rate, TOTAL, each tender with its authorisation, the change */
+  totals?: RegisterTotals
+}
+
+export type RegisterTheme = 'LILAC' | 'PAPER' | 'INK' | 'BLUE'
+/** the five colours a store can set; null on RegisterStyle means the theme's own */
+export interface RegisterColors { frame: string; cards: string; columns: string; text: string; accent: string }
+export interface RegisterStyle {
+  theme: RegisterTheme
+  colors: RegisterColors | null
+  font: 'HELVETICA' | 'GEORGIA' | 'COURIER'
+  size: 'S' | 'M' | 'L'
+  title_size: 'S' | 'M' | 'L'
+  title_align: 'CENTER' | 'LEFT'
+  /** the header's "Trans Num:" labels in bold */
+  bold_labels: boolean
+  /** the column headers in capitals */
+  upper_headers: boolean
+}
+export type RegisterTotalKey =
+  | 'subtotal' | 'order_discount' | 'savings' | 'shipping' | 'tip' | 'taxes' | 'total' | 'tenders' | 'change' | 'items' | 'points_earned' | 'points_balance'
+export interface RegisterTotals {
+  /** in the order printed (the fixed order of RegisterTotalKey); a row with nothing for a receipt drops out of it */
+  rows: { key: RegisterTotalKey; label: string; visible: boolean }[]
+  /** BESIDE: "Subtotal:" right beside its figure, as the register prints; SPREAD: the label left, the figure right */
+  layout: 'BESIDE' | 'SPREAD'
+  /** a tax's rate after its name: Sales Tax (5.5%) */
+  tax_rate: boolean
+  /** a card tender's authorisation: (Auth: 096837) */
+  tender_auth: boolean
+  /** TOTAL a size larger */
+  total_large: boolean
 }
 
 /** GET /receipt-layouts/ : one row of Templates → Receipt Layouts */

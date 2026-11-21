@@ -2,7 +2,7 @@
  * The Store Register's settings and the Custom HTML Item Row: what can be set, the defaults, and the values a column or an
  * {{item.*}} tag shows. The server's twin is receipt_layout.py (default_register_settings, column_value, item_value).
  */
-import type { RegisterColumnKey, RegisterFieldKey, RegisterSettings } from '@/lib/types'
+import type { RegisterColors, RegisterColumnKey, RegisterFieldKey, RegisterSettings, RegisterStyle, RegisterTheme, RegisterTotalKey, RegisterTotals } from '@/lib/types'
 
 import { formatMoney } from './receiptRules'
 import type { SampleLineItem } from './sampleReceiptData'
@@ -61,16 +61,105 @@ export function defaultRegisterSettings(): RegisterSettings {
   }
 }
 
-/** The settings as the renderer reads them: an empty label falls back to its field's or column's name, the text trimmed. */
-export function normalRegisterSettings(settings: RegisterSettings): RegisterSettings {
+/** The settings as the renderer reads them: an empty label falls back to its field's, column's or row's name, the text trimmed. */
+export function normalRegisterSettings(settings: RegisterSettings): RegisterSettings & { style: RegisterStyle; totals: RegisterTotals } {
+  const totals = settings.totals ?? defaultRegisterTotals()
   return {
     ...settings,
     title: settings.title.trim(),
     fields: settings.fields.map((field) => ({ ...field, label: field.label.trim() || REGISTER_FIELDS[field.key] })),
     columns: settings.columns.map((column) => ({ ...column, label: column.label.trim() || REGISTER_COLUMNS[column.key] })),
     footer_text: settings.footer_text.trim(),
+    style: { ...defaultRegisterStyle(), ...settings.style },
+    totals: { ...totals, rows: totals.rows.map((row) => ({ ...row, label: row.key === 'tenders' ? row.label.trim() : row.label.trim() || REGISTER_TOTALS[row.key] })) },
   }
 }
+
+// ---------------------------------------------------------------- Colours & Text
+/** the colours each theme prints with; `line` (the hairlines) is the theme's and not set on its own */
+export const REGISTER_THEMES: Record<RegisterTheme, { label: string; colors: RegisterColors; line: string }> = {
+  LILAC: { label: 'Lilac', colors: { frame: '#e4deed', cards: '#ffffff', columns: '#f5f5f5', text: '#1f1f1f', accent: '#2e9e3a' }, line: '#e6e2ed' },
+  PAPER: { label: 'Paper', colors: { frame: '#f1f1f1', cards: '#ffffff', columns: '#ffffff', text: '#1f1f1f', accent: '#2e7d32' }, line: '#d9d9d9' },
+  INK: { label: 'Ink', colors: { frame: '#1f1f1f', cards: '#ffffff', columns: '#1f1f1f', text: '#1f1f1f', accent: '#2e7d32' }, line: '#e0e0e0' },
+  BLUE: { label: 'Blue', colors: { frame: '#dee9fc', cards: '#ffffff', columns: '#2b4dd0', text: '#1f1f1f', accent: '#2e9e3a' }, line: '#dde3f0' },
+}
+export const REGISTER_FONTS: Record<RegisterStyle['font'], { label: string; stack: string }> = {
+  HELVETICA: { label: 'Helvetica', stack: 'Helvetica, Arial, sans-serif' },
+  GEORGIA: { label: 'Georgia', stack: "Georgia, 'Times New Roman', serif" },
+  COURIER: { label: 'Courier', stack: "'Courier New', Courier, monospace" },
+}
+/** the text, and TOTAL when it is a size larger: [font-size, line-height] */
+const TEXT_SIZES: Record<RegisterStyle['size'], { cell: [number, number]; big: [number, number] }> = {
+  S: { cell: [11, 16], big: [13, 18] }, M: { cell: [12, 18], big: [14, 20] }, L: { cell: [14, 20], big: [16, 22] },
+}
+const TITLE_SIZES: Record<RegisterStyle['title_size'], [number, number]> = { S: [13, 18], M: [15, 20], L: [18, 24] }
+const HEX = /^#[0-9a-f]{6}$/i
+
+export function defaultRegisterStyle(): RegisterStyle {
+  return { theme: 'LILAC', colors: null, font: 'HELVETICA', size: 'M', title_size: 'M', title_align: 'CENTER', bold_labels: true, upper_headers: false }
+}
+
+/** 0 (black) to 1 (white), as WCAG weighs the channels */
+function luminance(hex: string): number {
+  const channel = (at: number) => {
+    const value = parseInt(hex.slice(at, at + 2), 16) / 255
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
+}
+
+/** `text` on `background`, unless the two are both dark or both light: then white or near-black, whichever reads */
+export function readableOn(background: string, text: string): string {
+  if (!HEX.test(background) || !HEX.test(text)) return text
+  const [bg, fg] = [luminance(background), luminance(text)]
+  const contrast = (Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05)
+  if (contrast >= 3) return text
+  return bg < 0.4 ? '#ffffff' : '#1f1f1f'
+}
+
+/** Everything the Store Register draws with, from its Colours & Text. The defaults are the values it always used. */
+export function registerLook(style: RegisterStyle) {
+  const theme = REGISTER_THEMES[style.theme] ?? REGISTER_THEMES.LILAC
+  const colors = { ...theme.colors, ...(style.colors ?? {}) }
+  const text = readableOn(colors.cards, colors.text)
+  const [cellSize, cellLine] = (TEXT_SIZES[style.size] ?? TEXT_SIZES.M).cell
+  const [bigSize, bigLine] = (TEXT_SIZES[style.size] ?? TEXT_SIZES.M).big
+  const [titleSize, titleLine] = TITLE_SIZES[style.title_size] ?? TITLE_SIZES.M
+  return {
+    band: colors.frame, header: colors.cards, card: colors.cards, columns: colors.columns, line: theme.line, discount: colors.accent, text,
+    columnsText: readableOn(colors.columns, text),
+    font: (REGISTER_FONTS[style.font] ?? REGISTER_FONTS.HELVETICA).stack,
+    cell: `font-size:${cellSize}px;line-height:${cellLine}px;`, big: `font-size:${bigSize}px;line-height:${bigLine}px;`,
+    title: `font-size:${titleSize}px;line-height:${titleLine}px;`, titleAlign: style.title_align === 'LEFT' ? 'left' : 'center',
+    labelWeight: style.bold_labels === false ? 400 : 700,
+    upper: style.upper_headers ? 'text-transform:uppercase;letter-spacing:0.04em;' : '',
+  }
+}
+
+// ---------------------------------------------------------------- Totals & Tenders
+/** each row's own name, in the order printed */
+export const REGISTER_TOTALS: Record<RegisterTotalKey, string> = {
+  subtotal: 'Subtotal', order_discount: 'Order Discount', savings: 'You Saved', shipping: 'Shipping', tip: 'Tip', taxes: 'Taxes', total: 'TOTAL',
+  tenders: 'Paid with', change: 'Cash Change', items: 'Items Sold', points_earned: 'Points Earned', points_balance: 'Points Balance',
+}
+export const TOTAL_ORDER = Object.keys(REGISTER_TOTALS) as RegisterTotalKey[]
+/** what each row shows, for the settings panel, and a sample beside it in Add Row */
+export const TOTAL_DATA: Record<RegisterTotalKey, { name: string; sample: string }> = {
+  subtotal: { name: 'Subtotal', sample: '$46.50' }, order_discount: { name: "The order's discount and its code", sample: 'SAVE10 ($5.00)' },
+  savings: { name: "The lines' discounts and the order's", sample: '$9.00' }, shipping: { name: 'Shipping', sample: '$6.95' }, tip: { name: 'Tip', sample: '$3.00' },
+  taxes: { name: "Each tax, by its own name", sample: 'Sales Tax $2.56' }, total: { name: 'The total', sample: '$49.06' },
+  tenders: { name: 'Each tender', sample: 'CREDIT-VISA $49.06' }, change: { name: 'Change for cash', sample: '$0.94' }, items: { name: 'Item count', sample: '2' },
+  points_earned: { name: 'Loyalty points earned', sample: '44' }, points_balance: { name: 'Loyalty points balance', sample: '2,424' },
+}
+/** rows always on the receipt (they can be hidden, not removed) */
+export const CORE_TOTALS: RegisterTotalKey[] = ['subtotal', 'taxes', 'total', 'tenders', 'change']
+
+export function defaultRegisterTotals(): RegisterTotals {
+  return { rows: CORE_TOTALS.map((key) => ({ key, label: key === 'taxes' ? '' : REGISTER_TOTALS[key], visible: true })), layout: 'BESIDE', tax_rate: true, tender_auth: true, total_large: true }
+}
+
+/** the rows in the order printed, whatever order they were added in */
+export const inTotalOrder = (rows: RegisterTotals['rows']) => [...rows].sort((a, b) => TOTAL_ORDER.indexOf(a.key) - TOTAL_ORDER.indexOf(b.key))
 
 export const folds = (settings: RegisterSettings | null | undefined): boolean => Boolean(settings) && settings!.phone !== 'KEEP' && settings!.columns.length > 2
 

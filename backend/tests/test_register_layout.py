@@ -34,7 +34,7 @@ def test_register_layout(check, admin_email):
           "Subtotal:" in html and "TOTAL:" in html and html.count("Paid with ") == len(r["tenders"]) and ("Cash Change:" in html) == (any(x["label"].startswith("CASH") for x in r["tenders"]) or bool(r["change_due"])),
           str([x["label"] for x in r["tenders"]]))
     discounted = dict(t, line_items=[dict(t["line_items"][0], discount=10.0)])
-    check("a line's discount prints in green under its description", "Discount: ($10.00)" in receipt_layout.render([], discounted, None, "REGISTER") and receipt_layout.REGISTER["discount"] in receipt_layout.render([], discounted, None, "REGISTER"))
+    check("a line's discount prints in green under its description", "Discount: ($10.00)" in receipt_layout.render([], discounted, None, "REGISTER") and receipt_layout.REGISTER_THEMES["LILAC"]["colors"]["accent"] in receipt_layout.render([], discounted, None, "REGISTER"))
     check("the sections layouts are untouched by the new preset", receipt_layout.render([], t, None, "STANDARD") != html and "YOUR RECEIPT" not in receipt_layout.render([{"key": "items", "columns": {"amount": True}}], t, None, None))
 
     ptok = context.set_platform(True)
