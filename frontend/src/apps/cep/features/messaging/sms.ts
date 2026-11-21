@@ -71,6 +71,14 @@ export const OPT_OUT_TAG = 'opt_out_text'
 /** the opt-out wording, or the {{opt_out_text}} tag that carries it (a platform tag set in the back-office) */
 export const OPT_OUT_PATTERN = /\b(stop|unsubscribe|opt[\s-]?out)\b|(\{\{|\$\{)\s*opt_out_text\s*\}/i
 
+/**
+ * What an empty text box suggests: the opt-out line on its own last line, so the message is written above it. The
+ * workspace's Opt-Out Text tag when it has one (the wording is kept in one place), else the plain words.
+ */
+export function optOutSuggestion(tags: Pick<PersonalizationTag, 'tag_key'>[]): string {
+  return `\n${tags.some((tag) => tag.tag_key === OPT_OUT_TAG) ? `{{${OPT_OUT_TAG}}}` : 'Reply STOP to opt out.'}`
+}
+
 export const isEmoji = (ch: string) => /\p{Extended_Pictographic}/u.test(ch)
 
 /** The parts the same text would take in the standard alphabet: what its emoji cost. */

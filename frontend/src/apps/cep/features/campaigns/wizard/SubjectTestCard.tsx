@@ -71,7 +71,7 @@ export function SubjectTestCard({ campaign }: { campaign: Campaign }) {
                 {(ids) => <TextInput {...ids} value={subjectA ?? (preview.isPending ? 'Loading' : 'No subject in the template yet')} readOnly disabled />}
               </Field>
               <Field label="B" required error={errors.ab_config} hint={`Tags such as {{first_name}} work here too. Gets ${draft.sample_pct / 2}% of the audience.`}>
-                {(ids) => <TextInput {...ids} value={draft.subject_b} maxLength={300} onChange={(event) => set('subject_b', event.target.value)} placeholder="A second subject line to try" />}
+                {(ids) => <TextInput {...ids} value={draft.subject_b} maxLength={300} onChange={(event) => set('subject_b', event.target.value)} placeholder="A second subject line to try" suggestion={campaign.subject_line?.trim() || null} />}
               </Field>
             </div>
             <div className="grid gap-4 md:grid-cols-3">

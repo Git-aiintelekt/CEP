@@ -23,6 +23,7 @@ import { buttonPrimary, buttonSecondary, Counter, TextInput } from '@/components
 import { MenuRow } from '@/components/MenuRow'
 import { Popover } from '@/components/Popover'
 import { Tag } from '@/components/StatusBadge'
+import { useSuggestion } from '@/components/useSuggestion'
 import { ApiError } from '@/lib/api'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { assistantApi, keys, useAssistant, useCatalog } from '../api'
@@ -41,6 +42,8 @@ import { RunDetails } from './RunDetails'
 
 const MODEL_KEY = 'insights.ai.model'
 const PROMPT_MAX = 100_000
+/** the grey prompt in the empty box; Tab puts it in */
+export const ASK_SUGGESTION = 'Revenue by channel and month for the last quarter, as a pivot.'
 const COUNTER_FROM = 90_000
 type Attached = { file: File; url: string }
 type AttachedDocument = { file: File; kind: DocumentKind }
@@ -142,6 +145,7 @@ export function AskForReport({ seed }: { seed?: { prompt: string; at: number } }
     box.current?.focus()
     box.current?.scrollIntoView?.({ block: 'center' })
   }, [seed])
+  const offer = useSuggestion<HTMLTextAreaElement>({ suggestion: ASK_SUGGESTION, onKeyDown: (event) => onKey(event), placement: 'bottom' })
   if (!state.data?.enabled) return null
   const data = state.data
   const models = data.models
@@ -270,9 +274,11 @@ export function AskForReport({ seed }: { seed?: { prompt: string; at: number } }
           </div>
         )}
         <label className="sr-only" htmlFor="ai-prompt">What do you want to see?</label>
-        <textarea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={onKey} onPaste={onPaste} rows={4} maxLength={PROMPT_MAX}
-          placeholder={'e.g. Revenue by channel and month for the last quarter, as a pivot.\nOr attach the report’s spec, a PDF or Word document, and say “build this”.'}
-          className="cep-input-bare min-h-24 w-full resize-y border-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-ink-900 outline-none" />
+        <div className="relative">
+          <textarea id="ai-prompt" ref={box} value={prompt} onChange={(event) => setPrompt(event.target.value)} {...offer.controlProps} onPaste={onPaste} rows={4} maxLength={PROMPT_MAX}
+            className="peer cep-input-bare min-h-24 w-full resize-y border-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-ink-900 outline-none" />
+          {offer.extra}
+        </div>
         <div className="flex flex-wrap items-center gap-2 px-2 pt-1 pb-2">
           <input ref={picker} type="file" accept={[...IMAGE_TYPES, ...DOCUMENT_ACCEPT].join(',')} multiple hidden aria-hidden tabIndex={-1}
             onChange={(event) => { void attach(Array.from(event.target.files ?? [])); event.target.value = '' }} />

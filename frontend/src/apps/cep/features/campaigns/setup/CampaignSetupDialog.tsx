@@ -51,6 +51,18 @@ const CHANNELS: { value: Channel; title: string; text: string; icon: ReactNode }
   { value: 'WHATSAPP', title: 'WhatsApp', text: 'A template Meta approved', icon: <MessageCircle {...ICON} /> },
   { value: 'MULTI', title: 'Multiple Channels', text: 'One campaign, more than one channel', icon: <Layers {...ICON} /> },
 ]
+/**
+ * The name a new campaign is offered once its type or channel is chosen: "Regular Marketing Email, Nov 2026". Other
+ * names no type, Multiple Channels no channel; nothing until one of them is chosen.
+ */
+function suggestedCampaignName(type: CampaignType | '', channel: Channel | '', today = new Date()) {
+  const typeWord = type && type !== 'OTHER' ? TYPES.find((item) => item.value === type)?.title ?? '' : ''
+  const channelWord = channel && channel !== 'MULTI' ? CHANNELS.find((item) => item.value === channel)?.title ?? '' : ''
+  const words = typeWord ? [typeWord, channelWord].filter(Boolean).join(' ') : channelWord ? `${channelWord} Campaign` : ''
+  if (!words) return null
+  return `${words}, ${today.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+}
+
 /** what the message is for, until someone chooses otherwise */
 const PURPOSE_OF: Record<CampaignType, Purpose> = { REGULAR_MARKETING: 'MARKETING', DRIP: 'MARKETING', E_RECEIPT: 'TRANSACTIONAL', OTHER: 'SERVICE' }
 
@@ -282,7 +294,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
           <div ref={body} className="flex flex-col gap-6">
             <div data-field="name">
               <Field label="Campaign Name" required strong error={errors.name?.message} help="Unique among the workspace's live campaigns. It names the campaign in the list, the reports and Home; the code is the short handle for the API and the engine's logs." hint="Internal name, visible to your team only" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
-                {(ids) => <TextInput {...ids} {...register('name')} maxLength={rule('name')?.max ?? 200} placeholder="e.g. Fall Promo Email" data-autofocus />}
+                {(ids) => <TextInput {...ids} {...register('name')} maxLength={rule('name')?.max ?? 200} placeholder="e.g. Fall Promo Email" data-autofocus suggestion={campaign ? null : suggestedCampaignName(type, channel)} />}
               </Field>
             </div>
 

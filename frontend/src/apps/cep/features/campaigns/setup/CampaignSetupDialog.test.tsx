@@ -87,6 +87,23 @@ test('four type cards and four channel cards; MMS reads "Text with an image"; ar
   expect(document.activeElement).toBe(radio('Campaign Type', /^Drip/))
 })
 
+test('the name is offered from the type, the channel and the month once they are chosen; Tab takes it', async () => {
+  const { user } = await openCreate()
+  const name = within(dialog()).getByLabelText(/^Campaign Name/) as HTMLInputElement
+  expect(name.placeholder).toBe('e.g. Fall Promo Email')                                             // nothing chosen: the example
+  const month = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  await user.click(radio('Campaign Type', /^Drip/))
+  expect(name.placeholder).toBe(`Drip, ${month}`)
+  await user.click(radio('Channel', /^SMS/))
+  expect(name.placeholder).toBe(`Drip SMS, ${month}`)
+  await user.click(radio('Campaign Type', /^Other/))
+  expect(name.placeholder).toBe(`SMS Campaign, ${month}`)                                             // Other names no type
+  await user.click(name)
+  await user.tab()
+  expect(name.value).toBe(`SMS Campaign, ${month}`)
+  expect(document.activeElement).toBe(name)
+})
+
 test('message purpose waits for a type, fills in from it, and keeps a purpose the user chose', async () => {
   const { user } = await openCreate()
   const purpose = () => within(dialog()).getByLabelText(/^Message Purpose/) as HTMLButtonElement

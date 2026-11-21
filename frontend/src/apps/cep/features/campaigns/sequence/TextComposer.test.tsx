@@ -21,6 +21,16 @@ function renderComposer(start: string) {
   return screen.getByLabelText('Message Text') as HTMLTextAreaElement
 }
 
+test('an empty text is offered the opt-out line on its own last line; Tab puts it in and the message is written above it', async () => {
+  const box = renderComposer('')
+  expect(box.placeholder).toBe('\nReply STOP to opt out.')
+  const user = userEvent.setup()
+  await user.click(box)
+  await user.tab()
+  await user.keyboard('Your reward is in.')
+  expect(box.value).toBe('Your reward is in.\nReply STOP to opt out.')
+})
+
 test('a curly apostrophe says why the text is Unicode, and Use Plain Punctuation brings it back to 160 a part', async () => {
   const user = userEvent.setup()
   const area = renderComposer('We\u2019ve saved you a seat. Reply STOP to opt out.')

@@ -293,7 +293,7 @@ export function MessageDrawer({ campaign, step, steps, series, onClose, onOpenSt
                     <>
                       <Field label="Subject B" strong error={fieldError(patch, 'ab_config') ?? undefined} hint={step.ab_config?.enabled ? undefined : 'The test is saved once Subject B is filled in.'}>
                         {(ids) => (
-                          <TextInput {...ids} value={draft.subjectB} placeholder="e.g. A reward is waiting for you" onChange={(event) => set('subjectB')(event.target.value)}
+                          <TextInput {...ids} value={draft.subjectB} placeholder="e.g. A reward is waiting for you" suggestion={draft.subject.trim() || null} onChange={(event) => set('subjectB')(event.target.value)}
                             onBlur={() => { if (draft.subjectB.trim() && draft.subjectB.trim() !== (step.ab_config?.subject_b ?? '')) send({ ab_config: abConfig() }) }} />
                         )}
                       </Field>
