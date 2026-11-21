@@ -268,7 +268,7 @@ def test_review_timeline_and_warnings(world, check):
     rows = review["messages"]
     check("each message: place, day, time, subject by the sending rule and the fixed audience's estimate",
           [(row["position"], row["day"], row["subject"], row["estimated_recipients"]) for row in rows] == [(1, 0, "Review subject", 3), (2, 1, "Own subject", 3), (3, 3, "Review subject", 3)]
-          and rows[0]["scheduled_for"] and review["summary"] == {"count": 3, "first_send_at": rows[0]["scheduled_for"], "last_send_at": rows[2]["scheduled_for"], "estimated_recipients": 3},
+          and rows[0]["scheduled_for"] and review["summary"] == {"count": 3, "first_send_at": rows[0]["scheduled_for"], "last_send_at": rows[2]["scheduled_for"], "estimated_recipients": 3, "unengaged": None},
           review)
     check("TOO_CLOSE: a day after the previous message", rows[1]["warnings"][0] == {"code": "TOO_CLOSE", "message": "Only 1 day after message 1."}, rows[1]["warnings"])
     check("FREQUENCY: the third email within 7 days under a cap of 2",

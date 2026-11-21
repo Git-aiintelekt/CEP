@@ -132,14 +132,17 @@ def test_a_new_workspace_gets_the_platform_standards_locked_and_the_standard_cap
             result = standard.for_new_workspace(fresh.pk, using=P)
             rows = CommunicationGovernancePolicy.objects.using(P).filter(tenant_id=fresh.pk, deleted_at__isnull=True)
             locked = {(r.channel, r.max_messages, r.period_days) for r in rows if r.platform_policy_id}
-            own = {("ALL" if r.scope == "GLOBAL" else r.channel, r.max_messages, r.period_days) for r in rows if not r.platform_policy_id}
+            own = {("ALL" if r.scope == "GLOBAL" else r.channel, r.max_messages, r.period_days) for r in rows if not r.platform_policy_id and r.unengaged_days is None}
+            unengaged = [(r.unengaged_days, r.unengaged_min_emails) for r in rows if not r.platform_policy_id and r.unengaged_days is not None]
             check("the platform standards arrive locked: one per channel per day", {("EMAIL", 1, 1), ("SMS", 1, 1), ("WHATSAPP", 1, 1)} <= locked, locked)
             check("and the standard caps as the workspace's own", own == {("EMAIL", 3, 7), ("SMS", 4, 30), ("WHATSAPP", 2, 7), ("ALL", 5, 7)}, own)
-            check("onboarding reports them", len(result["own"]) == 4, result)
+            check("and the recommended Unengaged Contacts rule", unengaged == [(180, 5)], unengaged)
+            check("onboarding reports them", len(result["own"]) == 5, result)
 
             first = standard.apply(using=P)
-            check("for every workspace: one that caps email already keeps its own and gets the other three",
-                  sorted(first["workspaces"]["ZZGOVK"]) == sorted(["4 texts per 30 days", "2 WhatsApp messages per 7 days", "5 messages per 7 days"]), first["workspaces"].get("ZZGOVK"))
+            check("for every workspace: one that caps email already keeps its own and gets the other three, and the unengaged rule",
+                  sorted(first["workspaces"]["ZZGOVK"]) == sorted(["4 texts per 30 days", "2 WhatsApp messages per 7 days", "5 messages per 7 days",
+                                                                   "No engagement in 180 days, after at least 5 marketing emails"]), first["workspaces"].get("ZZGOVK"))
             again = standard.apply(using=P)
             check("running it again adds nothing", not any(again["workspaces"].values()) and len(PlatformGovernancePolicy.objects.using(P).filter(name__startswith="Platform Standard")) == 4,
                   again["workspaces"])
