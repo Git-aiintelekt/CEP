@@ -27,6 +27,18 @@ A gap is checked with the caps, and a person it skips is counted as **Frequency 
 
 A cap of one message per day already keeps 24 hours between messages, so a gap of 24 hours or less adds nothing while such a cap applies. The page says so under the gap. The platform's standard caps are 1 per day on every channel, so a gap of your own matters when it is longer than 24 hours, or when that cap is switched off.
 
+## Send Windows and Quiet Hours
+
+A send window says when marketing of one channel may go out: from one time to another, on chosen days, in the workspace's time zone. Quiet hours are the same rule seen from the other side: a window of 08:00 to 21:00 means quiet hours of 21:00 to 08:00.
+
+A marketing send due outside its window is not skipped: it **waits** and starts when the window opens. A campaign scheduled for Saturday at 22:00 with an email window of 07:00 to 21:00 goes out on Sunday at 07:00 (or on Monday at 07:00 if Sunday is not one of the window's days). Transactional messages, e-receipts and test sends to testers never wait.
+
+Each channel (Email, Text, WhatsApp) has one window of your own, switched on or off. The platform team may set a window for your workspace too; it is shown locked under its channel. Every window applies, so a send goes out only when it is inside all of them: your own can only narrow the platform's. A window whose hours never meet the platform's is refused, since nothing could ever go out.
+
+A window can run past midnight (22:00 to 02:00); it belongs to the day it opens. Until a workspace has a text window, the platform's older quiet hours for texts still apply and are shown under Text.
+
+A campaign set to **Send at Each Recipient's Local Time** is checked against its window when its send starts, in the workspace's time zone; each person's message then goes at their own local time.
+
 ## Who can use it
 
 | | |
@@ -53,7 +65,10 @@ A cap of one message per day already keeps 24 hours between messages, so a gap o
 | Edit | On your own caps. | Changes the cap from the next send; sends already built are not rebuilt. |
 | Remove | On your own caps; asks first. | The cap no longer applies. |
 | Locked | On the platform's caps. | The platform team changes or removes these in the back-office; you cannot. |
-| Send Times | Read-only: the texts' quiet hours set by the platform, in the workspace's time zone. | A text due inside quiet hours waits until they end. A campaign can also go out at each recipient's local time (its Schedule step). |
+| Send Windows · From, To | Times in the workspace's time zone, saved when you leave the box. To earlier than From runs past midnight. | When marketing of the channel may start and stop going out. |
+| Send Windows · Days | Mon to Sun; at least one. Saved on each click. | The days the window opens. |
+| Send Windows · Switch | On or off, per channel. It starts at the recommended hours: email 07:00 to 21:00, texts and WhatsApp 09:00 to 20:00, every day. | On: sends of the channel wait for the window from the next send. Off: kept with its hours but not checked. |
+| Send Windows · Bar | The 24 hours, with the window marked. | Nothing: a picture of the hours. |
 | Priority and Exemptions | Read-only. | Transactional messages and e-receipts are never capped. A campaign can ignore the caps with **Apply Corporate Frequency Limits** off on its Schedule step; that is recorded in the activity log. |
 | List Hygiene | Read-only. | A hard bounce or a spam complaint blocks an address at once; soft bounces block it after the number shown. Blocked addresses are listed under Suppressions. |
 
@@ -64,6 +79,8 @@ A cap of one message per day already keeps 24 hours between messages, so a gap o
 **Keep one person from hearing from you more than five times a week, whatever the channel.** Add Cap → Channel **All Channels**, Most **5**, Days **7**.
 
 **Keep at least a day and a half between texts.** Gap Between Messages → Text: type **36** in the hours box, switch it on.
+
+**No marketing texts on Sunday, and only from 10:00 to 20:00.** Send Windows → Text: From **10:00**, To **20:00**, click **Sun** off, switch it on.
 
 **Pause a cap for a big launch.** Switch its **In Use** off, and on again afterwards. Or switch **Apply Corporate Frequency Limits** off on that one campaign's Schedule step.
 

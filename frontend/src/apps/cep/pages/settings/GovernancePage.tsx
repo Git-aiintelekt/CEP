@@ -15,6 +15,7 @@ import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { Switch } from '@/components/Switch'
+import { SendWindows } from './SendWindows'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/lib/api'
 import { formatNumber, formatPercent } from '@/lib/format'
@@ -152,7 +153,7 @@ export function GovernancePage() {
 
   if (data.isError) return <ErrorState title="Governance could not be loaded" error={data.error} onRetry={() => void data.refetch()} />
   if (data.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
-  const { caps, gaps, activity, text_quiet_hours: quiet, soft_bounces: softBounces } = data.data
+  const { caps, gaps, windows, activity, soft_bounces: softBounces } = data.data
   const platformCaps = caps.filter((cap) => cap.platform).length
   const ownCaps = caps.length - platformCaps
 
@@ -221,11 +222,9 @@ export function GovernancePage() {
         </div>
       </Card>
 
-      <Card title="Send Times" description="When marketing may arrive.">
-        <ul className="space-y-2 text-sm text-ink-900">
-          <li>{quiet ? <>Texts: quiet hours <span className="cep-num font-semibold">{quiet.start}–{quiet.end}</span> in the workspace's time zone. A text due inside them waits until they end. <Tag icon={Building2}>Platform</Tag></> : 'Texts: no quiet hours are set.'}</li>
-          <li>A campaign can go out at the same clock time in each person's own time zone: Send at Each Recipient's Local Time on its Schedule step.</li>
-        </ul>
+      <Card title="Send Windows and Quiet Hours" description={`When marketing may go out, in the workspace's time zone. A send due outside its window waits for it to open; nobody is skipped. Transactional messages, e-receipts and test sends never wait.`}>
+        <SendWindows windows={windows} editable={editable} />
+        <p className="mt-3 text-helper text-ink-800">A campaign can also go out at the same clock time in each person's own time zone: Send at Each Recipient's Local Time on its Schedule step. Its window is checked when the send starts.</p>
       </Card>
 
       <Card title="Priority and Exemptions" description="What the caps leave alone.">

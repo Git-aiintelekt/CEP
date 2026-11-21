@@ -3489,6 +3489,29 @@ ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_pol
 COMMENT ON COLUMN communication_governance_policy.gap_hours IS 'Gap Between Messages: the hours after a marketing message in which the next is skipped (NULL for a frequency cap).';
 COMMENT ON COLUMN platform_governance_policy.gap_hours IS 'Gap Between Messages: the hours after a marketing message in which the next is skipped (NULL for a frequency cap).';
 
+-- Send windows (patch 0092): a policy with window_start/window_end/window_days says when marketing of its channel may go out,
+-- in the workspace's time zone: from window_start to window_end (past midnight when the end is earlier), on the ISO weekdays
+-- in window_days (1 = Monday). A run due outside every window it falls under waits, it is not skipped. Every window applies,
+-- so a workspace's own can only narrow the platform's. Not a cap: the frequency checks ignore these rows.
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS window_start TIME;
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS window_end TIME;
+ALTER TABLE communication_governance_policy ADD COLUMN IF NOT EXISTS window_days SMALLINT[];
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS window_start TIME;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS window_end TIME;
+ALTER TABLE platform_governance_policy ADD COLUMN IF NOT EXISTS window_days SMALLINT[];
+ALTER TABLE communication_governance_policy DROP CONSTRAINT IF EXISTS ck_governance_policy_window;
+ALTER TABLE communication_governance_policy ADD CONSTRAINT ck_governance_policy_window CHECK (
+    (window_start IS NULL AND window_end IS NULL AND window_days IS NULL)
+    OR (window_start IS NOT NULL AND window_end IS NOT NULL AND window_start <> window_end AND gap_hours IS NULL AND max_messages = 1
+        AND scope = 'CHANNEL' AND cardinality(window_days) BETWEEN 1 AND 7 AND window_days <@ '{1,2,3,4,5,6,7}'::smallint[]));
+ALTER TABLE platform_governance_policy DROP CONSTRAINT IF EXISTS ck_platform_governance_policy_window;
+ALTER TABLE platform_governance_policy ADD CONSTRAINT ck_platform_governance_policy_window CHECK (
+    (window_start IS NULL AND window_end IS NULL AND window_days IS NULL)
+    OR (window_start IS NOT NULL AND window_end IS NOT NULL AND window_start <> window_end AND gap_hours IS NULL AND max_messages = 1
+        AND scope = 'CHANNEL' AND cardinality(window_days) BETWEEN 1 AND 7 AND window_days <@ '{1,2,3,4,5,6,7}'::smallint[]));
+COMMENT ON COLUMN communication_governance_policy.window_start IS 'Send window: when marketing of the channel may start going out, workspace time zone (NULL: not a window).';
+COMMENT ON COLUMN platform_governance_policy.window_start IS 'Send window: when marketing of the channel may start going out, workspace time zone (NULL: not a window).';
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

@@ -3098,9 +3098,32 @@ export interface GovernanceGapChannel {
   /** a cap of one message that already keeps at least the own gap, so the gap adds nothing while it applies */
   covered_by: string | null
 }
+/** A send window: marketing of the channel goes out only from start to end (past midnight when end is earlier), on these ISO days */
+export interface GovernanceWindow {
+  id: string
+  name: string
+  start: string
+  end: string
+  days: number[]
+  rule: string
+  is_active: boolean
+  platform: boolean
+  row_version: number
+}
+export interface GovernanceWindowChannel {
+  channel: 'EMAIL' | 'SMS' | 'WHATSAPP'
+  channel_label: string
+  /** the hours a new window of the workspace's own starts at */
+  recommended: { start: string; end: string; days: number[] }
+  own: GovernanceWindow | null
+  platform: GovernanceWindow[]
+  /** texts with no window at all: the platform's older quiet hours, which still apply */
+  quiet_hours: { start: string; end: string } | null
+}
 export interface GovernanceOverview {
   caps: GovernanceCap[]
   gaps: GovernanceGapChannel[]
+  windows: GovernanceWindowChannel[]
   activity: { days: number; checked: number; sent: number; capped: number; sent_percent: number | null }
   text_quiet_hours: { start: string; end: string } | null
   soft_bounces: number

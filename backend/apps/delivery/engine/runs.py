@@ -150,10 +150,12 @@ def start(tenant_id, run_id) -> dict:
 
     if campaign.status in ("PAUSED", "ARCHIVED"):            # stays SCHEDULED: it starts once the campaign is resumed
         raise RunNotStarted(f"The campaign is {campaign.get_status_display().lower()}: the run waits.")
-    if kind == "SMS" and campaign.solicitation_type == "MARKETING" and run.status == "SCHEDULED":
-        opens = quiet_until(tenant_zone)
+    if campaign.solicitation_type == "MARKETING" and run.status == "SCHEDULED" and not run.test_mode:
+        from apps.governance import windows                 # send windows (texts without one: the older quiet hours)
+        with session.tx(), session.connection().cursor() as cursor:
+            opens, words = windows.hold_until(cursor, tenant_id, channel, tenant_zone)
         if opens is not None:                               # stays SCHEDULED: the dispatcher tries again every minute
-            raise RunNotStarted(f"Quiet hours for marketing texts: the run starts at {opens:%H:%M} ({tenant_zone}).")
+            raise RunNotStarted(words)
 
     with session.tx(), session.connection().cursor() as cursor:
         cursor.execute("""UPDATE campaign_run SET status = 'PREPARING', started_at = now()

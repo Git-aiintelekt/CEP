@@ -141,7 +141,7 @@ def test_a_new_workspace_gets_the_platform_standards_locked_and_the_standard_cap
             check("for every workspace: one that caps email already keeps its own and gets the other three",
                   sorted(first["workspaces"]["ZZGOVK"]) == sorted(["4 texts per 30 days", "2 WhatsApp messages per 7 days", "5 messages per 7 days"]), first["workspaces"].get("ZZGOVK"))
             again = standard.apply(using=P)
-            check("running it again adds nothing", not any(again["workspaces"].values()) and len(PlatformGovernancePolicy.objects.using(P).filter(name__startswith="Platform Standard")) == 3,
+            check("running it again adds nothing", not any(again["workspaces"].values()) and len(PlatformGovernancePolicy.objects.using(P).filter(name__startswith="Platform Standard")) == 4,
                   again["workspaces"])
             transaction.set_rollback(True, using=P)
     finally:
