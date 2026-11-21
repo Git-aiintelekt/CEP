@@ -35,6 +35,14 @@ async function withReceipt(outerHtml: string, sections: ReceiptSection[]): Promi
   return combineReceiptEmail(outerHtml, sections, DEFAULT_SAMPLE_TRANSACTION)
 }
 
+/** A saved template's receipt as it is sent: its Store Register settings or Custom HTML too, not only its sections. */
+async function withLayout(outerHtml: string, layout: ReceiptLayout): Promise<string> {
+  const [{ combineLayoutEmail }, { DEFAULT_SAMPLE_TRANSACTION, SAMPLE_TRANSACTIONS }] = await Promise.all([import('@/apps/cep/features/receipt/receiptCombined'), import('@/apps/cep/features/receipt/sampleReceiptData')])
+  // the Store Register reads a register's details: the in-store sale carries them
+  const sample = layout.layout_preset === 'REGISTER' ? (SAMPLE_TRANSACTIONS.find((entry) => entry.data.register)?.data ?? DEFAULT_SAMPLE_TRANSACTION) : DEFAULT_SAMPLE_TRANSACTION
+  return combineLayoutEmail(outerHtml, layout, sample)
+}
+
 async function load(item: PreviewItem, queryClient: QueryClient, signal: AbortSignal): Promise<PreviewContent> {
   if (item.kind === 'preset') {
     const { preset } = item
@@ -66,7 +74,7 @@ async function load(item: PreviewItem, queryClient: QueryClient, signal: AbortSi
     receipt ? api.get<ReceiptLayout>(`/templates/${template.id}/receipt/`, undefined, signal) : null,
   ])
   const outer = design.html_content || (design.mjml_source ? await compile(design.mjml_source) : '')
-  const html = layout && outer ? await withReceipt(outer, layout.sections) : outer
+  const html = layout && outer ? await withLayout(outer, layout) : outer
   return { kind: 'email', html, subject: design.subject_line, preheader: design.preheader, ...(layout ? { receipt: { preset: layout.layout_preset, sections: layout.sections } } : {}) }
 }
 

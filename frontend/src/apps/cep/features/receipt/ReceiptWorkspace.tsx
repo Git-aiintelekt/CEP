@@ -25,11 +25,12 @@ import { useLeaveGuard } from '@/apps/cep/features/designer/useLeaveGuard'
 import type { ReceiptSlotPreset } from '@/apps/cep/features/designer/inspector/receiptSettings'
 import { ApiError } from '@/lib/api'
 import { formatUtcClock, titleCase } from '@/lib/format'
-import type { CodeSample, CodeSampleRequest, Design, DesignSaveInput, DesignVersion, PersonalizationTag, ReceiptLayout, ReceiptLayoutSaveInput } from '@/lib/types'
+import type { CodeSample, CodeSampleRequest, Design, DesignSaveInput, DesignVersion, PersonalizationTag, ReceiptLayout, ReceiptLayoutSaveInput, ReceiptLayoutSummary, ReceiptLibraryLayout } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
 import { OuterDesignPane } from './OuterDesignPane'
 import { PreviewTestPane } from './PreviewTestPane'
+import { LayoutPicker } from './LayoutPicker'
 import { ReceiptLayoutPane, type ReceiptLayoutConfig } from './ReceiptLayoutPane'
 import { designHasFooter, type ReceiptCheckSummary } from './receiptChecks'
 import { combinedFor, compileOuter, previewMessage, NOT_READY, type OuterEmail } from './receiptCombined'
@@ -50,6 +51,14 @@ export interface ReceiptBackend {
   activate?: () => Promise<void>
   /** the workspace has Barcodes and QR codes: draws a code block's sample, and puts the two blocks in the palette */
   sampleCode?: (request: CodeSampleRequest) => Promise<CodeSample>
+  /** Templates → Receipt Layouts: without these (the dev playground) the template keeps its own layout, as before */
+  library?: {
+    list: () => Promise<ReceiptLayoutSummary[]>
+    load: (id: string) => Promise<ReceiptLibraryLayout>
+    create: (input: { name: string } & ReceiptLayoutConfig) => Promise<ReceiptLibraryLayout>
+    /** opens the layout's own editor */
+    edit: (id: string) => void
+  }
 }
 
 type ReceiptTab = 'outer' | 'layout' | 'preview'
@@ -80,10 +89,14 @@ interface Saved {
   shown: number
 }
 
-const configOf = (layout: Pick<ReceiptLayout, keyof ReceiptLayoutConfig>): ReceiptLayoutConfig => ({
+/** The layout on screen: its content, and the library layout it comes from when the template picks one. */
+type WorkspaceLayout = ReceiptLayoutConfig & { layout_id: string | null; layout_name: string | null }
+
+const configOf = (layout: Pick<ReceiptLayout, keyof ReceiptLayoutConfig | 'layout_id' | 'layout_name'>): WorkspaceLayout => ({
   layout_preset: layout.layout_preset, sections: layout.sections, custom_html: layout.custom_html, custom_css: layout.custom_css,
+  item_row: layout.item_row ?? null, register: layout.register ?? null, layout_id: layout.layout_id ?? null, layout_name: layout.layout_name ?? null,
 })
-const sameConfig = (a: ReceiptLayoutConfig, b: ReceiptLayoutConfig) => JSON.stringify(a) === JSON.stringify(b)
+const sameConfig = (a: WorkspaceLayout, b: WorkspaceLayout) => JSON.stringify(a) === JSON.stringify(b)
 
 /** "v3", "v2 of 4", or "not saved" when nothing has been. */
 const versionText = ({ version, shown }: Saved) => (shown === 0 ? 'not saved' : `v${shown}${shown !== version ? ` of ${version}` : ''}`)
@@ -116,8 +129,8 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
   const [designVersionsFailed, setDesignVersionsFailed] = useState(false)
 
   // the receipt layout: a controlled value, compared against what was last saved
-  const [layout, setLayout] = useState<ReceiptLayoutConfig>(() => configOf(receiptLayout))
-  const [layoutSaved, setLayoutSaved] = useState<Saved & { config: ReceiptLayoutConfig }>(() => ({
+  const [layout, setLayout] = useState<WorkspaceLayout>(() => configOf(receiptLayout))
+  const [layoutSaved, setLayoutSaved] = useState<Saved & { config: WorkspaceLayout }>(() => ({
     config: configOf(receiptLayout), version: receiptLayout.latest_version, shown: receiptLayout.version_number,
   }))
   const [layoutRestored, setLayoutRestored] = useState(false)
@@ -147,7 +160,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
     return () => window.clearTimeout(timer)
   }, [canvasTick, designRestored, designSaved.shown, refreshFooter])
 
-  const renderCombinedHtml = useCallback((transaction: SampleTransaction) => combinedFor(outer, layout.sections, transaction, layout.layout_preset), [outer, layout.sections, layout.layout_preset])
+  const renderCombinedHtml = useCallback((transaction: SampleTransaction) => combinedFor(outer, layout, transaction), [outer, layout])
 
   const saveNote =
     `${DESIGN_NAME} ${versionText(designSaved)} · ${LAYOUT_NAME.toLowerCase()} ${versionText(layoutSaved)}` +
@@ -166,6 +179,33 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
 
   function applyPreset(preset: ReceiptSlotPreset) {
     setLayout((current) => ({ ...current, layout_preset: preset, sections: defaultSectionsFor(preset) }))
+  }
+
+  /** Picks a library layout: its content shows (read-only here), and saving the template keeps the pick. */
+  async function pickLibrary(id: string) {
+    if (!backend.library) return
+    setBusy('load')
+    try {
+      const chosen = await backend.library.load(id)
+      setLayout(configOf({ ...chosen, layout_id: chosen.id, layout_name: chosen.name }))
+    } catch (error) {
+      toast.failure(error, 'That layout was not loaded')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /** Back to an own layout, starting from what is on screen: a copy for this template only. */
+  function useOwnLayout() {
+    setLayout((current) => ({ ...current, layout_id: null, layout_name: null }))
+  }
+
+  async function saveToLibrary(name: string) {
+    if (!backend.library) return
+    const { layout_id: _id, layout_name: _name, ...content } = layout
+    const made = await backend.library.create({ name, ...content })
+    setLayout(configOf({ ...made, layout_id: made.id, layout_name: made.name }))
+    toast.success('Saved to Receipt Layouts', `${made.name}. Save the template to use it from the library.`)
   }
 
   /** Each part is saved when it has changed or has never been saved; with nothing changed, both are. */
@@ -500,13 +540,37 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
                 exportName={templateName}
                 onOpenReceiptLayout={() => void changeTab('layout')}
                 receiptPreset={preset}
-                onReceiptPresetChange={readOnly ? undefined : applyPreset}
+                onReceiptPresetChange={readOnly || layout.layout_id ? undefined : applyPreset}
                 sampleCode={backend.sampleCode}
               />
               </div>
             ),
           },
-          { id: 'layout', content: <ReceiptLayoutPane layout={layout} onChange={setLayout} readOnly={readOnly} /> },
+          {
+            id: 'layout',
+            content: (
+              <ReceiptLayoutPane
+                layout={layout}
+                onChange={(next) => setLayout((current) => ({ ...current, ...next }))}
+                readOnly={readOnly || Boolean(layout.layout_id)}
+                tags={tags}
+                top={
+                  backend.library ?
+                    <LayoutPicker
+                      pick={{ layout_id: layout.layout_id, layout_name: layout.layout_name }}
+                      list={backend.library.list}
+                      disabled={readOnly}
+                      busy={busy !== null}
+                      onPick={(id) => void pickLibrary(id)}
+                      onOwn={useOwnLayout}
+                      onEdit={(id) => guard.requestLeave(() => backend.library?.edit(id))}
+                      onSaveToLibrary={saveToLibrary}
+                    />
+                  : undefined
+                }
+              />
+            ),
+          },
           {
             id: 'preview',
             content: <PreviewTestPane sections={layout.sections} hasFooterBlock={hasFooterBlock} tags={tags} onChecksChange={setChecks} renderCombinedHtml={renderCombinedHtml} />,

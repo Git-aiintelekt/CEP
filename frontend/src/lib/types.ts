@@ -1421,7 +1421,7 @@ export interface DesignVersion {
   saved_by: string | null
 }
 
-/** REGISTER: the paper receipt as the register prints it, a fixed layout with nothing to configure */
+/** REGISTER: the paper receipt as the register prints it, with its own settings (RegisterSettings) */
 export type ReceiptLayoutPreset = 'COMPACT' | 'STANDARD' | 'ITEMIZED' | 'REGISTER' | 'CUSTOM_HTML'
 interface ReceiptSectionBase {
   label: string
@@ -1495,6 +1495,13 @@ export interface ReceiptLayout {
   /** only used when layout_preset is CUSTOM_HTML */
   custom_html: string | null
   custom_css: string | null
+  /** CUSTOM_HTML: the row repeated once per line where the HTML has {{receipt_items}} */
+  item_row?: string | null
+  /** REGISTER: its settings; null prints the Store Register as it was before it had settings */
+  register?: RegisterSettings | null
+  /** set when the template picks a library layout (Templates → Receipt Layouts): the content above is that layout's */
+  layout_id?: string | null
+  layout_name?: string | null
   saved_at: string | null
   saved_by: string | null
 }
@@ -1504,8 +1511,53 @@ export interface ReceiptLayoutSaveInput {
   sections: ReceiptSection[]
   custom_html: string | null
   custom_css: string | null
+  item_row?: string | null
+  register?: RegisterSettings | null
+  /** pick this library layout instead of saving an own one */
+  layout_id?: string | null
   /** the version the editor loaded: the API answers 409 when a newer one exists */
   base_version: number
+}
+
+export type RegisterFieldKey = 'trans_number' | 'register' | 'store_number' | 'trans_at' | 'cashier' | 'item_count'
+export type RegisterColumnKey = 'description' | 'size' | 'color' | 'quantity' | 'unit_price' | 'discount' | 'tax' | 'sku' | 'upc' | 'status' | 'amount'
+
+/** The Store Register's settings. The defaults print exactly the Store Register as it was before it had settings. */
+export interface RegisterSettings {
+  title: string
+  /** the six transaction fields in their order, printed in rows of three */
+  fields: { key: RegisterFieldKey; label: string; visible: boolean }[]
+  /** description first, amount last, at most 5 */
+  columns: { key: RegisterColumnKey; label: string }[]
+  under_item: { discount: boolean; quantity_at_price: boolean; sku: boolean; upc: boolean }
+  footer_text: string
+  footer_align: 'CENTER' | 'LEFT'
+  /** FOLD: on a phone the middle columns move to a line under the item */
+  phone: 'FOLD' | 'KEEP'
+}
+
+/** GET /receipt-layouts/ : one row of Templates → Receipt Layouts */
+export interface ReceiptLayoutSummary {
+  id: string
+  name: string
+  layout_preset: ReceiptLayoutPreset
+  kind: 'SETTINGS' | 'CUSTOM_HTML'
+  /** E-Receipt templates (not archived) that pick it */
+  used_by: number
+  version_number: number
+  updated_at: string
+  updated_by: string | null
+  archived: boolean
+}
+
+/** GET / PUT /receipt-layouts/{id}/ */
+export interface ReceiptLibraryLayout extends ReceiptLayoutSummary {
+  sections: ReceiptSection[]
+  custom_html: string | null
+  custom_css: string | null
+  item_row: string | null
+  register: RegisterSettings | null
+  templates: { id: string; name: string; status: string }[]
 }
 
 export interface MediaAsset {

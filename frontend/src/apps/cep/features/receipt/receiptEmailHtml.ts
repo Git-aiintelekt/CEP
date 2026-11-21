@@ -7,12 +7,13 @@
  * decision about what shows.
  */
 import { HIDE_MOBILE_CLASS, HIDE_MOBILE_RULE } from '@/apps/cep/features/designer/blocks/register'
-import type { ReceiptItemsSection, ReceiptLayoutPreset, ReceiptSection } from '@/lib/types'
+import type { ReceiptItemsSection, ReceiptLayoutPreset, ReceiptSection, RegisterFieldKey, RegisterSettings } from '@/lib/types'
 
 import { barcodeUrl } from './barcode'
 import { inOrder } from './receiptPresets'
 import { formatMoney, fulfillmentOf, showsSection, totalsRows } from './receiptRules'
 import type { RegisterDetails, SampleTransaction } from './sampleReceiptData'
+import { FOLD_RULE, ITEM_TAG, NARROW_CLASS, RECEIPT_ITEMS, WIDE_CLASS, columnValue, defaultRegisterSettings, folds, itemValue, normalRegisterSettings } from './registerSettings'
 
 /** The values ReceiptPreview draws with (the app's tokens in index.css), written out because email has no variables. */
 const COLOR = {
@@ -205,25 +206,53 @@ export function registerDetails(transaction: SampleTransaction): RegisterDetails
 }
 
 /**
- * The receipt as the register prints it: YOUR RECEIPT, the transaction's numbers in two rows of three, Description and
- * Amount with each line's discount (green) and its "1 @ $19.99", the lines' sum, then Subtotal, each tax with its rate,
- * TOTAL, every tender with its authorisation, and the change. Nothing in it is configurable.
+ * The receipt as the register prints it: the title, the transaction's numbers in rows of three, the columns (Description
+ * and Amount at least) with each line's discount (green) and its "1 @ $19.99", the lines' sum, then Subtotal, each tax with
+ * its rate, TOTAL, every tender with its authorisation, the change, and the footer text. Without settings (a layout saved
+ * before they existed) it prints exactly what it always printed.
  */
-export function renderRegisterEmailHtml(transaction: SampleTransaction): string {
+export function renderRegisterEmailHtml(transaction: SampleTransaction, settings?: RegisterSettings | null): string {
+  const s = normalRegisterSettings(settings ?? defaultRegisterSettings())
   const r = registerDetails(transaction)
   const cell = `font-size:12px;line-height:18px;color:${REGISTER.text};`
   const strong = `${cell}font-weight:700;`
+  const line = `border-bottom:1px solid ${REGISTER.line};`
   const meta = (label: string, value: string, align: 'left' | 'center' | 'right') =>
     `<td align="${align}" style="padding:1px 0;${cell}text-align:${align};"><span style="font-weight:700;">${escapeHtml(label)}:</span> ${escapeHtml(value)}</td>`
-  const header = `<table ${TABLE}><tr>${meta('Trans Num', r.trans_number, 'left')}${meta('Register', r.register, 'center')}${meta('Store', r.store_number, 'right')}</tr><tr>${meta('Trans Dt', r.trans_at, 'left')}${meta('Cashier', r.cashier, 'center')}${meta('Item(s) Sold', count(r.item_count), 'right')}</tr></table>`
+  const values: Record<RegisterFieldKey, string> = {
+    trans_number: r.trans_number, register: r.register, store_number: r.store_number, trans_at: r.trans_at, cashier: r.cashier, item_count: count(r.item_count),
+  }
+  const shown = s.fields.filter((field) => field.visible)
+  const aligns = ['left', 'center', 'right'] as const
+  let headerRows = ''
+  for (let at = 0; at < shown.length; at += 3) headerRows += `<tr>${shown.slice(at, at + 3).map((field, index) => meta(field.label, values[field.key], aligns[index])).join('')}</tr>`
+  const header = headerRows ? `<table ${TABLE}>${headerRows}</table>` : ''
 
+  const first = s.columns[0]
+  const last = s.columns[s.columns.length - 1]
+  const middle = s.columns.slice(1, -1)
+  const fold = folds(s)
+  const wide = fold ? ` class="${WIDE_CLASS}"` : ''
+  const amountWidth = middle.length ? ' width="80"' : ''
   const lines = transaction.line_items.map((item) => {
-    const discount = item.discount ? `<br /><span style="color:${REGISTER.discount};">Discount: (${escapeHtml(formatMoney(item.discount))})</span>` : ''
-    return `<tr><td valign="bottom" style="padding:10px 0;border-bottom:1px solid ${REGISTER.line};${cell}">${escapeHtml(item.description)}${discount}<br /><span>${escapeHtml(count(item.quantity))} @ ${escapeHtml(formatMoney(item.unit_price))}</span></td><td align="right" valign="bottom" style="padding:10px 0 10px 16px;border-bottom:1px solid ${REGISTER.line};${cell}${NUMERIC}white-space:nowrap;text-align:right;">${escapeHtml(formatMoney(item.amount))}</td></tr>`
+    let folded = ''
+    if (fold) {
+      const parts = middle.map((column) => [column.label, columnValue(column.key, item)] as const).filter(([, value]) => value).map(([label, value]) => `${label} ${value}`)
+      if (parts.length) folded = `<div class="${NARROW_CLASS}" style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(parts.join(' · '))}</div>`
+    }
+    const discount = s.under_item.discount && item.discount ? `<br /><span style="color:${REGISTER.discount};">Discount: (${escapeHtml(formatMoney(item.discount))})</span>` : ''
+    const atPrice = s.under_item.quantity_at_price ? `<br /><span>${escapeHtml(count(item.quantity))} @ ${escapeHtml(formatMoney(item.unit_price))}</span>` : ''
+    const codes = (['sku', 'upc'] as const).filter((key) => s.under_item[key] && item[key]).map((key) => `<br /><span>${key.toUpperCase()} ${escapeHtml(String(item[key]))}</span>`).join('')
+    const cells = middle.map((column) => `<td align="center" valign="bottom" width="64"${wide} style="padding:10px 0 10px 12px;${line}${cell}text-align:center;">${escapeHtml(columnValue(column.key, item))}</td>`).join('')
+    return `<tr><td valign="bottom" style="padding:10px 0;${line}${cell}">${escapeHtml(item.description)}${discount}${atPrice}${codes}${folded}</td>${cells}<td align="right" valign="bottom"${amountWidth} style="padding:10px 0 10px 16px;${line}${cell}${NUMERIC}white-space:nowrap;text-align:right;">${escapeHtml(formatMoney(item.amount))}</td></tr>`
   })
   const linesTotal = transaction.line_items.reduce((sum, item) => sum + item.amount, 0)
-  const columns = `<table ${TABLE}><tr><td style="padding:0;${strong}">Description</td><td align="right" style="padding:0;${strong}text-align:right;">Amount</td></tr></table>`
-  const items = `<table ${TABLE}>${lines.join('')}<tr><td colspan="2" align="right" style="padding:10px 0;border-bottom:1px solid ${REGISTER.line};${strong}${NUMERIC}text-align:right;">${escapeHtml(formatMoney(linesTotal))}</td></tr></table>`
+  const heads = middle.map((column) => `<td align="center" width="64"${wide} style="padding:0 0 0 12px;${strong}text-align:center;">${escapeHtml(column.label)}</td>`).join('')
+  const lastHead = middle.length ?
+      `<td align="right"${amountWidth} style="padding:0 0 0 16px;${strong}text-align:right;">${escapeHtml(last.label)}</td>`
+    : `<td align="right" style="padding:0;${strong}text-align:right;">${escapeHtml(last.label)}</td>`
+  const columns = `<table ${TABLE}><tr><td style="padding:0;${strong}">${escapeHtml(first.label)}</td>${heads}${lastHead}</tr></table>`
+  const items = `<table ${TABLE}>${lines.join('')}<tr><td colspan="${s.columns.length}" align="right" style="padding:10px 0;${line}${strong}${NUMERIC}text-align:right;">${escapeHtml(formatMoney(linesTotal))}</td></tr></table>`
 
   const totalRow = (label: string, value: string, big = false) => {
     const size = big ? 'font-size:14px;line-height:20px;' : ''
@@ -239,24 +268,55 @@ export function renderRegisterEmailHtml(transaction: SampleTransaction): string 
   const block = (name: string, colour: string, padding: string, inner: string) =>
     `          <table data-section="${name}" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${colour};"><tr><td style="padding:${padding};">${inner}</td></tr></table>\n`
   const gap = `          <table ${TABLE}><tr><td style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr></table>\n`
-  const title = '<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</p>'
-  return `<table ${TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">
+  const title = s.title ? `<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">${escapeHtml(s.title)}</p>` : ''
+  const footer = s.footer_text ?
+      gap + block('register-footer', REGISTER.card, '12px 18px', `<p style="margin:0;${cell}text-align:${s.footer_align === 'LEFT' ? 'left' : 'center'};">${escapeHtml(s.footer_text).replace(/\r?\n/g, '<br />')}</p>`)
+    : ''
+  return `${fold ? `<style>${FOLD_RULE}</style>\n` : ''}<table ${TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">
   <tr>
     <td style="padding:8px 24px 24px;">
       <table ${TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:${REGISTER.band};font-family:${FONT};color:${REGISTER.text};">
         <tr><td style="padding:16px;">
 ${block('register-header', REGISTER.header, '14px 18px 12px', title + header)}${gap}          <table data-section="register-body" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${REGISTER.card};"><tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid ${REGISTER.line};background-color:${REGISTER.columns};">${columns}</td></tr><tr><td style="padding:2px 18px 16px;"><div data-section="register-items">${items}</div><div data-section="register-totals" style="margin-top:12px;">${totals}</div></td></tr></table>
-        </td></tr>
+${footer}        </td></tr>
       </table>
     </td>
   </tr>
 </table>`
 }
 
+/** The Item Row once per line, its {{item.*}} tags filled and escaped. */
+export function renderItemRows(itemRow: string, transaction: SampleTransaction): string {
+  return transaction.line_items.map((item) => itemRow.replace(ITEM_TAG, (_, key: string) => escapeHtml(itemValue(key, item)))).join('')
+}
+
+/** A Custom HTML receipt as it goes into the slot: its CSS, then its HTML with the Item Row at {{receipt_items}}. */
+export function renderCustomReceiptHtml(customHtml: string, customCss: string | null | undefined, itemRow: string | null | undefined, transaction: SampleTransaction): string {
+  const rows = itemRow ? renderItemRows(itemRow, transaction) : null
+  const body = rows === null ? customHtml : customHtml.replace(RECEIPT_ITEMS, () => rows)
+  return `${customCss ? `<style>${customCss}</style>` : ''}${body}`
+}
+
+/** What a receipt layout puts into the slot, whatever its kind: the one entry point the editors preview with. */
+export interface LayoutContent {
+  layout_preset: ReceiptLayoutPreset
+  sections: ReceiptSection[]
+  custom_html?: string | null
+  custom_css?: string | null
+  item_row?: string | null
+  register?: RegisterSettings | null
+}
+
+export function renderLayoutEmailHtml(layout: LayoutContent, transaction: SampleTransaction): string {
+  if (layout.layout_preset === 'CUSTOM_HTML' && layout.custom_html) return renderCustomReceiptHtml(layout.custom_html, layout.custom_css, layout.item_row, transaction)
+  if (layout.layout_preset === 'REGISTER') return renderRegisterEmailHtml(transaction, layout.register)
+  return renderReceiptEmailHtml(layout.sections, transaction)
+}
+
 /**
  * The receipt, ready for the slot: a <style> carrying only the hide-on-phones rule, then one centred 600px table.
  * The hairlines between sections are solid except the dashed one above Totals, where the money starts.
- * The Store Register preset has a fixed layout of its own.
+ * The Store Register preset has a layout of its own (renderRegisterEmailHtml).
  */
 export function renderReceiptEmailHtml(sections: ReceiptSection[], transaction: SampleTransaction, preset?: ReceiptLayoutPreset): string {
   if (preset === 'REGISTER') return renderRegisterEmailHtml(transaction)

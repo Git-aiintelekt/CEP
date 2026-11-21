@@ -7,6 +7,7 @@ import type { ReceiptSection } from '@/lib/types'
 
 import { ReceiptLayoutPane, type ReceiptLayoutConfig } from './ReceiptLayoutPane'
 import { defaultSectionsFor } from './receiptPresets'
+import { STARTER_CUSTOM_HTML, STARTER_ITEM_ROW, defaultRegisterSettings } from './registerSettings'
 
 afterEach(cleanup)
 
@@ -40,7 +41,7 @@ const last = (onChange: ReturnType<typeof vi.fn>) => onChange.mock.calls.at(-1)?
 
 /** A complete config: every field present, seven sections with orders 0 to 6. */
 function expectComplete(config: ReceiptLayoutConfig) {
-  expect(Object.keys(config).sort()).toEqual(['custom_css', 'custom_html', 'layout_preset', 'sections'])
+  expect(Object.keys(config)).toEqual(expect.arrayContaining(['custom_css', 'custom_html', 'layout_preset', 'sections']))
   expect(config.sections.map((section) => section.key).sort()).toEqual([...KEYS].sort())
   expect(config.sections.map((section) => section.order).sort()).toEqual([0, 1, 2, 3, 4, 5, 6])
 }
@@ -132,19 +133,56 @@ test('a settings change reaches the receipt at once', async () => {
   expect((last(onChange).sections.find((section) => section.key === 'items') as Extract<ReceiptSection, { key: 'items' }>).row_height).toBe('COMPACT')
 })
 
-test('Custom HTML swaps the layout for an HTML and a CSS box', async () => {
+test('Custom HTML starts from a working table with its Item Row, and has a box each for the Receipt, the Item Row and the CSS', async () => {
   const { onChange, user } = setup()
   await user.click(preset(/Custom HTML/))
 
-  expect(last(onChange)).toMatchObject({ layout_preset: 'CUSTOM_HTML', custom_html: '', custom_css: '' })
-  expect(screen.getByLabelText('HTML').tagName).toBe('TEXTAREA')
-  expect(screen.getByLabelText('CSS').tagName).toBe('TEXTAREA')
+  expect(last(onChange)).toMatchObject({ layout_preset: 'CUSTOM_HTML', custom_html: STARTER_CUSTOM_HTML, custom_css: '', item_row: STARTER_ITEM_ROW })
+  expect(screen.getByLabelText('Receipt HTML').tagName).toBe('TEXTAREA')
   expect(screen.queryByTestId('receipt')).toBeNull()
   expect(screen.queryByRole('complementary', { name: 'Section Settings' })).toBeNull()
+  expect(within(screen.getByRole('list', { name: 'Checks' })).getAllByRole('listitem').length).toBeGreaterThan(2)
 
-  await user.type(screen.getByLabelText('HTML'), '<p>Hi</p>')
+  await user.clear(screen.getByLabelText('Receipt HTML'))
+  await user.type(screen.getByLabelText('Receipt HTML'), '<p>Hi</p>')
   expect(last(onChange).custom_html).toBe('<p>Hi</p>')
+  await user.click(screen.getByRole('radio', { name: 'Item Row' }))
+  expect((screen.getByLabelText('Item Row') as HTMLTextAreaElement).value).toBe(STARTER_ITEM_ROW)
+  await user.click(screen.getByRole('radio', { name: 'CSS' }))
+  expect(screen.getByLabelText('CSS').tagName).toBe('TEXTAREA')
   expectComplete(last(onChange))
+})
+
+test('Store Register: renamed headers, an added column and footer text reach the receipt; a sixth column cannot be added', async () => {
+  const { onChange, user } = setup()
+  await user.click(preset(/Store Register/))
+  expect(last(onChange).register).toEqual(defaultRegisterSettings())
+
+  await user.clear(screen.getByLabelText('Header: Description'))
+  await user.type(screen.getByLabelText('Header: Description'), 'Item')
+  await user.click(screen.getByRole('button', { name: 'Add Column' }))
+  await user.click(within(screen.getByRole('list', { name: 'Add Column' })).getByRole('button', { name: /Size/ }))
+  expect(last(onChange).register?.columns.map((column) => column.key)).toEqual(['description', 'size', 'amount'])
+  const html = screen.getByTestId('register-preview').innerHTML
+  expect(html).toContain('>Item</td>')
+  expect(html).toContain('>Size</td>')
+
+  for (const name of [/Colour/, /Quantity/]) {
+    await user.click(screen.getByRole('button', { name: 'Add Column' }))
+    await user.click(within(screen.getByRole('list', { name: 'Add Column' })).getByRole('button', { name }))
+  }
+  expect(screen.getByRole('button', { name: 'Add Column' })).toHaveProperty('disabled', true)
+  expect(screen.getByText(/At most 5 columns/)).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: /Footer Text/ }))
+  await user.type(screen.getByLabelText('Text'), 'Returns within 30 days.')
+  expect(last(onChange).register?.footer_text).toBe('Returns within 30 days.')
+  expect(screen.getByTestId('register-preview').innerHTML).toContain('Returns within 30 days.')
+
+  await user.click(screen.getByRole('button', { name: /Title & Header/ }))
+  await user.click(screen.getAllByRole('checkbox', { name: 'Show' })[1])
+  expect(last(onChange).register?.fields[1]).toMatchObject({ key: 'register', visible: false })
+  expect(screen.getByTestId('register-preview').innerHTML).not.toContain('Register:</span>')
 })
 
 test('the email shell switch wraps the receipt', async () => {

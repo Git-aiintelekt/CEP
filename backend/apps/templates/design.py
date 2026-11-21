@@ -316,7 +316,9 @@ def latest_receipt_version(template: TemplateMaster) -> int:
 
 def receipt_payload(template: TemplateMaster, version: int | None = None) -> dict:
     """The receipt layout at `version` (default: latest); version 0 = nothing saved yet, which opens on the Standard
-    preset (the editor always needs a real layout to show, unlike the design half, which can start blank)."""
+    preset (the editor always needs a real layout to show, unlike the design half, which can start blank). A version
+    that picked a library layout (Templates -> Receipt Layouts) answers with that layout's current content."""
+    from .models import ReceiptLayout
     latest = latest_receipt_version(template)
     number = version or latest
     state = None
@@ -325,29 +327,30 @@ def receipt_payload(template: TemplateMaster, version: int | None = None) -> dic
         if state is None:
             raise ValidationError({"version": f"Version {number} does not exist."})
     layout = state.editor_state if state else {}
+    library = ReceiptLayout.objects.filter(pk=layout["layout_id"], tenant_id=template.tenant_id).first() if layout.get("layout_id") else None
+    content = {**library.content, "layout_preset": library.layout_preset} if library else layout
     return {
         "template": str(template.id),
         "version_number": number if state else 0,
         "latest_version": latest,
-        "layout_preset": layout.get("layout_preset", "STANDARD"),
-        "sections": layout.get("sections") or default_receipt_sections(),
-        "custom_html": layout.get("custom_html"),
-        "custom_css": layout.get("custom_css"),
+        "layout_preset": content.get("layout_preset", "STANDARD"),
+        "sections": content.get("sections") or default_receipt_sections(),
+        "custom_html": content.get("custom_html"),
+        "custom_css": content.get("custom_css"),
+        "item_row": content.get("item_row"),
+        "register": content.get("register"),
+        "layout_id": str(library.id) if library else None,
+        "layout_name": library.name if library else None,
         "saved_at": state.created_at if state else None,
         "saved_by": state.created_by.display_name if state and state.created_by else None,
     }
 
 
-@transaction.atomic
-def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, sections: list, custom_html: str | None, custom_css: str | None,
-                  base_version: int) -> dict:
-    if template.channel not in RECEIPT_CHANNELS:
-        raise Conflict("The receipt layout is for E_RECEIPT templates.")
-    if template.status == "ARCHIVED" or template.deleted_at is not None:
-        raise Conflict("An archived template cannot be changed.")
-    from apps.campaigns import drip
-    drip.guard_template(template, "edit")                     # a live drip sends exactly what was tested
-
+def receipt_content_errors(layout_preset: str, sections: list, custom_html: str | None, custom_css: str | None,
+                           item_row: str | None = None, register=None) -> tuple[dict, dict | None]:
+    """What stops a receipt layout from saving, the template's own or a library one -> (errors, the cleaned Store Register
+    settings or None)."""
+    from apps.delivery.engine import receipt_layout
     errors = {}
     if layout_preset == "CUSTOM_HTML":
         if not (custom_html or "").strip():
@@ -357,10 +360,51 @@ def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, secti
         for pattern, message in FORBIDDEN:
             if pattern.search(custom_html or "") or pattern.search(custom_css or ""):
                 errors.setdefault("custom_html", message)
-    elif not sections and layout_preset != "REGISTER":           # the Store Register layout has nothing to configure: no sections needed
+        if (item_row or "").strip():
+            for pattern, message in FORBIDDEN:
+                if pattern.search(item_row):
+                    errors.setdefault("item_row", message)
+            if len(item_row.encode()) > MAX_CUSTOM_HTML_BYTES:
+                errors.setdefault("item_row", "The Item Row is too large (over 512 KB).")
+            if len(receipt_layout.RECEIPT_ITEMS.findall(custom_html or "")) != 1:
+                errors.setdefault("custom_html", "Put {{receipt_items}} in the receipt's HTML once, where the item rows go.")
+        if receipt_layout.ITEM_TAG.search(custom_html or ""):
+            errors.setdefault("custom_html", "Item tags ({{item.description}} …) work only in the Item Row.")
+    elif not sections and layout_preset != "REGISTER":           # the Store Register layout needs no sections
         errors["sections"] = "Choose a layout preset."
-    if errors:
-        raise ValidationError(errors)
+    settings = None
+    if layout_preset == "REGISTER":
+        settings, register_errors = receipt_layout.clean_register_settings(register)
+        errors.update(register_errors)
+    return errors, settings
+
+
+@transaction.atomic
+def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, sections: list, custom_html: str | None, custom_css: str | None,
+                  base_version: int, item_row: str | None = None, register=None, layout_id=None) -> dict:
+    """Saves a new receipt version: the template's own layout, or (layout_id) the library layout it picks."""
+    from .models import ReceiptLayout
+    if template.channel not in RECEIPT_CHANNELS:
+        raise Conflict("The receipt layout is for E_RECEIPT templates.")
+    if template.status == "ARCHIVED" or template.deleted_at is not None:
+        raise Conflict("An archived template cannot be changed.")
+    from apps.campaigns import drip
+    drip.guard_template(template, "edit")                     # a live drip sends exactly what was tested
+
+    if layout_id:
+        library = ReceiptLayout.objects.filter(pk=layout_id, tenant_id=template.tenant_id, archived_at__isnull=True).first()
+        if library is None:
+            raise ValidationError({"layout_id": "That receipt layout does not exist or is archived."})
+        state = {"kind": "receipt", "layout_id": str(library.id), "layout_preset": library.layout_preset}
+    else:
+        errors, settings = receipt_content_errors(layout_preset, sections, custom_html, custom_css, item_row, register)
+        if errors:
+            raise ValidationError(errors)
+        state = {"kind": "receipt", "layout_preset": layout_preset, "sections": sections, "custom_html": custom_html, "custom_css": custom_css}
+        if item_row:
+            state["item_row"] = item_row
+        if settings is not None:
+            state["register"] = settings
 
     # Same row lock as save_design(): two people saving at once get versions n+1 and a 409, never two n+1 rows.
     TemplateMaster.objects.select_for_update().get(pk=template.pk)
@@ -369,7 +413,6 @@ def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, secti
         raise Conflict(f"This receipt layout was saved by someone else (now at version {current}). Reload before saving again.")
 
     number = _next_version(template)
-    state = {"kind": "receipt", "layout_preset": layout_preset, "sections": sections, "custom_html": custom_html, "custom_css": custom_css}
     TemplateDesignState.objects.create(template=template, version_number=number, editor_state=state, created_by_id=user_id)
     TemplateMaster.objects.filter(pk=template.pk).update(updated_at=Now())
     _drip_content_changed(template, user_id)

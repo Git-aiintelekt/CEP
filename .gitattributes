@@ -1,0 +1,3 @@
+# golden receipts are compared byte for byte: never convert their line endings
+backend/tests/fixtures/receipt_layouts/*.html -text
+frontend/src/apps/cep/features/receipt/__golden__/* -text
