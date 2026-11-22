@@ -97,6 +97,13 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - What happens behind the scenes
   - Things to know
   - When something does not work
+- Delivery Warm-Up
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
 - Users
   - What this page is for
   - Who can use it
@@ -249,6 +256,43 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - Joining tables
   - Query a Database: a report from a query
   - When a report runs
+- AI Assistant
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Fiscal Year
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - What it changes in Insights
+  - A worked example
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Report Access
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How the rules combine
+  - Where a rule applies
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Governance
+  - What this page is for
+  - The standard caps
+  - Gap Between Messages
+  - Send Windows and Quiet Hours
+  - Blackout Dates
+  - Unengaged Contacts
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
 
 ---
 
@@ -274,6 +318,7 @@ Every page of the app has a chapter, and every chapter has the same shape:
 - **The help icon** beside a page's title opens that page's chapter in a panel, so the guide is one click away from the page it describes. Close it with the cross or the Escape key.
 - **The small information icon** beside a field opens a note on that one field: what it is and what it affects.
 - **The keyboard icon** in the header lists the keyboard shortcuts. Pressing `?` on any page does the same.
+- **Grey suggestions.** Some boxes offer a suggestion in grey, with a small **Tab** tag at the right while you are in the box. Press Tab (or the right arrow) while the box is empty to put the suggestion in, then change it or keep it. On a phone or tablet, tap **Use**. Once the box has text, or when it shows an "e.g." example, Tab moves to the next field as usual. Suggestions are offered in Ask for a Report and Change With a Prompt (Insights), the campaign name (from the type, the channel and the month), Subject B of a subject line test (the subject line), and an empty text message (the opt-out line, kept as the last line).
 - **The foot of every page** carries the platform's copyright line and a link to the Terms of Use, which also opens from the sign-in page without signing in.
 
 ## Three ideas that run through everything
@@ -382,7 +427,7 @@ Home is the marketing command centre: how the workspace's campaigns are doing, w
 
 # Contact Lists
 
-**Where:** Contact Lists in the main navigation, and **Contact Lists → Uploads**.
+**Where:** Contact Lists in the main navigation; a list's own page (click its name); **Contact Lists → Uploads**; and **Contact Lists → Find a Customer**.
 
 ## What this page is for
 
@@ -407,10 +452,33 @@ The page shows every list of the workspace with its size and where it is used, a
 | Search | Filters the table by name as you type. | |
 | Type | Production or Test. | A campaign published to production refuses a Test list. Keep real sends and rehearsals apart with it. |
 | Source | Upload, BI or Extraction, Cloned. | |
+| Find a Customer | Opens the customer search (see *The customer page* below). | |
 | Uploads | Opens the Uploads page: every file upload of the workspace with its progress, who started it, Continue, Cancel and its report. | |
 | Create List | Opens the wizard. | |
 | The table | Name and description; **For** (Email, Texts, Email and Texts); the number of people; the source; the type; how many campaigns it is attached to and how many of those are live; when it changed. A note under the name when the list waits for approval or was refused. | |
-| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Delete** it. | Delete is refused while the list is attached to a campaign: archive it from its page instead. Deleting removes its people from the list, never from C360. |
+| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Archive** it (**Restore** on an archived list), **Delete** it. | Archive: campaigns can no longer pick the list; Restore makes it active again. Delete is refused while the list is attached to a campaign: archive it instead. Deleting removes its people from the list, never from C360. |
+
+### A list's page
+
+Opened by a list's name. It shows who is in the list, how and when each was added, where the list is used, and the ways to fix it.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Header | The name and description, the Type (Production or Test), the source, Archived when it is, and where an audience or a copy came from. | |
+| Refresh Now (a list that follows an audience) | Brings the list in line with its audience at once, instead of at the hourly refresh, and says how many were added and removed. | People who no longer qualify leave; people who now qualify join; contacts added by hand stay. |
+| Clone | Asks for the copy's name and opens the copy. | A new list with the same people today; the two change separately from then on. |
+| Edit Details | **List Name** (required, up to 200 characters), **Description**, **List Type** (Production or Test) and **What the List Is For** (Email, Texts, or Email and Texts). | List Type: a Test list is for test sends only, and publishing a campaign to production with it attached is refused. What the List Is For: which column a later upload must have (the address for email, the mobile number for texts, both for both). |
+| Add Contacts | **Email Addresses**: one per line, optionally followed by first and last name after commas (`ana@example.com, Ana, Lopez`); up to 500 at a time. | Adds them to this list and says how many were added, new to C360, already in the list, or not valid and skipped. Someone C360 knows is linked to their record; anyone new is added to C360 without a consent answer, so marketing sends leave them out until they opt in. Not offered on an archived list. |
+| The note on editing | Says whether the list is attached to live campaigns. | A change here is picked up the next time a campaign builds its Campaign List from it; a Campaign List that was already built does not change. |
+| Contacts, Added This Week, Attached Campaigns | The counts. | Nothing; a reading. |
+| Attached Campaigns | Each campaign the list is on, with its channel, status, Live, and how many Campaign Lists were already built from it. | The name opens the campaign. |
+| Approval | Shown when the workspace's Consent Policy asks for approval before the first send: Awaiting Approval, Approved or Refused, with who decided, when and their note. Someone with `consent.edit` writes an optional **Note** (up to 300 characters, kept on the compliance record) and presses **Approve List** or **Refuse**. | Awaiting: campaigns can be built with the list, but none sends to it. Approved: campaigns can send to it. Refused: no campaign sends to it until it is approved. |
+| Compliance Record | The source, the consent basis, where it was collected, who attested and when, the approval and the consent policy today; **Consent today** per channel (opted in from the file, confirmed since, no consent on record, unsubscribed). **Show Details** adds the attestation wording and every upload with its figures. | Nothing; the record. The consent figures are rebuilt each time the page opens; the attestation and the approval never change. |
+| Governance Check · Marketing Email, as of Today | How many of the list's people a marketing email could reach today, with the reasons the others cannot. | Nothing; a reading, with the send engine's own rules. Transactional campaigns ignore consent, but not blocked or invalid addresses. |
+| Search contacts, Consent | Filter the people by name, email address or customer id, and by their marketing-email verdict: Can Receive, Cannot Receive, Unsubscribed, No Consent on Record, Bounced, Complained, Blocked, Invalid Address, Suppressed. | The table below. |
+| The people | 50 a page: Email (opens the customer's page when C360 knows them), First Name, Last Name, Added On, Source (Upload, Manual, Audience, Cloned, Rule) and Marketing Email (Can Receive, or why not). A box per row, and one for the whole page. | |
+| Export All / Export Selected | A CSV of everyone in the list, or of the ticked people: email, first name, last name, mobile, the day added, the source and the customer id. | Nothing changes. Cells that a spreadsheet would read as a formula are made safe. |
+| Remove from List | Takes the ticked people out, after asking. Not offered on an archived list. | They leave this list only; they stay in C360 and in every other list. On a list that follows an audience, someone who still qualifies comes back at the next refresh. |
 
 ### The wizard: Upload a File
 
@@ -435,11 +503,11 @@ The other two sources are shorter: **BI or Extraction Tool** asks for the audien
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The list of uploads | Newest first: file, list, who started it, status and progress. | |
-| Continue | Opens the wizard again at the step an upload is waiting on (matching, consent, review). | |
-| Cancel | Stops an upload that has not been applied. | The file and the staged rows are discarded. An import that is already adding people finishes. |
-| Report | The review figures of any upload that was checked, and **Download the row-by-row report**: a CSV with every line of the file, whether it was imported or held back and why, how the person was recognised, and their marketing email status. | |
-| Open the list | | |
+| The table | Newest first: **List and File** (the list, the file and its rows), **Status** (In Progress, Waiting for You, Imported, Failed, Cancelled), **Progress** (what the upload is doing, with a bar while it works) and **Uploaded** (when, and who). | |
+| Continue | On an upload waiting for you (matching, consent, review). Needs `list.import` or `list.edit`. | Opens the wizard again at the step it waits on. |
+| Report | On any upload that was checked: the review figures, and **Download the Row-by-Row Report**, a CSV with every line of the file, whether it was imported or held back and why, how the person was recognised, and their marketing email status. | Nothing changes. |
+| Open the List | On an imported upload. | Opens the list's page. |
+| Cancel | On an upload that is not finished and not already adding people. Needs `list.import` or `list.edit`. | The file and the staged rows are discarded. An import that is already adding people finishes. |
 
 The upload button in the header shows the uploads running on every page and raises an alert when one finishes, fails, or waits for a review.
 
@@ -474,7 +542,7 @@ The upload button in the header shows the uploads running on every page and rais
 
 ## The customer page
 
-**Where:** **Find a Customer** on the Contact Lists page (`/customers`); a customer's name on a journey's Customers card, on Settings → Events and on a list's members opens their page directly.
+**Where:** **Find a Customer** on the Contact Lists page (`/customers`); a customer's name on a journey's Customers card, on Settings → Events and on a list's people opens their page directly.
 
 One customer across the workspace, read from the records C360 syncs (or an upload added). Nothing is edited here: the record is C360's.
 
@@ -483,6 +551,7 @@ One customer across the workspace, read from the records C360 syncs (or an uploa
 | Header | The name, the customer id, where the record came from and when it was last updated, and a tag per channel saying whether they can receive marketing (Email: Can receive; SMS: No consent). |
 | Record | Email addresses, phone numbers and the address, as the record holds them. |
 | Consent | Per channel: the consent status, whether they can receive and why not, when they opted in or out and how, and any suppression. This is the verdict the send engine uses. |
+| Engagement | What Unengaged Contacts (Settings → Governance) sees for this person. **Last Engaged**: their last click, purchase or preference visit ("Never, in the kept history" when there is none). **Marketing Email**: Gets marketing email; a tag when they are left out (**Unengaged since 3 March 2027**), until they click, buy or visit the preference page; or No Unengaged Contacts rule applies. **Emails, 180 Days**: the marketing emails sent to them in the rule's period. |
 | Custom Attributes | Every field C360 sent with the record (loyalty tier, home store, time zone, dates), which conditions, splits, date entries and time-of-day waits read. |
 | Journeys | Every journey they entered, with where they are now, whether they converted and **View Timeline**, which opens their timeline on the journey's page; and the journeys they are kept out of by a suppression. |
 | Events | The last 50 events received for them, with their data. |
@@ -490,7 +559,7 @@ One customer across the workspace, read from the records C360 syncs (or an uploa
 | Messages | The last 30 messages campaigns and journeys sent them, with what became of each (delivered, opened, clicked, or why it was not sent). |
 | Contact Lists | The lists they are on and how they got there. Lists a journey makes for its own sends are left out. |
 
-**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before C360 can reach them.
+**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id in **Search customers**; the results follow as you type, 25 a page, with the Customer, Email, Mobile, Customer ID, Source and when the record was Updated. The search stays in the page's address, so a link or the browser's Back returns to it. Click a name to open the customer. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before C360 can reach them. On a customer's page, **Find Another Customer** goes back to the search; nothing on the page changes the record.
 
 Who may see it: anyone who may see contact lists, campaigns or journeys.
 
@@ -580,12 +649,14 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 ## What happens behind the scenes
 
 1. **Publishing** runs every check (a published template with content, an opt-out link in a marketing email, a verified sender, at least one production list, a time in the future for a schedule) and creates the run or runs: one for a one-time send, one per occurrence for a recurrence as they come due, one per step for a drip series.
-2. **At the run's time** the dispatcher, which looks every minute, starts the run: the included lists are merged into the campaign's own frozen list, one entry per person, the excluded lists' people marked, and governance applied in order: bounced, complained or blocked addresses, invalid addresses, the suppression list, unsubscribes, consent, the campaign's topic, frequency limits, duplicates. Transactional, service and legal campaigns skip the consent rules but never a blocked or invalid address.
+2. **At the run's time** the dispatcher, which looks every minute, starts the run: the included lists are merged into the campaign's own frozen list, one entry per person, the excluded lists' people marked, and governance applied in order: bounced, complained or blocked addresses, invalid addresses, the suppression list, unsubscribes, consent, the campaign's topic, unengaged contacts (marketing email only, unless the campaign includes them; Settings → Governance), frequency limits, duplicates. Transactional, service and legal campaigns skip the consent rules but never a blocked or invalid address.
 3. **Sending** hands the messages to the sender's engine in batches; a subject line test splits a sample between A and B and holds the rest until the winner is chosen; recipient-local sending holds each message until the chosen time in the person's own zone.
 4. **The engine calls back** and every message's row moves forward: delivered, opened, clicked, bounced, complained. The campaign's figures, the report and Home all read those rows.
 5. **The activity log** records each step, and a failed run raises a banner on the campaign and an alert on Home.
 
 ## Things to know
+
+- **Unengaged** as the reason someone was left out means the workspace's Unengaged Contacts rule: no click, purchase or preference visit in its period, after at least its number of marketing emails. The person is not unsubscribed; their next click or purchase brings them back. A win-back campaign reaches them with Include Unengaged Contacts.
 
 - The frozen list is made when a run starts, not at publish: a scheduled send uses the lists as they are on the day, and governance is always decided at send time.
 - A Test list can never go to production; a test publish never counts in results.
@@ -656,93 +727,132 @@ The Campaigns dataset reads the execution tables once per channel for the period
 
 # Campaign Set-Up
 
-**Where:** Campaigns → Create Campaign, then the five steps (four for a drip: see A Drip Campaign below); Edit Campaign on a campaign's page opens the same steps.
+**Where:** Campaigns → **Create Campaign** (also on Home) opens the Create Campaign pop-up; then the five steps (four for a drip: see A Drip Campaign below). On a campaign's page, **Continue Setup** or **Edit Campaign** opens the same steps. Inside the steps, the pencil beside the campaign's name (**Edit Details**) reopens the pop-up, and **Save and Close** keeps the draft and leaves.
 
 ## What this page is for
 
-The set-up is where a campaign is defined: who it is for, what it says, a test, the targets it is measured against, and when and how it goes out. It starts with the Create Campaign pop-up (the basics), then five steps: Audience, Content, Test, Targets, Review & Publish. Continue checks the step you are on and saves, so a draft can be left at any step and picked up where it stopped. Nothing is sent until Review & Publish.
+The set-up is where a campaign is defined: who it is for, what it says, a test, the targets it is measured against, and when and how it goes out. It starts with the Create Campaign pop-up (the basics), then five steps: Audience, Content, Test, Targets, Review & Publish. Continue checks the step you are on and saves, so a draft can be left at any step and picked up where it stopped. Nothing is sent to customers until Publish to Production.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | `campaign.edit` for the set-up; `campaign.publish` for the publish itself; `campaign.approve` to approve when the workspace asks for approvals. Someone without `campaign.edit` sees the campaign page with a note that the set-up is unfinished. |
-| Features | The SMS and MMS channels need **sms** and **mms**; E-Receipt needs **ereceipt**; the subject line test needs **ab_testing**. |
+| Permission | `campaign.edit` for the set-up; `campaign.publish` for the publish itself; `campaign.approve` to approve when the workspace asks for approvals. Someone without `campaign.edit` sees the campaign page with a note that the set-up is unfinished. Create a Journey Instead needs `journey.edit`; Add Contact List's Upload New and From an Audience or a Clone need `list.edit`; New Template needs `template.edit`; New Sender needs `provider.edit`. |
+| Features | A channel is offered only when the workspace has its feature: **email**, **sms**, **mms**, **whatsapp**. Multiple Channels needs at least two of email, SMS and MMS. Create a Journey Instead needs **journeys**. |
 
 ## The fields and controls
 
 ### Create Campaign (the basics)
 
+The same pop-up opens as **Edit Details** for a saved campaign, with **Save** in place of **Create Campaign**.
+
 | Field | What it is | What it changes |
 |---|---|---|
-| Campaign Name | An internal name, unique among the workspace's live campaigns. | How the campaign is listed everywhere, including reports and Home. |
-| Campaign Type | Regular Marketing (one-time or scheduled), Drip (several messages on a timetable, everyone starting together), E-Receipt (a receipt sent per purchase), Other (service or legal notices). Fixed once saved. Picking Drip shows when a journey suits better, with Create a Journey Instead. | Which steps follow: a drip has Audience, Drip Campaign Setup, Targets and Test & Publish; an e-receipt has no audience or schedule, the point of sale triggers each send. |
-| Channel | Email, SMS, MMS, or Multiple Channels (not for a drip: a drip uses one channel). For a receipt: email, or a text receipt for registers that ask for SMS. Fixed once saved. | Which templates and senders are offered, how the audience is judged (email consent and addresses, or text consent and numbers), and what the message can carry. |
-| Message Purpose | Marketing, transactional, service or legal. | Which consent and frequency rules apply: marketing needs an opt-in and an unsubscribe link and counts against frequency limits; the others skip the consent rules but never a blocked address. |
-| Owner | You, unless changed; Change opens a searchable list of users. | Who is told about the campaign's runs and failures, and whose it is under Mine. |
-| Tags | Free words. | A filter on the Campaigns page. |
-| Code (Optional) | Capitals, digits and hyphens; made automatically when left blank. | The short handle used in reports, the API and the engine's logs. |
-| Description | What the campaign is for. | Shown on the campaign's page. |
+| Campaign Name | Required, up to 200 characters, unique among the workspace's live campaigns. Internal: your team sees it, customers never do. | How the campaign is listed everywhere: the Campaigns list, reports and Home. |
+| Campaign Type | **Regular Marketing** (one-time or scheduled; marked Most Common), **Drip** (several messages on a set schedule), **E-Receipt** (sent after a purchase), **Other** (anything the others don't cover). Choosing Drip shows when a journey suits better, with **Create a Journey Instead**, which opens Create Journey with the name and description you typed. | Which steps follow: a drip has Audience, Drip Campaign Setup, Targets and Test & Publish; an e-receipt has no Audience step and no schedule, because the point of sale triggers each send. It also sets Message Purpose until you choose one yourself. |
+| Channel | **Email**, **SMS** (text up to 160 characters), **MMS** (text with an image), **WhatsApp** (a template Meta approved), **Multiple Channels**. A drip cannot use Multiple Channels or WhatsApp; an e-receipt is Email, or SMS for registers that ask for a text receipt. | Which templates and senders the Content step offers, how the audience is judged (email consent and addresses, or text consent and numbers), and what the message can carry. |
+| Message Purpose | **Marketing**, **Transactional**, **Service** or **Legal**. Until you pick, it follows the type: Regular Marketing and Drip are Marketing, E-Receipt is Transactional (and cannot be changed), Other is Service. | Which consent and frequency rules apply. Marketing needs an opt-in and an unsubscribe link (or opt-out wording in a text), and counts against frequency limits. Transactional, service and legal skip the consent rules, but never a blocked or invalid address. |
+| Owner | You, marked Auto-Assigned to You; **Change** opens a searchable list of the workspace's people. | Who is emailed about the campaign's runs and failures (Settings → Notifications), and whose it is in the list. |
+| Description (Optional) | Up to 2,000 characters: what the campaign is for. | Shown on the campaign's page. |
+| More Options · Code and tags | Folds out the two fields below. Opens by itself when one of them has a problem. | |
+| Code (Optional) | Up to 40 characters: capitals, digits and hyphens. Made for you when left blank; fixed once the campaign exists. | The short handle reports, the API and the engine's call log use. A code another campaign uses is refused, naming that campaign. |
+| Tags | Up to 20 words; press Enter or a comma after each. The workspace's tags are suggested as you type. | A filter on the Campaigns page. |
+| Create Campaign | Saves the draft. | Opens the first step: Audience, or Content for an e-receipt. |
+
+The type and channel can be changed on Edit Details until the content is chosen (a template or a sender; for a drip, a template on any message). After that they are shown locked, with "Fixed Once Content Is Chosen"; to change them, create a new campaign.
 
 ### Step 1: Audience
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Send To | A checkbox per contact list, with one to select every list shown; Add a List opens the picker with search and filters, and the same wizard as Contact Lists for a file upload or an audience. | The included lists. At the run they are merged, one entry per person. An uploaded list waits for a confirmation before it is attached; a vetted list is attached at once. |
-| Keep people out of this campaign | The lists to exclude. A list is included or excluded, never both. | Their people are left out whatever other list they are on. |
-| In Your Lists, Unique People, Estimated Recipients | The estimate as of today: everyone in the lists, after duplicates and exclusions, and after today's governance check with the reasons people are left out. | A reading. The real decision is made again when the run starts. |
+| Send To · Add Contact List | Opens **Add Contact List**: **Existing Lists** (search by name, filter by Type and Source, tick lists or every list shown), **Upload New** (the Contact Lists upload wizard), or **From an Audience or a Clone**. | The lists the campaign goes to. At the run they are merged, one entry per person. A list made from an audience or a clone is attached at once. |
+| An uploaded list | Shown as **Needs Review** with **Confirm**, because file data isn't checked upstream. | It counts, and is attached, only once you confirm it. Leaving the step first asks: **Continue Without It** or **Confirm and Continue**. |
+| The Send To table | Each list with its source and contact count; the name opens the list in a new tab; **✕** detaches it. The line under it counts the lists and contacts before duplicates and governance. | A list marked Test is flagged: fine for a test publish, refused by a production publish. |
+| Don't Send To · Add List to Leave Out | The lists to exclude. A list is included or left out, never both. | Their people are left out whatever other list they are on. |
+| Audience | **In Your Lists**, **Unique People** (after duplicates and excluded lists) and **Estimated Recipients** (after today's governance check), with the commonest reason people are left out and a breakdown. | A reading as of today. The real decision is made again when the run starts. |
+
+A draft can be saved without a list; publishing needs at least one.
 
 ### Step 2: Content
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Template | The templates of the campaign's channel, with search and a preview of the one picked. Only an active template can be published. | The message. |
-| Subject Line and Preheader (email) | The campaign's own, or the template's when left blank. Edit the Template's copies the template's text in; Use the Template's empties the field. The inbox row shows the result with sample values. | Only the campaign changes, never the template. |
-| Filed Under | The preference-centre topic the campaign belongs to. Needed to publish. | People who unticked the topic on the preference page are left out of this campaign. |
-| Send From | The sender: a name and address, or a number, on an engine. New Sender adds one here. | Only a verified sender can publish to production; test sends work from any. |
+| Use an Existing Template | The templates of the campaign's channel as cards: name, channel, status (and Meta's approval for WhatsApp), when edited and the version. A search box appears when there are more than six. **New Template** opens the template library in a new tab. | The message. A template still in Draft can be tested; a production publish needs it published first. A template of another channel is flagged and must be changed. |
+| Subject Line, Preheader (email and e-receipt templates) | The campaign's own, up to 300 characters each; left blank, the template's is used. **Edit the Template's** copies the template's text in to change it; **Use the Template's** empties the field. The smiley button beside each field adds an emoji at the cursor; picked while the field is empty, it is added to the template's text, which becomes this campaign's own, so the template's emoji can be changed or added to without retyping the line. The counter marks where an inbox cuts off (60 characters for a subject, 90 for a preheader). Tags such as {{first_name}} work. **In the Inbox** shows the result with sample values. | Only this campaign's subject and preheader; the template never changes. |
+| Topic · Filed Under | The preference-centre topic the campaign belongs to. Asked for marketing campaigns (not e-receipts) when the preference centre is on and has topics for the channel. Needed to publish. | People who unticked the topic on the preference page are left out of this campaign, counted as Topic Opted Out. Topics are managed under Settings → Preference Centre. |
+| Sender · Send From (required) | The name and address, or the number, the message comes from; the sender brings its engine. The list starts at **Choose a Sender**. An unverified sender is marked "(not verified)"; one on the workspace's own mail server says so. **New Sender** opens Settings → Sending Engines in a new tab. | Mandatory: **Continue to Test** stays on Content and says *Choose who this campaign comes from* until one is chosen. **Save and Close** still keeps a draft without one. Only a verified sender can publish to production; test sends work from any. A sender added with New Sender is the workspace's and can be used by every campaign. |
+| Preview | The chosen template, once the draft is saved, with **Open in the Designer** (or the Receipt Editor, Message Editor or WhatsApp Editor) in a new tab. | |
+| Link Tracking | Shown once a template is chosen. **Tag Links in This Campaign** (on when the workspace tags the channel), **Campaign (utm_campaign)** (empty: from the campaign name), **Tactic (utm_marketing_tactic)** (From the Campaign Type, or promotional, transactional, nurture, lifecycle, retention, win-back, other), and every link with its **Label (utm_content)** and whether it is tagged. Saved on its own as you change it. | The UTM tags this campaign's links carry. Off: its links go out as written. The UTM Tracking chapter has the details. |
+
+Both the template and the sender are needed to publish, not to save a draft. A marketing message must let people opt out: an unsubscribe link in an email, opt-out wording such as "Reply STOP" in a text, or the {{opt_out_text}} tag. The pre-publish check looks for it.
 
 ### Step 3: Test
 
 | Control | What it is | What it changes |
 |---|---|---|
 | Preview | The message with the catalogue's sample values, or as one customer of the audience would get it; desktop and mobile; click to see it large. | |
-| Send a Test | Addresses or colleagues; Send Test sends the real message marked as a test. With a subject line test on, each address gets both, marked [TEST A] and [TEST B]. | Moves a draft to Test Published. A test counts in nothing. |
-| Test a Second Subject Line (email) | Switch on, write B (A is the subject line above), choose the Sample (10 to 50 percent of the audience, split between A and B), Winner Decided By (open rate or click rate) and Decide After (30 minutes to 7 days); Save Subject Test. | At the send the sample goes out split, the rest wait; when the time comes the better subject wins and the rest go with it. Fewer than 20 people: everyone gets A. |
+| Send a Test | **People of This Workspace** (email only) to tick, and **Other Addresses** or **Mobile Numbers** (with the country code), up to 20, separated by commas; **Send Test**. Needs a template and a sender. | The real message goes out now through the campaign's sender, marked [TEST], with sample values in place of personal data. It is recorded as a test run, counts towards no result, and moves a draft to Test Published. Each address is listed as sent or not sent, with the reason. |
+| Subject Line Test (email Regular Marketing and Other campaigns) | **Test a Second Subject Line** switches it on. Off by default. | With it on, each test address gets both subjects, marked [TEST A] and [TEST B]. |
+| A | The subject this campaign sends: its own, or the template's. Read-only here; change it on the Content step. | Goes to half of the sample. |
+| B | Required, up to 300 characters; tags work. | Goes to the other half of the sample. |
+| Sample | 10 to 50 percent of the audience, in steps of 5. Default 20 percent. | The share that gets the test, half A and half B. The rest wait for the winner. With fewer than 20 people in the run there is no split: everyone gets A. |
+| Winner Decided By | **Open Rate** (default) or **Click Rate**. | The measure the two subjects are compared on, per message sent. |
+| Decide After | 30 minutes, 1, 2, 4 (default), 8 or 12 hours, or 1, 2, 3 or 7 days. | How long after the sample goes out the winner is chosen. If the two are within one point, A wins. The held messages then go with the winning subject. You can also pick the winner yourself on the campaign's Performance tab. |
+| Save Subject Test | Saves the test. "Not saved yet." shows while it has changes. | |
 
 ### Step 4: Targets (optional, Skip for Now)
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Target Revenue, Conversions, Opens, Clicks, Offer Redemptions | What the campaign is meant to achieve. | Home's Attributed Revenue reads against the revenue target; Top Campaigns ranks by revenue against target; the Performance tab shows progress. |
-| Planned Campaign Cost | Creative, sending and agency costs. | Campaign ROI and the cost line on Home. |
-| Planned Offer Cost | Discounts and rewards you expect to give away. | Total Planned Spend and Planned Return. |
-| Notes | Anything the targets need explaining. | Shown on the campaign's page. |
+| Opens (not for texts), Clicks, Conversions, Offer Redemptions | What the campaign is meant to achieve. Under each, its share of the estimated recipients. | The Performance tab shows the progress against them. |
+| Target Revenue | What the campaign is meant to earn. | Home reads attributed revenue against it, Top Campaigns ranks by revenue against target, and the Performance tab shows the progress. |
+| Planned Campaign Cost | Creative, sending and agency costs: $500, $1,000, $2,500, or **Custom** for another amount; **Clear** empties it. | Campaign ROI and the cost line on Home. |
+| Planned Offer Cost | Discounts and rewards you expect to give away, chosen the same way. | Total Planned Spend and Planned Return. |
+| Notes | Up to 1,000 characters on what the targets need explaining. | Shown on the campaign's page. |
+| Plan at a Glance | Projected Cost per Conversion, Target Revenue, Total Planned Spend (both costs) and Planned Return (revenue to spend). | A planning estimate, not a guaranteed outcome. |
+
+**Skip for Now** moves on without targets; they can be filled in later.
 
 ### Step 5: Review & Publish
 
+The step has two parts: **When and How It Goes Out**, then **Summary and Publish**. An e-receipt has no schedule: each receipt goes out when the point of sale or the web shop asks for it (with **Change the Campaign Type** if that was not meant).
+
 | Control | What it is | What it changes |
 |---|---|---|
-| The summary card | Names anything unfinished: the checklist's problems, no test sent, no targets, each with the way to it. | |
-| When to Send | Send immediately, Schedule (Send At), or Recurring: Repeats (daily, weekly with Days of the Week, monthly with Day of the Month), At, Ends (never, on a Last Day, after a Number of Sends). A drip has no When to Send: its start date and times are on the Drip Campaign Setup step. | The run or runs. Send times are clock times in the campaign's time zone. |
-| Time Zone | The campaign's zone; the workspace's unless changed. | The clock the times above are read in, daylight saving included. |
-| Send at Each Recipient's Local Time | The same clock time in each recipient's own zone, from their address or a time zone attribute. The step says how many people have a known zone. | Each message waits for its own time; people without a zone get the campaign's time. |
-| Apply Corporate Frequency Limits | On unless switched off. Marketing only. | Off lifts the frequency cap for this campaign and writes a warning to the activity log. Consent, unsubscribes and blocked addresses always apply. |
-| Messages per Hour, at Most | Optional. | Stored and shown; not enforced yet. |
-| Summary and Checklist | Everything chosen with Edit links, and the pre-publish checklist: template active with content, an unsubscribe link in a marketing email, a verified sender, a production list, a future time. | |
-| Approval | When the workspace requires approvals: Ask for Approval with a note to the approver; an approver sees Approve or Send Back. | Production Publish waits until approved. |
-| Test Publish, Production Publish | Test sends to colleagues; Production asks once more, then creates the runs. | |
+| When to Send | **Send Immediately** (the send starts when you publish to production), **Schedule for Later** (one send at a date and time), or **Recurring** (daily, weekly or monthly). | The run or runs the publish creates. A recurring campaign stays one campaign: each occurrence is its own run. |
+| Time Zone | The campaign's zone; the workspace's unless changed. The hint names the workspace's zone. | Every time on this step is a clock time in this zone, daylight saving included. The Campaigns list and Home show the send time in this zone too. |
+| Send At (Schedule for Later) | The date and time; the hint gives the same moment in the workspace's zone. | When the one send starts. |
+| Repeats (Recurring) | **Daily**, **Weekly** or **Monthly**. | How often a run is made. |
+| Every (Recurring) | The number of days, weeks or months between runs, 1 to 52. Default 1. | Every 2 weeks, for example. |
+| At (Recurring) | The time of day. | When each run starts. |
+| On (Weekly) | The days of the week, Mon to Sun. | Which days a weekly campaign runs. |
+| Day of the Month (Monthly) | 1 to 31. In a shorter month, the last day is used. | Which day a monthly campaign runs. |
+| Ends (Recurring) | **Never (Until Paused or Archived)**, **On a Date** (with **Last Day**), or **After a Number of Sends** (with **Number of Sends**). | When the runs stop. |
+| Apply Corporate Frequency Limits | On unless switched off. | Off lifts the workspace's frequency cap for this campaign, and switching it off is recorded in the activity log. Consent, unsubscribes and blocked addresses always apply to marketing; service and transactional messages may be exempt from the cap, but text unsubscribes and blocked addresses always apply. |
+| Include Unengaged Contacts | Shown for marketing email. Off unless switched on. | Off: people with no click, purchase or preference visit in the Unengaged Contacts period (Settings → Governance) are left out. On: they get this campaign too, for a win-back campaign; the Summary shows **Unengaged Contacts: Included (a win-back campaign)** and publishing records it in the activity log. Texts and transactional email are never affected. |
+| Send at Each Recipient's Local Time | The same clock time in each recipient's own zone, from their address (a US or Canadian state, or a country with one zone) or a time zone attribute. A line says how many people on the attached lists have a known zone. | The send starts as the first zone reaches the time and ends with the last. People without a known zone get the campaign's time. With Send Immediately, people in zones that have not reached the publish time yet get it later today. |
+| Messages per Hour, at Most | Optional; blank means no limit of the campaign's own. | Stored and shown on the campaign, not enforced yet. To pace a send, set Messages per Minute on the sending engine under Settings → Sending Engines. |
+| Quiet hours (note) | Shown for marketing texts. | Marketing texts are held during the workspace's quiet hours and start when they end. |
+| The summary card | Names anything unfinished (the checklist's problems, no test sent, no targets), each with the way to it. | |
+| Summary | Everything chosen, part by part, with an **Edit** link to each. | |
+| Before You Publish | The pre-publish checklist: **Template content finalized** (a published template with content; in marketing, the unsubscribe link in an email or opt-out wording in a text; a picture in an MMS), **Campaign List attached** (a Production list), **Verified sender chosen**, and, when they need attention, **Topic chosen**, **Send time set** and **Recurrence valid**; **Approved for production** when approvals are required. **Test message sent and reviewed** is advice only. | **Publish to Production** stays greyed out until every required item is done. A missing test only warns. |
+| Audience Estimate | The estimate as of today. | |
+| Approval | Shown when the workspace requires approval (Settings → Approvals). **Note to the Approver**: optional, up to 500 characters, what to check or why it is ready; **Request Approval** (or **Request Approval Again** after a send-back) emails everyone who can approve. An approver sees a **Note**, which goes to the person who asked and is required to **Send Back**, and **Approve**. | Publish to Production waits until it is approved. Nobody approves their own campaign. |
+| Publish to Production | Needs `campaign.publish`. Asks once more in **Publish to production?**: who it goes to, when, and a warning when no test was sent; **Not Yet** or **Publish**. | Creates the runs. After publishing the campaign can no longer be edited; it can be paused, and a scheduled send can be cancelled. |
 
 ## How to
 
-**Set up a one-time email.** Create Campaign → Regular Marketing, Email, Marketing → Audience: tick the list → Content: pick the template, write the subject line, choose the sender → Test: send yourself a test → Targets: Skip for Now or enter the revenue target → Review & Publish: Send immediately or Schedule → Production Publish.
+**Set up a one-time email.** Create Campaign → name it, Regular Marketing, Email (Message Purpose becomes Marketing) → Create Campaign → Audience: Add Contact List, tick the list → Content: pick the template, check the subject line, choose the topic and the sender → Test: send yourself a test → Targets: Skip for Now or enter the revenue target → Review & Publish: Send Immediately or Schedule for Later → Publish to Production.
 
-**Rehearse without sending to anyone.** Attach a Test list, send tests to colleagues, publish to test. A test publish moves the status and sends nothing to real people.
+**Rehearse without sending to anyone.** Attach a Test list and send tests to colleagues from the Test step. A test send moves the status to Test Published and reaches nobody else.
 
 **Send a series.** Drip on Create Campaign → Audience: tick the list → Drip Campaign Setup: build message 1, then Add Message (a copy of the last keeps the header and footer), give each its day and subject, choose the start date, the send time and the zone, and the sender → Targets → Test & Publish: Send All as a Test, check each message, then Publish to Production.
 
+**Send every Monday at 9:00.** Review & Publish → Recurring → Repeats: Weekly, Every 1, At 09:00, On: Mon → Ends: Never (Until Paused or Archived), or After a Number of Sends.
+
 **Send at everyone's 10 a.m.** Tick Send at Each Recipient's Local Time and set Send At to 10:00. The step says how many people have a known zone; the others get 10:00 in the campaign's zone.
 
-**Test two subject lines.** On the Test step switch on Test a Second Subject Line, write B, keep the sample at 20 percent and the decision at four hours, save. The Performance tab shows A and B side by side once the run starts.
+**Test two subject lines.** On the Test step switch on Test a Second Subject Line, write B, keep the sample at 20 percent and the decision at four hours, and press Save Subject Test. The Performance tab shows A and B side by side once the run starts.
 
 ## A Drip Campaign
 
@@ -755,6 +865,8 @@ A drip sends several messages on a timetable to one audience on one channel. Eve
 | Targets | As for any campaign; the targets are for the drip as a whole. |
 | Test & Publish | Preview each message (as a sample customer, on desktop or mobile). Send All as a Test sends every message now, one after another, to the people you pick; each subject starts with its place: "[Test 2 of 3 · would send Day 3]" for email, "[Test 2/3 · Day 3]" for texts, and the A/B message sends both subjects. A message edited after its test says Changed since the test; Resend it. The Review Timeline shows each message's date, subject and reach, with warnings for messages closer than two days, frequency limits and quiet hours. Before You Publish lists what's left; Publish to Production plans every message at once. |
 
+When an Unengaged Contacts rule is in use, Test & Publish says so under the timeline: unengaged contacts are left out of the drip's emails ("people with no engagement in 180 days, after at least 5 marketing emails"), with the share of the workspace's email contacts that is today, or, on a new install, the day the rule starts. A drip has no Include Unengaged Contacts switch.
+
 Each message has its own copy of its template ("Loyalty Welcome Series · 2 of 4"), so editing one never changes another. From the editor, Back to Drip Campaign Setup returns to the message. A message's own subject line is what it sends; its template copy needs none.
 
 Once published, the campaign page shows the Series Timeline: each message Sent with its figures, Sending, Next Up, Scheduled, On Hold, Cancelled or Failed, and who was skipped and why (View People lists them). Pause holds the waiting messages; Resume first shows when the missed ones will go. Stop Remaining Messages cancels the rest for good (to send again, clone it). A failed message nobody received can be retried. Clone asks for the copy's name and start date and opens its Drip Campaign Setup step.
@@ -763,14 +875,14 @@ Once published, the campaign page shows the Series Timeline: each message Sent w
 
 ## What happens behind the scenes
 
-1. Continue validates the step and saves the draft; the API's field messages land on the same fields and the step that holds the first one opens. A save against an older version is refused and the page offers to reload.
+1. Continue validates the step and saves the draft; the API's field messages land on the same fields and the step that holds the first one opens. A save against an older version is refused and the page offers to reload the latest version.
 2. The set-up remembers how far it got: an unfinished draft opens at the next step and the steps ahead stay closed, so the publish cannot be reached early.
 3. The audience estimate runs the send engine's own governance order as of today; the frozen list at the run is the record of what a send used.
-4. Production Publish runs the checklist, records who published, asks for approval when the workspace requires it, and creates the runs the dispatcher will start on time.
+4. Production Publish runs the checklist, records who published, waits for the approval when the workspace requires one, and creates the runs the dispatcher will start on time.
 
 ## Things to know
 
-- Type and channel are fixed once the campaign exists; make a new campaign to change them.
+- The type and channel are fixed once the content (a template or a sender) is chosen; until then Edit Details can change them. After that, make a new campaign.
 - A Test list blocks a production publish; an unverified sender blocks it too, while test sends still work.
 - A campaign's own subject line never changes the template; other campaigns on the same template keep theirs.
 - The hourly limit is not enforced yet; pace a send with the engine's Messages per Minute.
@@ -838,23 +950,60 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The message | The text, with live counting of characters and parts: a text over 160 GSM characters, or 70 with an emoji or an accented letter, is sent as more than one part and the carrier bills each. | What is sent. |
-| Insert Personalization Tag | A tag at the cursor. | Filled in per recipient; the counter uses the sample value. |
-| Picture (MMS) | One image, uploaded here, with a public address the aggregator fetches. | |
-| The preview | The message in a phone frame as the sender's number. | |
-| STOP line | A marketing text must tell people how to opt out. | The aggregator refuses a marketing text without one. |
-| Save, Activate, Version History | As in the designer. | |
+| Subject (MMS) | Optional, up to 80 characters. | Sent with the MMS; some phones show it. |
+| Message | The text, up to 1,600 characters (10 parts). Under it, live counting: characters, parts and characters per part, what is left in this part, and the alphabet (GSM-7 or UCS-2). A text over 160 GSM characters, or over 70 once it holds an emoji or a character outside the standard SMS alphabet, is sent as more than one part, and the carrier bills each. With tags, the count uses their sample values; with UTM tracking on for texts, links to your sites are counted as short links. | What is sent. A longer text cannot be saved. |
+| Insert Tag | The workspace's personalization tags, by group, put in at the cursor. | Filled in per recipient at send time. |
+| Emoji | The emoji picker, put in at the cursor. | Makes the text a Unicode (UCS-2) message: 70 characters a part. |
+| Use Plain Punctuation | Shown when curly quotes, long dashes, ellipses or invisible spaces push the text out of the standard SMS alphabet. Swaps them for plain ones. Also in a drip's text messages, with the characters named. | Brings the text back to 160 characters a part. |
+| Pasting | Text pasted from Word, Google Docs or a web page: curly quotes (’ “ ”), long dashes (– —), ellipses (…) and invisible spaces become plain as they land. A note says how many changed; **Keep as Pasted** puts them back. | Keeps one stray character from turning the whole message into Unicode (70 characters a part, 67 when split, instead of 160 and 153). |
+| At send time | Nothing to set. Just before a text goes to the gateway, C360 makes the same swap in the finished message, after the tags are filled, so a curly apostrophe in someone's own data (O’Brien, a store name) does not double their parts. A message that is Unicode anyway (an emoji, a non-Latin script) keeps its punctuation as written. | The Recipients tab shows the text as it was sent. Emoji are never changed: they keep a message in Unicode. |
+| Picture (MMS) | **Choose from Library** (the workspace's images) or **Upload**: JPEG, PNG or GIF, up to 1 MB; under 600 KB is delivered reliably by every carrier. **Remove** takes it off. | The picture the MMS carries. An MMS without one cannot be published in a campaign. |
+| Before Sending | Warnings as you type: characters outside the standard alphabet, emoji, more than three parts, unknown tags (sent as typed), and no opt-out wording. | Advice; the text can still be saved. |
+| Opt-out wording | A marketing text must say how to stop, with words such as STOP, unsubscribe or opt out ("Reply STOP to opt out"), or the **Opt-Out Text** tag {{opt_out_text}}. The tag's words are kept in one place, the platform's tag catalogue in the back-office, so every text says the same and a change there reaches every message. Without opt-out wording, **Before Sending** offers **Add the Opt-Out Text**, which adds the tag at the end. | A marketing campaign on a text without it fails the pre-publish check and cannot be published. |
+| The preview | The message in a phone frame, from the workspace's default texting sender, with the tags' sample values. | |
+| History, Activate, Save | **History** lists every saved version; open one and Save to make it the newest. **Activate** (on a draft, once saved) makes the template usable by campaigns. **Save** writes a new version. | As in the designer. The editor is read-only for someone without `template.edit`, for an archived template, and while a live drip uses it. |
 
 ### The receipt editor
 
 | Control | What it is | What it changes |
 |---|---|---|
+| Layout | **This Template’s Own Layout**, or a layout from Templates → Receipt Layouts. With a library layout picked the settings below are read-only: **Edit Layout** opens it, **Make a Copy for This Template** turns it back into this template’s own. **Save to Receipt Layouts** puts this template’s own layout into the library. | Where the receipt comes from. A library layout reaches every template that picks it. |
 | Presentation | Compact, Standard, Itemized, Store Register, or Custom HTML. | The shape of the receipt inside the email. |
-| Receipt Sections | Order header, Customer & fulfillment, Items, Totals, Payment, Loyalty, Returns & support: each on or off (some are fixed), each with its own switches: the order number, date, store and receipt ID; the address shown; the item columns and row height; the totals rows and a savings callout; the payment method, always masked to the last four digits; points and tier progress; the policy text and an in-store return barcode. | What the point of sale's transaction is laid out as, at send time. |
+| Receipt Sections | Order header, Customer & fulfillment, Items, Totals, Payment, Loyalty, Returns & support: each on or off (Order header, Items and Totals are always shown). Select a section to see its own settings, below. | What the point of sale's transaction is laid out as, at send time. |
+
+The sections' settings:
+
+| Section | Setting | What it is | What it changes |
+|---|---|---|---|
+| Order header | Order Number, Order Date, Store or Channel, Receipt ID | A switch each. Receipt ID is needed for expense and tax claims. | Which of these lines the receipt's header shows. |
+| Customer & fulfillment | Address Shown | **Auto from Order** (the delivery address when the order has one, else the pickup place or store), **Ship To**, or **Pickup At**. | Whether the section reads Delivery with the shipping address, or In store with the pickup place or store. An order without that address says "No address on this order". |
+| | Delivery Estimate | On or off. | On: the delivery or pickup estimate the transaction carries ("Arrives Thu, Sep 25", "Ready for pickup Sep 21, 4:00 PM") is shown under the address. A transaction without one shows nothing, whatever the switch says. |
+| Items | Product Image, SKU, Quantity, Unit Price, Amount; Row Height (Compact or Default) | The item table's columns and how tall its rows are. | |
+| Totals | Subtotal, Discounts, Tax, Shipping, Tip; Savings Callout | The totals rows, and a highlighted line on the discount under the total. | Discounts, Shipping and Tip show only when the transaction has them, and Shipping never on an in-store (POS) receipt. The Savings Callout shows only when the transaction has a discount. |
+| Payment | Payment Method, Authorization Time, Billing Address | Payment Method is always masked to the last four digits. | |
+| Loyalty | Points Earned, Points Balance, Tier Progress | A switch each. | Points Balance on: the customer's points balance after this purchase, as the transaction reports it, shown as "Points balance". The whole section shows only when the transaction says the customer is in the loyalty programme; Tier Progress only when the transaction carries it ("620 points to Gold"). |
+| Returns & support | Policy Text, In-Store Return Barcode | The returns wording, and a barcode the store can scan for a return. | |
 | Show Inside Email Shell | Whether the receipt sits inside the outer email design. | |
 | The outer design | The email around the receipt: brand header, marketing block, button, image, divider, footer, in the same designer. | |
 | Sample Transaction | A POS or eCommerce sample to preview with; desktop and mobile; Send a Test. | |
 | Checks | What a receipt needs before Activate. | |
+
+The Store Register's settings (select a part under Receipt Parts):
+
+| Part | Setting | What it changes |
+|---|---|---|
+| Title & Header | The title (YOUR RECEIPT), and the six transaction fields: rename, hide, reorder. | The block at the top, in rows of three. |
+| Columns | One line per column: its header, and what it shows when the two differ (Qty, Shows Quantity). The pencil (**Edit**) opens the column's Header and Shows; **Done** closes it. Add up to 5 columns (Size, Colour, Quantity, Unit Price, Discount, Line Tax, SKU, UPC, Status); a new one opens for editing. Remove or reorder them. The item is always first and its amount always last. Under the item: Discount, Qty @ Price, SKU, UPC. | The item table. Every value comes from the point of sale's transaction. |
+| Totals & Tenders | Rename or hide Subtotal, the taxes, Paid with and Cash Change (TOTAL is always shown). Taxes: **With the rate**. Paid with: **With the authorisation**; an empty label prints the tender alone (CREDIT-VISA). TOTAL: **A size larger**. **Add Row**: Order Discount (with its code), You Saved (the lines' discounts and the order's, in the discount colour), Shipping, Tip, Items Sold, Points Earned, Points Balance. **Layout**: **Beside the Figures** (Subtotal: right beside its figure) or **Label Left** (no colons). | The rows under the items, always in the same order. The figures come from the transaction; a row with nothing for a receipt (no shipping, no loyalty) drops out of that receipt. |
+| Colours & Text | **Theme**: Lilac (as before), Paper, Ink or Blue. **Customise Colours**: Frame, Cards, Column Headers, Text, Discounts and Savings, by picker or hex code. **Around the Receipt**: Choose a Colour fills the space between the frame and the email's edges; Use the Email's Background goes back to the email's own (as before). **Font**: Helvetica, Georgia or Courier. **Text Size**: Small, Medium, Large. **Title**: size and Centre or Left. **Labels**: bold header labels; column headers in capitals. | The whole receipt. Text on a dark colour turns white by itself, so it stays readable. Only fonts every mail app has are offered. |
+| Footer Text | Up to 500 characters with tags, centred or left. | Text inside the receipt under the totals; a tag that is empty for a receipt drops out. |
+| On Phones | **Fold Extra Columns Under the Item** or **Keep Every Column**. | On a phone, folded columns move to a line under the item. Mail apps that ignore phone rules show every column. |
+
+A Custom HTML receipt has three parts: **Receipt** (the HTML around the lines, with `{{receipt_items}}` where the rows go), **Item Row** (one line, repeated per item, with `{{item.description}}`, `{{item.sku}}`, `{{item.upc}}`, `{{item.size}}`, `{{item.color}}`, `{{item.quantity}}`, `{{item.unit_price}}`, `{{item.discount}}`, `{{item.tax}}`, `{{item.amount}}`, `{{item.status}}`) and **CSS**. Without an Item Row, `{{receipt_body}}` still gives the built-in item table.
+
+### Receipt Layouts
+
+Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates can pick, with how many templates use each. **New Layout** starts one from Store Register, Standard, Itemized, Compact, Custom HTML, or a copy of another; each row's menu has Edit, Duplicate, Rename and Archive. Editing a layout used by templates names them before you save, because the change reaches all of them; a layout used by a template in a running drip cannot be changed until the drip ends. A layout a template still uses cannot be archived.
 
 ## How to
 
@@ -884,7 +1033,7 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 - Only an active template can be published; a draft can be previewed and test sent.
 - A marketing email must carry the unsubscribe link; the designer blocks Activate without it and the campaign cannot publish.
 - Outlook for Windows ignores shadows; the field says so.
-- A text template cannot have a subject line; a campaign on it cannot either.
+- An SMS template cannot have a subject line, and a campaign on it cannot either; an MMS may carry the optional Subject above.
 
 ---
 
@@ -1288,14 +1437,14 @@ Each example is a complete recipe. Names, colours and addresses are placeholders
 
 ## What this is
 
-The platform team creates the workspace and sends its first administrator an email with a one-time password link and the set-up list. From that email to the first production send is one path, and this chapter walks it: choosing a password, the first sign-in, the Set-Up page that knows what is done, the seven steps in order, a rehearsal with a test campaign, and the first real send. Nothing in it is a new form: every step opens the Settings page that does it, and those pages have their own chapters.
+The platform team creates the workspace and sends its first administrator an email with a one-time password link and the set-up list. From that email to the first production send is one path, and this chapter walks it: choosing a password, the first sign-in, the Set-Up page that knows what is done, the steps in order, a rehearsal with a test campaign, and the first real send. Nothing in it is a new form: every step opens the Settings page that does it, and those pages have their own chapters.
 
 ## Who does it
 
 | | |
 |---|---|
-| Permission | The first administrator holds the Workspace Admin role, which has every permission including `user.admin`. Anyone with `user.admin` sees the Set-Up page. |
-| Features | Step 5 (texts) reads as not available without the **sms** feature; the API Keys link under step 7 needs **api_access**. The platform team switches features on per workspace. |
+| Permission | `user.admin`. The first administrator holds the Workspace Admin role, which has every permission including `user.admin`. Anyone with `user.admin` sees the Set-Up page and the Home card. |
+| Features | The texts step reads *Texts are not switched on for this workspace* without the **sms** feature; the API Keys button on the last Engagement step needs **api_access**. The platform team switches features on per workspace. |
 
 ## The path, from the email
 
@@ -1308,21 +1457,21 @@ The platform team creates the workspace and sends its first administrator an ema
 
 ### The steps, in order
 
-Set-Up lists the steps of the components the workspace has: steps 1 and 2 for every workspace, 3 to 7 when it has Engagement, and **Connect the database your reports read** when it has Insights. A workspace with both sees eight steps; one with Insights alone sees three (sign in, team, database), and the database step is then required.
+Set-Up lists only the steps of the components the workspace has: steps 1 and 2 for every workspace, six more when it has Engagement, and **Connect the database your reports read** when it has Insights. A workspace with Engagement alone sees eight steps, one with both sees nine, and one with Insights alone sees three (sign in, team, database), where the database step is then required. The numbers below are for a workspace with Engagement.
 
 | # | Step | What to do | Done when |
 |---|---|---|---|
 | 1 | Choose your password and sign in | Done by reading this. Account Security sets up your own second step. | You are signed in. |
 | 2 | Invite your team and give them roles | Users → Add User: email, name, a role. Three roles are ready: Workspace Admin, Campaign Manager, Analyst; Roles adds narrower ones, for example an approver. Each person gets their own password link. | At least one other active user with a role. |
 | 3 | Add an email engine | Sending Engines → Add Engine: Postal or SendGrid with its address and key → Check. Then Copy Webhook URL and register the address with the provider, so deliveries and bounces come back. | An active email engine whose last Check passed. |
-| 4 | Add an email sender and verify it | Sending Engines → Add Sender on the engine: the From name and address on a domain the engine may send for → Verify; the message arrives in your own inbox. Tick Default. | A verified email sender. |
-| 5 | Add a text engine and a sender number (optional) | Sending Engines → Add Engine: Digivize with its keys and brand, or the Sandbox to rehearse without an aggregator → a sender with the number → Verify by a text. | An active text engine with a verified number. Optional. |
-| 6 | Import your do-not-contact list, then your first contact list | Suppressions → Import the opt-outs from your previous system first, so no upload can reach them. Then Contact Lists → Create List → Upload a File: name it, say what it is for, match the columns, declare where the people agreed, review, import. | A production list with people. |
-| 7 | Decide who is told, and who approves (optional) | Notifications: the addresses or chat webhook that hear about failed sends. Approvals: whether a second person signs off before a production publish. API Keys: a key with `receipts:send` when the point of sale will send receipts. | A recipient, or approvals on, or a key. Optional. |
+| 4 | Add an email sender and verify it | Sending Engines → Add Sender on the engine: the From name and address on a domain the engine may send for → Verify; the message arrives in your own inbox. Tick Default. | A verified email sender on an active email engine. |
+| 5 | Warm up your domain and IP (optional) | Delivery Warm-Up → choose how mail leaves, the plan, the lists, the template and the sender → Start Warm-Up. For a new IP address or sending domain: it sends a little more each day and holds every marketing email to the day's limit until it is done. | A warm-up finished, or one that was stopped. Optional. |
+| 6 | Add a text engine and a sender number (optional) | Sending Engines → Add Engine: Digivize with its keys and brand, or the Sandbox to rehearse without an aggregator → a sender with the number → Verify by a text. | An active text engine with a verified number. Optional. |
+| 7 | Import your do-not-contact list, then your first contact list | Suppressions → Import the opt-outs from your previous system first, so no upload can reach them. Then Contact Lists → Create List → Upload a File: name it, say what it is for, match the columns, declare where the people agreed, review, import. | An active production list with people. |
+| 8 | Decide who is told, and who approves (optional) | Notifications: the addresses or chat webhook that hear about failed sends. Approvals: whether a second person signs off before a production publish. API Keys: a key with `receipts:send` when the point of sale will send receipts. | A notification address, or approvals on, or an API key. Optional. |
+| 9 (Insights) | Connect the database your reports read (optional with Engagement) | Report Databases → Connect a Database: a read-only login to the database the reports read. | A Report Database is connected. |
 
-| 8 (Insights) | Connect the database your reports read (optional with Engagement) | Report Databases → Connect a Database: a read-only login to the database the reports read. | A Report Database is connected. |
-
-**Ready** means every step not marked optional is done: steps 1, 2, 3, 4 and 6 with Engagement; steps 1 to 3 with Insights alone. The Home card goes, and the page stays under Settings with the optional steps still listed.
+**Ready** means every step not marked optional is done: steps 1 to 4 and 7 with Engagement; steps 1 to 3 with Insights alone. The Home card goes, and the page stays under Settings with the optional steps still listed.
 
 ### Before the first real send
 
@@ -1345,20 +1494,23 @@ Worth setting while the workspace is quiet, each with its own chapter:
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The heading | *Welcome, {name}. Let's set up {CODE}.* on a brand-new workspace; *Set Up Your Workspace* afterwards. Under it the workspace's name, plan and time zone. | |
-| Hide Until Later / Show on Home Again | Hides the Home card, or brings it back. | The Home card and the first-sign-in landing. The page itself stays. |
-| n of 7 done, the meter | How many steps are done. | |
-| A step's row | Its number (blue for the next one, amber when it needs attention, a tick when done), its name, a sentence read from the workspace, a hint while it is the next step, a status tag (Done, Not verified, Not checked), and the buttons to the page that does it. | |
-| The callout | Which steps make the workspace ready, or that it is ready. | |
+| The heading | *Welcome, {name}. Let's set up {CODE}.* while only step 1 is done; *Set Up Your Workspace* afterwards. Under it the workspace's name and code, its plan and its time zone, and on a brand-new workspace how many steps there are (with Engagement: *Nothing sends until step 4*). | Nothing; it tells you at a glance whether the set-up has started. |
+| Hide Until Later / Show on Home Again | Shown only while the workspace is not ready. Hide Until Later hides the set-up card; Show on Home Again brings it back. | For the whole workspace, not only for you: hidden, Home shows no set-up card and an administrator's first sign-in lands on Home instead of here. The page and its steps stay under Settings. |
+| n of N done, the meter | How many of the listed steps are done, optional ones included. | Nothing; the meter fills as steps are done anywhere in the workspace. |
+| A step's row | Its number (blue for the next required step, amber when it needs attention, a tick when done), its name, an *Optional* tag where it applies, and a sentence read from the workspace, for example the engine's name and when it was last checked. The next step also shows why it matters. | Nothing on its own; it reports what the workspace already has. Each row updates when the page that does the work is saved. |
+| The status tag | **Done** (green) when the step is done. Otherwise an amber tag for a step that needs attention: **Not checked** (the email engine's Check has not passed), **Not verified** (a sender exists but is not verified: test sends work from it, production does not), **No sender** (a text engine without a verified number). The warm-up step shows **Day n of m** while it runs, **Paused**, **Waiting for Approval** when the next day waits to be approved, and **Stopped** (green, counted as done) when someone stopped it. | Nothing; it names what is missing. |
+| The buttons on a row | The pages that do the step, for example Sending Engines, Verify Sender, Delivery Warm-Up, Upload a List. The main one is blue on the next step. | They open the page; nothing is changed until you save there. |
+| The callout | Which steps make the workspace ready (*When steps 1 to 4 and 7 are done, the workspace is ready*), or *Your workspace is ready*. | Nothing; it tells you which steps hold the workspace back. |
 
 ## What happens behind the scenes
 
-Every load reads the users and roles, the engines and their last check, the senders, the suppressions and lists, the notification settings, the approval switch and the API keys, and decides each step from them; nothing is ticked by hand. The dismissal of the Home card is the only thing the page stores. The platform team sees the same readiness from their side, so they know when a workspace is sending.
+Every load reads the users and roles, the engines and their last check, the senders, the warm-up, the suppressions and lists, the notification settings, the approval switch, the API keys and, with Insights, the report databases, and decides each step from them; nothing is ticked by hand. Hiding the Home card is the only thing the page stores. The platform team sees the same readiness from their side, so they know when a workspace is sending.
 
 ## Things to know
 
 - Until an email engine has been checked and a sender verified, test sends work and production publishing does not.
-- A password link is one-time; a new one replaces the old.
+- A password link is one-time and expires (72 hours unless the platform team set another length).
+- A warm-up that is still running is not done, but it never holds the workspace back: it is optional. While it runs, every marketing email waits for the hour's limit.
 - The optional steps never hold the workspace back, and the page keeps listing them until they are done.
 
 ---
@@ -1386,13 +1538,13 @@ A campaign picks a sender when it is set up; the sender decides the engine. Unti
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Provider | The engine's name, its channel tag (Email or Texts) and **Default** when it is the one new senders are offered first. Under it, the engine type and its address, and *separate key for receipts* when a second credential is stored. | Nothing by itself; it is the row's identity. |
+| Provider | The engine's name, its channel tag (Email, Texts or WhatsApp) and **Default** when it is the one new senders are offered first. Under it, the engine type and its address, and *separate key for receipts* when a second credential is stored. | Nothing by itself; it is the row's identity. |
 | Health | What C360 found when it last checked the engine (every 10 minutes): **Healthy**, **Attention**, **Failing**, **Quiet** (nothing sent in the last day, so nothing to judge) or **No Receipts Yet** (a text engine that has never sent a delivery receipt). Under the tag, the reason in one line, or when it was checked; **See Health** opens the checks. Before the first check the column shows the engine's last Check: **Not Checked Yet**, **Checked** with the date and time, or **Check Failed**. **Switched Off** when *In Use* is unticked. | Nothing by itself: it tells you what to fix. The platform team is alerted when an engine is Failing or needs attention. Set-Up counts an email engine as done only when its Check passed. A switched-off engine is skipped by every send. |
 | Callbacks | **Copy Webhook URL** copies the engine's callback address, the address the provider must post delivery results to. **Rotate Address** makes a fresh address and retires the old one at once. Under them: when the last callback arrived and how many came in the last 24 hours, or a warning that none ever has. | Without a registered callback address C360 sends but never learns what happened: no delivered, bounced, opened or clicked counts, and bounced addresses are not blocked. Rotating means registering the new address with the provider again. |
 | Check | Asks the provider to confirm the address and the credential without sending anything. With two keys on a Postal engine it checks both and names the one refused. C360 also runs it on every engine once a day. | Records the result with the provider's own words, and the engine's Health follows at once: a fixed key clears *Key refused*. |
-| Edit | Opens the engine's form. | |
+| Edit | Opens the engine's form. | **Save Changes** applies at once: a new key, address or pace is used from the next send and the next Check. The engine type cannot be changed. |
 | Remove | Deletes the engine after a confirmation. | Its senders are removed with it. A campaign that used one of them has to be given another sender before it can publish. |
-| Add Engine | Opens the form for a new engine. | |
+| Add Engine | Opens the form for a new engine. | **Add Engine** in the form saves it: it appears in the table, can carry senders and is offered in Sends Through. Nothing is sent until a sender on it is used. |
 
 ### Engine Health
 
@@ -1414,11 +1566,11 @@ A rate is judged only from 50 messages or calls in its window, so a few test sen
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Engine | The engine type: *Email · Postal*, *Email · SendGrid*, *Texts · Digivize*, *Texts · Sandbox (sends nothing)*. The type is fixed once saved. *Email · SMTP (your mail server)* is not offered here: it is switched on from Settings → Email Server with *Offer this server as a campaign sender*. | Decides which fields follow, whether the engine reports callbacks, and the channel its senders belong to. |
+| Engine | The engine type: *Email · Postal*, *Email · SendGrid*, *Texts · Digivize*, *Texts · Sandbox (sends nothing)*, and *WhatsApp · WhatsApp (Meta)* once the platform team has switched WhatsApp on. The type is fixed once saved. *Email · SMTP (your mail server)* is not offered here: it is switched on from Settings → Email Server with *Offer this server as a campaign sender*. | Decides which fields follow, whether the engine reports callbacks, and the channel its senders belong to. |
 | Name | How the engine is listed in this workspace, for example *Postal (marketing)* or *Texts (short code 55123)*. | Shown on every sender and in Set-Up. |
 | The engine's own fields | What the type needs to connect. They are listed per type below. A field marked as a key or secret is write-only: once saved it is never shown again, and the form says *stored*; leave it empty to keep it, type a new one to replace it. | The credential and address C360 uses on every send. |
 | Messages per Minute | An optional pace. Empty means as fast as the provider accepts. | Spreads a run over time. Use it when the provider has a rate limit or when a slow ramp is wanted for a new sending domain. |
-| Default Engine for Email / Texts | One engine per channel is the default. | The one offered first when a sender is added. It does not change existing senders. |
+| Default Engine for Email / Texts / WhatsApp | One engine per channel is the default. | The one offered first when a sender is added. It does not change existing senders. |
 | In Use | Whether the engine may send. | Unticked: State reads Switched Off and every send that would use it fails at once with that reason. Tick it again to resume. |
 
 ### Fields per engine type
@@ -1465,7 +1617,7 @@ Offered once the platform team has switched WhatsApp on for the workspace. Each 
 | Access Token | A permanent system-user token (Meta Business Settings → System Users) with whatsapp_business_messaging and whatsapp_business_management. Write-only. | Used on every send, Check, Submit and Sync; a refused token stops the run. |
 | App Secret | Optional. Your Meta app's secret (App Settings → Basic). Write-only. | Callbacks are then checked against Meta's signature as well as the address's own token. |
 | App ID | Optional. | Needed only to submit a template with a picture or document header: Meta reviews it with a sample file. |
-| Graph API Version | Optional. Empty means the version CEP was built for. | Which version of Meta's API is called. |
+| Graph API Version | Optional. Empty means the version C360 was built for. | Which version of Meta's API is called. |
 
 After saving, paste the engine's callback address (Copy Webhook URL) and its verify token (Copy Verify Token) into Meta → WhatsApp → Configuration → Webhook, and subscribe to **messages** and **message_template_status_update**. Check reads the number from Meta: its display number, name, quality rating and how many people it may message a day. A WhatsApp sender is the number with its country code; Verify asks Meta whether the engine's number is that one, since WhatsApp sends no free-form test message.
 
@@ -1482,23 +1634,24 @@ The Sandbox accepts every text and sends none, and is not metered against the pl
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Sender | The display name, the channel tag and **Default** when it is the one a new campaign is offered first. Under it, the address or the number and the engine it sends through. | The From line (email) or the number (texts) on every message of a campaign that uses it. |
-| Status | **Not Verified Yet**, **Verified**, or **Verification Failed**. | Only a verified sender can publish to production. Test sends work from any sender. |
-| Verify / Verify Again | Email: sends a real message from the address to your own sign-in email. Texts: asks for a mobile number (with the country code) and sends it a text. Accepted by the engine = Verified. | Sets the status. |
-| Edit | Opens the sender's form. | |
+| Sender | The display name, the channel tag (Email, Texts or WhatsApp) and **Default** when it is the one a new campaign is offered first. Under it, the address or the number and the engine it sends through. | The From line (email) or the number (texts, WhatsApp) on every message of a campaign that uses it. |
+| Verification | **Not Verified Yet**, **Verified**, or **Verification Failed**. | Only a verified sender can publish to production. Test sends work from any sender. |
+| Verify / Verify Again | Email: sends a real message from the address to your own sign-in email. Texts: asks for a mobile number (with the country code) and sends it a text. WhatsApp: asks Meta whether the engine's number is the sender's number; no message is sent. Accepted by the engine (or confirmed by Meta) = Verified. | Sets the Verification status. |
+| Edit | Opens the sender's form. | **Save Changes** applies to every campaign using the sender from its next send. Changing the From Address resets it to Not Verified Yet, so it must be verified again before a production publish. |
 | Remove | Deletes the sender after a confirmation. | A campaign that used it needs another sender before it can publish. |
-| Add Sender | Opens the form for a new sender; needs an engine first. | |
+| Add Sender | Opens the form for a new sender; needs an engine first. | **Add Sender** in the form saves it, normally as Not Verified Yet: it can be used for test sends at once, and for production once verified. |
 
 ### The sender form (Add Sender, Edit)
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Sends Through | The engine this sender uses. | The channel of the sender (email or texts) and which account delivers its messages. |
+| Sends Through | The engine this sender uses. | The channel of the sender (email, texts or WhatsApp) and which account delivers its messages. |
 | From Name (email) / Name (texts) | Email: the name shown in the inbox, for example *Northwind Rewards*. Texts: how the sender is listed in campaigns, for example *Northwind texts*. | The name on every message, or the label in the campaign's sender list. |
 | From Address (email) | The address messages come from. It must belong to a domain the engine is allowed to send for. | Changing it needs a new verification. The engine's domain checks (SPF, DKIM) decide whether inboxes trust it. |
 | Reply-To Address (email) | Optional. Where replies go when it is not the From address. | The Reply-To header on every message. |
 | Sender Number (texts) | The number texts come from: a short code (`55123`), a long number with the country code (`+14045550155`) or an alphanumeric sender id where the aggregator allows one. | The number on every text; replies and STOP messages come back to it. |
-| Default | One sender per channel is the default. | Offered first when a campaign is set up. |
+| WhatsApp Number (WhatsApp) | Required. The engine's number with country code, as Meta shows it, for example `+6568124400`. | The number WhatsApp messages come from. Verify asks Meta whether the engine's number is this one; a different number fails verification. |
+| Default Sender for Email / Texts / WhatsApp | A tick box; the label names the sender's channel. One sender per channel is the default. | Offered first when a campaign is set up. Ticking it takes the default from the channel's previous default sender; existing campaigns keep their sender. |
 
 ### Sending Domains
 
@@ -1506,14 +1659,14 @@ One row per domain your email senders send from, with what inboxes read before t
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Domain | The domain, and how many DNS changes it needs (*Nothing to change* when all is well). A sender whose domain needs a change says so under its address, with a link here. | |
-| Used By | How many of your senders use the domain (point at it for their addresses). | |
+| Domain | The domain, and how many DNS changes it needs (*Nothing to change* when all is well). A sender whose domain needs a change says so under its address, with a link here. The row opens to show its records. | Nothing; a reading. A domain with changes to make sends mail that inboxes are more likely to filter or refuse. |
+| Used By | How many of your senders use the domain (point at it for their addresses). | Nothing; it tells you which senders a DNS fix helps. |
 | SPF | **Passes**, **Missing**, **Two Records** (the check fails outright: merge them) or **Lets Anyone Send** (the record ends in +all). | Names the servers allowed to send for the domain. Without it, mail is filtered more often and is easier to forge. |
 | DMARC | **Passes** (quarantine or reject), **Monitor Only** (p=none: reports, no protection) or **Missing**. | Tells inboxes what to do with mail that fails SPF and DKIM. |
 | DKIM | **Not Checked** until you give the selector, then **Passes** or **Missing**. | Proves a message was not changed on the way. |
 | The open row | For each record: why it matters, the record found, and the record to publish (name and value) with **Copy**. | Nothing: you publish the record at your DNS provider. |
 | Selector, Save and Check | The DKIM selector your engine shows for the domain (Postal: on the domain's DNS page, e.g. `postal-Xa71Qd`). Letters, digits, dots, hyphens and underscores. Empty it to stop checking DKIM. | The domain is looked up again with it at once. |
-| Check Now | Looks up all your domains again. Once a minute at most. | |
+| Check Now | Looks up all your domains again. Once a minute at most. | The SPF, DMARC and DKIM results and the changes to make are refreshed at once, for example after you published a record. Your DNS is never changed. |
 
 A domain reserved for examples (`.example`, `.test`) is not looked up. A new or changed sender's domain is looked up as soon as you save the sender.
 
@@ -1521,12 +1674,13 @@ A domain reserved for examples (`.example`, `.test`) is not looked up. A new or 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Provided by C360 | Shown when your tests run through C360's Mailgun Inspect account: this month's tests against your total, and where the total comes from (your plan's number, plus any tests the platform team added for the month). | |
-| Edit Clients | The default clients every test renders in (webmail, desktop apps, phones and tablets) and whether to render with images blocked. Leave every client unchecked for the service's own default set. | |
+| Provided by C360 | Shown when your tests run through C360's Mailgun Inspect account: this month's tests against your total, and where the total comes from (your plan's number, plus any tests the platform team added for the month). | Nothing; a reading. When the total is spent, the next test is refused until next month (Plan & Usage). |
+| Edit Clients | Opens **Default Clients**: the clients every test renders in (webmail, desktop apps, phones and tablets), and **Render with images blocked**. Leave every client unchecked for the service's own default set. | Every new inbox preview renders in the chosen clients, unless the person running it picks others for that test. |
+| Render with images blocked | A tick box in the clients form, off by default. | On: every new preview also shows the email as it looks to people whose inbox does not load images until asked, so you can check the alt text and the layout without pictures. |
 | Use Your Own Mailgun Account / Set Up Mailgun Inspect | Region (US or EU), your Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | Your tests run through your own account, and C360 does not limit them. |
-| Edit | Your own account's settings and its default clients. | |
+| Edit | Your own account's settings and its default clients. | A new region, username or key is used from the next test; press Check Connection to confirm them. |
 | Stop Using My Own Account | Removes your account; past results stay. | Tests go back to C360's account, within your plan. Shown as Remove when C360's account is not available. |
-| The status | Not Checked Yet, Checked, Check Failed, Switched Off. | |
+| The status | Not Checked Yet, Checked, Check Failed, Switched Off. | Nothing; a reading. Check Failed means tests through your own account will fail until the username or key is fixed. |
 
 Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Through C360's account, tests count against your plan's monthly number plus the tests added for the month (added tests end with the month); through your own, they are counted under Plan & Usage for information only.
 
@@ -1706,58 +1860,180 @@ To stop tagging everywhere, switch off the channel on Settings → UTM Tracking 
 
 ---
 
+# Delivery Warm-Up
+
+**Where:** Settings → Engagement · Sending → Delivery Warm-Up, below Sending Engines. The Set-Up checklist's step **Warm up your domain and IP** opens it too.
+
+## What this page is for
+
+Inboxes such as Gmail and Outlook trust mail from a sending IP address and domain they know. A new IP or domain that sends a lot at once goes to the spam folder or is refused. The warm-up sends a little more each day, from your own lists and templates, so the inboxes learn your mail is wanted. Until it is done, every marketing email of the workspace waits for the hour's limit.
+
+Use it for a new workspace, a new dedicated IP address, a new sending domain, or an IP or domain that sent nothing for 30 days.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | Sending Engines · Edit (`provider.edit`) to open this page and to start, change, approve, pause and stop the warm-up. |
+| Campaigns | Everyone who can see campaigns sees the warm-up's campaigns in Campaigns. |
+
+## The fields and controls
+
+### Starting a warm-up
+
+The banner at the top says what the plan is sized to: *Sized to your workspace plan: {plan}, {n} contacts*, or *Your workspace plan has no contact limit: the whole schedule, 42 days*.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| 1 · How Mail Leaves | **Dedicated IP** (default): an IP address of your own. **Shared IP Pool**: already warm addresses shared with other workspaces. Each card shows how many days and what limits the choice gives. | Dedicated IP warms the IP and the domain together from day 1 of the schedule (20 an hour). Shared IP Pool warms only the domain, so the plan starts a week further along the schedule (211 an hour) and ends sooner. |
+| 2 · Plan | **Hourly Plan** or **Daily Plan** (default). | Hourly Plan lets the hour's limit out every hour, day and night. Daily Plan lets the same hourly limit out only inside the sending window, so nothing goes out at night; the day's limit is the hour's limit times the window's hours. |
+| Sending Window From / To | Shown for the Daily Plan. Default 08:00 to 21:00, in the workspace's time zone. | Outside the window nothing held by the warm-up goes out, your own marketing campaigns included. A window that ends before it starts is refused: *The window must end after it starts, on the same day.* |
+| The Plan, Day by Day | A fold-out table of every day's limit an hour and a day for the choices above. | Nothing; it shows what the choices give before you start. |
+| 3 · Lists for Every Day | The workspace's active production contact lists (test and archived lists are not offered), with their member counts. At least one is needed. | The people the warm-up emails, taken in list order with the most engaged first. Start with your most engaged list and add others on later days. |
+| 4 · Template for Every Day | Email templates with saved content. | The email every day sends until you change a day. |
+| Sender | Email senders; an unverified one is marked *(not verified)*. Defaults to the workspace's default email sender. | The From address for the whole warm-up. It cannot be changed later: a new sender or domain would start the warm-up again. A sender not on an active engine is refused: *Choose an email sender on an active engine.* |
+| 5 · How the Day Moves On | **Automatic** (default) or **Approve Each Step**. | Automatic moves to the next day at midnight after a healthy day that sent mail. Approve Each Step offers the next day and stays on the current one until someone approves it. |
+| Start Warm-Up | Enabled once lists, a template, a sender and a valid window are chosen. | Starts day 1 today: from then on every marketing email of the workspace waits for the hour's limit. Refused while another warm-up runs: *A warm-up is already running. Stop it before starting another.* |
+
+### While it runs
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The status tag | Warming, Paused, Warm (finished) or Stopped, with the choices made at the start and the sender. | Nothing; a reading. While Warming or Paused, every marketing email of the workspace is held to the hour's limit. |
+| Pause | Shown while warming. | Stops the warm-up's own emails. Your campaigns still wait for the hour's limit. |
+| Resume | Shown while paused. | The warm-up's own emails go out again, and the count of days over a limit starts again from zero. |
+| Stop | Opens **Stop the Warm-Up?** | **Stop the Warm-Up** ends it: warm-up emails still waiting are not sent, and your campaigns go out as fast as the engine sends. Stopping early on a new IP or domain risks the spam folder. **Keep Warming** closes the dialog and changes nothing. |
+| Ready for day N (Approve Each Step) | Shown after a healthy day. | **Approve Day N** raises the limit at once. **Stay on Day N** keeps today's limit and withdraws the offer. **Back to Day N** goes back a day, to that day's lower limit (not offered on day 1). |
+| N people have had every template | Shown when people were skipped. **Add Templates** opens Templates for People Reached Again. | Adding a template lets those people be emailed again on the next round. |
+| Warm-Up Day, Today's Limit, Sent Today, Workspace Plan | Where the plan is, and today's figures. The lines under them give this hour's limit, what waits from your campaigns and from the warm-up, and today's bounce and complaint rates against the limits. The page refreshes every minute. | Nothing; a reading. A bounce or complaint rate over its limit at midnight holds the day. |
+| Day by Day | One row per day: its date, its limit a day and an hour, its lists, its template, what was sent and opened, and its campaigns (each opens the campaign). A held day says *Nothing sent: held* or *Over a limit: held*. | Nothing by itself; **Change** on a row changes that day. |
+| Change | On today's and later days. Opens **Change Day N**. | See the Change Day dialog below. |
+| How the Day Moves On (How It Runs) | Automatic or Approve Each Step. | Switches how the next days move on. Switching to Automatic withdraws a day waiting for approval; the next healthy day moves on by itself at midnight. |
+| Templates for People Reached Again | *Only the days' templates* until you choose some. **Change** opens the list of email templates with saved content. | Someone reached again gets the next days' templates first, then these, in this order. Without them, someone who has had every template is skipped. |
+| Start a New Warm-Up | Shown when the warm-up is Warm or Stopped. | Opens the start form again, for a new IP or domain. |
+
+### The Change Day dialog
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Lists | The production lists, with member counts. At least one. | Who the day emails. |
+| Template | An email template with saved content. | The day's email. Someone who already had it gets the next template they have not had. |
+| Hourly Limit | A whole number, at least 1, with the day's total under it. | The day's hourly limit, and so its daily limit. |
+| Apply To | **Day N Only** (default) or **Days N to M**, up to the last day (*the End*). | Whether the change is for this day only or for it and every day after it up to the one you pick. |
+| Save Day N / Save Days N to M | | Saves the change. A change to today applies from the next hour; what went out already stays as it was. Days already sent cannot be changed. |
+
+The From address is not offered here: a new sender or domain would start the warm-up again.
+
+## How to
+
+**Start a warm-up for a new workspace.** Choose Dedicated IP, Daily Plan with the window your customers read mail in, your most engaged list, a template, the sender and Automatic → **Start Warm-Up**.
+
+**Add a list from day 5 on.** Day by Day → day 5 → **Change** → tick the list → Apply To: the last day → **Save Days 5 to …**.
+
+**Resume after a pause for bounces.** Look at the bounces and complaints of the last warm-up campaigns, fix the list if needed, then **Resume**.
+
+## What happens behind the scenes
+
+1. **The schedule.** The warm-up follows one schedule of hourly limits, from 20 an hour on its first day to over 19 million an hour on its 42nd, about 40% more each day.
+2. **Sized to your workspace plan.** The plan ends on the first day all the contacts of your workspace plan can be emailed. With 25,000 contacts the daily plan takes 15 days and the hourly plan 14; a plan without a contact limit runs the whole schedule. Moving to a bigger workspace plan later continues the warm-up down the schedule.
+3. **Each hour** C360 takes the next people of the day's lists, in list order with the most engaged first (opened or clicked in the last 30, then 90 days), and sends them the day's template. Everyone in the lists is reached once before anyone twice: day 1 sends to the first people of the list, day 2 to the next ones, and so on; when the end of the list is reached, the next round starts again from the top.
+4. **Never the same template twice.** Someone the warm-up reaches again gets a template they have not had: the next days' templates first, then the extra templates you choose. Someone who has had every template is skipped and counted, and the page asks you to add a template.
+5. **Your campaigns go first.** Every marketing email of the workspace waits and goes out a few at a time within the hour's limit, your own campaigns before the warm-up's. The warm-up's emails fill what the hour leaves. Receipts and other transactional email never wait, but they count towards the hour.
+6. **The day is judged at midnight** (your workspace's time zone). A day is healthy when bounces stay under 2% and complaints under 0.1% (a day with fewer than 50 emails: no complaint and at most one bounce). Two days in a row over a limit (Automatic) go back a day and pause the warm-up, with the reason on the page.
+7. **The end.** After the last day the warm-up is Warm: there is no limit any more. Your campaigns' emails still held go out at once; warm-up emails still waiting are not sent.
+
+### The warm-up's campaigns
+
+Each day's warm-up emails of one template are a campaign named after the day and the template, for example **Day 9 · Mid-Season Sale**. A change of template during the day starts a new campaign, so each campaign has one template.
+
+- In **Campaigns** they carry the **Warm-Up** marker, the type **Warm-Up** and **Triggered By: Warm-Up**. The **Triggered By** filter shows only them (**Warm-Up**) or leaves them out (**Manual**).
+- Opening one shows the usual Overview, Performance and Recipients, with a strip saying which warm-up day sent it. It cannot be edited there: change its day on this page.
+- Your own campaigns sent during the warm-up say in their activity that their messages go out within the warm-up's hourly limit.
+
+### Example: a new workspace with 25,000 contacts
+
+City HT is on the Growth plan (25,000 contacts) with a dedicated IP. They start a daily plan from 08:00 to 21:00, Automatic, with the list Members – Active and the template Welcome to City HT News.
+
+- Day 1 sends 20 an hour, 260 in the day, to the first 260 people of Members – Active.
+- Day 5 they change days 5 to 9 to the template Weekend Offer Preview and add the list Newsletter.
+- On day 8 their own campaign Weekend Offer takes 2,000 of the day's 3,835; the warm-up sends the other 1,835.
+- On day 12 the round reaches the end of the lists and starts again from the top: those people get Mid-Season Sale, a template they have not had.
+- Day 15 sends 25,000. From day 16 there is no limit, and the Set-Up step shows Done.
+
+## Things to know
+
+- The warm-up holds **every** marketing email of the workspace to its limit, including campaigns from other people and journeys.
+- A test send is never held.
+- Only one warm-up runs at a time.
+- C360 checks the lists, the template and the limits; reverse DNS, buying IP addresses and registering with Google Postmaster Tools and Microsoft SNDS are done outside C360.
+
+---
+
 # Users
 
 **Where:** Settings → General → Users.
 
 ## What this page is for
 
-Who can sign in to the workspace, with which roles. People are invited by email with a one-time password link; they choose a password and sign in. Users are deactivated, never deleted, so everything they created keeps its author.
+Who can sign in to the workspace, with which roles. You add a person with their email address and roles; they get a one-time password link, choose their own password and sign in. Administrators never see or set a password. Users are deactivated, never deleted, so everything they created keeps its author.
 
 ## Who can use it
 
 | | |
 |---|---|
 | Permission | `user.admin`. |
-| Features | Always on. A column reads SSO when the workspace signs people in through its identity provider (Settings → Security). |
+| Features | Always on. When the workspace signs people in through its identity provider (Settings → Security), those accounts show the provider type instead of a sign-in date and have no password link. |
 
 ## The fields and controls
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The table | User (name and email, *you* on your own row), Roles, Status (Active or Deactivated), Sign-In (when they last signed in; *No password yet* until the password link is used; the provider's name for single sign-on accounts). | |
-| Add User | Opens the form. | |
-| Edit | The name and the roles. The email address is the sign-in name and cannot be changed. | |
-| Password Link | Makes a one-time link to choose a password, sends it by email when the workspace has a mail server, and shows it to copy otherwise. For a new user, for someone who forgot, or when a link expired. | The previous link stops working. |
-| Deactivate / Reactivate | Takes the sign-in away or gives it back. Nobody can deactivate themselves. | A deactivated user is left out of every count and every notification; their campaigns and templates stay. |
+| The table | User (name and email, *you* on your own row), Roles (*No role* when there is none), Status (Active or Deactivated), Sign-In: when they last signed in, *Never signed in* when they have a password but have not used it, *No password yet* until the password link is used, or the provider type (for example `OIDC`) for single sign-on accounts. | Nothing; it shows who can get in. *No password yet* means the person cannot sign in until they use a password link. |
+| Add User | Opens the *Add a User* form below. | Creates the account with no password. Nothing is emailed: make a password link next. Refused when the plan's active-user limit is reached: *Your plan allows {n} active users. Deactivate someone or upgrade the plan.* |
+| Edit | Opens the same form for one person: the name and the roles. The email address cannot be changed. | Saves with Save Changes. New roles take effect at the person's next request; no sign-out needed. |
+| Password Link | Shown for active users who sign in with a password. Opens a dialog with a fresh one-time link. | Makes a link on which the person chooses their own password: for a new user, someone who forgot, or when an earlier link expired. |
+| Deactivate | On every row but your own. Asks *Deactivate {name}? They will not be able to sign in.* | The person cannot sign in, and a session they already have open stops at its next request. They no longer count against the plan's user limit and no longer appear as an approver. Their campaigns, templates and history keep their name. Refused for the last active user who holds `user.admin`: *This is the last active administrator. Give another user an administrator role first.* |
+| Activate | On a deactivated user's row. | The person can sign in again with their existing password, and counts as an active user again. |
 
-### The user form
+### The user form (Add a User, Edit {name})
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Email | The sign-in name. Must not exist in the workspace. | Where the password link goes. Fixed once created. |
-| Name | Shown wherever the person appears: owner of a campaign, author of a template, the approver. | |
-| Roles | One or more of the workspace's roles. Without a role the user can sign in but sees nothing. | What the person may do. The permissions of all their roles add up. |
+| Email | The sign-in name. Must be a valid address not already used by another account. | What the person types to sign in, and where an emailed password link goes. Fixed once created: for a new address, deactivate the user and add a new one. |
+| Name | At least two characters. | How the person appears everywhere: the Users table, the owner of a campaign, the author of a template, the approver of a campaign, the *Welcome* on Set-Up. |
+| Roles | A checkbox per role of the workspace, with its description. One or more. | What the person may do: the permissions of all their roles add up. Without a role the person can sign in but sees nothing. Taking `user.admin` away from the last active administrator is refused. |
+
+### The Password Link dialog
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Email the Link | Shown when the workspace has a working mail server (its own under Email Server, or the platform's). | Makes a new link and emails it to the person with the subject *Choose your password for {CODE}*; the link on screen becomes that same link. *Sent to {email}* confirms it. If the email fails, the dialog says so and you copy the link instead. |
+| One-Time Link | The link itself, read-only, with how long it lasts: *It works once, for {n} hours* (72 unless the platform team set another length). | Whoever opens it can set the password, so send it only by a channel you trust. It stops working once a password is set with it, once the person signs in, or when the hours run out. |
+| Copy | Copies the link (the button reads *Copied*). | Nothing is sent; you pass the link on yourself. |
+| Done | Closes the dialog. | Nothing; the link stays valid until it is used or expires. |
 
 ## How to
 
-**Invite someone.** Add User → email, name, tick a role → Add. The password link goes by email when the workspace has a mail server; otherwise copy it from the Password Link dialog and send it yourself.
+**Invite someone.** Add User → email, name, tick a role → Add User. Then Password Link on their row → Email the Link, or Copy and send it yourself.
 
-**Someone forgot their password.** Password Link on their row. The link is one-time and expires; an older link stops working.
+**Someone forgot their password.** Password Link on their row → Email the Link. The link works once and expires.
+
+**Change what someone may do.** Edit → tick or untick roles → Save Changes. To change what a role allows, edit the role under Roles.
 
 **Someone leaves.** Deactivate. Their campaigns keep their name as owner; reassign the live ones from each campaign's Edit Details.
 
 ## What happens behind the scenes
 
-1. Adding a user creates the account with no password and a one-time link. The workspace's own mail server carries the email when one is entered under Settings → Email Server; the platform's server otherwise; with no server at all the link is shown to copy.
+1. Adding a user creates the account with no password. The password link is made only when you open Password Link; Email the Link sends it through the workspace's own mail server when one is in use under Settings → Email Server, the platform's server otherwise. With no mail server at all, the dialog only offers the link to copy.
 2. The first sign-in of an administrator lands on Settings → Set-Up while the workspace is not ready.
 3. When Security requires multi-factor authentication, a new user is asked to set it up on their first sign-in, before anything else.
 
 ## Things to know
 
 - The workspace's plan caps the number of active users; Settings → Plan & Usage shows the count against the limit.
-- A single sign-on account has no password link: the identity provider signs it in.
+- A single sign-on account has no password link: the identity provider signs it in. An account that signs in through the provider once becomes a single sign-on account.
 - Roles are defined on the Roles page; this page only assigns them.
+- Opening Password Link again makes a new link but does not cancel one sent earlier: every link stops working as soon as one of them is used or the person signs in.
 
 ---
 
@@ -1767,7 +2043,7 @@ Who can sign in to the workspace, with which roles. People are invited by email 
 
 ## What this page is for
 
-A role is a named set of permissions. A user with the role may do what its permissions allow, and a user with several roles may do the union of them. Three roles come with every workspace: Workspace Admin (everything, including users, roles and API keys), Campaign Manager (builds and publishes campaigns, lists and templates) and Analyst (read-only with reports). Add your own for narrower jobs.
+A role is a named set of permissions. A user with the role may do what its permissions allow, and a user with several roles may do the sum of them. Three roles come with every workspace: Workspace Admin (everything, including users, roles and API keys), Campaign Manager (builds and publishes campaigns, lists and templates) and Analyst (read-only with reports). Add your own for narrower jobs, then give them to people under Users.
 
 ## Who can use it
 
@@ -1779,9 +2055,18 @@ A role is a named set of permissions. A user with the role may do what its permi
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The table | Role (name and description), Permissions (how many of the catalogue), Users (how many hold it). | |
-| New Role, Edit | The form: Name, Description, and a checkbox per permission, grouped by area. | |
-| Delete | Removes a role nobody holds. A role with users is refused. | |
+| The table | Role (name and description), Permissions (how many of the catalogue, for example *5 of 21*), Users (how many people hold it, deactivated users included). | Nothing; it shows what each role allows and who depends on it. |
+| New Role | Opens the *New Role* form below; Create Role saves it. | Adds a role that Users and, for single sign-on, Role for New Accounts can then offer. Nobody holds it until you give it to someone. |
+| Edit | Opens the same form for one role; Save Changes saves it. | Everyone holding the role gains or loses the permissions at their next request; no sign-out needed. Removing `user.admin` from the only role that gives it to an active user is refused: *This role is the only one that gives anyone user administration.* |
+| Delete | Asks *Delete the role "{name}"?* Greyed out, with the tip *People still have this role*, while anyone holds it. | The role disappears from Users and the form's role lists; its name can be used again. Move people to another role first, deactivated users included. |
+
+### The role form
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Name | At least two characters, up to 100; unique in the workspace (*Another role already has this name.*). | How the role appears in the Users table, the user form and the single sign-on role list. Renaming it changes nothing for the people who hold it. |
+| Description | Optional, one line. | Shown under the name in this table and under the role's checkbox in the user form, so whoever assigns it knows what it is for. Without one, the user form shows how many permissions it has. |
+| Permissions | A checkbox per permission, grouped by area (Campaigns, Contact Lists, Templates, Journeys, Consent, Sending Rules, Delivery Providers, Reports, Administration), each with its code. The count of ticked ones shows in the heading. | What everyone holding the role may do: see the list below. A role with none lets its people sign in and see nothing. |
 
 ### The permissions
 
@@ -1798,22 +2083,27 @@ A role is a named set of permissions. A user with the role may do what its permi
 | governance.edit | Change the frequency policies. |
 | provider.edit | Sending engines, senders, integrations and deliverability testing. |
 | report.view | Reports, Home's figures, Governance. |
+| report.edit | Build reports and dashboards in Insights, and change your own or those shared with you for editing. |
+| report.admin | Change and manage every report and dashboard in Insights, whoever owns it. |
 | user.admin | Settings as a whole: users, roles, tags, security, approvals, notifications, the plan, API keys, the consent policy, the preference centre, POS receipts. |
 
 ## How to
 
-**Make an approver who cannot publish.** New Role → *Approver* → tick campaign.view and campaign.approve → Create. Give it to the people who sign off.
+**Make an approver who cannot publish.** New Role → *Approver* → tick campaign.view and campaign.approve → Create Role. Give it to the people who sign off under Users.
 
-**Let the store team upload lists only.** New Role → list.view, list.edit, list.import. They see Contact Lists and nothing else.
+**Let the store team upload lists only.** New Role → list.view, list.edit, list.import → Create Role. They see Contact Lists and nothing else.
+
+**Retire a role.** Under Users, give everyone who holds it another role (deactivated users too), then Delete.
 
 ## What happens behind the scenes
 
-Every API request checks the permission the endpoint needs against the union of the user's roles; a page without the permission says which one to ask for. Changing a role takes effect at the user's next request, no sign-out needed.
+Every API request checks the permission the endpoint needs against the sum of the user's roles; a page without the permission says which one to ask for. Changing a role takes effect at the user's next request, no sign-out needed.
 
 ## Things to know
 
 - Settings needs user.admin as a whole; a role with provider.edit alone cannot open Sending Engines through the menu, though the API allows it.
 - The three starting roles can be edited and renamed like any other; the Workspace Admin role is what the first administrator holds.
+- There is always at least one active administrator: the last one cannot lose `user.admin`, whether by a role change here or under Users.
 
 ---
 
@@ -1823,51 +2113,56 @@ Every API request checks the permission the endpoint needs against the union of 
 
 ## What this page is for
 
-Tags are the words a template fills in for each person: `{{first_name}}`, `{{store_name}}`, `{{coupon_code}}`. The platform's own catalogue is inherited by every workspace and the same everywhere; this page shows it, and adds the workspace's own tags: a static text, or a value read from the customer record, a list upload column, the campaign, the run, a receipt or a store.
+Tags are the words a template fills in for each person: `{{first_name}}`, `{{store_name}}`, `{{coupon_code}}`. The platform's own catalogue is inherited by every workspace and the same everywhere; this page shows it, and adds the workspace's own tags: a static text, or a value read from the customer record, a list upload column, the campaign, the run, a receipt, a store or a point-of-sale transaction. A tag added here appears in the tag picker of the email designer and the message editors, and is filled in at send time.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | `user.admin` to open Settings; the tags themselves are read with `template.edit` wherever the designer offers them. |
+| Permission | `user.admin` to open Settings; changing tags also needs `template.edit`. The tags themselves are offered wherever the designer and editors offer tags. |
 
 ## The fields and controls
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Offered In | All, Email, SMS, MMS, E-Receipt: the channel filter. | The table. |
-| The table | Tag (the key and its label), Reads From, Type, Offered In, Sample, Origin (Platform or Workspace). | |
-| Add Tag, Edit, Remove | For the workspace's own tags. A platform tag is read-only here and changed by the platform team. | |
+| Offered In (filter) | All, Email, E-Receipt, SMS, MMS. Default All. | Only which tags the table shows. A tag offered in every channel shows under each filter. |
+| The table | Tag (the key in braces and its label), Reads From (the source and its path, or *Static:* and the value), Type, Offered In (*Every channel* when none is chosen), Sample, Origin (Platform or Workspace). | Nothing; it is the whole catalogue a template can use. |
+| Platform tags | Marked Platform, with *Changed in the back-office* instead of buttons. | Read-only here: the platform team changes them, and every workspace's copy follows. |
+| Add Tag | Opens the *New Tag* form below; Add Tag saves it. | The tag is offered in the editors of the chosen channels at once, and filled in from the next send. |
+| Edit | On a workspace tag. Opens *Edit {{key}}*; Save Tag saves it. | The next preview, test and send use the new source, default and sample. Messages already sent keep what they had. |
+| Remove | On a workspace tag. Asks *Remove {{key}}? Templates that use it will show the tag unfilled.* | The tag leaves the catalogue and the pickers. Templates keep the token; the designer flags it as unknown, and at send time it is filled only from a list column or customer attribute of the same name, otherwise left empty. |
 
 ### The tag form
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Tag Key | The word inside the braces: lower-case letters, digits and underscores. | How the tag is typed in a template. Fixed once created. |
-| Label | What the tag picker shows. | |
-| Reads From | Where the value comes from at send time: a source (customer record, list upload column, campaign, run, system, receipt, store) or a static value. | |
-| Data Point, Key | For a source: the data point, and for a list column or an attribute, the key that completes the path. | The value each recipient gets. |
-| Static Value | The same text for everyone. | |
-| Type | Text, Number, Date, True/False. | How the value is formatted. |
-| Default Value | Used when the source is empty for a person. | What a person without the value sees. |
-| Sample Value | Shown in previews, the designer's canvas and test sends. | |
-| Offered In | The channels whose editors list the tag. | |
-| Description | A line for whoever picks it. | |
+| Tag Key | The word inside the braces: lower-case letters, digits and underscores, starting with a letter, up to 100 characters. Must not be in use by another tag (*Another tag already uses this key.*). | How the tag is typed in a template: `{{loyalty_tier}}`. Fixed once created, because templates keep the token. |
+| Label | The name people see, at least two characters, up to 150. | What the tag picker lists, and what its search finds. Shown under the key in this table. |
+| Reads From | Where the value comes from when a message is sent: Customer, List upload, Campaign, Campaign run, System, Receipt (e-receipts), Store (e-receipts), Transaction (e-receipts from the point of sale), or Static value. Default Customer. | Which record each recipient's value is taken from. Changing it clears the Data Point. Receipt, Store and Transaction values exist only in e-receipts; anywhere else such a tag counts as empty. |
+| Data Point | For a source: the field to read, from the list the source offers. Required. Choosing one sets Type to match. | The value each recipient gets. |
+| Key | Shown when the data point is an open-ended one, such as a customer attribute or a list upload column: the attribute name or the column's header. Letters, digits and underscores. | Completes the path: the tag reads that one attribute or column. A key that does not match the upload's header leaves the tag to its default. |
+| Static Value | For Static value: the text itself. Required. | Every recipient gets this same text. Change it here and every later send carries the new text, for example a new offer's end date. |
+| Type | Text, Number, Date, Yes / No. Default Text, or the data point's own type. | Describes the value for whoever picks the tag. This form sets no number or date pattern, so numbers and dates go out as stored; a true or false value goes out as Yes or No. |
+| Default Value | Optional. | What a recipient whose value is empty sees, for example *Member*. Without a default, an empty value leaves the tag empty in the message. |
+| Sample Value | Optional. | Shown beside the tag in the picker, in the designer's preview with sample values, and in every test send instead of a real person's value. Without one, test sends show the tag empty or its default. |
+| Offered In | Email, E-Receipt, SMS, MMS checkboxes; all ticked for a new tag. At least one. | Which editors offer the tag in their picker; a tag ticked for SMS is offered in the WhatsApp editor too. It does not stop a tag typed by hand from being filled in. |
+| Description | Optional, one line. | Shown as the tip on the tag in the picker, and found by the picker's search. |
 
 ## How to
 
-**Add a tag from an upload column.** Add Tag → key `loyalty_tier`, label *Loyalty Tier* → Reads From: list upload column → Key: the column's header → Default: *Member* → Sample: *Gold* → Add. Upload lists with that column; every template can use the tag.
+**Add a tag from an upload column.** Add Tag → key `loyalty_tier`, label *Loyalty Tier* → Reads From: List upload → the upload-column data point → Key: the column's header → Default: *Member* → Sample: *Gold* → Add Tag. Upload lists with that column; every template can use the tag.
 
-**A tag for one campaign's offer.** A static tag `offer_ends` with the date; change its value for the next campaign.
+**A tag for one campaign's offer.** A static tag `offer_ends` with the date as its Static Value; Edit it with the next date for the next campaign.
 
 ## What happens behind the scenes
 
-At send time the engine fills each tag from its source: the workspace's catalogue, the list member's uploaded columns, the customer's attributes, then the default. A tag a template uses that is not in the catalogue is a finding on save. When the platform team changes a platform tag, every workspace's copy follows; a workspace tag with the same key is left alone.
+At send time each tag is filled for each recipient: from its source in the catalogue; if that is empty, from the list member's uploaded column of the same name; then from the customer's attribute of that name; then the tag's default. Test sends and previews use the sample values instead. A tag a template uses that is not in the catalogue is a finding on save. When the platform team changes a platform tag, every workspace's copy follows; a workspace tag with the same key is left alone.
 
 ## Things to know
 
 - The coupon tags (`coupon_code`, `coupon_barcode_value`, `coupon_qr_value`) feed the designer's Barcode and QR Code blocks from list columns of the same names.
 - Removing a tag does not change saved templates; they keep the token and the designer reports it as unknown.
+- A tag key cannot be renamed: add a new tag, change the templates, then remove the old one.
 
 ---
 
@@ -1877,14 +2172,14 @@ At send time the engine fills each tag from its source: the workspace's catalogu
 
 ## What this page is for
 
-How people sign in to the workspace: whether everyone must use multi-factor authentication, single sign-on through your identity provider, and the record of every time platform support acted inside the workspace.
+How people sign in to the workspace: whether everyone must use multi-factor authentication, single sign-on through your identity provider, and the record of every time platform support or a platform administrator acted inside the workspace.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | `user.admin`. |
-| Features | Single sign-on needs the **sso** feature. |
+| Permission | `user.admin`. A support session can never open or change this page. |
+| Features | Single sign-on needs the **sso** feature. Without it the section reads *Single sign-on is not part of this workspace's plan. Contact us to add it.* |
 
 ## The fields and controls
 
@@ -1892,47 +2187,57 @@ How people sign in to the workspace: whether everyone must use multi-factor auth
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Require for Everyone | Everyone signs in with a code from an authenticator app. | People who have not set it up are asked to on their next sign-in, before anything else; nobody can turn their own off while it is required. Single sign-on users are covered by the identity provider. Refused until you have set it up yourself. |
+| Require for Everyone | A switch, saved as soon as you change it. Default off. | On: everyone signs in with a code from an authenticator app. People who have not set it up are asked to on their next sign-in, before anything else, and nobody can turn their own off. Single sign-on users are covered by the identity provider. Refused until you have set it up yourself: *Set up multi-factor authentication on your own account first, so you are not locked out.*, with a Set It Up Now link to Account Security. Off: people who use it keep it, and may now turn their own off. |
 
 ### Single Sign-On (OpenID Connect)
 
-| Field | What it is | What it changes |
+| Control | What it is | What it changes |
 |---|---|---|
-| Name on the Sign-In Button | For example Okta, Microsoft, Google Workspace. | The button on the sign-in page. |
-| Issuer | The https address of your OpenID Connect provider. Checked when you save. | Where sign-ins go. |
-| Client ID, Client Secret | From the application registered at the provider. The secret is stored encrypted and never shown again; leave it empty to keep it. | |
-| Allowed Email Domains | Only addresses on these domains may sign in; empty means any address the provider vouches for. | |
-| Role for New Accounts | The role an account created on first sign-in gets. | Needed when accounts are created on first sign-in. |
-| Use Single Sign-On | Shows the button. | |
-| Create Accounts on First Sign-In | Otherwise only people added under Users can sign in. | |
-| Require Single Sign-On | Passwords stop working for everyone except administrators, who keep theirs for the day the provider is unreachable. | |
+| Set Up Single Sign-On | Shown until single sign-on has been saved once. Opens the form. | Nothing is saved until Save Single Sign-On. |
+| Redirect URI to Register with Your Identity Provider | The address the provider sends people back to after they sign in, with a Copy button (it reads *Copied*). | Nothing here; register it on the application at your provider. Identity providers refuse to send people back to an address that is not registered, so sign-ins fail until it is. |
+| Name on the Sign-In Button | Required. For example Okta, Microsoft, Google Workspace. | The button on the sign-in page, and the name in *This workspace signs in with {name}.* when a password sign-in is refused. |
+| Issuer | Required. The https address of your OpenID Connect provider. | Where sign-ins go. When Use Single Sign-On is on, the provider's settings are fetched on save, so a wrong address is refused at once instead of at someone's first sign-in. An address that does not start with https:// is refused. |
+| Client ID | Required. From the application registered at the provider. | Identifies C360 to the provider. A wrong one makes the provider refuse every sign-in. |
+| Client Secret | From the same application. Stored encrypted and never shown again; *A secret is stored. Leave this empty to keep it.* | Proves to the provider that the sign-in comes from C360. Typing a new one replaces the stored one; leaving it empty keeps it. A wrong secret makes sign-ins fail on the way back from the provider. |
+| Allowed Email Domains | Optional. Domains separated by commas or spaces, for example `example.com`. Something that is not a domain is refused: *Not a domain: …* | Only addresses on these domains may sign in through the provider, whatever the provider vouches for; anyone else sees *Your email domain is not allowed to sign in to this workspace.* Empty lets in any address the provider vouches for. |
+| Role for New Accounts | A role of the workspace, or No Role (default). | The role an account created on first sign-in gets. Required while Create Accounts on First Sign-In is on: *Choose the role new users get when accounts are created on first sign-in.* |
+| Use Single Sign-On | Default on. | On: the sign-in page shows the button, and people can sign in through the provider. Off: the button goes, sign-ins through the provider stop, and Require Single Sign-On cannot be on. The settings are kept. While it is off, its users get a **Password Link** under Users like everyone else; one who chooses a password signs in with it from then on. |
+| Create Accounts on First Sign-In | Default off. | On: someone the provider vouches for who has no account yet gets one at their first sign-in, with the provider's name and email and the Role for New Accounts. Off: only people added under Users can sign in; anyone else sees *You do not have an account in this workspace yet. Ask your administrator to add you.* |
+| Require Single Sign-On | Default off. | On: a password sign-in is refused for everyone without `user.admin`, with *This workspace signs in with {name}.* Administrators keep their password for the day the provider is unreachable. Refused while Use Single Sign-On is off: *Switch single sign-on on before requiring it.* |
+| Save Single Sign-On | Saves the form; *Saved* confirms it. | Everything above takes effect for the next sign-in. Refused, with the reason under the field, when a required field is empty, the issuer cannot be reached or a rule above is broken. |
+| Remove | Shown once single sign-on is saved. Asks *Remove single sign-on? People who only sign in through it will need a password link.* | Deletes the settings: the button leaves the sign-in page and nobody can sign in through the provider. Everyone who signed in through it becomes a password user: send each a link from Users → Password Link, since people who never had a password here cannot sign in until they choose one. |
 
 ### Support Access
 
 | Column | What it is |
 |---|---|
-| When, Support Person, Acted As, Reason, Access (read-only or could change), Ended | Every support session platform staff opened into this workspace, acting as one of its users, with when it ended or that it is open now. |
+| When, Support Person, Acted As, Reason, Access, Ended | The last 100 support sessions platform staff opened into this workspace, acting as one of its users: who, as whom (name and email), why, whether it was **Read-Only** or **Could change data** (with how many changes), and when it ended, or **Open Now**. |
+
+Nothing here can be changed; the table is the record. A support session can never manage users, roles, API keys or these settings.
 
 ### Platform Visits
 
 | Column | What it is |
 |---|---|
-| Who, From, Until, Reason, Changes | Every time a platform administrator entered this workspace as themselves (Switch Workspace), with their reason, when the visit ended (or In the Workspace Now) and how many changes they made. |
+| Who, From, Until, Reason, Changes | Every time a platform administrator entered this workspace as themselves (Switch Workspace), with their reason, when the visit ended (or **In the Workspace Now**) and how many changes they made. |
+
+Nothing here can be changed; the table is the record.
 
 ## How to
 
 **Require a second step for everyone.** Set up your own under Account Security first (the account menu), then switch Require for Everyone on. From the next sign-in everyone without it is walked through the set-up.
 
-**Sign in with your company's identity provider.** Register C360 as an application at the provider, paste the issuer, client id and secret, add your domain, choose the role new accounts get, switch Use Single Sign-On on and try it from another browser before you Require it.
+**Sign in with your company's identity provider.** Set Up Single Sign-On → Copy the redirect URI and register C360 as an application at the provider with it → paste the issuer, client ID and secret, add your domain, choose the role new accounts get, leave Use Single Sign-On on → Save Single Sign-On. Try it from another browser before you switch Require Single Sign-On on.
 
 ## What happens behind the scenes
 
-The issuer's configuration is fetched when you save, so a wrong address is refused at once. A sign-in through the provider creates or matches the account by email, within the allowed domains. A support session is recorded with who, as whom, why, read-only or not, and when it ended; a banner shows while one is open.
+The issuer's configuration is fetched when you save, so a wrong address is refused at once. A sign-in through the provider matches the account by email, within the allowed domains; an account that had a password becomes a single sign-on account at its first sign-in through the provider. The provider owns the second step for those accounts: C360 does not ask for its own code. A support session is recorded with who, as whom, why, read-only or not, and when it ended; a banner shows while one is open.
 
 ## Things to know
 
 - Keep one administrator with a password while single sign-on is required: it is the way in when the provider is down.
 - Multi-factor authentication for yourself is under the account menu → Account Security; this page only sets the rule for the workspace.
+- Single sign-on accounts have no Password Link under Users, and removing single sign-on does not change that.
 - The **Terms of Use** every page's footer and the sign-in page link to are the platform's, kept by the platform team; the footer's copyright year is always the current year.
 
 ---
@@ -1955,24 +2260,27 @@ Whether a campaign needs a second person's approval before it can be published t
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Require Approval Before a Production Publish | The switch. Refused until at least one user can approve. | Production Publish answers *not approved* until an approver has approved; the pre-publish checklist gains an *Approved for production* line. |
-| Who Can Approve | Every active user whose role carries campaign.approve. | Add the permission to a role under Roles to add a person here. |
-| Waiting | How many campaigns wait, with a link to the list. | |
+| Require Approval Before a Production Publish | The switch, saved as soon as you change it. Default off. Greyed out, with *Nobody can approve yet. Give a role the campaign.approve permission under Roles first.*, while nobody can approve. | On: every campaign's Review & Publish step offers Request Approval, and Production Publish answers *not approved* until an approver has approved; the pre-publish checklist gains an *Approved for production* line. Off: campaigns publish without approval. Test publishing never needs it. |
+| Waiting | Shown while approvals are on: *{n} campaigns waiting for a decision*, or *No campaign is waiting for a decision.* | Nothing; it tells you whether approvers have work waiting. |
+| Open Them | The link after the count. | Opens Campaigns on the Awaiting Approval view: the campaigns whose approval was asked and not yet decided. |
+| Who Can Approve | Every active user whose role carries `campaign.approve`, with name and email; *No Approvers* when there is nobody. A service account counts too. | These are the people emailed when someone asks for approval, and the only ones who can approve or send back. Deactivating a user, or taking the permission off their role, takes them off this list. |
+| Change in Roles | The link beside Who Can Approve. | Opens Roles, where you add `campaign.approve` to a role (or create an approver role) and so add or remove the people listed here. |
 
 ## How to
 
-**Switch approvals on.** Roles → give campaign.approve to the approvers' role → here, switch on. From then on a Request Approval card appears on every campaign's Review & Publish step.
+**Switch approvals on.** Roles → give campaign.approve to the approvers' role (Change in Roles takes you there) → back here, switch on. From then on a Request Approval card appears on every campaign's Review & Publish step.
 
-**Approve.** Campaigns → Awaiting Approval → open the campaign → Approve, or Send Back with a note saying what to change. The person who asked can never approve their own.
+**Approve.** Campaigns → Awaiting Approval (or Open Them here) → open the campaign → Approve, or Send Back with a note saying what to change. The person who asked can never approve their own.
 
 ## What happens behind the scenes
 
-Asking emails every approver; the decision goes back to the person who asked. Any change to the campaign, its lists or its targets after a request withdraws the request or the approval, with a note in the activity log, so what is approved is what is published.
+Asking emails every approver; the decision goes back to the person who asked. Any change to the campaign, its lists or its targets after a request withdraws the request or the approval, with a note in the activity log, so what is approved is what is published. Notifications can also post requests and decisions to the chat webhook (Settings → Notifications).
 
 ## Things to know
 
 - Test publishing never needs approval.
 - Switching approvals off leaves pending requests where they are; the campaigns can simply be published.
+- The switch cannot be turned on while nobody can approve; if the last approver later leaves, approvals stay on and campaigns wait until someone gets the permission.
 
 ---
 
@@ -1982,7 +2290,7 @@ Asking emails every approver; the decision goes back to the person who asked. An
 
 ## What this page is for
 
-What the workspace's plan allows and how much of it this month has used: messages, contacts, active users, storage, deliverability tests; the messages by channel; and the invoices the platform has issued. Plans and limits are changed by the platform team; this page is the reading.
+What the workspace's plan allows and how much of it this month has used: messages, contacts, active users, storage, deliverability tests and AI prompts; the messages by channel; and the invoices the platform has issued. Plans and limits are changed by the platform team; this page is the reading. It matters because some limits stop work when they are reached: publishing and sending at the message limit, adding users at the user limit, inbox previews at the test limit and AI drafts at the prompt limit.
 
 ## Who can use it
 
@@ -1992,31 +2300,35 @@ What the workspace's plan allows and how much of it this month has used: message
 
 ## The fields and controls
 
+The page has no settings to change. Each meter shows what is used against the plan's limit, a bar, and a line under it: *No limit on this plan*, *Hard limit*, *Then … per 1,000* (overage allowed), *Close to the limit* (from 80% of it), *Above the included amount: billed at … per 1,000*, or *The limit is reached and this plan has no overage*.
+
 | Control | What it is | What it changes |
 |---|---|---|
-| The plan | Its name and status; the month shown. | |
-| Messages this month | Sent messages against the plan's limit; *Then … per 1,000* when the plan allows overage, *Hard limit* when it does not. | At a hard limit sends stop until the next month or a plan change. |
-| Contacts | People in the workspace against the limit. | |
-| Active users | Against the plan's limit; Users refuses a new one past it. | |
-| Storage | Media and files, in GB. | |
-| Deliverability tests this month | Inbox previews run against the total, with where it comes from under the meter: the plan's number plus any tests the platform team added for the month. Through your own Mailgun account, not limited. | A spent total refuses the next test until next month, or until the platform team adds tests. |
-| Messages by Channel | Email, SMS, MMS this month. | |
-| Invoices | Number, period, plan, amounts, status, issued and due dates. An invoice appears shortly after the end of each month. | |
+| The plan | Its name (*… Plan*, or *No Plan*), its monthly price or *Custom pricing*, the month shown, and a status tag when the subscription is not active. With no plan, usage is measured but no limits apply. | Which limits below apply. |
+| Messages this month | Emails, text parts and MMS sent this month against the plan's limit. | On a plan with overage, sending goes on and the extra is billed per started 1,000 on the month's invoice. On a hard limit, once it is reached: a red notice at the top of this page says *This month's messages are used up, so campaigns cannot be published until next month*; Production Publish is refused with *This workspace has used its … messages for the month and the … plan has no overage*; a run that starts after that fails with the same reason; e-receipts and text receipts are refused. Sending resumes on the 1st of the next month or after a plan change. |
+| Contacts | People in the workspace against the plan's limit. | On a plan with contact overage, contacts above the limit are billed per started 1,000. The warm-up is sized to this number (Delivery Warm-Up). The meter warns; imports are not stopped at the limit. |
+| Active users | Active users against the plan's limit. | At the limit, Settings → Users refuses a new user: *Your plan allows … active users. Deactivate someone or upgrade the plan.* Deactivating someone frees a place. |
+| Storage | Media and files, in GB, against the plan's limit. | The meter warns; uploads are not stopped at the limit. |
+| Deliverability tests this month | Inbox previews run against the total, with where the total comes from under the meter: the plan's number plus any tests the platform team added for the month. Through your own Mailgun account the count shows without a limit. | When the total is spent, the next inbox preview is refused until next month, or until the platform team adds tests. Added tests end with the month. |
+| AI prompts this month | Report drafts asked for with AI · Ask for a Report, against the plan's number. A question back or a no-field answer does not count. | When the number is spent, Ask for a Report refuses the next draft on the platform's AI models until next month. A workspace that added its own key under Settings → AI Assistant can still draft with it. |
+| Messages by Channel | Emails sent, SMS parts sent and MMS sent this month. | Nothing; a reading. Together they make Messages this month. |
+| Invoices | Number, period, plan price plus any overage, total, and status: *Paid {date}*, *Due {date}* or *Void*. The last 36 issued invoices; an invoice appears shortly after the end of each month. | Nothing; a reading. Nothing is paid or changed from this page. |
 
 ## How to
 
-**See whether a big send fits.** Compare the campaign's estimated recipients with what is left under Messages this month. A plan with overage sends and bills the extra; a hard limit stops the run when it is reached.
+**See whether a big send fits.** Compare the campaign's estimated recipients with what is left under Messages this month. A plan with overage sends and bills the extra; on a hard limit, publishing is refused once the month's messages are used up, and a run that starts after that fails.
 
-**Ask for more.** The platform team changes the plan or its limits; the figures here follow within the hour.
+**Ask for more.** The platform team changes the plan or its limits; the figures here follow at the next hourly refresh.
 
 ## What happens behind the scenes
 
-Usage is rolled up hourly from the sends, the contacts and the files; the meters are read from that roll-up, so a send from a minute ago may not show yet. The invoice is raised by the platform at month end from the same figures.
+Usage is rolled up hourly from the sends, the contacts and the files; the meters are read from that roll-up, so a send from a minute ago may not show yet. Deliverability tests, AI prompts and active users are counted live. The message check runs on every Production Publish, at the start of every run and before every receipt. The invoice is raised by the platform at month end from the same figures; overage is charged per started block of 1,000.
 
 ## Things to know
 
 - The Sandbox text engine is not metered: trying text campaigns on it costs nothing against the plan.
 - E-receipts count as messages.
+- A text message longer than one part counts once per part.
 
 ---
 
@@ -2036,25 +2348,66 @@ The workspace's own SMTP server. It carries the messages the platform sends to y
 
 ## The fields and controls
 
+### Outgoing Email
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The status line | Which server carries this workspace's messages now: *Messages for this workspace go out through your own server*, the platform's server until you enter your own, or *No mail server is available: password links have to be copied and sent by hand.* | Nothing; it tells you where password links and notifications come from today. |
+
+### Your SMTP Server
+
 | Field | What it is | What it changes |
 |---|---|---|
-| Outgoing Email | The status line: the platform's server until you enter your own; *no mail server* when the platform has none either, and password links then have to be copied and sent by hand. | |
-| Server, Port, Security | The host (for example smtp.office365.com), the port, and none, STARTTLS or SSL. | Where every message goes. |
-| Username, Password | Often the full email address; empty for a server that needs no sign-in. The password is stored encrypted and never shown again; empty keeps the stored one. Many providers want an app password rather than the account's. | |
-| From Address, From Name, Reply-To Address | What your people see; the address must be one the server is allowed to send as. | The From line on password links, notifications and, when offered, campaigns. |
-| Offer as a Campaign Sender | Adds this server as a sending engine (SMTP) with a sender made from the From address. | Campaigns can pick that sender; the engine reports no callbacks (bounces arrive as mail at the From address). |
-| Send a Test Message | To an address you type, with the saved settings. | Verifies the campaign sender when one was offered. |
-| Remove | Forgets the server. | The platform's server takes over the platform's messages; the SMTP engine and its sender go. |
+| Server | Required. The host name only, for example smtp.office365.com. A name with a port, `smtp://` or a slash in it is refused with what to type instead. | Where every message is handed over. |
+| Port | Required, 1 to 65535. Default 587. | The port the connection opens on. Port 587 with SSL/TLS, or 465 with STARTTLS, is refused: *Port 587 goes with STARTTLS and port 465 with SSL/TLS.* |
+| Security | STARTTLS (587), the default; SSL/TLS (465); or None. | How the connection is encrypted. It must match what the server expects, or the test fails. |
+| Username | Often the full email address; empty for a server that needs no sign-in. | The account the server signs C360 in as. A wrong one makes every message, and the test, fail. |
+| Password | Stored encrypted and never shown again; *A password is stored. Leave this empty to keep it.* Many providers want an app password rather than the account's. | Typing one replaces the stored password; empty keeps it. A wrong one makes every message fail until it is corrected. |
+
+### Sender
+
+| Field | What it is | What it changes |
+|---|---|---|
+| From Address | Required. An address the server is allowed to send as. | The From line on password links, notifications and, when offered, campaigns. An address the server may not send as makes the server refuse the messages. |
+| From Name | Optional, for example Northwind Apparel. | The name shown next to the address. Also the name of the campaign sender when the server is offered to campaigns. |
+| Reply-To Address | Optional. | Where replies go when not to the From address, for platform messages and the campaign sender alike. |
+| In Use | Default on. | Off: the settings are kept but not used. Platform messages fall back to the platform's server, and the campaign sender and its engine are taken away until you switch it back on. |
+
+### Campaigns
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Offer as a Campaign Sender | Default off. | On, after Save: adds a sending engine named *Workspace mail server* (SMTP, read-only under Sending Engines) and a sender made from the From name and address, which campaigns can pick in Send From. If the workspace has no default engine or email sender yet, these become the defaults. The engine reports no delivery results; bounces arrive as mail at the From address. Off: the engine and sender are taken away; campaigns that used them keep their history. |
+| The sender's status | **Verified Sender** or **Sender Not Verified Yet**, with its name and address, and *default email sender* when it is. | A sender not verified yet cannot be used to publish to production. It becomes verified when a test message goes through, and goes back to not verified if a later test fails. |
+
+### Buttons
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Save | Saves the form; *Saved* confirms it. | From the next message, everything above takes effect, and the campaign sender is brought in line with it. |
+| Remove | Shown once a server is saved. Asks *Remove your mail server? Platform messages will fall back to the platform's server, and campaigns can no longer use it.* | Forgets the server. The platform's server takes over the platform's messages; the SMTP engine and its sender go. |
+
+### Send a Test Message
+
+Shown once a server is saved. It uses the saved settings, so save first if you changed anything.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| To | Required. Your own address by default. | Where the test message goes. |
+| Send Test | Sends one message through the saved server, even while In Use is off. | Records the result. When the server is offered to campaigns, a passed test verifies the sender; a failed one leaves it, or puts it back, not verified. |
+| Last Test Passed / Last Test Failed | The latest result, with when; a failure shows the server's error below. | Nothing; it tells you whether the settings work. |
 
 ## How to
 
-**Use your Microsoft 365 or Google Workspace account.** Server, port 587, STARTTLS, the mailbox's address and an app password, the From address the mailbox owns → Save → Send a Test Message to yourself.
+**Use your Microsoft 365 or Google Workspace account.** Server, port 587, STARTTLS, the mailbox's address and an app password, the From address the mailbox owns → Save → Send Test to yourself.
 
-**Send small campaigns through it.** Tick Offer as a Campaign Sender → Save → Send a Test Message, which verifies the sender. The engine appears under Sending Engines, read-only there; the sender appears in a campaign's Send From.
+**Send small campaigns through it.** Tick Offer as a Campaign Sender → Save → Send Test, which verifies the sender. The engine appears under Sending Engines, read-only there; the sender appears in a campaign's Send From.
+
+**Pause your server without losing the settings.** Untick In Use → Save. Platform messages go through the platform's server until you tick it again.
 
 ## What happens behind the scenes
 
-Each message opens one connection to the server; a batch of campaign mail reuses it. A recipient the server refuses outright fails; a temporary refusal is retried. Nothing from your server is ever carried through the platform's.
+Each message opens one connection to the server; a batch of campaign mail reuses it. A recipient the server refuses outright fails; a temporary refusal is retried. Nothing from your server is ever carried through the platform's. A message that fails to send never fails the work it reports on: a password link can still be copied.
 
 ## Things to know
 
@@ -2081,11 +2434,11 @@ Who is told when something happens: a send completed or failed, an approval was 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Events | A row per event with a checkbox per channel: Owner by Email, Recipients by Email, Webhook. | Who hears about each event. |
-| Email Addresses | Up to 20, separated by commas. | They get the events ticked under Recipients by Email. |
-| Webhook URL | The chat webhook's address; *Working* once a test reached it, *Not Tested* before. | The events ticked under Webhook are posted there as a message. |
-| Save | | |
-| Send a Test Message | One message by every channel that is set, with the saved settings, and records when the webhook last worked. | |
+| Events | A row per event with a checkbox per channel: Owner by Email, Recipients by Email, Webhook. Each event starts with the default channels below. | Who hears about each event. An event with no box ticked is told to nobody (approvers are still emailed when approval is asked). |
+| Email Addresses | Up to 20, separated by commas. Something that is not an address is refused. | They get the events ticked under Recipients by Email. Empty: that column sends nothing. |
+| Webhook URL | The chat webhook's address, starting with http:// or https://. *Working* once a test reached it, *Not Tested* before; changing the address sets it back to Not Tested. | The events ticked under Webhook are posted there as a message. Empty: that column sends nothing. |
+| Save | Enabled once something has changed; *Saved* confirms it. | The events from then on follow the new settings. Until you save, nothing changes and the test still uses the old settings. |
+| Send a Test Message | Greyed out until your changes are saved (*Save first: the test uses the saved settings.*), and until there are recipients or a webhook. | Sends one test message to the saved Email Addresses and to the webhook (not to campaign owners), and says what happened: *Test email sent to …*, *The webhook accepted the test message*, or that it refused it. A webhook that accepts it is marked Working, with when. |
 
 ### The events
 
@@ -2103,16 +2456,17 @@ Who is told when something happens: a send completed or failed, an approval was 
 
 **Get failures in a Slack channel.** Make an incoming webhook in Slack, paste its address, tick Webhook on Send failed and Sending engine trouble, Save, Send a Test Message.
 
-**Keep marketing ops informed.** Put the shared mailbox under Email Addresses and tick Recipients by Email on the events that matter.
+**Keep marketing ops informed.** Put the shared mailbox under Email Addresses and tick Recipients by Email on the events that matter → Save.
 
 ## What happens behind the scenes
 
-Notifications are prepared inside the work they report on and sent after it, so a failed notification never fails a send. Email goes through the workspace's own mail server when one is entered, the platform's otherwise. An integration's Email Alerts switch under Integrations decides whether that engine's trouble reaches these channels.
+Notifications are prepared inside the work they report on and sent after it, so a failed notification never fails a send. Email goes through the workspace's own mail server when one is in use, the platform's otherwise, with the subject starting *[C360]*. The webhook receives a JSON message with a `text` field. An integration's Email Alerts switch under Integrations decides whether that engine's trouble reaches these channels.
 
 ## Things to know
 
 - The campaign's owner is set on its Edit Details; a campaign without an owner has nobody to email under Owner.
 - The weekly report's own recipients and schedule live under Reports.
+- An address that gets an event two ways (as owner and as a recipient) gets one email.
 
 ---
 
@@ -2122,38 +2476,52 @@ Notifications are prepared inside the work they report on and sent after it, so 
 
 ## What this page is for
 
-Everyone the workspace must not send to, in one list: people who unsubscribed or replied STOP, addresses that bounced, people who complained, and addresses or numbers blocked by you. A blocked address is left out of every audience from then on, whatever list it is on. The page shows the counts by reason, lets you search, unblock where that is allowed, and import a do-not-contact list before the first campaign.
+Everyone the workspace must not send to, in one list: people who unsubscribed or replied STOP, addresses that bounced, people who complained, and addresses or numbers blocked by you. A blocked address is left out of every audience from then on, whatever list it is on. The page shows the counts by reason, lets you search, unblock where that is allowed, export the list, and import a do-not-contact list before the first campaign.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | `campaign.view` to read; `consent.edit` to unblock and import. Settings as a whole needs `user.admin`. |
+| Permission | `campaign.view` (or `consent.edit` or `governance.edit`) to read and export; `consent.edit` to unblock and import. Without `consent.edit` the Import Suppressions button and the Unblock links are not shown. |
 
 ## The fields and controls
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The counts | Per reason, with this week's additions; each is a filter. | |
-| Channel | All, Email, Phone. | The table. |
-| Reason | Every Reason, Unsubscribed, Bounced, Complained, Blocked by You. | The table. |
-| Search | An address, a number or a customer id. | |
-| The table | The contact, the person behind it, the reason in words, the source (an unsubscribe link, a STOP reply, the engine's bounce, an import, a request by phone), since when. 25 a page. | |
-| Unblock | Undoes a bounce or a block you made, after a confirmation. A complaint or an unsubscribe cannot be undone here: the person has to opt in again themselves. | The address is reachable again from the next run. |
-| Export CSV | The filtered rows as a file. | |
-| Import | Paste Addresses (one per line or comma-separated, up to 5,000) or Upload CSV (any cell that looks like an address or a number, up to 5 MB), with a Note for the consent record: a legal hold list, a request by phone. | Every address and number is blocked, matched to the person when the address is on file. The result says what was invalid and what was already blocked. |
+| The heading line | *{n} addresses and numbers held back · {n} added this week*. | Nothing; a reading. |
+| The counts | One card per reason: Unsubscribed (*by link, a STOP reply, or a person*), Bounced (*blocked after the provider said so*), Complained (*never sent to again*), Blocked by You (*imported or added by hand*). | Clicking a card filters the table to that reason; clicking it again shows every reason. |
+| Search | *Address, number or party ID*; also matches the person's name. Filters as you type. | Narrows the table, and what Export CSV exports, to the matching rows. |
+| Channel | All Channels (default), Email, Phone. | Narrows the table and the export. |
+| Reason | Every Reason (default), Unsubscribed, Bounced, Complained, Blocked by You. | Narrows the table and the export. |
+| Clear Filters | Shown when a filter or search is set. | Shows every row again. |
+| The table | Contact (with the customer id and name, or *No person on file*), Channel, Reason, Source (an unsubscribe link, a STOP reply, the engine's bounce, an import, a request by phone) with any detail, and Since. 25 a page, newest first, with Previous and Next. | Nothing by itself: every row is left out of every audience. |
+| Unblock | Shown only on a bounce or a block you made. Opens **Unblock this contact?** | **Unblock** makes the address or number reachable again from the next send that includes it; the history of the block is kept and the change is written to the consent record with who made it. **Keep Blocked** closes the dialog and changes nothing. A complaint or an unsubscribe has no Unblock: the person has to opt in again themselves. |
+| Export CSV | Downloads the rows the filters and search show (all pages, not just the one on screen). | Nothing in the workspace changes. The file has the contact, channel, reason, source, detail, since, customer id, name and whether it can be unblocked; use it as a record or to clean lists in another system. |
+| Import Suppressions | Opens the import dialog, subtitled *Addresses and numbers to stop sending to*. | See below. |
+
+### The Import Suppressions dialog
+
+| Control | What it is | What it changes |
+|---|---|---|
+| How | **Paste Addresses** (default) or **Upload CSV**. | Which of the two fields below is shown. |
+| Addresses and Numbers | Paste Addresses: one per line, or separated by commas. Up to 5,000 at a time. | Every valid address and number is blocked. A ten-digit North American number gets +1. |
+| CSV File | Upload CSV: any cell that looks like an address or a number is blocked. Up to 5 MB. | Every address and number found in the file is blocked. |
+| Note | Up to 200 characters, optional: why they are blocked, for example a legal hold list or a request by phone. | Kept on the consent record of every address blocked by this import, so the reason can be shown later. |
+| Block Them | | Blocks them at once, matched to the person when the address is on file. From then on no campaign run or e-receipt reaches them. The result says how many were blocked, how many were already blocked and which were not an address or a number. **Done** closes the dialog. |
 
 ## How to
 
-**Import a do-not-contact list first.** Before the first upload, Import → Upload CSV → the list from your previous system → Note: *Opt-outs carried over from …* → Import. No campaign can reach them, even if a later list contains them.
+**Import a do-not-contact list first.** Before the first upload, Import Suppressions → Upload CSV → the list from your previous system → Note: *Opt-outs carried over from …* → Block Them. No campaign can reach them, even if a later list contains them.
 
-**A customer asks by phone never to be emailed.** Import → Paste Addresses → the address → Note: *Request by phone, 3 Oct*.
+**A customer asks by phone never to be emailed.** Import Suppressions → Paste Addresses → the address → Note: *Request by phone, 3 Oct* → Block Them.
 
-**An address bounced wrongly.** Reason: Bounced → search → Unblock. The next run includes the person again.
+**An address bounced wrongly.** Reason: Bounced → search → Unblock → Unblock. The next run includes the person again.
+
+**Hand the list to another system.** Set the filters you need → Export CSV.
 
 ## What happens behind the scenes
 
-The list reads two records: what happened to an address or number (a hard bounce, repeated soft bounces, a complaint, a block) and what the person decided (unsubscribed, STOP). At every run the audience builder leaves out everyone on it, and the campaign's Recipients → Blocked & Unsubscribed shows the ones among that campaign's people. A ten-digit North American number pasted without a country code is read as +1.
+The list reads two records: what happened to an address or number (a hard bounce, repeated soft bounces, a complaint, a block) and what the person decided (unsubscribed, STOP). At every run the audience builder leaves out everyone on it, and the campaign's Recipients → Blocked & Unsubscribed shows the ones among that campaign's people. A single e-receipt to a blocked address or number is refused with *This address is blocked …: nothing was sent.* Every unblock and import is written to the consent record with who made it.
 
 ## Things to know
 
@@ -2182,8 +2550,8 @@ A page where a customer chooses which channels and topics they receive, reached 
 |---|---|---|
 | Offer a Preference Centre | The switch. | Off: only the unsubscribe link; the tag resolves to it; topics and words are kept. On: the page is live and campaigns need a topic. |
 | In Your Templates | The tag `{{preference_url}}` with Copy. | The person's own page at send time; the unsubscribe page while the centre is off, so an email never carries a dead link. |
-| Last 30 Days | Page opened, topics unticked, unsubscribed from the page, opted in again. | |
-| Topics | A table: name and description, channels, Opted Out (people who unticked it), Shown or Hidden, Edit. Add Topic opens the form. | |
+| Last 30 Days | Four counts for the last 30 days: Page opened, Topics unticked, Unsubscribed from the page, Opted in again. | Nothing; it is a reading. A rise in Unsubscribed from the page or Topics unticked after a campaign says the topic or the sending rate needs a look; the people concerned are under Suppressions (channel opt-outs) or in a topic's Opted Out count. |
+| Topics | A table: name and description, channels, Opted Out (people who unticked it), Shown or Hidden, Edit. Add Topic opens the form. | The topics a person can tick on the page, and the topics a campaign can be filed under. While the centre is on, every marketing campaign is filed under one topic, and people who unticked it are left out of that campaign's audience. Receipts and service messages have no topic. |
 | The topic form | Name (as shown on the page), Description (one line under it), Offered On (Email, Texts), Shown to Customers. Remove warns how many campaigns are filed under it. | A hidden topic stays on campaigns but not on the page. Removing a topic takes it off the page and the set-up's choices; a campaign filed under it is told at publish. |
 | Page | Brand Name (blank = the workspace's), Heading, Email Description, Text Messages Description, Footer (your postal address satisfies the sender-identification rule), Privacy Notice Link (https), Let People Opt In Again, Save, Open Preview. | The words on the customer's page. With opting in again off, a switched-off channel is shown locked with the date. |
 
@@ -2216,17 +2584,17 @@ How contacts come in. Every upload declares where its people agreed and the uplo
 
 | | |
 |---|---|
-| Permission | Read by anyone who uploads lists (the wizard shows the consequence); changed with `user.admin`. Approving lists needs `consent.edit`. |
+| Permission | Read by anyone who uploads lists (the wizard shows the consequence); changed with `user.admin`. Each setting is saved as soon as it is changed, with a *Saved* tick beside it. Approving lists needs `consent.edit`. |
 
 ## The fields and controls
 
-| Field | What it is | What it changes |
+| Control | What it is | What it changes |
 |---|---|---|
-| People Without Consent | *Import and hold back until they confirm* (the default) or *Refuse the row*. | Hold back: a new person without a consent date is imported and left out of marketing sends as *No consent on record* until they opt in. Refuse: the row is held back at the review as *No consent date* and listed in the row-by-row report. |
-| Texts Need a Consent Date | A Texts or Email-and-Texts list cannot import a number without a text consent date in the file. | Marketing texts need an express opt-in; a number without one is held back as *No text consent date*. |
-| Approval Before First Send | A new upload must be approved by someone with Consent · Edit before any campaign sends to its list. | The list reads *awaiting approval*; every campaign holds its people back as *in a list awaiting approval* until Approve. |
-| Consent Lifetime | How long implied consent lasts without a purchase: 12, 24 or 36 months. | Kept on the compliance record; the reminder before it lapses is still to come. |
-| Attestation Wording | The sentence the uploader confirms on the Consent step, up to 300 characters; `{workspace}` becomes the workspace's name. Shown on every compliance record. | |
+| People Without Consent | What an upload does with a new person who has no consent date in the file: *Import and hold back until they confirm* (the default) or *Refuse the row*. Saved as soon as you choose. | Hold back: the person is imported and left out of marketing sends as *No consent on record* until they opt in. Refuse: the row is held back at the review as *No consent date*, listed in the row-by-row report and not imported. |
+| Texts Need a Consent Date | A switch, off by default. Saved at once. | On: a Texts or Email and Texts list cannot import a number without a text consent date in the file; such a number is held back as *No text consent date*. Off: a number without a text consent date is imported; the send engine still decides at send time. |
+| Approval Before First Send | A switch, off by default. Saved at once. | On: a new upload must be approved by someone with Consent · Edit before any campaign sends to its list. Until then the list reads *awaiting approval* and every campaign holds its people back as *In a List Awaiting Approval*. Off: an upload can be sent to as soon as it is imported. |
+| Consent Lifetime | How long implied consent lasts without a purchase: 6 months, 1 year, 2 years (the default) or 3 years. Saved as soon as you choose. | Kept on every list's compliance record as part of the policy. It does not yet hold anyone back: the reminder before consent lapses is still to come. |
+| Attestation Wording | The sentence the uploader confirms on the Consent step of an upload, up to 300 characters; `{workspace}` becomes the workspace's name. *Reads as:* shows the result. Default: *I confirm these people agreed to receive marketing from {workspace}*. | **Save Wording** changes the sentence from the next upload on. The uploader must tick it before the import can be applied, and it is stored, in their name, on the upload and every compliance record. A blank sentence is refused. Uploads already made keep the sentence they confirmed. |
 
 ## How to
 
@@ -2265,21 +2633,24 @@ Every exchange with an outside system goes through one gate: the point of sale p
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The card | One per integration: POS Receipts (in), and one per sending engine (out). Its health: healthy, degraded (5 percent failures or more), circuit open, paused, no calls. | |
-| Calls 24 h, Failures, p95, Throttled | The last day's calls, the share that failed, the slow end of response times, the calls the pace limit held. | |
-| The chart | Calls per 15 minutes over 24 hours, with the failed and throttled share; the busiest quarter hour. | |
-| Email Alerts | Whether a circuit opening on this integration notifies the workspace by the channels under Notifications. | |
-| View Log | The call log filtered to this integration. | |
-| Pause / Resume | Pause stops the calls: the point of sale gets *paused* answers, an engine's sends wait. Resume continues and closes an open circuit at once. | |
+| The card | One per integration: POS Receipts (in), and one per sending engine (out). Its health: healthy, degraded (5 percent failures or more), circuit open, paused, no calls; the last error under it when it is not healthy. The cards refresh every minute. | Nothing; it is a reading. Degraded or circuit open means receipts or sends through it are failing or waiting now. |
+| Calls, 24 h, Failures, p95, Throttled | The last day's calls, the share that failed (amber above 0, red from 5%), the slow end of response times, the calls the pace limit held. | Nothing; a reading. Throttled calls are slowed, not lost. |
+| The chart | Calls per 15 minutes over 24 hours, with the failed and throttled share; the busiest quarter hour. | Nothing; it shows when the trouble started. |
+| Email Alerts | A switch per integration, on by default. Saved at once. | On: when this integration's circuit opens, the workspace is told by the channels set under Settings → Notifications. Off: this integration raises no such notification; the card still shows the trouble. The other integrations are not affected. |
+| View Log | A link on the card. | Sets the call log below to this integration, with Direction Both, Failures Only off and the search cleared, starting on page 1. Changes nothing in the integration. |
+| Pause / Resume | Pause asks first: *Pause {name}? …*. Resume needs no confirmation. | Pause on POS Receipts: every call from the point of sale is refused with a *paused* answer (HTTP 503) until it is resumed, so the registers try again later. Pause on an engine: every send through it waits; nothing is lost. Resume lets calls through again and closes an open circuit at once, without waiting for the cooldown. |
 
 ### The call log
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Integration, Direction (Both, Received, Sent), Failures Only | Filters. | |
-| Correlation ID or Reference | The id a caller sent, or a reference such as `receipt:R-1001` or `mailer_execution:240`: one search finds the call in, the send out and what the engine reported. | |
-| The table | Time, Integration (with the direction and the reference), Call (method and address), Outcome (OK, Rejected, Retry, Error, Throttled, Breaker, Paused) and the status code. 25 a page; Rows per Page is remembered per browser. | |
-| A call | Opens with its request and answer, headers and bodies, keys replaced by `***` and card numbers masked. **Retry Send** hands a failed send back to the engine; **Replay Callback** applies a received callback once more. | |
+| Integration | All Integrations (default) or one of them. | Shows only that integration's calls. |
+| Direction | Both (default), Received (calls into C360, such as receipts and engine callbacks), Sent (calls C360 made to engines). | Shows only calls in that direction. |
+| Failures Only | A tick box, off by default. | Shows only calls that did not succeed (rejected, error, retry, throttled, breaker or paused). |
+| Correlation ID or Reference | The id a caller sent, or a reference such as `receipt:R-1001` or `mailer_execution:240`. Press Enter to search. | Shows only the calls carrying that id or reference: one search finds the call in, the send out and what the engine reported. |
+| The table | Time, Integration (with the direction and the reference), Call (method and address), Outcome (OK, Rejected, Retry, Error, Throttled, Breaker, Paused) with the status code, and Duration. Newest first. | Clicking a row opens the call. |
+| Rows per Page | 10, 25 (default), 50 or 100, with Previous and Next. | How many calls a page shows. Remembered in this browser. |
+| A call | Opens with its outcome, status, duration and correlation id (with Copy), then What Was Sent / What Came Back (or What Was Received / What Was Answered): headers and bodies, keys replaced by `***` and card numbers masked. | **Retry Send** (a failed send) queues the message again; it goes out on the dispatcher's next pass, as a new attempt in the log. **Replay Callback** (a received callback) applies what the engine sent once more, for a callback that failed to apply; opens and clicks are counted again only if the first pass failed. |
 
 ## How to
 
@@ -2306,46 +2677,56 @@ Each call is paced by a per-minute limit (an API key's own, the plan's inbound l
 
 ## What this page is for
 
-Keys for systems that call C360's API: the point of sale sending receipts, a web shop, a data warehouse. Each key has a name, the scopes it may use, optionally the addresses it may call from and an expiry. The key is shown once, when it is created.
+Keys for systems that call C360's API: the point of sale sending receipts, a web shop, a data warehouse. Each key has a name, the scopes it may use, optionally the addresses it may call from and an expiry. The key is shown once, when it is created. A key can never manage users, roles or other keys.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | `user.admin`. |
-| Features | **api_access**. |
+| Permission | `user.admin`. A support session can never open or change this page. |
+| Features | **api_access**. Without it the page is not in the Settings menu. |
 
 ## The fields and controls
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The table | Key (name and the visible prefix), Scopes, Allowed From, Status (Active, Expired, Revoked), Last Used, Expires. | |
-| New API Key | The form below; then *Copy the Key Now*, shown once. | |
-| Revoke | Stops the key at once. | The caller gets 401 from the next call. |
+| The table | Key (name and the visible prefix, for example `cep_in_AbC123…`), Scopes, Allowed From (*Any address* when not limited), Status (Active, Expired, Revoked), Last Used (*Never* until the first call), Expires (*Never* when it has no expiry). | Nothing; Last Used tells you whether a system still calls with the key, and Status whether it still works. |
+| New API Key | Opens the *New API Key* form below; Create Key makes the key. | A new key that works from its first call. The form's choices cannot be changed afterwards: to change them, create a new key and revoke the old one. |
+| Revoke | On a key that is not revoked. Asks *Revoke "{name}"? Systems using it stop working immediately. This cannot be undone.* | The key is refused from its next call (*Invalid API key*). The row stays, marked Revoked, so the call log still names it. |
 
-### The form
+### The form (New API Key)
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Name | The system that will use it, for example *POS integration*. | |
-| Scopes | Give the key only what it needs: `receipts:send` (the point of sale and the web shop), `orders:ingest` (the shop's orders, for attribution), `events:ingest` (the shop's and the loyalty system's events, for journeys), `coupons:issue` (C360 answering journeys' coupon requests), `lists:write`, `scores:write`, `customers:read`, `consent:write`. | What the key may call. |
-| Allowed IP Addresses | Optional addresses or CIDR ranges. Empty means any address. | A call from elsewhere is refused. |
-| Expires | Optional, your local time. | The key stops at that moment. |
+| Name | Required, at least two characters, up to 100. The system that will use it, for example *POS integration*. | How the key appears in this table and in the call log, so you know which system to switch over before you revoke it. |
+| Scopes | At least one. The service scopes: `receipts:send` (the point of sale and the web shop), `orders:ingest` (the shop's orders, for attribution), `events:ingest` (the shop's and the loyalty system's events, for journeys), `coupons:issue` (C360 answering journeys' coupon requests), `lists:write`, `scores:write`, `customers:read`, `consent:write`. Also one scope per permission, written with a colon (for example `campaign:view`), which lets the key do what that permission allows. | What the key may call: anything else is refused. Give it only what it needs. |
+| Allowed IP Addresses | Optional. Addresses or CIDR ranges (for example `203.0.113.0/24`), separated by commas or new lines. Something that is not an address or range is refused. | A call from any other address is refused even with the right key (*IP address not allowed for this key*). Empty: any address may call. |
+| Expires | Optional, your local time, in the future. | From that moment the key is refused (*API key expired*) and shows as Expired. Empty: the key never expires. |
+
+### Copy the Key Now
+
+Shown once, right after Create Key.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| API Key | The full key, read-only, with a Copy button (it reads *Copied*). Below it, how to send it: `Authorization: Bearer cep_…` together with the `X-Tenant` header. | Nothing; copy it into the calling system now. |
+| I Have Stored It | Closes the dialog. | The full key is never shown again: only a fingerprint is stored, so it cannot be recovered. A lost key means a new key. |
 
 ## How to
 
-**A key for the point of sale.** New API Key → *POS integration* → tick `receipts:send` → the stores' outbound address under Allowed IP Addresses → Create → copy the key into the register software now; it is never shown again. The POS Receipts page says which headers to send it in.
+**A key for the point of sale.** New API Key → *POS integration* → tick `receipts:send` → the stores' outbound address under Allowed IP Addresses → Create Key → Copy the key into the register software → I Have Stored It. The POS Receipts page says which headers to send it in.
 
-**Rotate a key.** Create the new one, switch the caller over, Revoke the old one. The call log shows which key each call used.
+**Rotate a key.** Create the new one, switch the caller over, check that the old key's Last Used stops moving, then Revoke the old one. The call log shows which key each call used.
 
 ## What happens behind the scenes
 
-Only a hash of the key is stored; the prefix identifies it in the log. Each key has its own pace limit, and every answer carries the rate-limit headers so the caller can slow itself down. A revoked or expired key stops the caller at once.
+Only a hash of the key is stored; the prefix identifies it in the log. Each call checks the key, its expiry and its allowed addresses, then updates Last Used. Each key has its own pace limit, and every answer carries the rate-limit headers so the caller can slow itself down. A revoked or expired key stops the caller at once.
 
 ## Things to know
 
 - A key belongs to this workspace only; the caller also names the workspace with the X-Tenant header.
 - Keys are never written to the audit trail or an export.
+- There is no scope for user administration: keys cannot add users, change roles or create keys.
 
 ---
 
@@ -2355,65 +2736,92 @@ Only a hash of the key is stored; the prefix identifies it in the log. Each key 
 
 ## What this page is for
 
-E-receipts from the point of sale: which e-receipt campaign renders them, what to tell the register software, the stores the transactions come from, and the trail of what was received. The point of sale posts each transaction as a TransactionTree (TTDR 3.2.2) document; C360 validates it, renders the receipt on the campaign's template and sends it through the campaign's sender and engine. Nothing about the transaction or the customer is kept, only the trail.
+E-receipts from the point of sale: which e-receipt campaign renders them, what to tell the register software, the stores the transactions come from, and the trail of what was received. The point of sale posts each transaction as a TransactionTree (TTDR 3.2.2) document; C360 validates it, renders the receipt on the campaign's template and sends it through the campaign's sender and engine. Nothing about the transaction or the customer is kept, only the trail, unless Settings → Attribution counts store sales.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | `user.admin` to open Settings; the trail is read with `campaign.view`. |
+| Permission | `user.admin` to open Settings, choose the campaigns and change the stores; the stores and the trail are read with `campaign.view`. |
 | Features | **ereceipt**; text receipts need **sms** as well. |
 
 ## The fields and controls
 
 ### E-Receipt Campaign
 
-| Field | What it is | What it changes |
+The campaigns offered are the workspace's e-receipt campaigns; one not yet published is marked *(not published)*. A receipt goes out only on a campaign published to production with a verified sender. Each choice is saved as soon as you make it, with a *Saved* tick.
+
+| Control | What it is | What it changes |
 |---|---|---|
-| Email Receipt | The published e-receipt campaign that renders the email receipt. Needed when more than one is published. | Sent when the transaction's EntryType asks for email. |
-| Returns and Exchanges | Optional: another campaign for refunds. Empty uses the same campaign. | A return renders as a refund: negative amounts, the tender as a refund. |
-| Text Receipt | An e-receipt campaign on the SMS channel. | Sent when EntryType asks for a text. Empty: no text receipts. |
-| Phone Numbers Are From | US, CA or none. | A ten-digit number from a register is read with +1; numbers sent with a country code are used as sent. |
+| Email Receipt | The e-receipt campaign on the email channel that renders the email receipt. Empty reads *The one published campaign* when exactly one is published. | Sent when the transaction's EntryType asks for email. Empty with exactly one published campaign: that one is used. Empty with none or several published: every email receipt is refused with E120 *No campaign*, so choose one. |
+| Returns and Exchanges | Optional: another email e-receipt campaign for returns and exchanges. Default *Same Campaign*. | A return or exchange goes out on this campaign instead of the Email Receipt one. Either way a return renders as a refund: negative amounts, the tender as *Refund to …*. |
+| Text Receipt | An e-receipt campaign on the SMS channel. Empty reads *The one published text campaign* when exactly one is published, or *No text e-receipt campaign yet*. | Sent when EntryType asks for a text. With no text campaign chosen or published, the transaction is still accepted and answered S105 *Text not sent*, with the reason in the message; no text goes out. |
+| Phone Numbers Are From | United States (+1, the default), Canada (+1), United Kingdom (+44), India (+91), Australia (+61). | A number from a register without a country code gets this country's code, and a leading 0 is dropped: *07911 123456* from a UK register is sent to +44 7911 123456, *0412 345 678* from an Australian one to +61 412 345 678. A number sent with + or 00 and its country code is used as sent. It decides whether a text receipt can be sent at all: a number that cannot be read is answered S105. |
 
 ### Tell the Point of Sale
 
 | Item | What it is |
 |---|---|
 | Endpoint | The address to POST to, as application/xml or the form field XmlInput, with Copy. |
-| Headers | `X-Tenant-Key` with the workspace code and `accessTokenKey` with the API key, or `Authorization: Bearer`. |
-| API Key | One with the scope `receipts:send`, made under API Keys. |
-| Answers | The XML answers: S100 email receipt sent, S101 accepted but no email address, S102 already received, S103 text receipt sent, S104 printed with no e-receipt, S105 text asked for but not sent, and the E-codes for refused documents. |
-| What triggers a receipt | The transaction's EntryType: EMAIL, BOTH, ALL and every value naming EMAIL send the email; SMS values send the text; PRINT, NOPRINT, PUSH and NONE send nothing. |
+| Headers | `X-Tenant-Key` with the workspace code and `accessTokenKey` with the API key, or `Authorization: Bearer` with the API key and `X-Tenant` with the workspace code. |
+| API Key | One with the scope `receipts:send`, made under API Keys; it is shown once. A revoked key stops the point of sale at once (E888 *Wrong key*). |
+| Answers | The XML answers: S100 email receipt sent, S101 accepted but no email address, S102 already received, S103 text receipt sent, S104 no e-receipt asked for, nothing sent, S105 text asked for but not sent (the message says why), E1xx the document is refused (the message says where), E120 no campaign, E888 wrong key, E900 the engine did not accept it, call again later. |
+| What triggers a receipt | The transaction's EntryType: EMAIL, BOTH, ALL and every value naming EMAIL send the email receipt; SMS, SMS_LINK, ALL and every value naming SMS send the text receipt (both when both are named; the text's outcome rides in the answer as `TEXT_STATUS`); PRINT, NOPRINT, PUSH and NONE are accepted and send nothing. A return or void renders as a refund; an exchange shows the returned lines as negatives. |
 
 ### Stores
 
+A transaction names its store by number only. The store's details here fill the receipt's store tags.
+
 | Control | What it is | What it changes |
 |---|---|---|
-| The table | The stores: number, name, address, return policy, In Use. | The store's name and address on the receipt; the return policy in its Returns & support section. |
-| Add Store, Edit | Number, name, address lines, phone, return policy, In Use. | |
-| Import CSV | A file of stores. | |
+| The table | Store (number · name, with the brand), Address, Phone, In Use, and Edit. | Nothing by itself: each In Use row fills the store tags of receipts from that number. |
+| Add Store | Opens the store form, empty. | **Save** lists the store: receipts from that store number carry its details from the next transaction. A number already listed is refused: *Store … is already listed.* |
+| Edit | Opens the store form for that store, titled *Store {number}*. | **Save** changes the details on every receipt from that store from the next transaction. Receipts already sent keep what they had. |
+| Store Number | Required. Exactly as the point of sale sends it. | The match between a transaction and the store. A number that does not match is treated as an unlisted store (see below). |
+| Name | Required. | The store name on the receipt. |
+| Brand, District | Optional. | Fill the store's brand and district tags, for templates that use them. |
+| Address 1, Address 2, City, State, Postal Code, Country | Optional. | The store's address on the receipt. |
+| Phone, Email, Manager | Optional. | The store's phone, email and manager tags on the receipt. |
+| Image URL | Optional. | The store's image tag, for a template that shows a store picture. |
+| URL 1 to URL 4 | Optional. | Four link tags, for example the store page, directions, a survey or the returns page. |
+| Return Policy | Optional, a few lines. | The return policy in the receipt's Returns & support section. |
+| In Use | A switch, on by default. | Off: the store is kept but treated as unlisted, so its details are not used on receipts and the answer carries the unlisted-store note. |
+| Remove | In the form of a listed store; asks first: *Remove store …? Receipts from it will carry only the number.* | Deletes the store. Receipts from that number then carry only the number and whatever the document gives. |
+| Download Template | Saves *store-import-template.csv*: a header row with every column the import reads, and two sample stores. | Replace the samples with your stores (keep the header row), then Import CSV. Nothing changes until you import. |
+| Import CSV | Choose a CSV file. It needs a header row with `store_number` and `name`; the other columns (the field names above, such as `address1`, `phone`, `return_policy`, `url1`) are optional. | Adds each new store and updates each store already listed under that number. The result says how many were added and updated, and which lines were skipped and why (for example *no store number*). |
 
 ### Received from the Point of Sale
 
-| Control | What it is |
-|---|---|
-| Answer, Transaction ID | Filters by the code answered and the transaction number. |
-| The table | Every transaction received: when, store, transaction, what was answered, the receipt's status. A row opens the call in the log with the document as received, masked. |
+The last 30 days, read from the call log, newest first. The list refreshes every 30 seconds.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Transaction ID | Search by the transaction number. | Shows only that transaction's calls. |
+| Answer | All Answers (default) or one code: S100 Receipt sent, S101 No email address, S102 Already received, S103 Text receipt sent, S104 Printed, no e-receipt, S105 Text not sent, E103 Document refused, E120 No campaign, E900 Engine refused. | Shows only the transactions answered with that code. |
+| Clear Filters | Shown when a filter is set. | Shows everything again. |
+| The table | Received (when), Transaction, Answer (the code, its words and the message), Receipt (*sent ·* the message id when a receipt went out). Rows do not open. Only the newest 100 are shown; narrow by answer or transaction id. | The receipt itself is on the campaign's Recipients tab, and the full XML under Integrations → Call Log. |
 
 ## How to
 
 **Connect a register.** API Keys → a key with `receipts:send` → here, copy the endpoint and give the register software the endpoint, the two headers and the key → publish an e-receipt campaign → choose it under Email Receipt → add the stores → run one test transaction and find it under Received.
 
+**Load all your stores at once.** Stores → **Download Template** → replace the two sample stores with yours in a spreadsheet (keep the header row; `store_number` and `name` are required, `is_active` is yes or no) → save as CSV → **Import CSV**. Run it again later to update them.
+
 **A store prints when it should email.** Received → Answer: S104. The register sends an EntryType without EMAIL; the store's register settings are the fix.
+
+**A receipt shows no store address.** The answer says *Store … is not in Settings -> POS Receipts -> Stores*. Add Store with that exact number, or switch it to In Use.
 
 ## What happens behind the scenes
 
-The document is checked against the TTDR schema; the merchant, store, register, transaction number and date make the transaction unique, so a register that retries gets S102 and nothing is sent twice. The receipt is rendered with the receipt, store and transaction tags and the campaign's receipt layout, sent through the campaign's engine, recorded as a message under the campaign's run of the day with callbacks like any other, and answered in the same call. A text receipt goes the same way through the text engine.
+The document is checked against the TTDR schema; the merchant, store, register, transaction number and date make the transaction unique, so a register that retries gets S102 and nothing is sent twice. The receipt is rendered with the receipt, store and transaction tags and the campaign's receipt layout, sent through the campaign's engine, recorded as a message under the campaign's run of the day with callbacks like any other, and answered in the same call. A text receipt goes the same way through the text engine; when both are asked for, the text goes first.
+
+When the store number is not listed (or not In Use), the receipt still goes out: the store name reads *Store {number}*, the other store tags carry only what the document itself gives, and the answer says so. An address, phone or email the document carries for the store wins over the one listed here.
 
 ## Things to know
 
 - A paused POS integration answers E503 to every register; nothing is queued.
 - A receipt to a blocked address is refused with its reason in the answer; the trail keeps it.
+- At the plan's message limit (a plan without overage), receipts are refused until the next month.
 - With Count Store Sales on under Settings → Attribution, each transaction also becomes an order credited to a campaign: the amount without tax, the customer, the store and its promotion codes. Off (the default), nothing about a transaction is kept but the trail.
 
 ---
@@ -2424,37 +2832,47 @@ The document is checked against the TTDR schema; the merchant, store, register, 
 
 ## What this page is for
 
-Your own second step when you sign in: a six-digit code from an authenticator app on your phone. Set it up here, keep the recovery codes, and turn it off when it is not required.
+Your own second step when you sign in: a six-digit code from an authenticator app on your phone. Set it up here, keep the recovery codes, and turn it off when it is not required. With it on, a stolen password is not enough to get into your account.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | Everyone, for their own account. When Settings → Security requires it for everyone, it cannot be turned off. |
+| Permission | Everyone, for their own account. When Settings → Security requires it for everyone, it cannot be turned off, and a person without it lands here at sign-in: *Your workspace requires multi-factor authentication. Set it up to continue: nothing else is available until you do.* |
+| Single sign-on | Someone who signs in through the company's identity provider sees *You sign in through your company's single sign-on. The second step, if any, is managed there.* and nothing to set up. |
+| Visiting another workspace | A platform administrator who entered another workspace with Switch Workspace sees *Managed in Your Own Workspace*: their sign-in belongs to their own workspace. |
 
 ## The fields and controls
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Turn On | Shows a QR code to scan with Google Authenticator, Microsoft Authenticator, 1Password, Authy or similar, and the key to type when scanning is not possible. | |
-| Code | The six digits the app shows, to confirm. | Multi-factor authentication is on from the next sign-in. |
-| Recovery codes | Ten one-time codes shown once, to sign in when the phone is lost. Store them somewhere safe. | |
-| The status | Since when, and how many recovery codes are left; a warning when two or fewer remain. | |
-| Turn Off | With the current code. Refused while the workspace requires it. | To get a new set of recovery codes, turn it off and on again. |
+| Set Up | Shown while it is off (*Multi-factor authentication is off*). | Shows a QR code to scan with Google Authenticator, Microsoft Authenticator, 1Password, Authy or similar, and under *Cannot scan? Type this key* the key to type instead. Nothing is switched on yet. |
+| Code | The six digits the app shows. | Checks that the app was set up correctly. |
+| Turn On | Enabled once six characters are typed. A wrong code is refused: *That code is not right. Check the time on your phone and try the next code.* | Multi-factor authentication is on: from the next sign-in, the password alone is not enough. The ten recovery codes appear. |
+| Cancel | Next to Turn On; not offered when the workspace makes you set it up before anything else. | Leaves it off; nothing is stored as on. |
+| Recovery codes | Ten one-time codes, shown once, with Copy Codes. Store them somewhere safe, away from your phone. | Each one signs you in once when the phone is lost, in place of the six digits. |
+| I Have Saved Them | Closes the codes. | The page shows the status below. The codes are never shown again. If the workspace required it, the rest of C360 opens. |
+| The status | *Multi-factor authentication is on*, since when, and how many recovery codes are left; a warning when two or fewer remain. | Nothing; it tells you whether you can still sign in without the phone. |
+| Turn Off | Not shown while it is required (*Your workspace requires it, so it cannot be turned off.*). Opens the Current Code field. | Nothing until confirmed below. |
+| Current Code | A code from the app, or an unused recovery code, then Turn Off (or Cancel). | Multi-factor authentication is off: your password alone signs you in. The app's entry and the recovery codes stop working. A wrong code is refused: *Enter a current code from your authenticator to turn it off.* |
+| Back to Platform | Shown only to a platform administrator visiting another workspace, under *Managed in Your Own Workspace*. | Ends the visit and returns to the platform, where their own second step can be seen or changed. |
 
 ## How to
 
-**Set it up.** Turn On → scan → type the code → store the recovery codes → Done. Sign out and in again to see the second step.
+**Set it up.** Set Up → scan the QR code → type the code → Turn On → store the recovery codes → I Have Saved Them. Sign out and in again to see the second step.
 
-**Lost the phone.** Sign in with a recovery code, then turn it off and on again with the new phone.
+**Lost the phone.** Sign in with a recovery code, then Turn Off (with another recovery code) and Set Up again with the new phone.
+
+**Get new recovery codes.** Turn Off, then Set Up again: a new set of ten replaces the old one.
 
 ## What happens behind the scenes
 
-The code is time-based (TOTP); the secret is stored encrypted. A recovery code works once. When the workspace requires it, a user without it is walked through this set-up on their next sign-in before anything else; single sign-on users are covered by the identity provider instead.
+The code is time-based (TOTP) and changes every 30 seconds; each code works once. The key is stored encrypted. A recovery code works once and is then crossed off. When the workspace requires it, a user without it is walked through this set-up on their next sign-in before anything else; single sign-on users are covered by the identity provider instead.
 
 ## Things to know
 
-- Nobody can set it up for you, and support cannot read your codes; a lost phone and lost recovery codes mean an administrator sends a new password link and you set it up afresh.
+- Nobody can set it up for you, and support cannot read your codes. A new password link does not switch it off: with both the phone and the recovery codes lost, ask the platform team, who can switch it off for your account in the back-office; then set it up afresh.
+- Support sessions and visiting platform administrators can never change anyone's second step.
 
 ---
 
@@ -2485,19 +2903,21 @@ Until attribution is on, every revenue figure in C360 reads *Not Set Up*: Home's
 
 ## How to configure attribution
 
-**1. Make a key for the shop.** Settings → API Keys → New Key, with the scope `orders:ingest`. Copy it: it is shown once.
+**1. Make a key for the shop.** Settings → API Keys → New API Key, with the scope `orders:ingest`. Copy it: it is shown once.
 
-**2. Switch it on.** Settings → Attribution → **Attribution** on. From now on the shop's orders are accepted (while it is off they are refused with 409), and every campaign that has ever sent gets figures within five minutes, 0 until its first order.
+**2. Switch it on.** Settings → Attribution → **Attribution** on (off by default). From now on the shop's orders are accepted (while it is off they are refused with 409), and every campaign that has ever sent gets figures within five minutes, 0 until its first order.
 
 **3. Choose the windows.** Each saves as you change it.
 
-| Setting | Choices | Means |
+| Control | What it is | What it changes |
 |---|---|---|
-| Click Window | 1, 3, 7, 14 or 30 days | How long after a click the click still earns an order. |
-| Open Window | Opens Do Not Count, 1, 2, 3 or 7 days | How long an open of a marketing email earns an order when there was no click. Scanner opens and receipts never count. |
-| Text Window | Texts Do Not Count, 1, 2, 3 or 7 days | How long a delivered marketing text earns an order when there was no click or open. |
+| Click Window | 1, 3, 7 (the default), 14 or 30 days. | How long after a click on a campaign's link the click still takes the credit for an order the same person places. A longer window credits more orders to campaigns. |
+| Open Window | Opens Do Not Count, 1 (the default), 2, 3 or 7 days. | With no click, how long an open of a marketing email takes the credit. Scanner opens and e-receipts never count. Opens Do Not Count: opens never earn credit. |
+| Text Window | Texts Do Not Count, 1 (the default), 2, 3 or 7 days. | With no click or open, how long a delivered marketing text takes the credit. Text links are not tracked yet, so delivery stands in for a click. Texts Do Not Count: texts never earn credit. |
 
-**4. Count store sales** (shown when the workspace has POS Receipts). Switch **Count Store Sales** on and every transaction the point of sale posts also becomes an order: the amount without tax and shipping, the customer, the store and its promotion codes. Returns become refunds; employee sales are left out.
+A change to a window or to the send costs makes the next pass of the attribute-orders job (within five minutes) work out every campaign's figures again. Without `user.admin` the controls are shown but cannot be changed.
+
+**4. Count store sales** (shown when the workspace has POS Receipts). **Count Store Sales** is off by default and cannot be switched on until **Attribution** is on. Switch it on and every transaction the point of sale posts also becomes an order: the amount without tax and shipping, the customer, the store and its promotion codes. Returns become refunds; employee sales are left out. Off, or with Attribution off, nothing about a transaction is kept beyond the POS Receipts trail.
 
 **5. Enter the send costs.** **Send Costs**: what 1,000 delivered emails and 1,000 delivered texts cost you, then **Save Costs**. A campaign's cost is then its delivered messages at these rates plus its offer cost, and ROI, contribution and cost per conversion follow. Left empty, ROI uses each campaign's planned cost.
 
@@ -2730,11 +3150,11 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Email, SMS / MMS | Sends a published template through the normal send engine, as a campaign of its own (one per step per day), so consent, suppressions, caps and quiet hours apply. **Sender** chooses which of the workspace's senders the message goes from; left as *Workspace default*, it is the engine's default sender for the channel. An SMS step offers texting senders only. |
 | Issue Coupon | Asks C360 for a coupon for the customer. C360 makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
-| Update Profile | Sets any attribute on the customer's record to a value (Customer Status to Welcomed). |
+| Update Profile | Sets one attribute on the customer's record to a value when the customer reaches the step (Customer Status to Welcomed). **Attribute**: an attribute the records already carry, offered as you type, or a new name (letters, digits, spaces, dots, dashes and underscores), which adds the attribute. **Set To**: required, text or a number of up to 200 characters; when the attribute already has values, the hint lists them. The value replaces whatever the record held, so later Conditions, Splits, waits and entries that read the attribute see the new value; the customer's page shows it under Custom Attributes. Use Update Loyalty Tier, not this step, for the tier. |
 | Update Segment | Adds the customer to a segment, or removes them. |
 | Add to List, Remove from List | Changes the customer's membership of a contact list. |
 | Webhook | A signed JSON POST to an https address of yours with the customer (id, name, email, phone, and their custom attributes when asked), the journey, the step and the enrollment. A signing secret, kept encrypted and never shown again, puts `X-CEP-Signature: sha256=…` (HMAC-SHA256 over `timestamp.body`) beside `X-CEP-Timestamp` on every call; `X-CEP-Delivery` is unique per call. A 2xx answer is success; 429, 5xx, a timeout or a connection error is retried like any temporary failure; another 4xx is recorded and the customer carries on. **Send a Test Call** posts a sample customer. |
-| Goal | The outcome the journey is for: an event (Purchase, Coupon Redemption, or any type you name), optional filters on its data (order total is at least 25), and an attribution window from entering (14 days). A customer is **converted** when the event arrives within the window: when they reach the step, or at once wherever they are in the journey. **Mark converted and exit** takes them out; **Mark converted and continue on the Reached path** opens Reached and Not Yet paths under the step (a thank-you can follow). Revenue is the matching events' amounts, as Attribution sends them. |
+| Goal | The outcome the journey is for. **Counts as Reached When**: the event that counts, chosen from the workspace's events (each with how many arrived in the last 90 days), or **Another event type…** to type one as it is sent (capital letters, digits and underscores, such as BOOKING_MADE). Any event of that type counts. **Filters on the Event** (**Add Filter**, up to 10): a property of the event's data, how to compare it and a value (order total is at least 25); every filter must hold. **Attribution Window**: 1, 3, 7, 14, 21, 30 (default), 45, 60, 90, 180 or 365 days from entering; an event after the window does not count. **When Reached**: **Mark converted and exit** (default) takes the customer out wherever they are; **Mark converted and continue on the Reached path** opens Reached and Not Yet paths under the step (a thank-you can follow; not inside another step's path). A customer is **converted** when a matching event arrives after they entered and within the window: checked when they reach the step, and again whenever a matching event arrives while they are anywhere in the journey. A customer who reaches the step without the event takes the Not Yet path, or simply carries on to the next step when the goal exits. Converted customers count in the journey's Converted figure, with revenue: the sum of the matching events' amounts, as Attribution sends them. |
 | Exit Journey | Ends the path. Without a Goal step, reaching an Exit counts as Goal Converted. End every path with one. |
 
 **Save Draft** (top right) keeps your work; nothing saves on its own. **Preview Route** (top right) walks the saved draft as one customer without sending or recording anything: whether they would enter, when each wait would continue, whether each message would send under today's consent and suppressions, which way each Condition on their record answers, and where the path ends; a step that depends on something that has not happened yet asks which way to assume. When every step is set up, choose **Continue to Test Publish**.
@@ -2759,7 +3179,7 @@ Choose the **Test Population**: a **Random Sample of Live Audience** (up to 200 
 | Entry rules configured | The journey has a complete entry, filters included. |
 | All canvas steps configured | Every step has its settings and every path ends. |
 | Templates ready | Every message step's template is published. |
-| Governance rules satisfied | Always passes; it lists the frequency caps that apply ("Emails: at most 3 in 7 days") and that texts wait out quiet hours. A customer over a cap is held back, not sent. |
+| Governance rules satisfied | Always passes; it lists the frequency caps that apply ("Emails: at most 3 in 7 days") and that texts wait out quiet hours. A customer over a cap is held back, not sent. When an Unengaged Contacts rule is in use it says that unengaged contacts are left out of the journey's marketing emails too ("no engagement in 180 days, after at least 5 marketing emails"). |
 
 **Run Test Publish**, then **Send Test**. The test **sends real messages** to that population (Waits are skipped), so use the test list. The results show who got what, and how many were held back and why. Test customers leave the journey when the test ends and can still enter it for real later. Preview Route is the no-send check to use before this.
 
@@ -2799,7 +3219,7 @@ The **Versions** card lists every version with its status; the running one is ta
 | Performance | Enrolled, In Journey, Converted (with a Goal: conversions, their attributed revenue and the average per conversion; without one: Exit arrivals) and Exited Early, with the weekly Enrollment Over Time and **Messages, All Steps**: every message step's sent, delivered, opened, clicked, bounced, complained, unsubscribed, held back (by reason) and failed figures for the last 30 days. A Draft shows dashes. |
 | Setup | The trigger, Goal, Exit Criteria, re-entry, and the audience: source lists, eligible pool, enrolment rate. |
 | Needs Attention | Customers whose step failed for a temporary reason and is being retried (after 5, 15 and 60 minutes) or was given up on, with the reason, the tries and the next try. **Retry Now** runs the step again on the next pass; **Skip Step** records it as skipped and moves the customer on. |
-| Customers | Everyone who entered, newest first, with where they are now; search by name or email, filter by status, and, once a step has held anyone back, filter by **Held Back Reason** (no consent, a suppression, a frequency cap, quiet hours, each with how many customers). **Export CSV** saves what the filters show. Open a customer for their **timeline**: when they entered, every step with its outcome (an email's delivered, opened and clicked moments; a held-back message's reason; a Condition's answer; the Goal), where they are waiting now, and how they left; **View Customer Record** at the foot of the timeline opens their page across the workspace (see *The customer page* in Contact Lists). A customer's page links back to each of their timelines. |
+| Customers | Everyone who entered, newest first, with where they are now; search by name or email, filter by status, and, once a step has held anyone back, filter by **Held Back Reason** (no consent, a suppression, a frequency cap, quiet hours, unengaged, each with how many customers). **Export CSV** saves what the filters show. Open a customer for their **timeline**: when they entered, every step with its outcome (an email's delivered, opened and clicked moments; a held-back message's reason; a Condition's answer; the Goal), where they are waiting now, and how they left; **View Customer Record** at the foot of the timeline opens their page across the workspace (see *The customer page* in Contact Lists). A customer's page links back to each of their timelines. |
 | Suppressions | Customers this one journey never enters or messages: add by email address, mobile number or customer id with a note (a customer inside leaves at once), remove later. Workspace suppressions and consent apply before these. |
 | Webhook Calls | When the journey has a Webhook step: every call, test calls included, with the endpoint's answer, the try and the duration. |
 | Versions | Every version, newest first, with its status and when it went live. |
@@ -2835,46 +3255,53 @@ Only customers in the customer records enter, since a message to someone unknown
 
 ## What this page is for
 
-What happened to a customer: a purchase, an abandoned cart, a birthday, a tier change. The shop and the loyalty system send events to C360, and C360 raises some itself. A journey whose entry is an event enrols the customer within a minute, and a Condition step can check for one. This page shows what arrived, how to send events, and the coupon requests journeys leave for C360.
+What happened to a customer: a purchase, an abandoned cart, a birthday, a tier change. The shop and the loyalty system send events to C360, and C360 raises some itself. A journey whose entry is an event enrols the customer within a minute, and a Condition step can check for one. This page shows what arrived, how to send events, and the coupon requests journeys leave for the C360 customer system.
+
+Two systems carry the name here. **C360** on its own is this application. The page's **Coupon Requests for C360** and *the customer arrives from C360* mean the C360 customer system: the customer records and coupons your customers come from, synced into this workspace.
 
 ## Who can use it
 
 | | |
 |---|---|
-| Permission | `user.admin`. The shop and the loyalty system send events with an API key that has the scope `events:ingest`; C360 reads and answers coupon requests with a key that has `coupons:issue`. The workspace needs the Journeys feature; without it events are refused. |
+| Permission | `user.admin`. The shop and the loyalty system send events with an API key that has the scope `events:ingest`; the C360 customer system (or whatever issues your coupons) reads and answers coupon requests with a key that has `coupons:issue`. The workspace needs the Journeys feature; without it events are refused. |
 
 ## The fields and controls
 
-| Part | What it shows |
-|---|---|
-| Last 7 Days | How many events arrived, by type, and when the last one came. Events naming a customer C360 does not have yet are counted separately: they enter journeys once the customer arrives from C360, within seven days of the event. |
-| Raised by C360 Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Loyalty Tier Change** from every Update Loyalty Tier step that changes the tier; **Preference Update** from every preference-centre save that changes a channel or a topic; **No Response** for lapsed engagers (below); **Email Open/Click** and **SMS Response**, read from C360's own tracking (security scanners left out). These need nothing sent. |
-| Send Events | The endpoint, the headers, the key's scope and how many keys have it, and one event as an example. |
-| Coupon Requests for C360 | How many requests are waiting, issued and failed, and how C360 reads and answers them. |
-| Latest Events | The newest 50 events, sent or raised by CEP: when it arrived, the event and its id, the customer, the source and when it happened. Filter by type; search by customer, event id or source. Opens, clicks and text replies are not listed here. |
+The page has no settings: it is where you check what arrives and find what to give the developers.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Last 7 Days | How many events arrived, by type, and when the last one came. Events naming a customer C360 does not have yet are counted separately: they enter journeys once the customer arrives from the C360 customer system, within seven days of the event. | Nothing; a reading. A count that stays at 0 for a type a journey starts from means nobody is sending it, and the journey enrols no one. |
+| Raised by C360 Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Loyalty Tier Change** from every Update Loyalty Tier step that changes the tier; **Preference Update** from every preference-centre save that changes a channel or a topic; **No Response** for lapsed engagers (below); **Email Open/Click** and **SMS Response**, read from C360's own tracking (security scanners left out). These need nothing sent. Purchases need Attribution switched on and the shop sending orders. | Nothing; a reading. A journey can start from these without any developer work. |
+| Send Events | The endpoint (POST, JSON) with **Copy**, the headers, the key's scope and how many active keys have it (*No key has it yet.* when none), and one event as an example. | Copy puts the endpoint on the clipboard. Nothing in the workspace changes; without a key holding `events:ingest`, no outside system can send events. |
+| Coupon Requests for C360 | How many requests are Waiting, Issued and Failed, and how the C360 customer system reads and answers them; *no key has it yet* when no key holds `coupons:issue`. | Nothing; a reading. Waiting requests that do not go down mean the coupon system is not collecting them, so customers in the journey get no coupon code. |
+| Latest Events | The newest 50 events, sent or raised by C360: Received, Event (with its id), Customer, Source and Happened. Refreshes every minute. Opens, clicks and text replies are read from tracking and not listed here. | Nothing; a reading. |
+| Search | *Customer, event ID or source*. | Narrows Latest Events to matching events. |
+| Type | All Types (default) or one event type. | Narrows Latest Events to that type. |
+| Clear Filters | Shown when a search or type is set. | Shows the newest 50 again. |
 
 ## The event types
 
 Customer Creation (`CUSTOMER_CREATED`), Welcome (`WELCOME`), Birthday (`BIRTHDAY`), Anniversary (`ANNIVERSARY`), Purchase (`PURCHASE`), First Purchase (`FIRST_PURCHASE`), Category Purchase (`CATEGORY_PURCHASE`), Abandoned Cart (`CART_ABANDON`), Coupon Issue (`COUPON_ISSUED`), Coupon Redemption (`COUPON_REDEEMED`), Segment Inception (`SEGMENT_INCEPTION`), Segment Change (`SEGMENT_CHANGE`), Loyalty Tier Change (`LOYALTY_TIER_CHANGE`), Preference Update (`PREFERENCE_UPDATE`), Address Change (`ADDRESS_CHANGE`), No Response (`NO_RESPONSE`), Email Open/Click (`EMAIL_ENGAGEMENT`) and SMS Response (`SMS_RESPONSE`). Any other name in capitals and underscores (for example `STORE_VISIT`) is accepted too.
 
-A journey's **Attribute Change** entry reads these: Loyalty Tier on `LOYALTY_TIER_CHANGE`, Preference Update on `PREFERENCE_UPDATE`, Address Change on `ADDRESS_CHANGE`. C360 does not keep a history of customer records, so the loyalty system sends the tier changes it makes, and C360 sends `ADDRESS_CHANGE` when an address changes (the new address in `payload`).
+A journey's **Attribute Change** entry reads these: Loyalty Tier on `LOYALTY_TIER_CHANGE`, Preference Update on `PREFERENCE_UPDATE`, Address Change on `ADDRESS_CHANGE`. C360 does not keep a history of customer records, so the loyalty system sends the tier changes it makes, and the C360 customer system sends `ADDRESS_CHANGE` when an address changes (the new address in `payload`).
 
 **No Response** is raised by C360 for a customer sent at least 3 marketing emails (not receipts) in the last 30 days who opened, clicked and replied to none of them, security scanners left out. One per customer in 30 days, and only while a live journey starts from it (checked every 15 minutes).
 
 ## How to
 
 **Connect the shop or the loyalty system.**
-1. Settings → API Keys → New Key, with the scope `events:ingest`. Copy the key; it is shown once.
+1. Settings → API Keys → New API Key, with the scope `events:ingest`. Copy the key; it is shown once.
 2. Give the developer the endpoint, the key and the example from Send Events.
 3. Each event needs `event_type` and the customer by `party_id`, `email` or `phone` (an email or number must match a customer). Add `event_id` so an event sent twice counts once; `occurred_at` defaults to now; `payload` holds the details (for example the cart's value).
 4. The first events appear in Latest Events within a minute.
 
-**Let C360 fulfil coupons.**
+**Let the C360 customer system fulfil coupons.**
 1. A key with the scope `coupons:issue`.
-2. C360 calls `GET /api/v1/coupon-issuances/` for the waiting requests (the customer, the coupon, the journey).
+2. The coupon system calls `GET /api/v1/coupon-issuances/` for the waiting requests (the customer, the coupon, the journey).
 3. For each, it issues the coupon and calls `PATCH /api/v1/coupon-issuances/<id>/` with `{"status": "ISSUED", "external_code": "…"}`, or `"FAILED"` with a `note`.
 
-**Check that an abandoned-cart journey will fire.** Latest Events → Type: Abandoned Cart. If nothing is there, the shop is not sending; if the customer reads *Not in the customer records yet*, the customer has not arrived from C360.
+**Check that an abandoned-cart journey will fire.** Latest Events → Type: Abandoned Cart. If nothing is there, the shop is not sending; if the customer reads *Not in the customer records yet*, the customer has not arrived from the C360 customer system.
 
 ## What happens behind the scenes
 
@@ -2885,7 +3312,7 @@ The enrol job reads events every minute. An event counts for a journey that was 
 ## Things to know
 
 - C360 keeps the event's type, customer, time, source, id and payload (up to 8,000 characters), not more.
-- C360 never makes coupon codes; C360 does.
+- This application never makes coupon codes. The Issue Coupon step only records a request; the C360 customer system (or whatever issues your coupons) makes the code and sends it back with the request marked issued.
 
 ---
 
@@ -3007,7 +3434,7 @@ The words Insights uses, in plain terms, with an example of each. The steps for 
 5. Read what comes back in Run Details. A **draft**: check its view, data, rows, columns, values and filter, change its **Name** if you like, then **Open in Editor** to make it a private report of yours, under that name, and open the editor. **Show** beside the time lists the steps it took. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
 6. **Earlier This Visit** in Run Details lists the prompts you ran while this browser tab is open, newest first: when each started, how long it took, the tokens it used, the model and what came of it (Draft, Saved, Question, No Field or Failed), with its steps under **Show Steps**. The list scrolls.
 7. **Prompt History** under Run Details holds your prompts of the last 90 days, newest first; scroll down and older ones load. **Use Again** puts a prompt back in the box. The pencil beside a name renames the report the prompt became (or its draft, if you have not opened it yet): type the new name, Enter saves, Esc cancels. **Show** hides or shows the list (remembered in your browser). **Clear History…** asks first, then takes your prompts off the list; the reports they became are not touched and the month's prompt count stays as it is. The line at the top right of the box counts the month's prompts against your plan; only a draft counts.
-8. The reports you make here are ordinary reports: they are listed under Insights → Reports with an **AI** mark beside the name, and you put them on a dashboard like any other (Dashboards → Edit → Add Tile).
+8. The reports you make here are ordinary reports: they are listed under Insights → Reports with an **AI** mark beside the name, and you put them on a dashboard like any other (Dashboards → Edit → Add).
 
 **Add a spec or images to a prompt** (anyone who can build reports)
 
@@ -3083,7 +3510,7 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Share a report or a dashboard**
 
-1. Open it, open **More actions** (the three dots) and choose **Share** (the owner, or a report administrator).
+1. Open it, open **More actions** (the three dots) and choose **Share**; on a dashboard, press **Share** beside Edit (the owner, or a report administrator).
 2. Choose who can open it: **You and the people and roles below**, or **Everyone in the workspace**.
 3. Find a person or a role and add them. Give each **Can View** or **Can Edit**; Can Edit lets someone who builds reports change it. A role reaches everyone holding it.
 4. Press **Save**. The list shows a private report as shared.
@@ -3117,13 +3544,13 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Add slicers to a dashboard** (its owner or a report administrator)
 
-1. Open the dashboard, open **More actions** (the three dots) and choose **Edit**.
-2. Under the period, press **Add Slicer** and choose a dimension, such as Channel or Store. The list shows the dimensions of the tiles' datasets, up to six.
-3. Remove one with its cross, then press **Done**.
+1. Open the dashboard and press **Edit**.
+2. On the settings line, open **Slicers**, press **Add Slicer** and choose a dimension, such as Channel or Store. The list shows the dimensions of the tiles' datasets, up to six.
+3. Remove one with its cross, then press **Save**.
 
 **Filter a dashboard with slicers**
 
-1. Each slicer is a chip under the period. Open it, search, tick values and press **Apply**.
+1. Each slicer is a chip on the line under the dashboard's name, after the period and Compare. Open it, search, tick values and press **Apply**.
 2. Every tile whose data has that field narrows to those values. A tile without the field says **Not sliced by** that field.
 3. **Clear** takes the values off.
 
@@ -3155,21 +3582,21 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Slice a dashboard by a range of numbers or dates**
 
-1. Edit the dashboard, press **Add Slicer** and choose a number (such as Sent Count) or a date that is not the dashboard's period. It becomes a range slicer.
+1. Edit the dashboard, open **Slicers**, press **Add Slicer** and choose a number (such as Sent Count) or a date that is not the dashboard's period. It becomes a range slicer.
 2. In the viewer, open the slicer, type **From**, **To** or both, and press **Apply**. The chip says the range, such as Sent Count: 100 to 500.
 3. **Clear** takes it off. A tile without the field says it is not sliced by it.
 
 **Save a dashboard view (bookmarks)**
 
 1. Set the dashboard the way you want it: the period, the comparison, the page, slicer values and drills.
-2. Open **Views** and press **Save the Current View**. Name it, and tick **Share with everyone who opens this dashboard** if others should have it too.
-3. Later, open **Views** and pick it: everything comes back as it was. The chip shows the view in use.
+2. Open **View: Default** at the right of the line and press **Save the Current View**. Name it, and tick **Share with everyone who opens this dashboard** if others should have it too.
+3. Later, open the **View** chip and pick it: everything comes back as it was. The chip shows the view in use.
 4. Remove a view with its cross. A saved view never changes the dashboard itself.
 
 **Spread a dashboard over pages**
 
 1. Edit the dashboard and press **Add Page**. The tiles so far become Page 1, and Page 2 starts empty.
-2. Click a page's tab to work on it. Type its name in **Page title**, or press **Remove Page** to remove it with its tiles. **Add Tile** adds to the page in view, and **Done** saves.
+2. Click a page's tab to work on it. Its **⋯** has **Rename Page** and **Remove Page** (which removes it with its tiles). **Add** adds to the page in view, and **Save** saves.
 3. In the viewer the pages are tabs above the tiles. The PDF and scheduled deliveries carry every page, each tile titled with its page.
 
 **Add measures from a linked dataset**
@@ -3201,11 +3628,13 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Benchmarks**
 
-1. Open **Benchmarks** in the Insights menu. Everyone sees them; a report or user administrator changes them.
-2. **Add a Benchmark**: the dataset, the measure, whether higher or lower is better, **Good** and **Act**. Between them is Watch. Higher is better: Good at or above Good, Act below Act. Lower is better: the same the other way.
-3. For a rate, choose **Made Of: Count** and **Made Of: Base** (such as Delivered and Sent): then its 95% range is worked out, as above.
-4. After adding the Email Campaign Reports, **Add the Email Campaign Defaults** sets four at once: Delivery Rate (Good 95%, Act under 90%), Bounce Rate (Good 2% or less, Act over 5%), Click-Through Rate (Good 1.5%, Act under 0.5%) and Unsubscribe Rate (Good 0.3% or less, Act over 0.5%). Change them to your own.
-5. Without a benchmark, What This Means states the figures and says it cannot judge them, with **Set a Benchmark**.
+1. Open **Benchmarks** in the Insights menu. Everyone sees them; a report or user administrator changes them. Search and **Dataset** narrow the list.
+2. **Add a Benchmark** takes two steps. **What to Judge**: the dataset, the measure (it says whether it is a percentage, money or a number) and **Better When**: Higher, like a delivery rate, or Lower, like a bounce rate.
+3. **The Bands**: type where **Good** starts and where **Needs Action** starts; the unit shows beside each number, so 95 is 95% for a rate. **Watch** is what lies between and is set for you. A coloured bar and a sentence ("A Delivered Rate of 95.0% or more is Good…") show the bands as you type. Needs Action on the wrong side of Good is refused with a reason.
+4. For a rate, open **Judge Small Numbers Fairly** and choose what is **Counted** and what it is **Out Of** (such as Delivered and Sent), or neither: then its 95% range is worked out, as above.
+5. After adding the Email Campaign Reports, **Add the Suggested Benchmarks** sets four at once: Delivery Rate (Good 95%, Needs Action under 90%), Bounce Rate (Good 2% or less, Needs Action over 5%), Click-Through Rate (Good 1.5%, Needs Action under 0.5%) and Unsubscribe Rate (Good 0.3% or less, Needs Action over 0.5%). Change them to your own.
+6. A benchmark's **⋯** has **Edit**, which opens on The Bands, and **Remove**. The table shows each band as a coloured tag.
+7. Without a benchmark, What This Means states the figures and says it cannot judge them, with **Set a Benchmark**. (Explain still calls the third band Act for now.)
 
 **Change a report with a prompt, with AI**
 
@@ -3229,8 +3658,9 @@ Workspace administrators add calculated measures to their own datasets (Report D
 **See what people open (Usage)**
 
 1. Open Insights → **Usage** (report administrators).
-2. Choose 7, 30 or 90 days. **Most Opened** and **Who Opens the Most** rank the reports, dashboards and people; the table gives each item's openings, people, openings through embed links and when it was last opened.
-3. **Reports Nobody Opened** lists the reports no one opened in the period: candidates to tidy away. Opening the same item again within ten minutes counts once.
+2. Choose the **Period** (7, 30 or 90 days) and, if you like, the **Kind** (reports or dashboards); both stay in the page's address. **Most Opened** and **Who Opens the Most** rank the reports, dashboards and people.
+3. **All Openings** gives each item's openings, people, openings through embed links and when it was last opened, and **Where** it lives: its folder, owner and data. Two reports of one name also say when each was changed.
+4. **Nobody Opened** lists the reports no one opened in the period: candidates to tidy away. Each one's **⋯** opens it, moves it to a folder or deletes it. Opening the same item again within ten minutes counts once.
 
 **Use a scatter, bubble, treemap or waterfall chart**
 
@@ -3282,39 +3712,48 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Add a written summary to a dashboard**
 
-1. Edit the dashboard, press **Add Tile**, pick a report and choose **Written Summary**.
+1. Edit the dashboard, press **Add**, pick a report and, under **Show It As**, choose **Written Summary**.
 2. When the dashboard opens, the tile shows a few sentences from AI on the report's rows for the period, with the main points. It needs the workspace's **Explain This Report** switch (Settings → AI Assistant).
 3. A summary counts as one prompt and is kept for six hours for the same period and slicers, so opening the dashboard again costs nothing. The PDF carries the kept summary; an embed link does not write one.
 
+**Arrange a dashboard (Grid)**
+
+1. Edit the dashboard: it shows as it will look, with a faint guide behind. Tiles flow left to right in their order; each line is as tall as its tallest tile.
+2. Rest the pointer on a tile, or move to it with Tab, to show its toolbar: the grip, its size, edit (text and buttons), **Duplicate** and **Remove**.
+3. Drag the grip onto another tile to move it to that place. Without a mouse, open its size and choose **Move Earlier** or **Move Later**.
+4. Its size: **Small** (a quarter), **One Third**, **Medium** (a half), **Two Thirds**, **Wide** (three quarters) or **Full Width**, and **Tall** for two rows high.
+5. The dashed **Add a Tile** box shows where the next tile goes. A dashboard made before tile sizes opens as the same grid, each row's tiles at their widths.
+6. Press **Save**.
+
 **Lay a dashboard out freely (Free Canvas)**
 
-1. Edit the dashboard and choose **Free Canvas** above the tiles. The rows become places on a 12-column grid, as they were.
+1. Edit the dashboard and choose **Free Canvas** on the settings line. The tiles stay where they are, on a 12-column grid.
 2. Drag a tile by its grip (top left) to move it, and by its handle (bottom right) to resize it. With the keyboard, focus the grip and use the arrow keys to move, or Shift and the arrows (or the handle) to resize. Tiles may overlap; the later one sits on top.
-3. Each page has its own layout. **Rows** turns a canvas back into rows, read top to bottom.
-4. Press **Done** to save.
+3. Each page has its own layout. **Grid** flows the tiles again, in reading order.
+4. Press **Save**.
 
 **See and shape the phone layout**
 
-1. On a canvas page, press **Phone Preview**: the tiles stack top to bottom as a phone shows them.
-2. Press a tile's phone icon to leave it out on a phone (**Hide on Phone**); the preview says how many are hidden.
-3. On a narrow screen, every dashboard on a canvas reads this way. Rows stack on their own.
+1. In the editor, press **Phone Preview**: the tiles stack top to bottom as a phone shows them.
+2. To leave a tile out on a phone, choose **Hide on a Phone** in its size menu (Grid) or press its phone icon (Free Canvas); the preview says how many are hidden.
+3. On a narrow screen, every dashboard reads this way.
 
 **Give a dashboard a theme**
 
-1. Edit the dashboard and choose a **Theme**: Classic, Navy, Earth, Berry or Greyscale.
+1. Edit the dashboard and open **Theme** on the settings line: Classic, Navy, Earth, Berry or Greyscale.
 2. The theme sets the colours of every chart on the dashboard, in the viewer, in an embed link and in the editor. The PDF and PowerPoint keep the classic colours.
 
 **Add text to a dashboard**
 
-1. Edit the dashboard and press **Add Text**.
-2. Give it an optional **Title** and the **Text**: a blank line starts a paragraph, a line starting with - is a bullet, and **words between two stars on each side** are bold.
-3. Press **Add to Dashboard**. Its pencil changes the words later. The text shows in the PDF and PowerPoint too.
+1. Edit the dashboard, press **Add** and choose **Text** in the panel.
+2. Give it an optional **Title** and the **Text**: a blank line starts a paragraph, a line starting with - is a bullet, and **words between two stars on each side** are bold. Choose its **Size**.
+3. Press **Add to the Dashboard** (or **Add to** the page's name). Its pencil opens the panel again to change the words; **Save Changes** keeps them. The text shows in the PDF and PowerPoint too.
 
 **Add a button that opens a saved view, a page or a report**
 
-1. Save the view first if the button should open one (Views → Save the Current View).
-2. Edit the dashboard, press **Add Button**, give it a **Label**, choose **When Pressed** (Open a Saved View, Go to a Page or Open a Report) and which one.
-3. Press **Add to Dashboard**. In the viewer, pressing the button applies the view, opens the page or opens the report.
+1. Save the view first if the button should open one (View → Save the Current View).
+2. Edit the dashboard, press **Add** and choose **Button**. Give it a **Label**, choose **When Pressed** (Open a Saved View, Go to a Page or Open a Report) and which one.
+3. Press **Add to the Dashboard**. In the viewer, pressing the button applies the view, opens the page or opens the report.
 
 **Show another report when someone hovers a value (Tooltip Report)**
 
@@ -3328,13 +3767,14 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. Under **New Alert**, choose the value (**When**), the **Condition** (falls below, is at or below, rises above, is at or above) and the **Threshold**. For a percentage, 90 means 90%.
 3. Choose **Check**: Every Day at a time, or Every Hour. Add the addresses to email (people without the right to build reports alert themselves only), and an optional name. Press **Set Alert**.
 4. The value is the report's value over its own filters. When it crosses the threshold you get one email; you are emailed again only after it goes back and crosses again.
-5. **Check Now** reads the value at once. **Pause**, **Resume** and **Delete** are on each alert; Insights → Scheduled lists all your alerts.
+5. **Check Now** reads the value at once. **Pause**, **Resume** and **Delete** are on each alert.
+6. Insights → **Scheduled** → **Alerts** lists every alert. **New Alert** there takes two steps: **Pick a Report**, then the alert as above. Each alert's **⋯** has **Edit Alert**, Check Now, Open the Report, Pause and Delete.
 
 **Comment on a report or a dashboard, and pin a note to a value**
 
-1. Open the report or dashboard, open **More actions** and choose **Comments**. Write in the box at the bottom and press **Add Comment**.
+1. Open the report or dashboard, open **More actions** (the three dots) and choose **Comments**. Write in the box at the bottom and press **Add Comment**.
 2. To pin a note to a value, right-click it on a chart or a table and choose **Comment on This Value**. The chart then marks that value, and hovering it shows the note.
-3. On a dashboard, a tile's speech-bubble icon opens comments on that tile, with the count beside it.
+3. On a dashboard, a tile's **⋯** has **Comment**, which opens comments on that tile. Once it has comments, a speech bubble with the count shows on the tile.
 4. **Resolve** puts a thread among the resolved; **Open again** brings it back. You change or delete your own comments; the owner and report administrators delete any.
 
 **Export to PowerPoint**
@@ -3351,11 +3791,12 @@ Workspace administrators add calculated measures to their own datasets (Report D
 
 **Report on a CSV or Excel file (Uploaded Files)** (anyone who can build reports)
 
-1. Open Insights → **Uploaded Files** and press **Upload a File**, or drop the file on the page. The first row names the columns; in an Excel workbook the first sheet is read. Up to 100,000 rows, 50 columns and 20 MB; save an older .xls as .xlsx first.
-2. **Review the Columns** opens. Each column's type was read from its values: Text, Number, Date, Date and Time, or Yes or No. Rename a column under **Label**, make it **Text** if it is a code, and set a number to **A Dimension (Groups)** when it should group rather than add up, such as a year or a store number. The first values show beside each column.
+1. Open Insights → **Uploaded Files** and press **Upload a File**, or drop the file anywhere on the page. **Choose the File** reads it at once. The first row names the columns; in an Excel workbook the first sheet is read. Up to 100,000 rows, 50 columns and 20 MB; save an older .xls as .xlsx first.
+2. Step 2, **Review the Columns**, follows (Back returns to the file). Each column's type was read from its values: Text, Number, Date, Date and Time, or Yes or No. Rename a column under **Label**, make it **Text** if it is a code, and set a number to **A Dimension (Groups)** when it should group rather than add up, such as a year or a store number. The first values show beside each column.
 3. Give the dataset a **Name** and press **Save as Dataset**. New Report opens with your file picked under **Your Files**. It also offers **Upload a File**.
 4. Dates like 03/04/2026 are read with the day first when any day in the column is over 12, otherwise with the month first. A date and time with no zone is your workspace's time. Codes with leading zeros, such as 007, stay text.
-5. To refresh the rows, open the file's menu (the three dots) and choose **Replace File**. The new file must have the same column names, in any order, and the reports on it read the new rows at once. A file with reports built on it cannot be deleted.
+5. To refresh the rows, open the file's menu (the three dots) and choose **Replace File**. The new file must have the same column names, in any order, and the reports on it read the new rows at once. A file with reports built on it cannot be deleted; its Delete says how many reports use it.
+6. A file read but not saved yet shows **Needs Review**: **Review and Save** in its menu finishes it. Search, **Status** and **Used by Reports** narrow the list.
 
 **Add filters people choose (Report Filters)**
 
@@ -3424,11 +3865,11 @@ Examples: `IF([Amount] >= 500, "Gold", "Standard")`, `YEAR([Sent]) & "-" & TEXT(
 
 **Share a formula with every report on a dataset** (anyone who can build reports)
 
-1. Open **Insights**, then **Shared Formulas**, and choose the **Dataset**.
-2. Press **Add a Formula**. Give it a **Name**, choose **Measure Formula** or **Formula (Each Row)**, and add a **Description** that says what it means.
-3. Write the formula as in Custom Fields. It may use the dataset's fields and the shared formulas above it. Press **Add Formula**.
+1. Open **Insights**, then **Shared Formulas**. The list shows every dataset's formulas, with a **Dataset** column; the **Dataset** chip narrows it to one, and **Kind** and **Certified** narrow it further.
+2. Press **Add a Formula**. Step 1, **About the Formula**: the **Dataset** (set from the chip), **Measure Formula** or **Formula (Each Row)**, a **Name** and a **Description** that says what it means.
+3. Step 2, **The Formula**: write it as in Custom Fields, with the fields and functions beside it. It may use the dataset's fields and the shared formulas above it. Press **Add Formula**. **Edit** on a formula opens on this step.
 4. Every report on that dataset now lists it among the fields. It shows the word **Shared** next to its name, or a tick when it is certified.
-5. To share a formula you wrote in a report: in the report's **Custom Fields**, press **Share With Every Report** next to it, then **Add Formula**. The report then uses the shared formula in place of its own.
+5. To share a formula you wrote in a report: in the report's **Custom Fields**, press **Share With Every Report** next to it; the pop-up opens on The Formula, filled in; press **Add Formula**. The report then uses the shared formula in place of its own.
 6. A formula that reports use cannot be removed: the **Reports** column shows how many. Renaming one asks first, because a report may call it by name.
 
 **Certify a shared formula** (report administrators)
@@ -3558,14 +3999,17 @@ Component and Folder sit beside the title; every other action is in the **More a
 
 A dashboard is a page of tiles, each tile a saved report in one of its views or one of its figures, on **one period** that applies to every tile.
 
-- **Insights → Dashboards** lists them, favourites first, with their tiles, owner and sharing.
-- **New Dashboard** opens an empty one in the editor. Name it, choose who can open it (only you, or the workspace), and **Add Tile**: pick a report, then how to show it, one of its views or **one figure**, a measure totalled over the period. Each new tile goes into the last row with room, else a new row.
-- A dashboard is **rows of tiles**: one to four across of equal width, or wide and narrow. The row bar sets the width and moves or removes the row; a tile's controls move it left or right, rename it or remove it. Nothing overlaps or leaves a gap. **Done** saves the layout as a version.
-- **The period**: 7 Days, 30 Days, This Month, Quarter, or Custom dates, in the workspace's time zone, applied to every tile through its dataset's date. A report with its own date filter keeps it and the tile says **Own dates**. **Compare With Previous Period** adds the change to every figure.
-- **Slicers**: in the editor, **Add Slicer** picks a dimension the tiles' datasets share (Channel, Store, Campaign…), up to six. Viewing, each slicer is a chip under the period; open it, tick values and **Apply**, and every tile whose data has that field runs narrowed to them. A tile without the field says **Not sliced by** it. **Clear** takes the values off.
+- **Insights → Dashboards** starts with **Dashboard Templates**: **Start from Scratch**, then the ready-made dashboards of the Base Reports packs. A template opens a preview of what its pack adds; **Use This Template** opens Add Base Reports on that pack (a pack's dashboards come with the pack).
+- **Your Dashboards** lists the rest with their tiles, owner, sharing and when they changed. Search, filter by **Owner**, **Shared** or **Favourites** (the filters stay in the address), and switch between a list and a grid. Each dashboard's **⋯** opens, edits, duplicates (a private copy), shares, stars or deletes it.
+- **Create Dashboard** opens an empty one in the editor, which takes the whole window. The bar has the name and its saved state, **Close** (**Discard Changes** once something changed) and **Save**, which keeps the dashboard as a new version; leaving with changes asks first. The settings line has the period, the comparison, **Slicers**, **Theme**, **Who Can Open It** (only you, or the workspace), **Grid** or **Free Canvas**, **Phone Preview** and **Add**.
+- **Add** opens a panel at the right: **Report**, **Text** or **Button**. For a report, search and pick one, then **Show It As** one of its views or one of its totalled columns as a **Figure**, a title and a **Size**. The tile goes after the others and is chosen, its toolbar showing; the panel stays open for the next.
+- **Grid**: tiles flow left to right in their order, each at its size (Small to Full Width, and Tall). Its toolbar drags it to another place, sizes it, duplicates or removes it. See **Arrange a dashboard** above.
+- **The period**: one chip with the quick choices (7 Days, 30 Days, 90 Days, This Month, Quarter…) and a calendar for a custom range, in the workspace's time zone, applied to every tile through its dataset's date. A report with its own date filter keeps it and the tile's line says **Own dates** and its dates. **Compare With Previous Period** adds the change to every figure.
+- **Slicers**: in the editor, **Slicers → Add Slicer** picks a dimension the tiles' datasets share (Channel, Store, Campaign…), up to six. Viewing, each slicer is a chip after the period and Compare; open it, tick values and **Apply**, and every tile whose data has that field runs narrowed to them. A tile without the field says **Not sliced by** it. **Clear** takes the values off.
 - **Cross-filtering**: click a bar, a slice of a pie, a stage of a funnel or a cell in a grid tile, and the other tiles narrow to that value. When the field is not one of the dashboard's slicers, a chip appears for it with a cross to take it off. Clicking the same value again clears it.
 - Viewing a dashboard, you can switch the period, the comparison and the slicers for a look without saving; nothing of a selection is saved, and a PDF or a scheduled delivery is the dashboard as saved.
-- A dashboard's actions are in **More actions** (the three dots), as a report's are: Edit; Share, Comments and Schedule; Export PDF and Export PowerPoint; Embed on Another Site; Delete last.
+- **Tiles**: under its title, a line says what the tile reads: **Click a bar to filter the other tiles**, **Own dates** with its dates, or its report. Its **⋯** has **Open the Report**, **Show the Numbers** (its rows as a table), **Export CSV** and **Comment**. A tile refused because Insights is busy tries again by itself.
+- The header has ‹ Dashboards, **Updated** with **Refresh** (runs every tile again), **Share** and **Edit**. The rest are in **More actions** (the three dots): Comments and Schedule; Export PDF and Export PowerPoint; Embed on Another Site; Delete last.
 - **Export PDF** gives the dashboard with its tiles on its saved period; **Schedule** emails it as PDF.
 
 ## Scheduled delivery
@@ -3576,16 +4020,16 @@ Choose **Schedule** in **More actions** on a report or a dashboard:
 |---|---|
 | Every | Day, Weekday, Week (on a day) or Month (on a day of the month, 1 to 28). |
 | At | The time, in the workspace's time zone. |
-| Send as | Excel, CSV or PDF for a report; a dashboard goes as PDF. |
+| Send as | Excel, CSV, PDF or PowerPoint for a report; a dashboard goes as PDF or PowerPoint. |
 | To | Up to twenty addresses; Enter, a comma or a space adds one. |
 | Subject | Optional. `{date}` becomes the sending date. Empty: the report's name and the date. |
 | Note | Optional, at the top of the email. |
 
-The email goes out through the workspace's own mail server (Settings → Email Server; a workspace without one cannot schedule), built at the moment of sending with the rights and masking of whoever scheduled it, the file attached. Under the title the schedule line shows what, when, to how many, the last sending and the next, with **Change** and **Pause**. **Send a Test Now**, on a saved schedule, sends the email to you at once. **Insights → Scheduled** lists every schedule you may see, with Pause, Resume and Delete. Three failures in a row pause a schedule; Resume starts it again.
+The email goes out through the workspace's own mail server (Settings → Email Server; a workspace without one cannot schedule), built at the moment of sending with the rights and masking of whoever scheduled it, the file attached. Under the title the schedule line shows what, when, to how many, the last sending and the next, with **Change** and **Pause**. **Send a Test Now**, on a saved schedule, sends the email to you at once. **Insights → Scheduled** lists every schedule you may see, with who it goes to, the last sending and the next; search, **Kind**, **Owner** and **Status** (Active, Paused, Failing) narrow it. **New Schedule** takes two steps: **What to Send** (a report or a dashboard), then **When and to Whom**, the fields above with a sentence that sums them up. Each schedule's **⋯** has **Edit Schedule** (it opens on the second step), Open, Pause or Resume and Delete. Three failures in a row pause a schedule; Resume starts it again. Alerts have their own tab there.
 
 ## Run Log
 
-Insights → Run Log, for report administrators: every preview, run, export and delivery of the last 7 or 30 days, with the report and its version, the kind, who, the outcome with its reason when it is not OK, the rows and the time, filterable by outcome, person and report name, with a summary of the period.
+Insights → Run Log, for report administrators: every preview, run, export and delivery of the last 7 or 30 days, with the report and its version, the kind, who, the outcome, the rows and the time. The period's figures sit on top: runs, timed out, refused, failed and the median time. Search, **Period**, **Outcome** and **Person** narrow it (kept in the page's address). A run that did not go OK has an arrow beside its outcome: it opens a line saying why, with **Open the Report**. Twenty runs show at a time, or 50 or 100; **Export CSV** takes every run the filters show.
 
 ## How fresh is the data
 
@@ -3791,3 +4235,398 @@ Edit Fields.
 The freshness line under a report on one of your datasets reads "live from <database>": the engine reads your database
 at run time, under the same limits as any report (the statement time limit, the preview and run caps). A database that
 does not answer shows "<database> did not answer" on the report; the Run Log records it like any run.
+
+---
+
+# AI Assistant
+
+**Where:** Settings → General → AI Assistant.
+
+## What this page is for
+
+This page decides whether C360 may use AI in reports, which AI providers it may use, whose key pays for them, and whether a report's rows may be sent to the AI for a short reading. It is one switchboard for every AI feature of Insights:
+
+- **Ask for a Report** on Insights → AI Reports, which turns a prompt into a draft report.
+- **Change With AI** in the report editor, which changes the report you are editing from a prompt.
+- **Write It for Me** in a Report Database's query window, which writes the SQL from a prompt.
+- **What the Rows Show** in a report's Explain panel, and the **Written Summary** tile on a dashboard, which describe a report's rows in a few sentences.
+
+Two providers are offered: Claude (Anthropic) and OpenAI. Each runs either on the platform's key, within your plan's monthly allowance, or on your workspace's own key, which your plan does not limit.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin` (workspace administration) to open the page, change the switches and add or remove keys. |
+| Using the AI features | Ask for a Report, Change With AI and Write It for Me need `report.edit` or `report.admin`. What the Rows Show and the Written Summary tile are for anyone who can open the report or dashboard. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Use AI in Reports | The main switch. On by default. It cannot be switched on while no provider is in use (the page says so). | **On:** the AI features above are offered to the people allowed to use them, and **AI Reports** appears in the Insights menu. **Off:** none of them is offered; reports are built in the editor only, and no prompt or field name leaves C360. The provider switches and Explain This Report are greyed out while it is off. |
+| Providers | One row per provider, with its state: **Provided by the Platform**, **Not Offered**, or, with your own key, **Not Checked Yet**, **Checked** (with the time) or **Check Failed** (with the provider's reason). The line under the name says which models it runs. | What people can pick at the bottom of the prompt box. |
+| Allow (the switch beside a provider) | Shown when the platform offers the provider and you have no key of your own for it. On by default. | **Off:** that provider's models are no longer offered in this workspace. With every provider off, the AI features are not offered even with Use AI in Reports on. |
+| Use Your Own Key / Add Your Own Key | Opens the key form. **Use Your Own Key** when the platform offers the provider; **Add Your Own Key** when it does not. | Once saved, the provider runs on your key from then on (see below). |
+| Edit Key | Opens the key form for a key you already saved. | Change the models, or replace the key. |
+| Check Connection | Asks the provider for the account's model list with your stored key, and looks for your two models in it. | Records the result and its time on the provider's row. A key that does not work shows the provider's message; a model name the account does not list is named, so you can correct it. Saving a new key clears the last check. |
+| Use the Platform's Key / Remove | Deletes your own key, after asking. **Use the Platform's Key** when the platform offers the provider; **Remove** when it does not. | Prompts go through the platform's key again, within your plan; or, when the platform does not offer the provider, its models leave the picker. |
+| Explain This Report | Shown once a provider is in use. On by default. Greyed out, with "Switched off for the platform by the platform team.", when the platform does not allow it. | **On:** What the Rows Show and the dashboard's Written Summary tile are offered. **Off:** both are refused; the free What This Means tab of the Explain panel stays. |
+| AI Prompts This Month | The prompts counted this month, against your plan's allowance when it has one ("12 of 200"), or "No limit on this plan". | Nothing; a reading. It also says how long prompts and drafts are kept: 90 days. |
+
+### The key form
+
+| Field | What it is | What it changes |
+|---|---|---|
+| API Key | The key from the provider's console (console.anthropic.com → API Keys, or platform.openai.com → API Keys). Required the first time; when a key is stored, leave it empty to keep it. | Stored encrypted and never shown again. The browser never sees it: every call goes from C360's server to the provider. |
+| Model for Reports | The provider's model name, offered in the picker as "Best for reports". Filled in with the recommended model: `claude-sonnet-5-5` for Claude, `gpt-5` for OpenAI. Up to 80 characters: letters, digits, dots, dashes, underscores and colons. | The model the prompts run on when someone picks "Best for reports". |
+| Fast Model | The second model, offered as "Fastest". Filled in with `claude-haiku-5-5` for Claude, `gpt-5-mini` for OpenAI. Same rules. | The model the prompts run on when someone picks "Fastest". |
+
+Prompts on your own key are billed to you by the provider and are not limited by your plan.
+
+## How to
+
+**Switch AI off for the whole workspace.** Switch off **Use AI in Reports**. It saves at once (a tick confirms it). AI Reports leaves the Insights menu and the AI features are no longer offered; anything that still asks is answered "AI is switched off for this workspace (Settings → AI Assistant)."
+
+**Use only one provider.** Leave **Use AI in Reports** on and switch off the provider you do not want. Its models leave the picker.
+
+**Run on your own Claude key.** Press **Use Your Own Key** on the Claude row, paste the key, keep or change the two models, **Save**, then **Check Connection**. The row now says "Your own key" and prompts on it no longer count against the plan.
+
+**Keep report rows away from the AI.** Switch off **Explain This Report**. Ask for a Report and Change With AI still work: they never send rows.
+
+**Go back to the platform's key.** Press **Use the Platform's Key** on the provider's row and confirm.
+
+## What happens behind the scenes
+
+1. **What the AI receives.** Ask for a Report and Change With AI send your prompt and the names, types and calculations of the fields you may use (Change With AI also sends the report being edited), never customer rows. Write It for Me sends your request and the database's table and column names. What the Rows Show and the Written Summary tile send the report's name, its column names and up to 100 of the rows the person sees; columns hidden from that person as personal data are left out.
+2. **Which key is used.** For each provider, your own key wins over the platform's whenever you have one, whatever the provider's Allow switch says. Otherwise the platform's key is used when the platform offers the provider and the switch is on.
+3. **Which model is offered first.** The platform team's default model, when your workspace offers it; otherwise the first model in the list (Claude's model for reports when Claude is in use).
+4. **What counts as a prompt.** Only results count: a draft from Ask for a Report, a report changed by Change With AI, a query from Write It for Me, an explanation from What the Rows Show or the Written Summary tile. A question back from the AI, an answer to it, and a failed call do not count. Only prompts on the platform's key count; prompts on your own key are never counted.
+5. **When the allowance runs out.** Prompts on the platform's key are refused for the rest of the month, with a message saying how many were used. Prompts on your own key, and building reports by hand, carry on.
+6. **What is kept.** Every prompt is recorded in the workspace for 90 days, with who asked, the model and the outcome, for your audit trail. Documents and images sent with a prompt are not kept.
+
+## Things to know
+
+- The platform team decides which providers the platform's key offers and whether Explain This Report is allowed at all. This page can narrow that, never widen it, except by adding your own key.
+- Switching AI off does not touch the reports the AI made: they are ordinary reports and stay where they are.
+- The What This Means tab of the Explain panel uses no AI and is there whatever this page says.
+- The AI can be wrong. A draft is checked against your data before you see it, but read an explanation's figures before you act on them.
+- Ask for a Report is described step by step in the Insights chapter; Write It for Me in the Report Databases chapter.
+
+---
+
+# Fiscal Year
+
+**Where:** Settings → Insights → Fiscal Year.
+
+## What this page is for
+
+Many businesses do not run their year from January to December. This page tells C360 the month your fiscal year starts in, and how a fiscal year is named. Insights then groups, filters, compares and labels by your fiscal quarters and years, so a report reads "FY2027 Q3" the way your finance team does.
+
+Until someone sets it, the fiscal year is the calendar year.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | Anyone signed in can read it (reports need it). Changing it needs `user.admin` (workspace administration). |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Starts In | The month the fiscal year starts in, January to December. Default: January. Saves as soon as you choose. | Where every fiscal year and fiscal quarter begins: the four quarters are the three-month blocks counted from this month. Any month but January also adds **by Fiscal Quarter** and **by Fiscal Year** to the ways a date can be grouped, and the **Fiscal Quarter** and **Fiscal Year** periods to dashboards. |
+| Name a Fiscal Year By | **The Year It Ends In** (default) or **The Year It Starts In**. Greyed out while Starts In is January, when the fiscal year is the calendar year. Saves as soon as you choose. | Only the name. With April: April 2026 to March 2027 is **FY2027** by the year it ends in, **FY2026** by the year it starts in. The dates covered do not change. |
+| The example line | A sentence under the fields: "FY2027 runs from April 2026 to March 2027; today is in FY2027 Q3.", or "Your fiscal year is the calendar year." | Nothing; it reads your choice back so you can check it. |
+
+## What it changes in Insights
+
+| Where | With the calendar year (January) | With another start month |
+|---|---|---|
+| Grouping a date in the editor | by Day, Week, Month, Quarter, Year. | Also **by Fiscal Quarter** and **by Fiscal Year**, labelled FY2027 Q1, FY2027. |
+| Date filters | **in this fiscal year**, **in last fiscal year**, **in this fiscal quarter** and **in last fiscal quarter** are offered and cover calendar years and quarters. | The same filters cover your fiscal years and quarters. |
+| Year to Date and Quarter to Date comparisons | Count from 1 January and from the calendar quarter's first day. | Count from the fiscal year's first day and from the fiscal quarter's first day. |
+| Dashboard period | **This Year** (1 January to today); no fiscal quarter. | **Fiscal Quarter** and **Fiscal Year**: from the first day of the current fiscal quarter or year to today. |
+| Excel and PDF exports, the drill path, the result's labels | Calendar labels. | A fiscal column is written as FY2027 Q1 or FY2027. |
+
+## A worked example
+
+Your fiscal year starts in **April**, named by **The Year It Ends In**, and today is 20 November 2026.
+
+| Fiscal period | Dates |
+|---|---|
+| FY2027 | 1 April 2026 to 31 March 2027 |
+| FY2027 Q1 | April to June 2026 |
+| FY2027 Q2 | July to September 2026 |
+| FY2027 Q3 (today) | October to December 2026 |
+| FY2027 Q4 | January to March 2027 |
+
+- A report filtered **in this fiscal quarter** reads 1 October to 31 December 2026; **in last fiscal quarter** reads 1 July to 30 September 2026.
+- **in this fiscal year** reads 1 April 2026 to 31 March 2027; **in last fiscal year** reads 1 April 2025 to 31 March 2026.
+- Revenue grouped **by Fiscal Quarter** shows rows FY2027 Q1, FY2027 Q2, FY2027 Q3. A sale on 15 February 2026 falls in FY2026 Q4.
+- A **Year to Date** column on that report adds up from 1 April 2026.
+- A dashboard set to **Fiscal Year** shows 1 April 2026 to today; its previous period, for a tile that compares, is the same number of days just before.
+
+Switch **Name a Fiscal Year By** to **The Year It Starts In** and the same rows read FY2026 Q1, FY2026 Q2, FY2026 Q3; the dates stay the same.
+
+## How to
+
+**Set your fiscal year.** Open Settings → Fiscal Year, choose the month under **Starts In**, then choose how to **Name a Fiscal Year By**. Each choice saves at once; check the example line.
+
+**Report by fiscal quarter.** In the report editor, drag a date into Rows and choose **by Fiscal Quarter**. To keep it to this quarter, add a filter on the same date and choose **in this fiscal quarter**.
+
+## What happens behind the scenes
+
+1. The setting is stored on the workspace. Reports keep "in this fiscal quarter", never the dates, so every run works the dates out again from the setting and today's date in the workspace's time zone.
+2. Changing the start month changes every report and dashboard that uses a fiscal grouping, filter, comparison or period from its next run, including schedules and alerts. Results kept from before are not reused for the new year.
+3. A fiscal quarter or year in a result is the date of its first day; C360 names it (FY2027 Q1) on screen and in exports with the workspace's naming.
+
+## Things to know
+
+- With January, the fiscal filters still work and simply mean the calendar year and quarter.
+- Changing the start month after reports exist moves their fiscal figures; tell the people who read them.
+- The fiscal year applies to Insights. Campaign schedules and Home do not use it.
+
+---
+
+# Report Access
+
+**Where:** Settings → Insights → Report Access.
+
+## What this page is for
+
+Sharing decides which reports and dashboards a person can open. Report Access decides which **rows** they see inside them. A rule limits a person, or everyone holding a role, to some values of one field of a dataset: a store manager sees only their own stores, a regional lead only their region. The rule applies wherever that dataset is read for them, so it cannot be worked around by building another report.
+
+People without a rule see every row of what they can open.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `report.admin` to see, add, change and remove rules. |
+| Who a rule can name | Any active person of the workspace, or any role. A role reaches everyone holding it, including people given the role later. |
+
+## The fields and controls
+
+### The page
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Add a Rule | Opens the rule dialog. | |
+| Who | The person (with their email address) or the role (with how many people hold it) the rule is for. A person or role that no longer exists reads "Removed". | |
+| Dataset | The dataset the rule limits. | Only reads of this dataset are limited; other datasets are untouched. |
+| Sees Only | The field and the values allowed ("Store: Lakeside Mall, Downtown"), with the rule's note under it. A red line says when the dataset no longer offers the field. | |
+| Changed | When the rule was last saved. | |
+| Edit | Opens the rule in the dialog, titled **Change a Rule**. | |
+| Remove | Deletes the rule after asking ("They will see every row again."). | From the next run, the person or role sees every row of that dataset again, unless another rule still limits them. |
+
+When there is no rule yet the page says so: everyone sees every row of the reports and dashboards they can open.
+
+### The rule dialog (Add a Rule, Change a Rule)
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Who | Type part of a name, an email address or a role's name in **Find a person or a role**, then pick one from the list. Once picked it shows as a chip; **Change** clears it so you can pick someone else. Required. | Whose reads the rule limits. A rule on a role limits every holder of the role. |
+| Dataset | The workspace's datasets. Required. Changing it empties Field. | Which dataset's reads are limited. |
+| Field | The dataset's text, number and yes/no fields that group (dimensions), such as Store or Region. Required. Measures and date fields are not offered. | The field the values are checked against. |
+| Sees Only | The allowed values, one per line or separated by commas, written exactly as the reports show them. From 1 to 500 values; repeats are dropped. A number field needs numbers, a yes/no field `true` or `false`. Required. | Only rows whose field holds one of these values are shown. |
+| Note | Optional, up to 200 characters: why the rule exists, for whoever reads it later. | Shown under the values on the page. It does not change what anyone sees. |
+| Add Rule / Save | Saves the rule. Greyed out until Who, Field and at least one value are given. | The rule applies from the person's next run. |
+
+A person or role can have one rule per field of a dataset. To change the values, edit that rule; a second rule on the same field is refused with "That person or role already has a rule on this field; change it instead."
+
+## How the rules combine
+
+| Situation | What the person sees |
+|---|---|
+| A rule for the person and a rule for one of their roles, on the **same field** | The values of both rules together: Store is Lakeside Mall (their own rule) or Downtown (their role's rule). |
+| Rules on **different fields** of the dataset | Every rule applies: Region is North **and** Store is Lakeside Mall. |
+| No rule on the dataset | Every row. |
+| A rule on a field the dataset no longer offers, or a value that does not fit the field's type | Nothing: the run is refused with a message asking them to have the rule changed. C360 never shows everything instead. |
+
+## Where a rule applies
+
+Every read of the dataset made for that person:
+
+- Reports, in the viewer and the editor, with a note above the rows: "Your access shows only Store: Lakeside Mall, Downtown."
+- Dashboard tiles, and the values offered by a dashboard's slicers.
+- Exports and downloads of the report or dashboard.
+- Scheduled deliveries and alerts, which are built with the rights of their owner: the owner's rules decide the rows every recipient receives and the value an alert watches.
+- Linked measures read from another dataset, which carry that dataset's rules for the person.
+- What the Rows Show (Explain): the AI reads only the rows the person sees.
+- **Show the SQL**, which lists the rules it added ("Your row access rules are in it: …").
+
+Not limited: the query window of a workspace's own Report Database, which runs SQL as written. Give that window only to people who may see all of the database.
+
+## How to
+
+**Limit a store manager to their stores.** Add a Rule → find the person → Dataset: the sales dataset → Field: Store → Sees Only: their store names, one per line → Note: "Store manager, Lakeside and Downtown" → **Add Rule**. Open one of their reports as a check: the note above the rows names the stores.
+
+**Limit a whole team.** Make the rule on their role. Everyone who holds the role, now or later, is limited.
+
+**Lift a limit for one person while their role keeps it.** Rules only narrow. Give the person a role without the rule instead.
+
+## What happens behind the scenes
+
+1. At every run C360 reads the person's own rules and their roles' rules for the dataset, and adds them to the report's filters before the query runs. The rules come first, before the report's own filters, parameters and the result cache, so a result kept for someone else is never shown to them.
+2. A change to a rule is saved with a version number; saving over someone else's newer change is refused ("The rule changed since you opened it") and asks you to reload.
+
+## Things to know
+
+- Report Access limits rows, not reports. Who can open a report or dashboard is set by sharing (Share on the report or dashboard).
+- Write the values as the reports show them, including capitals and spaces; a value that matches nothing shows nothing.
+- Report administrators are limited by a rule that names them, like anyone else.
+- Masking personal data is separate: a person without the right to see personal data sees it masked, whatever their rules.
+
+---
+
+# Governance
+
+**Where:** Settings → Engagement → Audience → Governance. Home's Governance card opens it with **Open Governance**.
+
+## What this page is for
+
+How often marketing may reach one person, and what those rules did in the last 30 days. Every marketing send is checked against the rules just before it goes out: a person who has reached a cap is skipped by that send and counted as **Frequency Capped** on the campaign's results. Transactional messages and e-receipts are never capped and never count towards a cap.
+
+Some caps are set by the platform team for your workspace (sometimes for several workspaces at once). They are shown locked, marked **Platform**. You add caps of your own beside them. Every cap applies at the same time, so a cap of your own can only make sending stricter than the platform's, never looser.
+
+## The standard caps
+
+Every workspace starts with the industry-standard set:
+
+| Set By | Cap | Can You Change It |
+|---|---|---|
+| Platform | 1 marketing email per day, 1 text per day, 1 WhatsApp message per day | No: the platform's limit for every workspace, so nobody receives a burst of messages. |
+| This Workspace | 3 emails per 7 days, 4 texts per 30 days, 2 WhatsApp messages per 7 days, 5 messages per 7 days across all channels | Yes: edit, switch off or remove any of them, and add more. |
+
+A workspace with no caps of its own sees **Use the Recommended Caps**, which adds the workspace set in one go.
+
+## Gap Between Messages
+
+A gap keeps marketing of one channel apart: a person who received a marketing email in the last 16 hours is skipped by the next email send, like Klaviyo's Smart Sending. Each channel (Email, Text, WhatsApp) has one gap of your own, switched on or off, from 1 to 168 hours (7 days). It starts at the recommended hours: 16 for email, 24 for texts and WhatsApp.
+
+A gap is checked with the caps, and a person it skips is counted as **Frequency Capped** too. The platform team may also set a gap for your workspace; it is shown locked under its channel, and both apply.
+
+A cap of one message per day already keeps 24 hours between messages, so a gap of 24 hours or less adds nothing while such a cap applies. The page says so under the gap. The platform's standard caps are 1 per day on every channel, so a gap of your own matters when it is longer than 24 hours, or when that cap is switched off.
+
+## Send Windows and Quiet Hours
+
+A send window says when marketing of one channel may go out: from one time to another, on chosen days, in the workspace's time zone. Quiet hours are the same rule seen from the other side: a window of 08:00 to 21:00 means quiet hours of 21:00 to 08:00.
+
+A marketing send due outside its window is not skipped: it **waits** and starts when the window opens. A campaign scheduled for Saturday at 22:00 with an email window of 07:00 to 21:00 goes out on Sunday at 07:00 (or on Monday at 07:00 if Sunday is not one of the window's days). Transactional messages, e-receipts and test sends to testers never wait.
+
+Each channel (Email, Text, WhatsApp) has one window of your own, switched on or off. The platform team may set a window for your workspace too; it is shown locked under its channel. Every window applies, so a send goes out only when it is inside all of them: your own can only narrow the platform's. A window whose hours never meet the platform's is refused, since nothing could ever go out.
+
+A window can run past midnight (22:00 to 02:00); it belongs to the day it opens. Until a workspace has a text window, the platform's older quiet hours for texts still apply and are shown under Text.
+
+A campaign set to **Send at Each Recipient's Local Time** is checked against its window when its send starts, in the workspace's time zone; each person's message then goes at their own local time.
+
+## Blackout Dates
+
+A blackout date is a day with no marketing at all, on any channel: Christmas Day, a national day of mourning, the day of a system change. It is read in the workspace's time zone, from midnight to midnight.
+
+A marketing send due on a blackout date is not skipped: it **waits** for the next day that is not blacked out, and then for that channel's send window. With an email window of 07:00 to 21:00 and blackout dates on 25 and 26 December, a campaign scheduled for Christmas morning goes out on 27 December at 07:00. Transactional messages, e-receipts and test sends to testers never wait.
+
+A date can be one day or a run of up to 31 days (24 December to 2 January), once or **Every Year** on the same dates. Holidays that move from year to year, such as Thanksgiving, Easter or Eid, are added for each year. The platform team may set dates for your workspace too; they are listed locked, marked **Platform**, and every date applies.
+
+The list shows the soonest dates first. A one-off date that has passed stays listed, marked **Passed**, until you remove it. A date that is on now is marked **Today**.
+
+## Unengaged Contacts
+
+Mailbox providers such as Gmail and Outlook decide between the inbox and the spam folder partly by how many recipients ignore a sender. Mailing people who stopped reading long ago pulls every other message towards spam. **Unengaged Contacts** leaves those people out of marketing email.
+
+A person is left out when all three are true:
+
+1. Their first marketing email from CEP went out at least **180 days** ago, so CEP has watched them for the whole period.
+2. They were sent at least **5** marketing emails in the last 180 days.
+3. In those 180 days they made no **email click**, **text link click**, **purchase** (an order or an e-receipt) or **preference-page visit**.
+
+Opens are not counted: Apple Mail opens every message on its own, so an open says nothing about the reader. Clicks made by security scanners are not counted either. Nobody is unsubscribed or added to Suppressions: the next click or purchase brings the person back on the next send. Texts, transactional email and e-receipts are never affected.
+
+The card shows what the rule does today: how many of your email contacts it leaves out, how many engaged in the period, and how many are **too new to judge** (mailed for less than the period, or sent fewer emails than the minimum). It also shows the last 30 days: recipients left out, and people who came back after a click or purchase. **Download the People** gives a CSV of everyone left out, to build a win-back list from.
+
+**A new install.** CEP judges a person only after the period has passed since their first marketing email, so for the first 180 days nobody is left out. The card says when it starts: "Starts 18 May 2027" for a workspace whose first marketing email went out on 19 November 2026. People added later each get their own 180 days.
+
+**A win-back campaign** can reach these people: turn on **Include Unengaged Contacts** in the campaign's Review & Publish → When and How It Goes Out. It is off by default and recorded in the activity log when the campaign is published.
+
+The platform team may set a longest allowed, shown locked on the card ("Platform: at most 270 days"). Your own rule may only be stricter: fewer days, or fewer emails.
+
+## Who can use it
+
+| | |
+|---|---|
+| Open the page | Workspace administrators (`user.admin`, as for every Settings page). |
+| Add, change or remove a cap | `governance.edit` on a role. Without it the page is read-only. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Last 30 Days · Recipients Checked | One for each person on each campaign send in the last 30 days, kept or skipped for any reason: a person on three sends counts three times. | Nothing: a figure. |
+| Last 30 Days · Sent Within the Rules | The share of those recipients who were sent the message. | Nothing: a figure. A low share means many people were left out, by caps, consent, opt-outs or blocked addresses. |
+| Last 30 Days · Skipped by a Cap or Gap | Recipients a cap or a gap held back. | Nothing: a figure. Each one is counted as Frequency Capped on the campaign's Recipients tab. |
+| Frequency Caps table | Every cap that applies to this workspace: Channel, Most (for example *3 emails per 7 days*), Set By (**Platform** or **This Workspace**), In Use. | Each cap is checked on every marketing send of its channel. |
+| Channel | Email, Text (SMS and MMS together), WhatsApp, or All Channels. | Which sent messages are counted. All Channels counts every email, text and WhatsApp message together; it applies to every marketing send. |
+| Most | 1 to 1,000. | The number of marketing messages one person may have received in the period before the next one is skipped for them. |
+| Days | 1 to 365. A rolling period ending now. | How far back the messages are counted. |
+| In Use | A switch on each of your own caps; *On* or *Off* for the platform's. | Off: the cap stays listed but is not checked. |
+| Add Cap | Opens the cap form. | Adds a cap of your own. It applies from the next send. |
+| Use the Recommended Caps | Shown while the workspace has no caps of its own. | Adds the standard workspace caps above for every channel not capped yet. Each is then yours to change. |
+| Gap Between Messages · Hours | 1 to 168, one box per channel. Saved when you leave the box or press Enter. | How long after a marketing message of that channel the next one is skipped for that person. |
+| Gap Between Messages · Switch | On or off, per channel. | On: the gap is checked from the next send. Off: it is kept with its hours but not checked. |
+| Edit | On your own caps. | Changes the cap from the next send; sends already built are not rebuilt. |
+| Remove | On your own caps; asks first. | The cap no longer applies. |
+| Locked | On the platform's caps. | The platform team changes or removes these in the back-office; you cannot. |
+| Send Windows · From, To | Times in the workspace's time zone, saved when you leave the box. To earlier than From runs past midnight. | When marketing of the channel may start and stop going out. |
+| Send Windows · Days | Mon to Sun; at least one. Saved on each click. | The days the window opens. |
+| Send Windows · Switch | On or off, per channel. It starts at the recommended hours: email 07:00 to 21:00, texts and WhatsApp 09:00 to 20:00, every day. | On: sends of the channel wait for the window from the next send. Off: kept with its hours but not checked. |
+| Send Windows · Bar | The 24 hours, with the window marked. | Nothing: a picture of the hours. |
+| Blackout Dates · Add Date | Opens the date form: Name, From, To, Every Year. | Adds a blackout date of your own. It applies from the next send. |
+| Name | Up to 120 characters, such as Christmas; no two rules share a name. | Shown in the list and in a waiting campaign's activity log. |
+| From, To | Dates in the workspace's time zone. To empty means one day; at most 31 days in all. A one-off date must not have passed. | The days no marketing goes out. |
+| Every Year | A tick. | Repeats the dates every year. Off: the dates happen once. |
+| Blackout Dates · Switch | On or off, on each of your own dates. | Off: the date stays listed but holds nothing back. |
+| Blackout Dates · Edit, Remove | On your own dates; Remove asks first. | Changes or removes the date from the next send. Platform dates are locked. |
+| Unengaged Contacts · Use 180 Days | Shown when no rule applies. | Adds the recommended rule: 180 days, at least 5 marketing emails. |
+| Unengaged Contacts · Edit | Opens the rule: No Engagement In and After at Least. | Changes the rule from the next send. |
+| No Engagement In | 30 to 360 days, or up to the platform's longest. Click history is kept 12 months. | The period a person must have gone without engaging. |
+| After at Least | 1 to 20 marketing emails sent in the period. | A person sent fewer is never left out. The dialog shows how many would be left out today before you save. |
+| Unengaged Contacts · Switch | On or off. | Off: nobody is left out. |
+| Download the People | A CSV: customer ID, email, name, emails in the period, first marketing email, last engagement. | Nothing: a list to upload as a win-back audience. |
+| Include Unengaged Contacts | In a marketing email campaign's Review & Publish → When and How It Goes Out; off by default. | On: the campaign reaches unengaged contacts too. Recorded in the activity log. |
+| Priority and Exemptions | Read-only. | Transactional messages and e-receipts are never capped. A campaign can ignore the caps with **Apply Corporate Frequency Limits** off on its Schedule step; that is recorded in the activity log. |
+| List Hygiene | Read-only. | A hard bounce or a spam complaint blocks an address at once; soft bounces block it after the number shown. Blocked addresses are listed under Suppressions. |
+
+## How to
+
+**Cap marketing email at three a week.** Add Cap → Channel **Email**, Most **3**, Days **7** → Add Cap.
+
+**Keep one person from hearing from you more than five times a week, whatever the channel.** Add Cap → Channel **All Channels**, Most **5**, Days **7**.
+
+**Keep at least a day and a half between texts.** Gap Between Messages → Text: type **36** in the hours box, switch it on.
+
+**No marketing texts on Sunday, and only from 10:00 to 20:00.** Send Windows → Text: From **10:00**, To **20:00**, click **Sun** off, switch it on.
+
+**Stop mailing people who stopped reading.** Unengaged Contacts → Use 180 Days. To be stricter: Edit → No Engagement In **120** → watch the count change → Save Rule.
+
+**Send a last "Do you still want our emails?" message.** Unengaged Contacts → Download the People → upload the CSV as a contact list → a new email campaign to that list → Schedule step → turn on **Include Unengaged Contacts**.
+
+**No marketing over the holidays, every year.** Blackout Dates → Add Date → Name **Holidays**, From **24 Dec**, To **26 Dec**, tick **Every Year** → Add Date.
+
+**Pause a cap for a big launch.** Switch its **In Use** off, and on again afterwards. Or switch **Apply Corporate Frequency Limits** off on that one campaign's Schedule step.
+
+## What happens behind the scenes
+
+- The caps are checked when a send's audience is built. For each person, C360 counts the marketing messages they were sent in each cap's period (queued or failed ones do not count); if any cap is reached, the person is skipped.
+- A platform cap is a copy of the platform team's policy in your workspace. When they change it, or take your workspace off it, your copy changes or disappears.
+
+## Things to know
+
+- A journey's marketing messages are checked like a campaign's: a customer at a cap or within a gap skips that message and moves on. They also count towards the caps and gaps.
+- A cap of 1 per day on email still lets a transactional email through the same day.
+- A blackout date holds back a journey's marketing messages too: customers who reach that step wait together and are sent the next clear day.
+- Unengaged Contacts applies to journeys' and drips' marketing emails too. A drip's Review step says so, with the share of your email contacts it leaves out today.
+- A customer's page shows when they last engaged and whether marketing email leaves them out, under Engagement.
+- The counts on the card are refreshed every 10 minutes.
+- A drip whose message falls on a blackout date says so on its Review step, with the day it will go out instead.
+- Removing a cap does not resend anything to people it skipped earlier.
