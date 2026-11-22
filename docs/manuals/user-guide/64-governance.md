@@ -65,7 +65,7 @@ The card shows what the rule does today: how many of your email contacts it leav
 
 **A new install.** CEP judges a person only after the period has passed since their first marketing email, so for the first 180 days nobody is left out. The card says when it starts: "Starts 18 May 2027" for a workspace whose first marketing email went out on 19 November 2026. People added later each get their own 180 days.
 
-**A win-back campaign** can reach these people: turn on **Include Unengaged Contacts** on the campaign's Schedule step. It is off by default and recorded in the activity log when the campaign is published.
+**A win-back campaign** can reach these people: turn on **Include Unengaged Contacts** in the campaign's Review & Publish → When and How It Goes Out. It is off by default and recorded in the activity log when the campaign is published.
 
 The platform team may set a longest allowed, shown locked on the card ("Platform: at most 270 days"). Your own rule may only be stricter: fewer days, or fewer emails.
 
@@ -111,7 +111,7 @@ The platform team may set a longest allowed, shown locked on the card ("Platform
 | After at Least | 1 to 20 marketing emails sent in the period. | A person sent fewer is never left out. The dialog shows how many would be left out today before you save. |
 | Unengaged Contacts · Switch | On or off. | Off: nobody is left out. |
 | Download the People | A CSV: customer ID, email, name, emails in the period, first marketing email, last engagement. | Nothing: a list to upload as a win-back audience. |
-| Include Unengaged Contacts | On a marketing email campaign's Schedule step; off by default. | On: the campaign reaches unengaged contacts too. Recorded in the activity log. |
+| Include Unengaged Contacts | In a marketing email campaign's Review & Publish → When and How It Goes Out; off by default. | On: the campaign reaches unengaged contacts too. Recorded in the activity log. |
 | Priority and Exemptions | Read-only. | Transactional messages and e-receipts are never capped. A campaign can ignore the caps with **Apply Corporate Frequency Limits** off on its Schedule step; that is recorded in the activity log. |
 | List Hygiene | Read-only. | A hard bounce or a spam complaint blocks an address at once; soft bounces block it after the number shown. Blocked addresses are listed under Suppressions. |
 

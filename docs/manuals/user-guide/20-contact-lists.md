@@ -124,6 +124,7 @@ One customer across the workspace, read from the records C360 syncs (or an uploa
 | Header | The name, the customer id, where the record came from and when it was last updated, and a tag per channel saying whether they can receive marketing (Email: Can receive; SMS: No consent). |
 | Record | Email addresses, phone numbers and the address, as the record holds them. |
 | Consent | Per channel: the consent status, whether they can receive and why not, when they opted in or out and how, and any suppression. This is the verdict the send engine uses. |
+| Engagement | What Unengaged Contacts (Settings → Governance) sees for this person. **Last Engaged**: their last click, purchase or preference visit ("Never, in the kept history" when there is none). **Marketing Email**: Gets marketing email; a tag when they are left out (**Unengaged since 3 March 2027**), until they click, buy or visit the preference page; or No Unengaged Contacts rule applies. **Emails, 180 Days**: the marketing emails sent to them in the rule's period. |
 | Custom Attributes | Every field C360 sent with the record (loyalty tier, home store, time zone, dates), which conditions, splits, date entries and time-of-day waits read. |
 | Journeys | Every journey they entered, with where they are now, whether they converted and **View Timeline**, which opens their timeline on the journey's page; and the journeys they are kept out of by a suppression. |
 | Events | The last 50 events received for them, with their data. |

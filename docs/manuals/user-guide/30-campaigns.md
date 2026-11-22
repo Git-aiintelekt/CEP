@@ -82,12 +82,14 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 ## What happens behind the scenes
 
 1. **Publishing** runs every check (a published template with content, an opt-out link in a marketing email, a verified sender, at least one production list, a time in the future for a schedule) and creates the run or runs: one for a one-time send, one per occurrence for a recurrence as they come due, one per step for a drip series.
-2. **At the run's time** the dispatcher, which looks every minute, starts the run: the included lists are merged into the campaign's own frozen list, one entry per person, the excluded lists' people marked, and governance applied in order: bounced, complained or blocked addresses, invalid addresses, the suppression list, unsubscribes, consent, the campaign's topic, frequency limits, duplicates. Transactional, service and legal campaigns skip the consent rules but never a blocked or invalid address.
+2. **At the run's time** the dispatcher, which looks every minute, starts the run: the included lists are merged into the campaign's own frozen list, one entry per person, the excluded lists' people marked, and governance applied in order: bounced, complained or blocked addresses, invalid addresses, the suppression list, unsubscribes, consent, the campaign's topic, unengaged contacts (marketing email only, unless the campaign includes them; Settings → Governance), frequency limits, duplicates. Transactional, service and legal campaigns skip the consent rules but never a blocked or invalid address.
 3. **Sending** hands the messages to the sender's engine in batches; a subject line test splits a sample between A and B and holds the rest until the winner is chosen; recipient-local sending holds each message until the chosen time in the person's own zone.
 4. **The engine calls back** and every message's row moves forward: delivered, opened, clicked, bounced, complained. The campaign's figures, the report and Home all read those rows.
 5. **The activity log** records each step, and a failed run raises a banner on the campaign and an alert on Home.
 
 ## Things to know
+
+- **Unengaged** as the reason someone was left out means the workspace's Unengaged Contacts rule: no click, purchase or preference visit in its period, after at least its number of marketing emails. The person is not unsubscribed; their next click or purchase brings them back. A win-back campaign reaches them with Include Unengaged Contacts.
 
 - The frozen list is made when a run starts, not at publish: a scheduled send uses the lists as they are on the day, and governance is always decided at send time.
 - A Test list can never go to production; a test publish never counts in results.
