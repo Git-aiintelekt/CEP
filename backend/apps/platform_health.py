@@ -148,6 +148,12 @@ def check_configuration():
         problems.append("ALLOWED_HOSTS accepts any host")
     if not settings.MEDIA_BUCKET:
         problems.append("uploads go to the local disk, not object storage / CDN")
+    else:
+        from apps.media import records
+        missing = records.lacking()
+        if missing:
+            problems.append(f"{len(missing)} workspace{'s' if len(missing) != 1 else ''} without a storage record ({', '.join(t.code for t in missing[:5])}): "
+                            "they cannot upload images or contact lists (manage.py storage_records --apply)")
     if not problems:
         return _result("Configuration", OK, "Production settings in place")
     return _result("Configuration", OFF if settings.DEBUG else FAIL, "; ".join(problems), "Expected in development. None of these may be true in production.")

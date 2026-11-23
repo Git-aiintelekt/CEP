@@ -2,6 +2,7 @@
 column on the Tenants list. Read-only; every check names the page that fixes it.
 
     provisioned     partitions, the routing row and the starting roles (what onboard_tenant makes)
+    storage         the storage record, once uploads go to object storage (MEDIA_BUCKET); not shown while they stay on the disk
     plan            a trial or active subscription, with a billing reference
     features        the industry profile and the resolved feature switches
     administrator   an active user whose role holds user.admin
@@ -11,7 +12,7 @@ column on the Tenants list. Read-only; every check names the page that fixes it.
     sso             an identity provider (optional)
 """
 from django.conf import settings
-from django.db import connections
+from django.db import connections, transaction
 from django.db.models import F
 from django.urls import reverse
 
@@ -22,7 +23,7 @@ from apps.platform_ops import params
 from apps.platform_ops.models import PlatformPersonalizationTag, TenantIdentityProvider
 from apps.templates.models import PersonalizationTag
 
-from .models import TenantDatabase, TenantSubscription
+from .models import TenantDatabase, TenantStorageConfig, TenantSubscription
 from .services import DEFAULT_ROLES
 
 P = settings.PLATFORM_ALIAS
@@ -61,6 +62,19 @@ def checks(tenant) -> list[dict]:
         gaps += [f"no roles (onboarding makes {', '.join(DEFAULT_ROLES)})"] if not roles else []
         out.append(_check("provisioned", "Provisioned", TODO, "Nothing works in the workspace before this. " + "; ".join(gaps) + ".",
                           action="Repair Onboarding", url=reverse("admin:tenants_tenant_changelist") + f"?q={tenant.code}"))
+
+    # ---- storage (only once uploads go to object storage)
+    if settings.MEDIA_BUCKET:
+        with transaction.atomic(using=P), connections[P].cursor() as cursor:
+            cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [tid])           # the table's row-level security
+            record = TenantStorageConfig.objects.using(P).filter(tenant_id=tenant.pk).first()
+        if record is None:
+            out.append(_check("storage", "Storage and CDN", TODO, "No storage record: the workspace cannot upload images or contact lists.",
+                              action="Repair Onboarding", url=reverse("admin:tenants_tenant_changelist") + f"?q={tenant.code}"))
+        else:
+            host = record.custom_asset_domain if record.custom_domain_status == "ACTIVE" and record.custom_asset_domain else record.cdn_base_url
+            out.append(_check("storage", "Storage and CDN", OK, f"{record.storage_backend} · {record.bucket_name}/{record.base_prefix} · served from {host}",
+                              action="Open", url=reverse("admin:tenants_tenantstorageconfig_change", args=[record.pk])))
 
     # ---- plan
     subscription = TenantSubscription.objects.using(P).select_related("plan").filter(tenant=tenant, status__in=["TRIAL", "ACTIVE"]).first()
