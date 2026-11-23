@@ -4,7 +4,7 @@
  * The governance lines are how a marketing email send would judge each contact today (same rules as the send engine).
  */
 import { Download } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import { buttonSecondary } from '@/components/Form'
 import { api } from '@/lib/api'
@@ -45,12 +45,9 @@ export function GovernanceLines({ statuses, total, sendable }: { statuses: Uploa
   )
 }
 
-export function UploadReport({ job }: { job: ListImport }) {
+/** the row-by-row report as a button (or a link, by `className`); a failed download says why beside it */
+export function ReportDownload({ job, className, children }: { job: ListImport; className: string; children: ReactNode }) {
   const [problem, setProblem] = useState('')
-  const summary = job.summary
-  if (!summary) return null
-  const { held_back: held, ready, governance, result } = summary
-
   const download = async () => {
     setProblem('')
     try {
@@ -65,6 +62,18 @@ export function UploadReport({ job }: { job: ListImport }) {
       setProblem(problemText(error))
     }
   }
+  return (
+    <>
+      <button type="button" className={className} onClick={() => void download()}>{children}</button>
+      {problem && <span role="alert" className="text-sm font-medium text-danger-plain">{problem}</span>}
+    </>
+  )
+}
+
+export function UploadReport({ job }: { job: ListImport }) {
+  const summary = job.summary
+  if (!summary) return null
+  const { held_back: held, ready, governance, result } = summary
 
   return (
     <section aria-label="Upload Report" className="space-y-4">
@@ -103,10 +112,9 @@ export function UploadReport({ job }: { job: ListImport }) {
         {' '}Everyone ready is imported whatever their status: the list is the audience, and every send checks again.
       </p>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className={buttonSecondary} onClick={() => void download()}>
+        <ReportDownload job={job} className={buttonSecondary}>
           <Download size={16} strokeWidth={1.5} aria-hidden /> Download the Row-by-Row Report
-        </button>
-        {problem && <span role="alert" className="text-sm font-medium text-danger-plain">{problem}</span>}
+        </ReportDownload>
       </div>
     </section>
   )

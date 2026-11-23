@@ -140,7 +140,7 @@ export function StepSequence({ campaign, options, workspaceZone, attempt, onEdit
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="order-first flex min-w-0 flex-col gap-4 lg:sticky lg:top-44 lg:order-last xl:top-36" data-series-column>
+      <div className="order-first flex min-w-0 flex-col gap-4 lg:sticky lg:top-44 lg:order-last xl:top-48" data-series-column>
         <div data-series-start>
           <SeriesCard campaign={campaign} steps={steps} series={series} options={options?.timezones ?? []} />
         </div>
@@ -149,7 +149,7 @@ export function StepSequence({ campaign, options, workspaceZone, attempt, onEdit
 
       <div className="flex min-w-0 flex-col gap-5">
         {flagging && (
-          <div ref={banner} className="scroll-mt-48">
+          <div ref={banner} className="scroll-mt-48 xl:scroll-mt-52">
             <Notice tone="error" layout="banner" action={<button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} onClick={showFirstProblem}>Show First Problem</button>}>
               <p className="font-semibold">{bannerText(problems)}</p>
             </Notice>

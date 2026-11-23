@@ -292,16 +292,21 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
 
   // 1. from an audience: attached automatically
   let dialog = await openPicker()
-  await user.click(within(dialog).getByRole('radio', { name: 'From an Audience or a Clone' }))
-  await user.type(within(dialog).getByLabelText(/^List Name/), 'Gold for this campaign')
-  expect(within(dialog).getByRole('radio', { name: /BI or Extraction Tool/ }).getAttribute('aria-checked')).toBe('true')   // opened on the way that was asked for
-  expect(within(dialog).queryByRole('radio', { name: /Upload a File/ })).toBeNull()                    // the upload has its own tab
-  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Choose an Audience' })
+  await user.click(within(dialog).getByRole('radio', { name: 'Audience or Clone' }))
+  expect(within(dialog).queryByRole('radio', { name: /Upload a File/ })).toBeNull()                    // the upload has its own card
+  expect(within(within(dialog).getByRole('list', { name: 'Progress' })).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Source', 'Details'])
   await user.click(await within(dialog).findByRole('radio', { name: /Loyalty Gold/ }))
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  expect(within(dialog).queryByRole('radiogroup', { name: 'How to add a list' })).toBeNull()           // the cards leave after the first step
+  expect(within(dialog).getByText('Copying from')).toBeTruthy()
+  const named = within(dialog).getByLabelText('List Name') as HTMLInputElement
+  expect(named.value).toMatch(/^Copy of Loyalty Gold/)                                                 // prefilled from the source
+  await user.clear(named)
+  await user.type(named, 'Gold for this campaign')
   await user.click(within(dialog).getByRole('button', { name: 'Create List' }))
   await within(dialog).findByRole('heading', { name: 'List Created' })
-  expect(within(dialog).getByText(/attached to this campaign already/)).toBeTruthy()
+  expect(within(dialog).getByText('Gold for this campaign')).toBeTruthy()
+  expect(within(dialog).queryByText('Needs Review')).toBeNull()                                         // no status tag for a vetted list
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
   const sendTo = () => screen.getByRole('table', { name: 'Lists this campaign is sent to' })
   const gold = (await within(await screen.findByRole('table', { name: 'Lists this campaign is sent to' })).findByRole('link', { name: 'Gold for this campaign (opens in a new tab)' })).closest('tr')!
@@ -313,21 +318,22 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await user.click(within(dialog).getByRole('radio', { name: 'Upload New' }))
   await user.type(within(dialog).getByLabelText(/^List Name/), 'Booth scans')
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Add Your File' })
+  await within(dialog).findByLabelText('CSV File')
   await user.upload(within(dialog).getByLabelText('CSV File'), csv())
   await within(dialog).findByText('leads.csv')
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Match Your Columns' })
+  await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Where Did These People Agree?' })
+  await within(dialog).findByRole('heading', { name: 'How did these people opt in?' })
   await user.click(within(dialog).getByRole('radio', { name: /Enrolled in store/ }))
   await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Review Before Importing' })
+  await within(dialog).findByText(/contacts ready to import/)
   await user.click(await ready(dialog, 'Create List'))
   await within(dialog).findByRole('heading', { name: 'List Created' })
-  expect(within(dialog).getByText(/waits in Send To as Needs review/)).toBeTruthy()
-  await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+  expect(within(dialog).getByText('Needs Review')).toBeTruthy()
+  expect(within(dialog).getByText('Booth scans')).toBeTruthy()
+  await user.click(within(dialog).getByRole('button', { name: 'Review List' }))
 
   const booth = (await within(sendTo()).findByRole('link', { name: 'Booth scans (opens in a new tab)' })).closest('tr')!
   expect(within(booth).getByText(/Needs Review · Uploaded file · not counted until you confirm/)).toBeTruthy()

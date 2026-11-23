@@ -1,7 +1,7 @@
 /**
  * Settings → UTM Tracking: whether the links of email and text campaigns carry UTM tags, the value of each parameter (fixed
  * text or a campaign field), the sites whose links are tagged, and what happens to a link that already has tags. A live
- * example shows what one link goes out as. The campaign's Content step lists its own links (LinkTrackingCard).
+ * example shows what one link goes out as. The campaign's Content step shows how its links go out in one line (LinkTrackingRow), with Edit leading here.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'

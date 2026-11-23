@@ -164,7 +164,7 @@ export function StepTargets() {
         </DetailCard>
       </div>
 
-      <div className="lg:sticky lg:top-44 xl:top-36" data-plan-card>
+      <div className="lg:sticky lg:top-44 xl:top-48" data-plan-card>
         <PlanCard targets={targets} />
       </div>
     </div>

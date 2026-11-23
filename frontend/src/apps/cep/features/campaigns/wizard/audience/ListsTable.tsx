@@ -76,14 +76,14 @@ export function ListsTable({ rows, caption, zone, campaignChannel, onRemove, onC
         )}
       </div>
     ) },
-    { key: 'source', header: 'Source', render: (row) => (
+    { key: 'source', header: 'Source', colClassName: 'w-40', render: (row) => (
       <span className="inline-flex flex-wrap items-center gap-1.5">
         <Tag>{sourceLabel(row.source_type)}</Tag>
         {row.list_environment === 'TEST' && <Tag tone="warning">Test</Tag>}
       </span>
     ) },
-    { key: 'contacts', header: 'Contacts', align: 'right', render: (row) => formatNumber(row.member_count) },
-    { key: 'actions', header: '', className: 'w-0 whitespace-nowrap text-right', render: (row) => row.state === 'review' ? null : <IconButton label={`Remove ${row.name}`} icon={X} size="sm" onClick={() => onRemove(row)} /> },
+    { key: 'contacts', header: 'Contacts', align: 'right', colClassName: 'w-24', render: (row) => formatNumber(row.member_count) },
+    { key: 'actions', header: '', colClassName: 'w-14', className: 'whitespace-nowrap text-right', render: (row) => row.state === 'review' ? null : <IconButton label={`Remove ${row.name}`} icon={X} size="sm" onClick={() => onRemove(row)} /> },
   ]
 
   return (

@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { pickTemplate } from '@/test/pickTemplate'
 import { cepReady, installMockApi, makeCampaign, me, signIn } from '@/test/mockApi'
 
 /** The API client reads its session when the module loads, so each test signs in first and imports the app fresh. */
@@ -311,8 +312,7 @@ test('setup: a picked template opens in its own editor, an e-receipt in the rece
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=3')
 
-  const cards = await screen.findByRole('radiogroup', { name: 'Template' })
-  await user.click(within(cards).getByRole('radio', { name: /Northline order receipt/ }))
+  await pickTemplate(user, /Northline order receipt/)
   const open = await screen.findByRole('link', { name: /Open in the Receipt Editor/ })
   expect(open.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
 })

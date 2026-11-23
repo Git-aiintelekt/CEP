@@ -10,13 +10,12 @@
  */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, CircleCheck, Pencil, Save, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CircleCheck, Pencil, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { FormProvider, useForm, type FieldPath } from 'react-hook-form'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { IconButton } from '@/components/Button'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
@@ -282,38 +281,32 @@ export function CampaignWizardPage() {
   const backLabel = loaded.setup_complete ? 'Back to the Campaign' : 'Back to Campaigns'
 
   return (
-    <section>
+    <section className="flex flex-1 flex-col">
       {/* the flow's own top bar, the width of the content area, under the app's top bar */}
-      <div className="@container sticky top-14 z-20 -mx-4 -mt-6 border-b border-line bg-surface md:-mx-8 md:-mt-8" data-flow-bar>
+      <div className="sticky top-14 z-20 -mx-4 -mt-6 border-b border-line bg-surface md:-mx-8 md:-mt-8" data-flow-bar>
         <div className="flex h-16 items-center gap-4 px-4 md:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3 xl:flex-initial">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Link to={back} aria-label={backLabel} title={backLabel}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md border border-line text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-hover">
               <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />
             </Link>
             <span className="min-w-0 truncate text-card-title font-semibold text-ink-900" title={loaded.name} data-testid="flow-campaign-name">{loaded.name}</span>
-            <PageHelp chapter="campaign-setup" />
             <span className="hidden shrink-0 sm:inline-flex"><StatusBadge status={loaded.display_status} label={loaded.display_status_label} /></span>
             <button type="button" aria-label="Edit Details" onClick={() => openDetails(true)}
               className="group relative inline-flex shrink-0 items-center gap-1.5 rounded-control-sm text-sm font-semibold text-brand-800 hover:underline">
-              <Pencil size={16} strokeWidth={1.5} aria-hidden /><span className="sr-only sm:not-sr-only xl:@max-[1339px]:sr-only">Details</span>
-              <HoverTip label="Edit Details" show="max-sm:group-hover:block max-sm:group-focus-visible:block xl:@max-[1339px]:group-hover:block xl:@max-[1339px]:group-focus-visible:block" />
+              <Pencil size={16} strokeWidth={1.5} aria-hidden /><span className="sr-only sm:not-sr-only">Details</span>
+              <HoverTip label="Edit Details" show="max-sm:group-hover:block max-sm:group-focus-visible:block" />
             </button>
           </div>
-          <div className="hidden flex-1 justify-center xl:flex"><FlowStepper {...stepper} /></div>
-          <div className="flex shrink-0 items-center gap-3">
-            {dirty && <span className="hidden text-helper text-ink-800 2xl:inline">Unsaved changes</span>}
-            <span className="hidden xl:inline-flex"><button type="button" className={buttonSecondary} disabled={save.isPending} onClick={saveAndCloseClick}>Save and Close</button></span>
-            <IconButton label="Save and Close" icon={Save} variant="outline" size="md" className="xl:hidden" disabled={save.isPending} onClick={saveAndCloseClick} />
-          </div>
         </div>
+        <div className="hidden h-12 items-center justify-center border-t border-line px-4 md:px-6 xl:flex" data-step-bar><FlowStepper {...stepper} /></div>
         <div className="xl:hidden">
           <div className="px-4 pb-2 md:px-6"><FlowStepMenu {...stepper} /></div>
           <FlowProgress current={step} total={steps.length} />
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[1280px] pt-8">
+      <div className="mx-auto w-full max-w-[1280px] flex-1 pt-8">
         {conflict && (
           <div role="alert" className="mb-4 rounded-lg border border-warning bg-warning-bg px-5 py-4 text-sm text-warning-text">
             <p className="font-medium">{conflict.message}</p>
@@ -326,10 +319,14 @@ export function CampaignWizardPage() {
         {otherError !== null && <div className="mb-4"><ErrorState title="The campaign was not saved" error={otherError} /></div>}
 
         <FormProvider {...form}>
-          <form noValidate onSubmit={(event) => { event.preventDefault(); if (!last) afterUploads(() => void go(step + 1)) }} className="min-w-0">
+          <form id="campaign-flow" noValidate onSubmit={(event) => { event.preventDefault(); if (!last) afterUploads(() => void go(step + 1)) }} className="min-w-0">
+            {/* the help icon sits outside the step's keyed block, so an open User Guide panel stays open from step to step */}
+            <p key={`count-${current}`} className="animate-step-in text-xs font-semibold text-ink-800">Step {step + 1} of {steps.length}</p>
+            <span className="flex items-center gap-1.5">
+              <h1 key={current} ref={heading} tabIndex={-1} className="animate-step-in font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1>
+              <PageHelp chapter="campaign-setup" />
+            </span>
             <div key={current} className="animate-step-in">
-              <p className="text-xs font-semibold text-ink-800">Step {step + 1} of {steps.length}</p>
-              <span className="flex items-center gap-1.5"><h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1></span>
               <div className="mt-6">
                 {current === 'audience' && <StepAudience campaign={loaded} onChangeType={canChangeType ? () => openDetails(true) : undefined} pending={pendingUploads} onPendingChange={setPendingUploads} />}
                 {current === 'content' && !drip && <StepTemplate campaign={loaded} />}
@@ -344,7 +341,7 @@ export function CampaignWizardPage() {
                   <div className="flex flex-col gap-10">
                     <PublishSummary campaign={loaded} onEdit={goToOld} onGo={(key) => show(key)} />
                     {PUBLISH_SECTIONS.map((part) => (
-                      <section key={part.key} id={`publish-${part.key}`} aria-labelledby={`publish-${part.key}-title`} className="scroll-mt-40">
+                      <section key={part.key} id={`publish-${part.key}`} aria-labelledby={`publish-${part.key}-title`} className="scroll-mt-40 xl:scroll-mt-52">
                         <CardSubheading className="mb-4 outline-none"><span id={`publish-${part.key}-title`} tabIndex={-1}>{part.label}</span></CardSubheading>
                         {part.key === 'schedule' && (
                           <>
@@ -367,27 +364,35 @@ export function CampaignWizardPage() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4 pb-8">
-              {current === 'sequence' && sequence && dripSteps.data && (
-                <span role="status" data-sequence-status className={`mr-auto flex basis-full items-center gap-2 text-sm font-medium sm:basis-auto ${sequence.any ? 'text-warning-text' : 'text-success-text'}`}>
-                  {sequence.any ? <TriangleAlert size={16} strokeWidth={1.5} aria-hidden className="text-warning" /> : <CircleCheck size={16} strokeWidth={1.5} aria-hidden />}
-                  {statusText(dripSteps.data, sequence)}
-                </span>
-              )}
-              {step > 0 && <button type="button" className={buttonSecondary} onClick={() => show(steps[step - 1].key)}>Back</button>}
-              {current === 'targets' && (
-                <button type="button" className={buttonClass({ variant: 'link' })} disabled={save.isPending} onClick={() => void skipTargets()}>Skip for Now</button>
-              )}
-              {!last && (
-                <button type="submit" className={buttonPrimary} disabled={save.isPending}>
-                  {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
-                  {steps[step].next}
-                  <ArrowRight size={16} strokeWidth={1.5} aria-hidden />
-                </button>
-              )}
-            </div>
           </form>
         </FormProvider>
+      </div>
+
+      {/* the actions, in a white bar at the bottom of the content area that stays in view, like the top bar */}
+      <div className="sticky bottom-0 z-20 -mx-4 -mb-5 mt-8 border-t border-line bg-surface md:-mx-8 md:-mb-6" data-action-bar>
+        <div className="flex min-h-16 flex-wrap items-center justify-end gap-3 px-4 py-3 md:px-6">
+          <div className="mr-auto flex min-w-0 flex-wrap items-center gap-x-6 gap-y-1">
+            {current === 'sequence' && sequence && dripSteps.data && (
+              <span role="status" data-sequence-status className={`flex items-center gap-2 text-sm font-medium ${sequence.any ? 'text-warning-text' : 'text-success-text'}`}>
+                {sequence.any ? <TriangleAlert size={16} strokeWidth={1.5} aria-hidden className="text-warning" /> : <CircleCheck size={16} strokeWidth={1.5} aria-hidden />}
+                {statusText(dripSteps.data, sequence)}
+              </span>
+            )}
+            {dirty && <span className="text-helper font-medium text-ink-900">Unsaved changes</span>}
+          </div>
+          {step > 0 && <button type="button" className={buttonSecondary} onClick={() => show(steps[step - 1].key)}>Back</button>}
+          <button type="button" className={buttonSecondary} disabled={save.isPending} onClick={saveAndCloseClick}>Save and Close</button>
+          {current === 'targets' && (
+            <button type="button" className={buttonClass({ variant: 'link' })} disabled={save.isPending} onClick={() => void skipTargets()}>Skip for Now</button>
+          )}
+          {!last && (
+            <button type="submit" form="campaign-flow" className={buttonPrimary} disabled={save.isPending}>
+              {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
+              {steps[step].next}
+              <ArrowRight size={16} strokeWidth={1.5} aria-hidden />
+            </button>
+          )}
+        </div>
       </div>
 
       {askFirst && pendingUploads.length > 0 && (

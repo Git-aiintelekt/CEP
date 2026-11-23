@@ -126,7 +126,7 @@ test('the breakdown opens from the keyboard: the funnel, the reasons without the
   const reasons = screen.getByRole('list', { name: 'Reasons people are left out' })
   expect(within(reasons).getAllByRole('listitem').map((item) => item.getAttribute('data-reason'))).toEqual(['EXCLUDED_LIST', 'DUPLICATES', 'NO_CONSENT', 'FREQUENCY_CAP'])
   expect(within(reasons).getByText(/Opted out of marketing email in the preference centre/)).toBeTruthy()
-  expect(screen.getByText(/An estimate as of today/)).toBeTruthy()
+  expect(screen.queryByText(/An estimate as of today/)).toBeNull()                                     // no note under the breakdown
 
   toggle.focus()
   await user.keyboard(' ')
@@ -176,19 +176,16 @@ test('the three tiles share a row from md up', async () => {
   expect(tile('Bounced').parentElement!.className).toContain('md:grid-cols-3')
 })
 
-test('the audience note: at the bottom before a send; under "If It Were Sent Today" after one', async () => {
+test('the breakdown has no estimate note, before a send or after one', async () => {
   const user = userEvent.setup()
   await openAudience(draft())
   await user.click(breakdownButton())
-  const note = screen.getByText(/^An estimate as of today/)
-  expect(note.closest('[id]')?.lastElementChild).toBe(note)                                           // the breakdown's last line
+  expect(screen.queryByText(/An estimate as of today/)).toBeNull()
 
   cleanup()
   await openAudience(completed())
   await user.click(breakdownButton())
-  const today = document.querySelector('dl[aria-label="If It Were Sent Today"]')!.parentElement!
-  expect(within(today).getByText(/^An estimate as of today/)).toBeTruthy()
-  expect(screen.getAllByText(/^An estimate as of today/)).toHaveLength(1)
+  expect(screen.queryByText(/An estimate as of today/)).toBeNull()
 })
 
 test('on a phone the list name leads each card as a left-aligned title; the sample leads with the name', async () => {

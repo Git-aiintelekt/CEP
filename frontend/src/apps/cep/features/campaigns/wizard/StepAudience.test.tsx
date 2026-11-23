@@ -44,11 +44,11 @@ test('Send To holds the attached lists only: name (a new tab), how it was attach
   expect(within(rows[0]).getByText(/^Attached .*18.*2026 · Updated .*2026$/)).toBeTruthy()
   expect(within(rows[0]).getByText('Upload')).toBeTruthy()
   expect(within(rows[0]).getByText('90')).toBeTruthy()
-  expect(within(card('Send To')).getByText('1 list selected, 90 contacts before duplicates and governance')).toBeTruthy()
+  expect(within(card('Send To')).queryByText(/lists? selected/)).toBeNull()                          // no summary line under the table
 
   await user.click(within(rows[0]).getByRole('button', { name: 'Remove Fall Master Audience' }))
   expect(within(card('Send To')).getByText('No contact lists yet')).toBeTruthy()
-  expect(within(card('Send To')).getByText(/A draft can be saved without one; publishing needs at least one\./)).toBeTruthy()
+  expect(within(card('Send To')).getByText('Pick the contact lists to send this campaign to.')).toBeTruthy()
 })
 
 test('the pop-up: filters combine, select all shown, attached lists ticked and disabled, and adding several at once', async () => {
@@ -84,7 +84,7 @@ test('the pop-up: filters combine, select all shown, attached lists ticked and d
 test('tabs by permission: making lists needs list.edit', async () => {
   const { user } = await openStep(empty())
   const dialog = await openPicker(user)
-  expect(within(within(dialog).getByRole('radiogroup', { name: 'How to add a list' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Existing Lists', 'Upload New', 'From an Audience or a Clone'])
+  expect(within(within(dialog).getByRole('radiogroup', { name: 'How to add a list' })).getAllByRole('radio').map((tab) => tab.getAttribute('aria-label'))).toEqual(['Existing Lists', 'Upload New', 'Audience or Clone'])
 
   cleanup()
   const viewer = await openStep(empty(), { me: { principal: { ...me.principal, permissions: ['campaign.view', 'campaign.edit', 'list.view'] } } as never })
@@ -98,14 +98,18 @@ test('Don’t Send To: leaving a list out takes it off the estimate, and the sum
   const summary = card('Audience')
   await vi.waitFor(() => expect(within(summary).getByTestId('audience-eligible').textContent).toBe('88'))
   expect(within(summary).getByText('In Your Lists').nextElementSibling?.textContent).toBe('120')
-  expect(within(card('Don’t Send To')).getByText('Nobody is left out by a list.')).toBeTruthy()
-  expect(within(card('Don’t Send To')).getByText('People in these lists are left out, even if they’re in a list above.')).toBeTruthy()
+  const empty = card('Don’t Send To').querySelector<HTMLElement>('[data-empty="leave-out"]')!             // the same dashed box as Send To
+  expect(within(empty).getByText('No lists added')).toBeTruthy()
+  expect(within(empty).getByText('Add a contact list to keep its people from getting this campaign.')).toBeTruthy()
+  expect(within(empty).getByRole('button', { name: 'Exclude a List' })).toBeTruthy()
+  expect(card('Don’t Send To').querySelector('[data-empty="send-to"]')).toBeNull()
+  expect(within(card('Don’t Send To')).getByText('Anyone on these lists won’t get this campaign, even if they’re also in Send To.')).toBeTruthy()
 
-  const dialog = await openPicker(user, 'Add List to Leave Out', 'Leave Out a List')
+  const dialog = await openPicker(user, 'Exclude a List', 'Exclude a List')
   expect(within(dialog).queryByRole('radiogroup', { name: 'How to add a list' })).toBeNull()           // existing lists only
   expect((within(dialog).getByRole('checkbox', { name: 'Fall Master Audience' }) as HTMLInputElement).disabled).toBe(true)   // sent to already
   await user.click(within(dialog).getByRole('checkbox', { name: 'Georgia only' }))
-  await user.click(within(dialog).getByRole('button', { name: 'Leave Out 1 List' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Exclude 1 List' }))
   expect(within(within(card('Don’t Send To')).getByRole('table')).getByRole('link', { name: 'Georgia only (opens in a new tab)' })).toBeTruthy()
   await vi.waitFor(() => expect(estimateCalls(calls).some((call) => call.url.includes('exclude=cl-ga'))).toBe(true))
   await vi.waitFor(() => expect(within(summary).getByTestId('audience-eligible').textContent).toBe('78'))
@@ -161,7 +165,7 @@ test('Don’t Send To keeps its button in the header, on the title’s row', asy
   await openStep()
   const [header] = [...card('Don’t Send To').children] as HTMLElement[]
   expect(within(header).getByRole('heading', { name: 'Don’t Send To' })).toBeTruthy()
-  expect(within(header).getByRole('button', { name: 'Add List to Leave Out' }).parentElement!.className).toContain('shrink-0')
+  expect(within(header).getByRole('button', { name: 'Exclude a List' }).parentElement!.className).toContain('shrink-0')
   expect(header.className).toContain('sm:flex-nowrap')
 })
 
@@ -181,13 +185,13 @@ async function uploadList(user: ReturnType<typeof userEvent.setup>, name: string
   await user.click(within(dialog).getByRole('radio', { name: 'Upload New' }))
   await user.type(within(dialog).getByLabelText(/^List Name/), name)
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Add Your File' })
+  await within(dialog).findByLabelText('CSV File')
   await user.upload(within(dialog).getByLabelText('CSV File'), csv())
   await within(dialog).findByText('leads.csv')
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Match Your Columns' })
+  await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await within(dialog).findByRole('heading', { name: 'Where Did These People Agree?' })
+  await within(dialog).findByRole('heading', { name: 'How did these people opt in?' })
   await user.click(within(dialog).getByRole('radio', { name: /Signed up on our website or app/ }))
   await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
@@ -195,7 +199,7 @@ async function uploadList(user: ReturnType<typeof userEvent.setup>, name: string
   await vi.waitFor(() => expect(importButton.disabled).toBe(false))
   await user.click(importButton)
   await within(dialog).findByRole('heading', { name: 'List Created' })
-  await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Review List' }))
   await within(sendTo()).findByRole('link', { name: `${name} (opens in a new tab)` })
 }
 
@@ -220,23 +224,17 @@ test('moving on with an upload still waiting asks first: confirm it and continue
 
 // ---------------------------------------------------------------- drips
 const drip = (overrides = {}) => makeCampaign({ status: 'DRAFT', campaign_type: 'DRIP', send_type: 'DRIP', ...overrides })
-const DRIP_NOTE = 'Everyone eligible starts the drip together on the start date. People added to these lists later don’t join. Consent and frequency limits are checked again before each message.'
-
-test('a drip: "How a Drip Audience Works" above Send To, in the empty state too; everything else as for any campaign', async () => {
+test('a drip: no "How a Drip Audience Works" note; everything else as for any campaign', async () => {
   await openStep(drip({ contact_lists: [], contact_list_details: [] }))
-  const note = document.querySelector<HTMLElement>('[data-drip-audience-note]')!
-  expect(within(note).getByText('How a Drip Audience Works')).toBeTruthy()
-  expect(within(note).getByText(DRIP_NOTE)).toBeTruthy()
-  expect(note.compareDocumentPosition(card('Send To')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()      // above Send To
-  expect(within(card('Send To')).getByText('Add the lists this drip goes to. A draft can be saved without one; publishing needs at least one.')).toBeTruthy()
-  expect(within(card('Don’t Send To')).getByText('Nobody is left out by a list.')).toBeTruthy()
-  expect(within(card('Don’t Send To')).getByRole('button', { name: 'Add List to Leave Out' })).toBeTruthy()
+  expect(screen.queryByText('How a Drip Audience Works')).toBeNull()
+  expect(within(card('Send To')).getByText('Pick the contact lists to send this drip to.')).toBeTruthy()
+  expect(within(card('Don’t Send To')).getByText('Add a contact list to keep its people from getting this drip.')).toBeTruthy()
+  expect(within(card('Don’t Send To')).getAllByRole('button', { name: 'Exclude a List' })).toHaveLength(2)   // the header's, and the box's
   expect(screen.getByRole('button', { name: /Continue to Drip Campaign Setup/ })).toBeTruthy()                  // a draft can move on without lists
   cleanup()
 
   await openStep(makeCampaign({ status: 'DRAFT', contact_lists: [], contact_list_details: [] }))
-  expect(document.querySelector('[data-drip-audience-note]')).toBeNull()                           // not for other campaigns
-  expect(within(card('Send To')).getByText('Add the lists this campaign goes to. A draft can be saved without one; publishing needs at least one.')).toBeTruthy()
+  expect(within(card('Send To')).getByText('Pick the contact lists to send this campaign to.')).toBeTruthy()
 })
 
 test('a drip nobody can receive: a warning in the channel’s words, never a block', async () => {
@@ -246,4 +244,107 @@ test('a drip nobody can receive: a warning in the channel’s words, never a blo
   cleanup()
   await openStep(drip({ channel: 'SMS' }), { estimate: { estimated_recipients: 0 } })
   expect(await screen.findByText('No one on these lists can receive marketing texts right now. Check consent or the lists you’re leaving out.')).toBeTruthy()
+})
+
+test('Upload New: a stepper over the steps, the cards leave after the first one, Enter continues, no Cancel, closing leaves no draft', async () => {
+  const { user, calls } = await openStep(empty())
+  const dialog = await openPicker(user)
+  await user.click(within(dialog).getByRole('radio', { name: 'Upload New' }))
+
+  const progress = () => within(within(dialog).getByRole('list', { name: 'Progress' })).getAllByRole('listitem')
+  expect(progress().map((item) => item.textContent?.replace(/, done$/, ''))).toEqual(['Details', 'File', 'Columns', 'Consent', 'Review'])
+  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['current', 'ahead', 'ahead', 'ahead', 'ahead'])
+  expect(within(dialog).queryByRole('button', { name: 'Cancel' })).toBeNull()
+  expect(within(dialog).getByRole('radiogroup', { name: 'Use For' }).querySelector('[aria-checked="true"]')!.textContent).toBe('Email')   // from the campaign's channel
+  expect(within(dialog).getByText('Test lists are held out of live sends until you promote them.')).toBeTruthy()
+  expect(within(dialog).queryByRole('textbox', { name: /Description/ })).toBeNull()                         // collapsed until asked for
+  expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+
+  await user.type(within(dialog).getByLabelText('List Name'), 'Booth scans{Enter}')                         // Enter continues
+  await within(dialog).findByLabelText('CSV File')
+  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['done', 'current', 'ahead', 'ahead', 'ahead'])
+  expect(within(dialog).queryByRole('radiogroup', { name: 'How to add a list' })).toBeNull()               // switching way in now would drop the upload
+  expect(within(dialog).getByText('Up to 50 MB and 250,000 rows. An Email column is required.')).toBeTruthy()
+  expect(within(dialog).getByRole('button', { name: 'Download Sample CSV' })).toBeTruthy()
+  expect(within(dialog).getByRole('button', { name: 'Back' })).toBeTruthy()
+
+  await user.upload(within(dialog).getByLabelText('CSV File'), csv())
+  await within(dialog).findByText('leads.csv')
+  expect(within(dialog).queryByText('Received')).toBeNull()
+  expect(within(dialog).getByRole('button', { name: 'Replace' })).toBeTruthy()
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  const table = await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
+  expect(within(dialog).getByText(/columns matched/)).toBeTruthy()
+  expect(within(table).queryByText('Mapped')).toBeNull()
+  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['done', 'done', 'current', 'ahead', 'ahead'])
+
+  await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && /\/contact-lists\/[^/]+\/$/.test(call.url))).toBe(true))
+})
+
+test('Upload New, steps 4 to Done: opt-in rows gate Next, the review shows tiles and reach, and Review List focuses the new row', async () => {
+  const { user } = await openStep(empty())
+  const dialog = await openPicker(user)
+  await user.click(within(dialog).getByRole('radio', { name: 'Upload New' }))
+  await user.type(within(dialog).getByLabelText('List Name'), 'Booth scans')
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await user.upload(await within(dialog).findByLabelText('CSV File'), csv())
+  await within(dialog).findByText('leads.csv')
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+
+  await within(dialog).findByRole('heading', { name: 'How did these people opt in?' })
+  const next = () => within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement
+  expect(next().disabled).toBe(true)
+  expect(within(dialog).getByRole('radio', { name: /Bought or Rented List/ }).getAttribute('aria-disabled')).toBe('true')
+  expect(within(dialog).getByText('Not Allowed')).toBeTruthy()
+  expect(within(dialog).getByText('Where It Was Collected (Optional)')).toBeTruthy()
+  await user.click(within(dialog).getByRole('radio', { name: /Signed up on our website or app/ }))
+  expect(within(dialog).getByRole('radio', { name: /Signed up on our website or app/ }).getAttribute('aria-checked')).toBe('true')
+  expect(next().disabled).toBe(true)                                                                        // the confirmation is still needed
+  await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
+  expect(next().disabled).toBe(false)
+  await user.click(next())
+
+  await within(dialog).findByText(/contacts ready to import/)
+  expect(['New', 'Already in C360', 'Warnings', 'Held Back'].every((label) => dialog.querySelector(`[data-tile="${label}"]`))).toBe(true)
+  expect(within(dialog).getByRole('button', { name: /Download Row-by-Row Report/ })).toBeTruthy()
+  const create = await within(dialog).findByRole('button', { name: 'Create List' }) as HTMLButtonElement
+  await vi.waitFor(() => expect(create.disabled).toBe(false))
+  await user.click(create)
+
+  await within(dialog).findByRole('heading', { name: 'List Created' })
+  expect(within(dialog).getByText('Needs Review')).toBeTruthy()
+  expect(within(dialog).getAllByRole('button', { name: 'Close' })).toHaveLength(2)                          // the X, and the footer's
+  await user.click(within(dialog).getByRole('button', { name: 'Review List' }))
+  const link = await within(sendTo()).findByRole('link', { name: 'Booth scans (opens in a new tab)' })
+  await vi.waitFor(() => expect(document.activeElement).toBe(link))
+})
+
+test('Audience or Clone: audiences and lists in one searchable list, Change goes back, and a copy ends on a Clone tag with one Done', async () => {
+  const { user, calls } = await openStep(empty())
+  const dialog = await openPicker(user)
+  await user.click(within(dialog).getByRole('radio', { name: 'Audience or Clone' }))
+
+  expect(within(dialog).getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(true)         // nothing picked yet
+  expect(within(dialog).queryByRole('button', { name: 'Cancel' })).toBeNull()
+  const group = await within(dialog).findByRole('radiogroup', { name: 'Source to copy' })
+  expect(within(group).getByRole('radio', { name: /Loyalty Gold/ }).textContent).toMatch(/Segment/)        // an audience
+  await user.type(within(dialog).getByLabelText('Search audiences and lists'), 'georgia')
+  expect(within(group).getAllByRole('radio')).toHaveLength(1)                                              // a list
+  await user.click(within(group).getByRole('radio', { name: /Georgia only/ }))
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+
+  expect((within(dialog).getByLabelText('List Name') as HTMLInputElement).value).toBe('Copy of Georgia only')
+  expect(within(dialog).getByRole('radiogroup', { name: 'Use For' }).querySelector('[aria-checked="true"]')!.textContent).toBe('Email')
+  await user.click(within(dialog).getByRole('button', { name: 'Change' }))                                 // back to the Source step, the cards back
+  expect(within(dialog).getByRole('radiogroup', { name: 'How to add a list' })).toBeTruthy()
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))                                   // the pick is kept
+  await user.click(within(dialog).getByRole('button', { name: 'Create List' }))
+
+  await within(dialog).findByRole('heading', { name: 'List Created' })
+  expect(within(dialog).getByText('Clone')).toBeTruthy()
+  expect(within(dialog).getAllByRole('button', { name: 'Done' })).toHaveLength(1)
+  expect(calls.some((call) => call.method === 'POST' && /\/contact-lists\/[^/]+\/clone\/$/.test(call.url))).toBe(true)
 })

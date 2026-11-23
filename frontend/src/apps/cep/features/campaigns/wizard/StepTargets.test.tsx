@@ -164,7 +164,7 @@ test('the top bar: back, the name with step · type · channel, a dot stepper th
   await user.keyboard('{Enter}')
   await vi.waitFor(() => expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Content'))
   expect(within(stepper).getByRole('button', { name: /^Content/ }).getAttribute('aria-current')).toBe('step')
-  expect(within(bar).getAllByRole('button', { name: 'Save and Close' })).toHaveLength(2)             // the text button, and the icon under lg
+  expect(within(bar).queryByRole('button', { name: 'Save and Close' })).toBeNull()                    // it lives in the bottom bar
   expect(within(bar).getByRole('button', { name: 'Edit Details' })).toBeTruthy()
 })
 
@@ -251,27 +251,55 @@ test('stepper circles: a Blue 600 tick when done, the number ringed in blue when
   expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Audience')
 })
 
-test('a flow bar under 1340px: every step keeps its name (smaller type, shorter connectors), no subtitle, Details as an icon', async () => {
+test('two layers: the top row has no help icon and no steps; the steps sit centred in their own bar beneath, every name shown', async () => {
   installMockApi({ campaign: draft() })
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await atTargets()
 
   const bar = document.querySelector<HTMLElement>('[data-flow-bar]')!
-  const steps = within(within(bar).getByRole('navigation', { name: 'Setup Steps' })).getAllByRole('button')
+  const stepBar = bar.querySelector<HTMLElement>('[data-step-bar]')!
+  const topRow = bar.firstElementChild as HTMLElement
+  expect(topRow.contains(stepBar)).toBe(false)
+  expect(within(topRow).queryByRole('navigation', { name: 'Setup Steps' })).toBeNull()
+  expect(within(bar).queryByRole('button', { name: 'Help for this page' })).toBeNull()              // moved beside the step title
+  expect(within(topRow).getByRole('button', { name: 'Edit Details' })).toBeTruthy()
+  expect(within(topRow).queryByRole('button', { name: 'Save and Close' })).toBeNull()
+  const actions = document.querySelector<HTMLElement>('[data-action-bar]')!                              // the actions, in a white bar that stays at the bottom
+  expect(actions.className).toContain('sticky')
+  expect(actions.className).toContain('bottom-0')
+  expect(actions.className).toContain('bg-surface')
+  expect(within(actions).getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Back', 'Save and Close', 'Skip for Now', 'Continue to Review & Publish'])
+  expect(actions.lastElementChild!.lastElementChild!.getAttribute('type')).toBe('submit')                 // the primary goes last
+  expect(stepBar.className).toContain('border-t')
+  expect(stepBar.className).toContain('justify-center')
+
+  const steps = within(within(stepBar).getByRole('navigation', { name: 'Setup Steps' })).getAllByRole('button')
   expect(steps.map((step) => step.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Test', 'Targets', 'Review & Publish'])
   for (const step of steps) {
     const label = step.querySelector('[data-step-label]')!
     expect(label.className).not.toContain('sr-only')                                               // done, current and ahead all show their names
-    expect(label.className).toContain('@max-[1339px]:text-sm')
     expect(step.querySelector('[data-tooltip]')).toBeNull()                                        // nothing to reveal on hover
   }
   expect(screen.getByRole('button', { name: 'Audience, completed' })).toBeTruthy()                  // a done step still says so
-  expect(bar.querySelector('[data-connector]')!.className).toContain('@max-[1339px]:w-5')
 
   const details = within(bar).getByRole('button', { name: 'Edit Details' })
   expect(details.querySelector('.lucide-pencil')).toBeTruthy()
-  expect([...details.querySelectorAll('span')].find((span) => span.textContent === 'Details')!.className).toContain('xl:@max-[1339px]:sr-only')
-  expect(details.querySelector('[data-tooltip]')?.textContent).toBe('Edit Details')
+  expect([...details.querySelectorAll('span')].find((span) => span.textContent === 'Details')!.className).toBe('sr-only sm:not-sr-only')
+  expect(details.querySelector('[data-tooltip]')?.textContent).toBe('Edit Details')                 // the icon alone on phones
+})
+
+test('the help icon beside the step title opens Campaign Set-Up, and the panel stays open from step to step', async () => {
+  installMockApi({ campaign: draft() })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns/c1/edit?step=targets')
+  await atTargets()
+
+  await user.click(screen.getByRole('button', { name: 'Help for this page' }))
+  expect(document.querySelector('[data-help-panel="campaign-setup"]')).not.toBeNull()
+  await user.click(within(screen.getByRole('navigation', { name: 'Setup Steps' })).getByRole('button', { name: 'Test, completed' }))
+  await vi.waitFor(() => expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Test'))
+  expect(document.querySelector('[data-help-panel="campaign-setup"]')).not.toBeNull()
+  expect(screen.getByRole('button', { name: 'Help for this page' }).getAttribute('aria-expanded')).toBe('true')
 })
 
 test('the narrow-screen menu uses the same circles at 20px', async () => {

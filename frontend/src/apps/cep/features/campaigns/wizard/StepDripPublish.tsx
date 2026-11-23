@@ -70,7 +70,7 @@ export function StepDripPublish({ campaign, options, workspaceZone, onAllTested,
           <ReviewTimeline campaignId={campaign.id} review={review.data} steps={list} series={series} error={review.error} onRetry={() => void review.refetch()} />
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-44 xl:top-36" data-publish-column>
+        <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-44 xl:top-48" data-publish-column>
           <ChecklistCard campaign={campaign} checklist={checklist.data} error={checklist.error} onRetry={() => void checklist.refetch()} />
           <AudienceCard campaign={campaign} />
           <ApprovalSlot campaign={campaign} />

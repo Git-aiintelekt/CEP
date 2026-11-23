@@ -6,6 +6,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { pickFromMenu, pickTemplate } from '@/test/pickTemplate'
 import { cepReady, installMockApi, makeCampaign, makeStep, me, problem, signIn } from '@/test/mockApi'
 
 import { placeFromParams, progressAfter, resumeStep, stepsDone, stepsFor } from '../setupFlow'
@@ -54,9 +55,8 @@ test('five steps on the rail, one at a time; each Continue says where it goes an
   expect(patches(calls).at(-1)?.body).toMatchObject({ contact_lists: ['cl-master'], setup_step: 2 })
   expect(screen.getByRole('button', { name: 'Audience, completed' }).querySelector('[data-marker="done"] .lucide-check')).toBeTruthy()   // a green tick
   expect(railButtons()[1].getAttribute('aria-current')).toBe('step')
-  const cards = await screen.findByRole('radiogroup', { name: 'Template' })
-  await user.click(within(cards).getByRole('radio', { name: /Fall Email/ }))
-  await user.selectOptions(screen.getByLabelText(/^Send From/), 'snd-email')
+  await pickTemplate(user, /Fall Email/)
+  await pickFromMenu(user, /^Send From:/, /^Northwind Rewards/)
   await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
 
   expect(await stepHeading('Test')).toBeTruthy()
@@ -156,7 +156,7 @@ test('resume: 1 → Audience (Content for an e-receipt), 2 → Content, 3 → Te
   expect(window.location.pathname + window.location.search).toBe('/campaigns/c1/edit?step=content')
   expect(screen.queryByTestId('setup-progress')).toBeNull()                                           // not on the step it resumes at
   expect(screen.queryByRole('link', { name: 'Back to the Campaign' })).toBeNull()
-  await user.click(await screen.findByRole('radio', { name: /Fall Email/ }))
+  await pickTemplate(user, /Fall Email/)
   await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])                             // keeps the place, does not move it on
   expect(await screen.findByRole('table', { name: 'Campaigns' })).toBeTruthy()
 
@@ -313,7 +313,7 @@ test('every field of the old seven steps is still reachable', async () => {
   expect(await screen.findByRole('list', { name: 'Pre-Publish Checklist' })).toBeTruthy()
   await user.click(screen.getByRole('button', { name: /^Audience/ }))                                    // old step 2
   expect(await screen.findByRole('link', { name: 'Fall Master Audience (opens in a new tab)' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Add List to Leave Out' })).toBeTruthy()
+  expect(screen.getAllByRole('button', { name: 'Exclude a List' }).length).toBeGreaterThan(0)
 })
 
 test('the setup-in-progress line says how far the setup got, and the back button goes to the list', async () => {
@@ -356,18 +356,21 @@ test('the sender is mandatory to continue from Content; Save and Close still kee
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=content')
   expect(await stepHeading('Content')).toBeTruthy()
-  const sender = screen.getByLabelText(/^Send From/) as HTMLSelectElement
-  expect(within(sender).getByRole('option', { name: 'Choose a Sender' })).toBeTruthy()
-  expect(within(sender).queryByRole('option', { name: 'Choose Later' })).toBeNull()
-  await user.click(within(await screen.findByRole('radiogroup', { name: 'Template' })).getByRole('radio', { name: /Fall Email/ }))
+  const sender = await screen.findByRole('button', { name: /^Send From:/ })
+  expect(sender.textContent).toContain('Choose a Sender')                                                 // the design system's dropdown, not the browser's list
+  await user.click(sender)
+  expect(within(await screen.findByRole('listbox', { name: 'Send From' })).getByRole('option', { name: 'Choose a Sender' })).toBeTruthy()
+  expect(screen.queryByRole('option', { name: 'Choose Later' })).toBeNull()
+  await user.keyboard('{Escape}')
+  await pickTemplate(user, /Fall Email/)
   const before = patches(calls).length
   await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
   expect(await screen.findByText('Choose who this campaign comes from. If none is listed, add one with New Sender.')).toBeTruthy()
   expect(patches(calls)).toHaveLength(before)                                                     // nothing saved, still on Content
   expect(screen.getByRole('heading', { level: 1, name: 'Content' })).toBeTruthy()
-  await user.selectOptions(sender, 'snd-email')
+  await pickFromMenu(user, /^Send From:/, /^Northwind Rewards/)
   expect(screen.queryByText('Choose who this campaign comes from. If none is listed, add one with New Sender.')).toBeNull()
-  await user.selectOptions(sender, '')
+  await pickFromMenu(user, /^Send From:/, 'Choose a Sender')
   await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])
   await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ template: 'tpl-email', sender_profile: null }))
 })

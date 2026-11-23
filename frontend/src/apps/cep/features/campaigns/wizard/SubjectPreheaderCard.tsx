@@ -1,5 +1,5 @@
 /**
- * The Content step's subject line and preheader: the template's unless this campaign has its own. Only the campaign
+ * The Content step's subject line and preheader fields (inside the Subject and Preheader row): the template's unless this campaign has its own. Only the campaign
  * changes; the template stays as it is. Blank = the template's. Saved with the step, as `subject_line` / `preheader`.
  * An emoji goes in at the caret; picked while the field is empty, it is added to the template's text, which becomes this
  * campaign's own, so the template's emoji can be changed without retyping the line.
@@ -9,14 +9,11 @@ import { useFormContext } from 'react-hook-form'
 
 import { EmojiPickerButton } from '@/apps/cep/features/emoji/EmojiPickerButton'
 import { charCount } from '@/apps/cep/features/emoji/text'
-import { Field, TextInput } from '@/components/Form'
-import { InboxRow } from '@/apps/cep/features/designer/preview/InboxRow'
-import { DEFAULT_PROFILE } from '@/apps/cep/features/designer/preview/previewProfiles'
+import { Counter, Field, TextInput } from '@/components/Form'
 import { usePreviewContent } from '@/apps/cep/features/templates/preview/usePreviewContent'
 import { useFieldRules } from '@/lib/fieldRules'
 import type { Template } from '@/lib/types'
 
-import { Panel } from '../parts'
 import type { CampaignFormValues } from '../schema'
 
 const HEADER_MAX = 300
@@ -49,25 +46,23 @@ export function SubjectPreheaderCard({ template }: { template: Template }) {
     })
   }
 
-  const field = (key: Key, label: string, nothing: string) => {
+  const field = (key: Key, label: string) => {
     const mine = own[key].trim() !== ''
-    const hint = mine
-      ? theirs[key] ? `This campaign's own. The template's: “${theirs[key]}”` : "This campaign's own. The template has none."
-      : content.isPending ? 'Loading the template' : theirs[key] ? "Empty: the template's is used." : nothing
+    const counter = <Counter used={charCount(own[key])} max={rule(key)?.max ?? HEADER_MAX} soft={INBOX_SHOWS[key]} />
     return (
-      <Field label={label} error={errors[key]?.message} hint={hint} limit={{ used: charCount(own[key]), max: rule(key)?.max ?? HEADER_MAX, soft: INBOX_SHOWS[key] }}
-        labelEnd={mine ? <button type="button" className={LINK} onClick={() => set(key, '')}>Use the Template's</button>
-          : theirs[key] ? <button type="button" className={LINK} onClick={() => set(key, theirs[key])}>Edit the Template's</button> : null}>
+      <Field label={label} strong error={errors[key]?.message}
+        labelEnd={(
+          <span className="flex items-center gap-3">
+            {!mine && theirs[key] && <button type="button" className={LINK} onClick={() => set(key, theirs[key])}>Edit the Template's</button>}
+            {counter}
+            <EmojiPickerButton onPick={(emoji) => addEmoji(key, emoji)} />
+          </span>
+        )}>
         {(ids) => {
           const { ref, ...input } = register(key)
           return (
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <TextInput {...ids} {...input} ref={(element) => { ref(element); inputs.current[key] = element }} maxLength={rule(key)?.max ?? HEADER_MAX}
-                  placeholder={theirs[key] || undefined} />
-              </div>
-              <EmojiPickerButton onPick={(emoji) => addEmoji(key, emoji)} />
-            </div>
+            <TextInput {...ids} {...input} ref={(element) => { ref(element); inputs.current[key] = element }} maxLength={rule(key)?.max ?? HEADER_MAX}
+              placeholder={theirs[key] || undefined} />
           )
         }}
       </Field>
@@ -75,19 +70,9 @@ export function SubjectPreheaderCard({ template }: { template: Template }) {
   }
 
   return (
-    <Panel title="Subject Line and Preheader" description="The template's are used unless you write this campaign's own. The template itself does not change.">
-      <div className="space-y-4">
-        {field('subject_line', 'Subject Line', 'The template has no subject line: write one here or in the template.')}
-        {field('preheader', 'Preheader', 'The template has no preheader. Optional: the text an inbox shows after the subject.')}
-        <p className="text-xs text-ink-800">Tags such as {'{{first_name}}'} work in both. To change the template's emoji, choose Edit the Template's and change them here, or pick one with the emoji button.</p>
-        <div>
-          <p className="mb-1.5 text-sm font-medium text-ink-800">In the Inbox</p>
-          <div className="overflow-hidden rounded-sm border border-line [&>div]:border-b-0">
-            <InboxRow subject={own.subject_line.trim() || theirs.subject_line} preheader={own.preheader.trim() || theirs.preheader}
-              catalogue={content.tags} profile={DEFAULT_PROFILE} time="9:41" />
-          </div>
-        </div>
-      </div>
-    </Panel>
+    <div className="space-y-4">
+      {field('subject_line', 'Subject Line')}
+      {field('preheader', 'Preheader')}
+    </div>
   )
 }
