@@ -114,8 +114,8 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   const offer = useSuggestion<HTMLTextAreaElement>({ suggestion: readOnly ? null : optOutSuggestion(tags), placeholder: 'Northwind: Hi {{first_name}}, ... Reply STOP to opt out.', describedBy: 'sms-counter', cursor: 'start', placement: 'bottom' })
   const missingOptOut = Boolean(body.trim()) && !OPT_OUT_PATTERN.test(body)
   if (missingOptOut) warnings.push(optOutTag
-    ? `No opt-out wording. Marketing messages must say how to stop them: add the Opt-Out Text tag (${asToken(OPT_OUT_TAG)}, “${optOutTag.static_value ?? optOutTag.sample_value ?? 'Reply STOP to opt out'}”), or write your own.`
-    : 'No opt-out wording. Marketing messages must say how to stop them, for example: Reply STOP to opt out.')
+    ? `No opt-out wording. Marketing messages must say how to stop them: add the Opt-Out Text tag (${asToken(OPT_OUT_TAG)}, “${optOutTag.static_value ?? optOutTag.sample_value ?? 'Reply STOP to opt out. HELP for help. Msg&data rates may apply.'}”), or write your own.`
+    : 'No opt-out wording. Marketing messages must say how to stop them, for example: Reply STOP to opt out. HELP for help. Msg&data rates may apply.')
   if (isMms && !media) warnings.push('No picture yet. An MMS template needs one before it can be activated.')
   if (media && media.byte_size > MMS_WARN_BYTES) warnings.push(`The picture is ${kb(media.byte_size)}. Some carriers shrink or drop attachments over 600 KB.`)
 

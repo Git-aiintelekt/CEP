@@ -1031,8 +1031,8 @@ INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_s
 ON CONFLICT (tag_key) DO NOTHING;
 -- patch 0090: the opt-out line of a marketing text, kept in one place. Every workspace inherits it; the back-office changes its words.
 INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_source, static_value, data_type, applies_to_channels, description, sample_value) VALUES
-    ('opt_out_text', 'Opt-Out Text', 'STANDARD', 'STATIC', 'Reply STOP to opt out', 'STRING', '{SMS,MMS}',
-     'How to stop marketing texts, the same words in every message; a marketing text needs it or its own opt-out words. Set in the back-office.', 'Reply STOP to opt out')
+    ('opt_out_text', 'Opt-Out Text', 'STANDARD', 'STATIC', 'Reply STOP to opt out. HELP for help. Msg&data rates may apply.', 'STRING', '{SMS,MMS}',
+     'How to stop marketing texts, the same words in every message; a marketing text needs it or its own opt-out words. Set in the back-office.', 'Reply STOP to opt out. HELP for help. Msg&data rates may apply.')
 ON CONFLICT (tag_key) DO NOTHING;
 
 -- =====================================================================================
