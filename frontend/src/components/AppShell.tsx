@@ -134,6 +134,8 @@ function ShortcutsHelp({ onClose, engagement }: { onClose: () => void; engagemen
 export function AppShell({ workspace = false }: { workspace?: boolean }) {
   const { me, logout, can, has } = useAuth()
   const location = useLocation()
+  /** the campaign editor ends on its bottom action bar, with no legal line */
+  const inCampaignEditor = /^\/campaigns\/[^/]+\/edit\/?$/.test(location.pathname)
   const isXl = useMinWidth(BREAKPOINT.xl)
   const isMd = useMinWidth(BREAKPOINT.md)
   const [userCollapsed, setUserCollapsed] = useState(readCollapsed)
@@ -245,8 +247,8 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
           <main className="flex h-[calc(100dvh-3.5rem)] w-full min-w-0 flex-col overflow-hidden bg-surface"><Outlet /></main>
         ) : (
           <main className="flex w-full min-w-0 flex-1 flex-col bg-canvas px-4 py-5 md:px-8 md:py-6">
-            <div className="flex-1"><Outlet /></div>
-            <LegalFooter variant="bar" />
+            <div className={`flex-1 ${inCampaignEditor ? 'flex flex-col' : ''}`}><Outlet /></div>
+            {!inCampaignEditor && <LegalFooter variant="bar" />}
           </main>
         )}
       </div>
