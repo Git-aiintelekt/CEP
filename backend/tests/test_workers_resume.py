@@ -160,6 +160,51 @@ def test_a_stalled_send_raises_an_alert(world, window, check):
     check.done()
 
 
+@pytest.mark.slow
+def test_resend_interrupted(world, window, check):
+    """A finished run with three interrupted texts: one reported delivered since, one person who replied STOP since; the
+    dialog's numbers, the resend of the one left, the run reopened and closed again, and never a second offer."""
+    from workers import sms
+    window.campaign.start_run(world.tenant, window.run)
+    for _ in range(10):
+        if not window.given:
+            break
+        sms.send_batch(world.tenant, window.run, window.given.pop(0))
+    ids = [row[0] for row in world.sql("SELECT id FROM sms_execution WHERE tenant_id = %s AND campaign_run_id = %s ORDER BY id LIMIT 3", [world.tenant, window.run], True)]
+    world.sql("UPDATE sms_execution SET status = 'FAILED', status_reason = %s, provider_acked_at = NULL WHERE id = ANY(%s)", [runs.INTERRUPTED, ids])
+    world.sql("UPDATE sms_execution SET delivered_at = now() WHERE id = %s", [ids[0]])
+    (stop_party,) = world.sql("SELECT party_id FROM sms_execution WHERE id = %s", [ids[1]], True)[0]
+    world.sql("UPDATE consent_suppression SET consent_status = 'OPTED_OUT', marketable = FALSE WHERE tenant_id = %s AND party_id = %s AND channel = 'SMS'", [world.tenant, stop_party])
+
+    listing = world.api("get", f"/api/v1/campaign-runs/{window.run}/recipients/?status=INTERRUPTED").json()
+    check("the list shows them as Interrupted, counted apart from other failures", listing["count"] == 3 and {r["status"] for r in listing["results"]} == {"INTERRUPTED"}
+          and listing["by_status"].get("INTERRUPTED") == 3, str({k: listing.get(k) for k in ("count", "by_status")}))
+    offer = world.api("get", f"/api/v1/campaign-runs/{window.run}/interrupted/").json()
+    check("the dialog's numbers: 3 interrupted, 1 delivered since, 1 opted out since, 1 to send", offer["interrupted"] == 3 and offer["delivered_since"] == 1
+          and offer["held_back"] == 1 and offer["to_send"] == 1 and offer["can_resend"] and offer["engine"] == "ZS sandbox texts", str(offer))
+
+    done = world.api("post", f"/api/v1/campaign-runs/{window.run}/interrupted/", {"at_window": False})
+    body = done.json()
+    rows = dict(world.sql("SELECT id, status FROM sms_execution WHERE id = ANY(%s)", [ids], True))
+    (status,) = world.sql("SELECT status FROM campaign_run WHERE id = %s", [window.run], True)[0]
+    check("the one left goes back to the queue; the other two stay failed with the reason; the run reopens", done.status_code == 200 and body["resent"] == 1
+          and body["left_out"] == 2 and rows[ids[2]] == "QUEUED" and rows[ids[0]] == "FAILED" and rows[ids[1]] == "FAILED" and status == "SENDING", f"{done.status_code} {body} {rows} {status}")
+    check("nothing is offered again, and the notice says it was done", body["interrupted"] == 0 and body["last_resend"] and body["last_resend"]["count"] == 1, str(body))
+
+    window.campaign.finalize_run(world.tenant, window.run, 0)
+    for _ in range(5):
+        if not window.given:
+            break
+        sms.send_batch(world.tenant, window.run, window.given.pop(0))
+    (status,) = world.sql("SELECT status FROM campaign_run WHERE id = %s", [window.run], True)[0]
+    (sent,) = world.sql("SELECT status FROM sms_execution WHERE id = %s", [ids[2]], True)[0]
+    check("it is sent with the next batch and the run closes again", sent not in ("QUEUED", "FAILED") and status == "COMPLETED", f"{sent} {status}")
+
+    again = world.api("post", f"/api/v1/campaign-runs/{window.run}/interrupted/", {})
+    check("a second resend finds nothing", again.status_code == 200 and again.json()["resent"] == 0, again.content[:200])
+    check.done()
+
+
 CSV = ("Email,First name,Mobile number,Email consent date\r\n"
        + "".join(f"resume{n}@resume.test,Resume{n},+1404555{1100 + n},2026-01-1{n}\r\n" for n in range(1, 6))).encode("utf-8")
 

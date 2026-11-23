@@ -34,6 +34,9 @@ STALE_CLAIM = timedelta(minutes=15)
 WINDOW = int(getattr(settings, "CEP_RUN_WINDOW_BATCHES", 32))                # batches of one run in the queue at once
 LOST_AFTER = timedelta(minutes=60)                                          # longer than a batch's time limit plus its wait in the queue
 PREPARING_GRACE = timedelta(minutes=5)                                      # how long a run is PREPARING before anyone looks at it
+INTERRUPTED = "Interrupted before the provider confirmed the message"       # offered once for Resend Interrupted (resend.py)
+RESENT = "Sent again after an interruption"                                 # kept on the message while it waits and is claimed again
+INTERRUPTED_AGAIN = "Interrupted again after it was sent again"             # never offered again
 TABLE = {"EMAIL": "mailer_execution", "SMS": "sms_execution"}
 # a message the engine may claim now: queued, past its local send time, and not held back for a subject-line winner
 DUE = {"EMAIL": "status = 'QUEUED' AND (send_after IS NULL OR send_after <= now()) AND COALESCE(variant_key, '') <> 'HOLD'",
@@ -500,9 +503,9 @@ def sweep(tenant_id, run_id) -> int:
         kind = run_family(tenant_id, run_id)
         with session.connection().cursor() as cursor:
             unconfirmed = "provider_acked_at IS NULL" if kind == "SMS" else "provider_message_id IS NULL"       # an aggregator may answer without an id
-            cursor.execute(f"""UPDATE {TABLE[kind]} SET status = 'FAILED', status_reason = 'Interrupted before the provider confirmed the message'
+            cursor.execute(f"""UPDATE {TABLE[kind]} SET status = 'FAILED', status_reason = CASE WHEN status_reason = %s THEN %s ELSE %s END
                                 WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'SUBMITTED' AND {unconfirmed} AND submitted_at < %s""",
-                           [str(tenant_id), str(run_id), timezone.now() - STALE_CLAIM])
+                           [RESENT, INTERRUPTED_AGAIN, INTERRUPTED, str(tenant_id), str(run_id), timezone.now() - STALE_CLAIM])
             return cursor.rowcount
 
 

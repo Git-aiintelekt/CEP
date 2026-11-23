@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { cepReady, installMockApi, makeCampaign, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, makeCampaign, runRecipients, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string) {
   signIn(path)
@@ -87,4 +87,36 @@ test('Blocked & Unsubscribed: the campaign\'s held-back people with reason, sour
   expect(filtered).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Export CSV' }))
   expect(calls.filter((call) => call.url.includes('/suppressions/export.csv')).length).toBe(1)
+})
+
+test('Resend Interrupted: the notice says how many and when, Show Them filters to them, and the dialog says what may happen before anything is sent again', async () => {
+  const interrupted = { ...runRecipients[2], id: 9, address: 'lena.ortiz@example.com', status: 'INTERRUPTED', status_reason: 'Interrupted before the provider confirmed the message' }
+  const calls = installMockApi({
+    campaigns: [completed()], recipientRows: [...runRecipients, interrupted],
+    interrupted: { engine: 'Postal', interrupted: 3, delivered_since: 1, held_back: 0, to_send: 2, first_at: '2026-09-18T10:01:00Z', last_at: '2026-09-18T10:01:00Z' },
+  })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns/c1?tab=recipients')
+  await user.click(await screen.findByRole('tab', { name: 'Recipients' }))
+
+  const notice = (await screen.findByText(/3 messages were interrupted/)).closest('[role="status"]') as HTMLElement
+  expect(notice.textContent).toMatch(/before Postal confirmed them.*Some may have reached the inbox\. They were not sent again\./)
+  const row = screen.getByText('lena.ortiz@example.com').closest('tr') as HTMLElement
+  expect(within(row).getByText('Interrupted')).toBeTruthy()
+
+  await user.click(within(notice).getByRole('button', { name: 'Show Them' }))
+  await waitFor(() => expect(calls.some((call) => call.url.includes('/recipients/') && call.url.includes('status=INTERRUPTED'))).toBe(true))
+
+  await user.click(within(notice).getByRole('button', { name: 'Resend 3' }))
+  const dialog = await screen.findByRole('dialog', { name: /Resend 3 Interrupted Messages\?/ })
+  expect(within(dialog).getByText(/those people will get the email twice/)).toBeTruthy()
+  expect(within(dialog).getByText('Reported delivered by Postal since').nextElementSibling?.textContent).toBe('1 · left out')
+  expect(within(dialog).getByText('To be sent again').nextElementSibling?.textContent).toBe('2')
+  expect(calls.some((call) => call.method === 'POST' && call.url.includes('/interrupted/'))).toBe(false)
+
+  await user.click(within(dialog).getByRole('button', { name: 'Resend 2' }))
+  const post = calls.find((call) => call.method === 'POST' && call.url.includes('/campaign-runs/r1/interrupted/'))
+  expect(post?.body).toEqual({ at_window: false })
+  expect(await screen.findByText(/2 interrupted messages were sent again on .* by Aby John\./)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /^Resend/ })).toBeNull()
 })

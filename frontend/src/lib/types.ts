@@ -2427,6 +2427,26 @@ export interface RunRecipientPage {
   statuses: string[]
 }
 
+/** GET /campaign-runs/{id}/interrupted/: messages a stopped send worker left unconfirmed, and what Resend Interrupted would do */
+export interface RunInterrupted {
+  /** the run's sending engine, as named under Settings → Sending Engines */
+  engine: string
+  interrupted: number
+  /** reported delivered by the engine since: left out */
+  delivered_since: number
+  /** opted out, blocked or without consent today: left out */
+  held_back: number
+  to_send: number
+  first_at: string | null
+  last_at: string | null
+  /** the run has finished (a run still sending may yet retry them itself) */
+  can_resend: boolean
+  /** a marketing send outside its send window: when it opens, and the words for it */
+  window_opens: string | null
+  window_words: string
+  last_resend: { at: string; by: string | null; count: number } | null
+}
+
 export interface RunRecipientEvent {
   at: string
   /** cep: a timestamp on the message; tracking: an open or click; callback: what the engine sent back */

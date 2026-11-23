@@ -13,7 +13,7 @@ import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
 import type { GovernanceBlackout, GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceUnengaged, GovernanceUnengagedRule, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
-              RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
+              RunInterrupted, RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
   url: string
@@ -976,6 +976,8 @@ interface MockOptions {
   recipientRows?: RunRecipient[]
   /** what GET /campaign-runs/{id}/skipped/ lists; default: skippedPeople */
   skippedPeople?: RunSkippedPerson[]
+  /** GET /campaign-runs/{id}/interrupted/ (Resend Interrupted); default: none interrupted. POST answers with none left and a last_resend */
+  interrupted?: Partial<RunInterrupted>
   /** GET /campaigns/{id}/resume-plan/ */
   resumePlan?: { missed: unknown[]; moved: unknown[]; unchanged: unknown[] }
   /** drip messages (by step id) whose test send fails */
@@ -1372,6 +1374,16 @@ export function installMockApi(options: MockOptions = {}) {
       const byStatus = listed.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {})
       return json({ run: { id: 'r1', run_number: 1, status: 'COMPLETED', test_mode: false, family: 'EMAIL' }, count: rows.length, page: 1, page_size: 50, results: rows, by_status: byStatus,
                     statuses: ['QUEUED', 'SUBMITTED', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'COMPLAINED', 'FAILED', 'NOT_SENT'] })
+    }
+    if (/\/campaign-runs\/[^/]+\/interrupted\/$/.test(path)) {
+      const none: RunInterrupted = { engine: 'Digivize', interrupted: 0, delivered_since: 0, held_back: 0, to_send: 0, first_at: null, last_at: null, can_resend: true,
+                                     window_opens: null, window_words: '', last_resend: null }
+      const now = { ...none, ...options.interrupted }
+      if (method === 'POST') {
+        options.interrupted = { ...now, interrupted: 0, to_send: 0, last_resend: { at: '2026-09-18T11:30:00Z', by: 'Aby John', count: now.to_send } }
+        return json({ ...none, ...options.interrupted, resent: now.to_send, left_out: now.interrupted - now.to_send, send_after: body?.at_window ? now.window_opens : null })
+      }
+      return json(now)
     }
     if (/\/campaign-runs\/[^/]+\/skipped\/$/.test(path)) {
       // GET /campaign-runs/{id}/skipped/: who one run left out, filtered by reason and q, paged
