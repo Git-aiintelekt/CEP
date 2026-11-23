@@ -198,6 +198,12 @@ CELERY_TASK_ROUTES = {                                   # queue isolation per t
 }
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+# a task whose worker died is handed out again after this long; longer than the longest task (an upload: 4 hours), or a task
+# still at work would be handed to a second worker. Sends do not wait for it: the send window gives their messages out again
+# after an hour (apps/delivery/engine/runs.py), and uploads are claimed again after 3 minutes without a heartbeat.
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 5 * 3600}
+CELERY_TASK_TIME_LIMIT = 4 * 3600 + 600                   # a net under every task: a process that hangs is replaced
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 500                   # a process is replaced now and then, so a slow leak never builds up
 CELERY_BEAT_SCHEDULE = {
     "outbox-relay": {"task": "workers.outbox.relay_pending_events", "schedule": 1.0},
     "ensure-monthly-partitions": {"task": "workers.maintenance.ensure_monthly_partitions", "schedule": 6 * 3600},

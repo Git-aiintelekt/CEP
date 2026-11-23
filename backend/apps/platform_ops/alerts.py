@@ -41,6 +41,11 @@ def _problems() -> dict:
         found.update(health.problems())
     except Exception as exc:                               # noqa: BLE001  the engines' checks must not stop the platform's alerts
         log.error("engine health not read for alerts: %s", exc)
+    try:
+        from apps.delivery import stalls
+        found.update(stalls.problems())
+    except Exception as exc:                               # noqa: BLE001  nor the stall checks (before patch 0095 they cannot run)
+        log.error("stalled sends and uploads not read for alerts: %s", exc)
     return found
 
 
