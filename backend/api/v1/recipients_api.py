@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.campaigns.models import CampaignRun
 from apps.delivery.engine import runs as engine_runs, session
@@ -23,13 +24,18 @@ from apps.spreadsheet import safe_row
 
 VIEW = [IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.view")]
 PAGE_MAX = 200
-# NOT_SENT is a filter of its own: rows CEP chose not to send (not_sent_reason, patch 0044; their status stays FAILED, and FAILED leaves them out)
-STATUSES = {"EMAIL": ("QUEUED", "SUBMITTED", "DELIVERED", "OPENED", "CLICKED", "BOUNCED", "COMPLAINED", "FAILED", "NOT_SENT"),
-            "SMS": ("QUEUED", "SUBMITTED", "DELIVERED", "RESPONDED", "OPTED_OUT", "FAILED", "NOT_SENT")}
-SHOWN_STATUS = "CASE WHEN x.not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE x.status END"
-EMAIL_COLUMNS = """x.id, x.party_id, x.email_address AS address, x.status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, x.variant_key, x.bounce_type,
+# NOT_SENT is a filter of its own: rows CEP chose not to send (not_sent_reason, patch 0044; their status stays FAILED, and FAILED leaves them out).
+# INTERRUPTED likewise: failed rows a stopped send worker left unconfirmed, which Resend Interrupted offers (apps/delivery/engine/resend.py)
+STATUSES = {"EMAIL": ("QUEUED", "SUBMITTED", "DELIVERED", "OPENED", "CLICKED", "BOUNCED", "COMPLAINED", "FAILED", "INTERRUPTED", "NOT_SENT"),
+            "SMS": ("QUEUED", "SUBMITTED", "DELIVERED", "RESPONDED", "OPTED_OUT", "FAILED", "INTERRUPTED", "NOT_SENT")}
+SHOWN_STATUS = ("CASE WHEN x.not_sent_reason IS NOT NULL THEN 'NOT_SENT' WHEN x.status = 'FAILED' AND x.status_reason = '" + engine_runs.INTERRUPTED
+                + "' THEN 'INTERRUPTED' ELSE x.status END")
+# a row keeps its own status (a NOT_SENT row stays FAILED with its not_sent_reason), except an interrupted one, which reads INTERRUPTED
+ROW_STATUS = ("CASE WHEN x.not_sent_reason IS NULL AND x.status = 'FAILED' AND x.status_reason = '" + engine_runs.INTERRUPTED
+              + "' THEN 'INTERRUPTED' ELSE x.status END")
+EMAIL_COLUMNS = """x.id, x.party_id, x.email_address AS address, """ + ROW_STATUS + """ AS status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, x.variant_key, x.bounce_type,
                    x.created_at, x.submitted_at, x.delivered_at, x.opened_at, x.clicked_at, x.bounced_at, x.complained_at, NULL::timestamptz AS failed_at, x.send_after"""
-SMS_COLUMNS = """x.id, x.party_id, x.phone_number AS address, x.status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, NULL::varchar AS variant_key, NULL::varchar AS bounce_type,
+SMS_COLUMNS = """x.id, x.party_id, x.phone_number AS address, """ + ROW_STATUS + """ AS status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, NULL::varchar AS variant_key, NULL::varchar AS bounce_type,
                  x.created_at, x.submitted_at, x.delivered_at, x.read_at AS opened_at, NULL::timestamptz AS clicked_at, NULL::timestamptz AS bounced_at, NULL::timestamptz AS complained_at,
                  x.failed_at, x.send_after"""
 FIELDS = ("id", "party_id", "address", "status", "status_reason", "not_sent_reason", "provider_message_id", "attempts", "variant_key", "bounce_type", "created_at", "submitted_at", "delivered_at",
@@ -93,8 +99,51 @@ class RunRecipientsView(APIView):
             raise ValidationError({"page": "A whole number."}) from None
         rows, total = rows_for(run, status=request.query_params.get("status") or None, q=(request.query_params.get("q") or "").strip() or None, offset=(page - 1) * size, limit=size)
         stats = engine_runs.stats(run.tenant_id, run.pk)
+        by_status = dict(stats["by_status"])
+        interrupted = _interrupted_count(run)
+        if interrupted:                                    # counted apart from the other failures, as the rows show them
+            by_status["FAILED"] = max(0, by_status.get("FAILED", 0) - interrupted)
+            by_status["INTERRUPTED"] = interrupted
         return Response({"run": {"id": str(run.pk), "run_number": run.run_number, "status": run.status, "test_mode": run.test_mode, "family": _family(run)},
-                         "count": total, "page": page, "page_size": size, "results": rows, "by_status": stats["by_status"], "statuses": STATUSES[_family(run)]})
+                         "count": total, "page": page, "page_size": size, "results": rows, "by_status": by_status, "statuses": STATUSES[_family(run)]})
+
+
+def _interrupted_count(run) -> int:
+    table, _ = _table(_family(run))
+    with session.connection().cursor() as cursor:
+        cursor.execute(f"""SELECT count(*) FROM {table} x WHERE x.tenant_id = %s AND x.campaign_run_id = %s AND x.not_sent_reason IS NULL
+                              AND x.status = 'FAILED' AND x.status_reason = %s""", [str(run.tenant_id), str(run.pk), engine_runs.INTERRUPTED])
+        return cursor.fetchone()[0]
+
+
+def _interrupted(run) -> dict:
+    from apps.delivery.engine import resend
+    found = resend.overview(run)
+    window = found.pop("window")
+    return {**found, "window_opens": window["opens"], "window_words": window["words"]}
+
+
+class RunInterruptedView(APIView):
+    """GET /campaign-runs/{id}/interrupted/ : Resend Interrupted's notice and dialog (docs/mockups/resend-interrupted.html).
+    POST {"at_window": false} : the interrupted messages that may still go are sent again; campaign.publish."""
+
+    def get_permissions(self):
+        code = "campaign.publish" if self.request.method == "POST" else "campaign.view"
+        return [IsAuthenticated(), SameTenant(), HasPermissionCode.for_(code)()]
+
+    @extend_schema(responses={200: None})
+    def get(self, request, pk, version=None):
+        return Response(_interrupted(_run(pk)))
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, pk, version=None):
+        from apps.delivery.engine import resend
+        run = _run(pk)
+        try:
+            done = resend.resend(run, user=request.user, at_window=bool((request.data or {}).get("at_window")))
+        except resend.NotNow as exc:
+            raise Conflict(str(exc)) from None
+        return Response({**done, **_interrupted(CampaignRun.objects.select_related("campaign").get(pk=run.pk))})
 
 
 def skipped_for(run, *, reason: str | None = None, q: str | None = None, offset: int = 0, limit: int = 50) -> tuple[list[dict], int, dict]:

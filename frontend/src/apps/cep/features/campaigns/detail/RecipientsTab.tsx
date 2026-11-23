@@ -26,6 +26,7 @@ import type { Campaign, CampaignRun, CampaignSuppressions, ProviderMessageStatus
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
 
 import { whenInZone } from '../dripSequence'
+import { InterruptedNotice } from './InterruptedNotice'
 import { dripStepsQuery } from '../dripSteps'
 import { dateTimeInZone } from '../zone'
 
@@ -33,7 +34,7 @@ type View = 'recipients' | 'blocked'
 const LIVE = new Set(['SCHEDULED', 'PREPARING', 'SENDING'])
 const STATUS_TONE: Record<string, TagTone> = {
   QUEUED: 'neutral', SUBMITTED: 'warning', DELIVERED: 'success', OPENED: 'success', CLICKED: 'success', RESPONDED: 'success',
-  BOUNCED: 'error', COMPLAINED: 'error', FAILED: 'error', OPTED_OUT: 'error',
+  BOUNCED: 'error', COMPLAINED: 'error', FAILED: 'error', OPTED_OUT: 'error', INTERRUPTED: 'warning',
 }
 const STATUS_LABEL: Record<string, string> = { SUBMITTED: 'Sent', COMPLAINED: 'Marked as Spam', OPTED_OUT: 'Opted Out', RESPONDED: 'Replied', NOT_SENT: 'Not Sent' }
 const statusLabel = (code: string) => STATUS_LABEL[code] ?? titleize(code)
@@ -138,6 +139,7 @@ function Recipients({ campaign, zone, live }: { campaign: Campaign; zone: string
         {(search || status || runId !== firstRun) && <ClearFiltersLink onClick={() => { setSearch(''); setStatus(''); setRunId(firstRun); setPage(1) }} />}
         <button type="button" className={`${buttonSecondary} ml-auto`} onClick={() => void exportCsv()} disabled={!data || data.count === 0}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
       </div>
+      {runId && <InterruptedNotice runId={runId} texts={Boolean(texts)} zone={zone} onShow={status === 'INTERRUPTED' ? undefined : () => { setStatus('INTERRUPTED'); setPage(1) }} />}
       {problem && <p role="alert" className="px-4 pt-3 text-sm text-danger-text">{problem}</p>}
       {recipients.isError ? <div className="p-4"><ErrorState error={recipients.error} onRetry={() => void recipients.refetch()} /></div>
       : !data ? <p className="flex items-center gap-2 p-4 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>

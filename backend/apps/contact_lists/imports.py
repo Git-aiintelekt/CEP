@@ -266,13 +266,19 @@ def _request_apply(record: ContactListImport) -> ContactListImport:
 # ---------------------------------------------------------------- worker: read the file
 def stage(record: ContactListImport, chunk_rows: int, beat) -> None:
     """Streams the stored file into the staging table, `chunk_rows` rows per transaction. `beat(done, total)` reports
-    progress, keeps the claim alive and raises Cancelled when the operator gave up."""
+    progress, keeps the claim alive and raises Cancelled when the operator gave up. A retry after a worker stopped carries on
+    after the last chunk it stored (each chunk is its own transaction, so the rows stored are always a whole first part)."""
     tenant, pk = str(record.tenant_id), str(record.pk)
-    for encoding in dict.fromkeys([record.file_encoding or "utf-8-sig", "cp1252"]):
-        with session.tx(), _conn().cursor() as cursor:                     # a retry, or the other encoding: start clean
-            cursor.execute("DELETE FROM contact_list_import_row WHERE tenant_id = %s AND import_id = %s", [tenant, pk])
+    with session.tx(), _conn().cursor() as cursor:
+        cursor.execute("SELECT COALESCE(max(row_number), 0) FROM contact_list_import_row WHERE tenant_id = %s AND import_id = %s", [tenant, pk])
+        stored_through = cursor.fetchone()[0]
+    for attempt, encoding in enumerate(dict.fromkeys([record.file_encoding or "utf-8-sig", "cp1252"])):
+        resume_after = stored_through if attempt == 0 else 0                # the other encoding reads the file again from the start
+        if not resume_after:
+            with session.tx(), _conn().cursor() as cursor:
+                cursor.execute("DELETE FROM contact_list_import_row WHERE tenant_id = %s AND import_id = %s", [tenant, pk])
         try:
-            total = _stage_as(record, encoding, chunk_rows, beat)
+            total = _stage_as(record, encoding, chunk_rows, beat, resume_after=resume_after)
             break
         except UnicodeDecodeError:
             continue
@@ -287,7 +293,8 @@ def stage(record: ContactListImport, chunk_rows: int, beat) -> None:
         record.save(update_fields=["row_count", "storage_key", "file_encoding", "progress_done", "progress_total"])
 
 
-def _stage_as(record: ContactListImport, encoding: str, chunk_rows: int, beat) -> int:
+def _stage_as(record: ContactListImport, encoding: str, chunk_rows: int, beat, resume_after: int = 0) -> int:
+    """`resume_after`: the last line number already stored; the lines up to it are read (to keep the numbering) but not stored."""
     tenant, pk = str(record.tenant_id), str(record.pk)
     size = record.file_size or 0
     with storage().open(record.storage_key, "rb") as opened:
@@ -317,6 +324,8 @@ def _stage_as(record: ContactListImport, encoding: str, chunk_rows: int, beat) -
             total += 1
             if total > MAX_ROWS:
                 raise ImportError_("The file has more than 250,000 rows. Split it and upload the parts as separate lists.")
+            if total + 1 <= resume_after:
+                continue                                                       # stored before the worker stopped
             rows.append({"n": total + 1,                                        # + 1: the header is line 1 of the file
                          "r": {header: (line[index].strip()[:500] if index < len(line) else "") for index, header in enumerate(headers)}})
             if len(rows) >= chunk_rows:
@@ -566,15 +575,21 @@ def issues(record: ContactListImport, limit: int = 50) -> list[dict]:
 
 # ---------------------------------------------------------------- worker: add to the list
 def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> None:
-    """A range of lines per transaction. Safe to run again after a crash: every insert skips what is already there."""
+    """A range of lines per transaction. Safe to run again after a crash: every insert skips what is already there. A retry
+    carries on after the last range finished (summary.applied_through, written in that range's own transaction with its
+    counts, so the counts stay right however often a worker stops)."""
     contact_list = record.contact_list
     v, base = _expressions(record.column_mapping, channel_of(contact_list))
     base.update({"imp": str(record.pk), "tenant": str(record.tenant_id), "list": str(contact_list.pk), "file": record.file_name,
                  "basis": record.consent_basis, "collected": record.consent_collected_at})
     span = "r.tenant_id = %(tenant)s AND r.import_id = %(imp)s AND r.row_number BETWEEN %(a)s AND %(b)s"
     created = added = consents = 0
+    applied_through = int((record.summary or {}).get("applied_through") or 0)
     for a, b in _ranges(record.row_count + 1, chunk_rows):
+        if b <= applied_through:
+            continue                                                      # finished before the worker stopped
         params = {**base, "a": a, "b": b}
+        created_before, consents_before = created, consents
         with session.tx(), _conn().cursor() as cursor:
             # people C360 did not know: its own customer rows (not a C360 copy), addressed by a key derived from workspace + address
             cursor.execute(f"""INSERT INTO customer_master (party_id, tenant_id, first_name, last_name, emails, phones, primary_address, custom_attributes, source_system, is_synced_copy)
@@ -630,6 +645,9 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                           marketable_reason = NULL, last_consent_record_id = EXCLUDED.last_consent_record_id, updated_at = now()
                                     WHERE consent_suppression.consent_status = 'UNKNOWN'""", {**params, "channel": consent_channel})
                 consents += cursor.rowcount
+            cursor.execute("""UPDATE contact_list_import SET new_customer_count = COALESCE(new_customer_count, 0) + %s, consent_count = COALESCE(consent_count, 0) + %s,
+                                     summary = jsonb_set(summary, '{applied_through}', to_jsonb(%s::int))
+                               WHERE tenant_id = %s AND id = %s""", [created - created_before, consents - consents_before, b, base["tenant"], base["imp"]])
         beat(min(b - 1, record.row_count), record.row_count)
 
     now = timezone.now()
@@ -645,13 +663,12 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
             ContactList.objects.filter(pk=contact_list.pk).update(approval_status=consent.AWAITING, approved_by=None, approved_at=None, approval_note=None)
     record.applied_count = from_this_file
     ready = record.matched_count + record.unmatched_count
-    record.summary = {**(record.summary or {}), "result": {"added": from_this_file, "already_in_list": max(0, ready - from_this_file),
-                                                            "list_members_now": members, "imported_at": now.isoformat()}}
-    record.new_customer_count = (record.new_customer_count or 0) + created
-    record.consent_count = (record.consent_count or 0) + consents
+    record.summary = {**(record.summary or {}), "applied_through": record.row_count + 1,
+                      "result": {"added": from_this_file, "already_in_list": max(0, ready - from_this_file), "list_members_now": members, "imported_at": now.isoformat()}}
     record.completed_at = now
     with session.tx():
-        record.save(update_fields=["applied_count", "new_customer_count", "consent_count", "completed_at", "summary"])
+        record.save(update_fields=["applied_count", "completed_at", "summary"])           # the counts were added range by range
+        record.refresh_from_db(fields=["new_customer_count", "consent_count"])
 
 
 # ---------------------------------------------------------------- the row-by-row report

@@ -3,10 +3,17 @@
     start(tenant_id, run_id)      claims the run, builds the audience, queues the executions, returns the batches
     finalize(tenant_id, run_id)   closes the run once nothing is queued any more
     sweep(tenant_id, run_id)      turns messages that were claimed but never confirmed into visible failures
-    due()                         every run that should start now, across tenants (platform connection)
+    due()                         every run that should start now, close, or be looked at, across tenants (platform connection)
+    hand_out(...)                 the send window: the next batches of a run, marked as given to a worker
+    recover_preparing(...)        a run left PREPARING by a worker that died goes back to SCHEDULED
 
 A run's family is EMAIL (mailer_execution) or SMS (sms_execution: SMS and MMS). Callers wrap these in
 session.tenant_scope(tenant_id); each step commits on its own.
+
+The send window (separate send workers, docs/WORKERS_DEPLOYMENT_PLAN.md): a run gives its workers WINDOW batches to start
+with and each finished batch gives out one more, so the queue holds a few batches per run however large the run is. A
+message given out and still waiting after LOST_AFTER is given out again (its worker died); the claim (QUEUED -> SUBMITTED)
+keeps it from going out twice. The single-process scheduler (process_run) does not use the window.
 """
 import logging
 from datetime import datetime, timedelta
@@ -24,6 +31,12 @@ from . import abtest, audience, audience_sms, content as run_content, sendtime, 
 
 log = logging.getLogger("cep.delivery")
 STALE_CLAIM = timedelta(minutes=15)
+WINDOW = int(getattr(settings, "CEP_RUN_WINDOW_BATCHES", 32))                # batches of one run in the queue at once
+LOST_AFTER = timedelta(minutes=60)                                          # longer than a batch's time limit plus its wait in the queue
+PREPARING_GRACE = timedelta(minutes=5)                                      # how long a run is PREPARING before anyone looks at it
+INTERRUPTED = "Interrupted before the provider confirmed the message"       # offered once for Resend Interrupted (resend.py)
+RESENT = "Sent again after an interruption"                                 # kept on the message while it waits and is claimed again
+INTERRUPTED_AGAIN = "Interrupted again after it was sent again"             # never offered again
 TABLE = {"EMAIL": "mailer_execution", "SMS": "sms_execution"}
 # a message the engine may claim now: queued, past its local send time, and not held back for a subject-line winner
 DUE = {"EMAIL": "status = 'QUEUED' AND (send_after IS NULL OR send_after <= now()) AND COALESCE(variant_key, '') <> 'HOLD'",
@@ -128,8 +141,55 @@ def _fail(tenant_id, run, reason: str) -> None:
     _deliver(notice)
 
 
-def start(tenant_id, run_id) -> dict:
-    """-> {'batches': [[execution ids], ...], 'audience': {...}, 'family': 'EMAIL' | 'SMS'}. Safe to call twice: only one caller gets the claim."""
+def _lock_key(run_id) -> str:
+    return f"cep.campaign_run.prepare:{run_id}"
+
+
+def _try_lock(run_id) -> bool:
+    """A session lock held while a run is prepared: it goes with the worker's connection, so a worker that dies lets go of it."""
+    with session.connection().cursor() as cursor:
+        cursor.execute("SELECT pg_try_advisory_lock(hashtextextended(%s, 0))", [_lock_key(run_id)])
+        return bool(cursor.fetchone()[0])
+
+
+def _unlock(run_id) -> None:
+    with session.connection().cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_unlock(hashtextextended(%s, 0))", [_lock_key(run_id)])
+
+
+def start(tenant_id, run_id, *, window: int | None = None) -> dict:
+    """-> {'batches': [[execution ids], ...], 'audience': {...}, 'family': 'EMAIL' | 'SMS'}. Safe to call twice: only one caller gets the claim.
+    `window`: give out only that many batches (separate send workers); None returns every batch (the single-process scheduler)."""
+    if not _try_lock(run_id):
+        raise RunNotStarted("Another worker is preparing this run.")
+    try:
+        return _start(tenant_id, run_id, window)
+    finally:
+        _unlock(run_id)
+
+
+def recover_preparing(tenant_id, run_id) -> bool:
+    """A run PREPARING for longer than PREPARING_GRACE whose worker is gone (nobody holds its lock) goes back to SCHEDULED and is
+    started again. Its audience is built in one transaction, so a worker that died left nothing half-built."""
+    if not _try_lock(run_id):
+        return False                                       # still being prepared
+    try:
+        with session.tx(), session.connection().cursor() as cursor:
+            cursor.execute("""UPDATE campaign_run SET status = 'SCHEDULED'
+                               WHERE id = %s AND tenant_id = %s AND status = 'PREPARING' AND started_at < %s
+                                 AND NOT EXISTS (SELECT 1 FROM campaign_list l WHERE l.tenant_id = campaign_run.tenant_id AND l.campaign_run_id = campaign_run.id)
+                           RETURNING campaign_id""", [str(run_id), str(tenant_id), timezone.now() - PREPARING_GRACE])
+            row = cursor.fetchone()
+        if row is None:
+            return False
+        log.warning("run %s was left PREPARING by a worker that stopped; it starts again", run_id)
+        _activity(tenant_id, row[0], run_id, "WARNING", "The send is being prepared again: the worker preparing it stopped before it was ready.", severity="WARNING")
+        return True
+    finally:
+        _unlock(run_id)
+
+
+def _start(tenant_id, run_id, window: int | None) -> dict:
     with session.tx():
         run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider", "campaign__tenant", "drip_step__template").get(pk=run_id, tenant_id=tenant_id)
         campaign = run.campaign
@@ -246,10 +306,14 @@ def start(tenant_id, run_id) -> dict:
                   (f"{label} started" if label else f"Send started{' (' + run.sequence_label + ')' if run.sequence_label else ''}") + f": Campaign List frozen with {built['members']:,} people, "
                   f"{built.get('eligible', 0):,} to be sent, {built['members'] - built.get('eligible', 0):,} left out by governance or missing details."
                   + "".join(" " + note for note in notes), detail=built)
-        with session.connection().cursor() as cursor:
-            cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND {DUE[kind]} ORDER BY id", [str(tenant_id), str(run_id)])
-            ids = [row[0] for row in cursor.fetchall()]
-    batches = [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+        if window is None:
+            with session.connection().cursor() as cursor:
+                cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND {DUE[kind]} ORDER BY id", [str(tenant_id), str(run_id)])
+                ids = [row[0] for row in cursor.fetchall()]
+            batches = [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+    if window is not None:
+        with session.tx():
+            batches = hand_out(tenant_id, run_id, window, batch_size=batch_size)
     if not batches:
         finalize(tenant_id, run_id)                        # nothing due now: a run whose messages all wait stays SENDING until they are
     return {"batches": batches, "audience": built, "family": kind}
@@ -262,6 +326,65 @@ def queued_batches(tenant_id, run_id, batch_size: int = 100) -> list[list[int]]:
         cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND {DUE[kind]} ORDER BY id", [str(tenant_id), str(run_id)])
         ids = [row[0] for row in cursor.fetchall()]
     return [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+
+
+def batch_size_of(tenant_id, run_id) -> int:
+    """The run's engine's batch size (Digivize 100), as start() uses; 100 when the engine cannot be read."""
+    try:
+        run = CampaignRun.objects.select_related("campaign__sender_profile__delivery_provider").get(pk=run_id, tenant_id=tenant_id)
+        return max(1, int(registry.for_provider(run.campaign.sender_profile.delivery_provider).max_batch))
+    except Exception:                                      # noqa: BLE001  a run whose engine changed: the default size still sends
+        return 100
+
+
+def hand_out(tenant_id, run_id, batches: int, *, batch_size: int | None = None) -> list[list[int]]:
+    """Inside session.tx(): the next `batches` batches of a SENDING run, marked as given to a worker. A message is given out when it
+    is due and was never given out, given back, or given out longer than LOST_AFTER ago. SKIP LOCKED: two feeders never take
+    the same message."""
+    if batches <= 0:
+        return []
+    kind = run_family(tenant_id, run_id)
+    size = batch_size or batch_size_of(tenant_id, run_id)
+    table = TABLE[kind]
+    with session.connection().cursor() as cursor:
+        cursor.execute(f"""UPDATE {table} SET enqueued_at = now()
+                            WHERE tenant_id = %(tenant)s AND id IN (
+                                  SELECT e.id FROM {table} e
+                                   WHERE e.tenant_id = %(tenant)s AND e.campaign_run_id = %(run)s AND {DUE[kind]}
+                                     AND (e.enqueued_at IS NULL OR e.enqueued_at < %(lost)s)
+                                     AND EXISTS (SELECT 1 FROM campaign_run r WHERE r.id = %(run)s AND r.tenant_id = %(tenant)s AND r.status = 'SENDING')
+                                   ORDER BY e.id LIMIT %(limit)s FOR UPDATE OF e SKIP LOCKED)
+                        RETURNING id""",
+                       {"tenant": str(tenant_id), "run": str(run_id), "lost": timezone.now() - LOST_AFTER, "limit": batches * size})
+        ids = sorted(row[0] for row in cursor.fetchall())
+    return [ids[i:i + size] for i in range(0, len(ids), size)]
+
+
+def in_flight(tenant_id, run_id) -> bool:
+    """Inside session.tx(): some of the run's waiting messages are with a worker (given out less than LOST_AFTER ago, or due back from a retry)."""
+    kind = run_family(tenant_id, run_id)
+    with session.connection().cursor() as cursor:
+        cursor.execute(f"SELECT EXISTS (SELECT 1 FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'QUEUED' AND enqueued_at >= %s)",
+                       [str(tenant_id), str(run_id), timezone.now() - LOST_AFTER])
+        return bool(cursor.fetchone()[0])
+
+
+def hold(tenant_id, kind: str, execution_ids: list[int], seconds: float) -> None:
+    """Messages put back to wait for a retry in `seconds`: still with a worker until then, so the window does not give them out again."""
+    if not execution_ids:
+        return
+    with session.tx(), session.connection().cursor() as cursor:
+        cursor.execute(f"UPDATE {TABLE[kind]} SET enqueued_at = now() + make_interval(secs => %s) WHERE tenant_id = %s AND id = ANY(%s) AND status = 'QUEUED'",
+                       [float(seconds), str(tenant_id), list(execution_ids)])
+
+
+def give_back(tenant_id, kind: str, execution_ids: list[int]) -> None:
+    """Messages a worker did not send (the run was paused or stopped): free to be given out again at once."""
+    if not execution_ids:
+        return
+    with session.tx(), session.connection().cursor() as cursor:
+        cursor.execute(f"UPDATE {TABLE[kind]} SET enqueued_at = NULL WHERE tenant_id = %s AND id = ANY(%s) AND status = 'QUEUED'",
+                       [str(tenant_id), list(execution_ids)])
 
 
 def _jsonable(value):
@@ -380,19 +503,21 @@ def sweep(tenant_id, run_id) -> int:
         kind = run_family(tenant_id, run_id)
         with session.connection().cursor() as cursor:
             unconfirmed = "provider_acked_at IS NULL" if kind == "SMS" else "provider_message_id IS NULL"       # an aggregator may answer without an id
-            cursor.execute(f"""UPDATE {TABLE[kind]} SET status = 'FAILED', status_reason = 'Interrupted before the provider confirmed the message'
+            cursor.execute(f"""UPDATE {TABLE[kind]} SET status = 'FAILED', status_reason = CASE WHEN status_reason = %s THEN %s ELSE %s END
                                 WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'SUBMITTED' AND {unconfirmed} AND submitted_at < %s""",
-                           [str(tenant_id), str(run_id), timezone.now() - STALE_CLAIM])
+                           [RESENT, INTERRUPTED_AGAIN, INTERRUPTED, str(tenant_id), str(run_id), timezone.now() - STALE_CLAIM])
             return cursor.rowcount
 
 
 def due(limit: int = 50) -> list[tuple[str, str, str]]:
-    """(tenant_id, run_id, status) of runs to start or to close, across tenants. Read on the platform connection."""
+    """(tenant_id, run_id, status) of runs to start, to close or keep fed (SENDING), or to look at (PREPARING for a while:
+    recover_preparing), across tenants. Read on the platform connection."""
     with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
         cursor.execute("""SELECT r.tenant_id, r.id, r.status FROM campaign_run r JOIN tenant t ON t.id = r.tenant_id
                              JOIN campaign c ON c.id = r.campaign_id AND c.tenant_id = r.tenant_id
                            WHERE t.status = 'ACTIVE' AND ((r.status = 'SCHEDULED' AND (r.scheduled_at IS NULL OR r.scheduled_at <= now()) AND NOT r.test_mode
                                                            AND c.status NOT IN ('PAUSED', 'ARCHIVED'))
-                                  OR (r.status = 'SENDING' AND r.run_type <> 'ERECEIPT_INSTANCE' AND r.started_at < now() - interval '2 minutes'))
-                           ORDER BY r.created_at LIMIT %s""", [limit])
+                                  OR (r.status = 'SENDING' AND r.run_type <> 'ERECEIPT_INSTANCE' AND r.started_at < now() - interval '2 minutes')
+                                  OR (r.status = 'PREPARING' AND r.started_at < %s))
+                           ORDER BY r.created_at LIMIT %s""", [timezone.now() - PREPARING_GRACE, limit])
         return [(str(a), str(b), c) for a, b, c in cursor.fetchall()]

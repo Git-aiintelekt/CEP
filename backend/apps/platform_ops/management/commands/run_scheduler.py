@@ -30,14 +30,18 @@ def _runnable() -> dict:
     """job name -> what runs it here, without a broker. The campaign dispatcher's own task hands batches to workers, so
     the runs are processed in this process instead (send_campaign_runs does the same by hand)."""
     from apps.delivery import engine
-    from apps.delivery.engine import runs
+    from apps.delivery.engine import runs, session
     from apps.platform_ops import jobs
     from workers import journey, lists, maintenance, outbox, platform
 
     @jobs.monitored("dispatch-campaign-runs")
     def dispatch_here() -> dict:
         started = 0
-        for tenant_id, run_id, _status in runs.due():
+        for tenant_id, run_id, status in runs.due():
+            if status == "PREPARING":                      # left by a pass that stopped: back to SCHEDULED, started on the next pass
+                with session.tenant_scope(tenant_id):
+                    runs.recover_preparing(tenant_id, run_id)
+                continue
             engine.process_run(tenant_id, run_id)
             started += 1
         return {"processed": started}

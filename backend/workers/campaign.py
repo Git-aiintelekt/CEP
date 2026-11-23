@@ -1,8 +1,9 @@
 """Campaign run orchestration (queue: campaign).
 
-    dispatch_due_runs   beat, every minute: starts runs whose time has come, closes runs whose last batch is done
-    start_run           builds the audience and fans the executions out to workers.email.send_batch
-    finalize_run        closes the run once nothing is queued
+    dispatch_due_runs   beat, every minute: starts runs whose time has come, keeps sending runs fed and closes finished ones,
+                        and starts again a run left PREPARING by a worker that stopped
+    start_run           builds the audience and gives the first batches of the send window to workers.email / workers.sms
+    finalize_run        after each batch: gives out the next batch; closes the run once nothing is queued
     plan_recurring_runs beat, every 5 minutes: the next occurrence of each recurring campaign, until its end
     run_warm_ups        beat, every minute: Delivery Warm-Up (apps/delivery/warmup.py)
 """
@@ -16,34 +17,42 @@ from apps.platform_ops import jobs
 log = logging.getLogger("cep.delivery")
 
 
-@shared_task(name="workers.campaign.start_run")
-def start_run(tenant_id: str, run_id: str) -> dict:
+def _send(kind: str, tenant_id: str, run_id: str, batches: list[list[int]]) -> None:
     from workers.email import send_batch as send_email_batch
     from workers.sms import send_batch as send_sms_batch
+    for batch in batches:
+        (send_sms_batch if kind == "SMS" else send_email_batch).delay(tenant_id, run_id, batch)
+
+
+# building the audience of a very large run takes minutes; a worker that hangs is replaced, and the run is prepared again
+@shared_task(name="workers.campaign.start_run", soft_time_limit=2 * 3600, time_limit=2 * 3600 + 300)
+def start_run(tenant_id: str, run_id: str) -> dict:
     with session.tenant_scope(tenant_id):
         try:
-            started = runs.start(tenant_id, run_id)
+            started = runs.start(tenant_id, run_id, window=runs.WINDOW)
         except runs.RunNotStarted as exc:
             return {"skipped": str(exc)}
-    send_batch = send_sms_batch if started.get("family") == "SMS" else send_email_batch
-    for batch in started["batches"]:
-        send_batch.delay(tenant_id, run_id, batch)
+    _send(started.get("family") or "EMAIL", tenant_id, run_id, started["batches"])
     return {"batches": len(started["batches"]), **started.get("audience", {})}
 
 
-@shared_task(name="workers.campaign.finalize_run")
-def finalize_run(tenant_id: str, run_id: str) -> dict:
-    """Closes a run that is done; hands out what became due since (local send times, a subject-line winner, a resume)."""
-    from workers.email import send_batch as send_email_batch
-    from workers.sms import send_batch as send_sms_batch
+@shared_task(name="workers.campaign.finalize_run", soft_time_limit=600, time_limit=660)
+def finalize_run(tenant_id: str, run_id: str, refill: int = 1) -> dict:
+    """After a batch (refill=1): the run's next batch. From the dispatcher (refill=0): nothing while batches are with workers;
+    otherwise a full window of what is due (local send times, a subject-line winner, a resume, workers that died). Closes the
+    run once nothing is queued."""
     with session.tenant_scope(tenant_id):
         swept = runs.sweep(tenant_id, run_id)
         with session.tx():
-            due = runs.queued_batches(tenant_id, run_id)
+            due = runs.hand_out(tenant_id, run_id, refill)
+            busy = runs.in_flight(tenant_id, run_id)
+            if not due and not busy:
+                due = runs.hand_out(tenant_id, run_id, runs.WINDOW)
             kind = runs.run_family(tenant_id, run_id) if due else None
-        for batch in due:
-            (send_sms_batch if kind == "SMS" else send_email_batch).delay(tenant_id, run_id, batch)
-        return {"status": None if due else runs.finalize(tenant_id, run_id), "swept": swept, "batches": len(due)}
+        _send(kind, tenant_id, run_id, due)
+        if due or busy:
+            return {"status": None, "swept": swept, "batches": len(due)}
+        return {"status": runs.finalize(tenant_id, run_id), "swept": swept, "batches": 0}
 
 
 @shared_task(name="workers.campaign.decide_ab_winners")
@@ -112,12 +121,18 @@ def plan_recurring_runs() -> dict:
 @shared_task(name="workers.campaign.dispatch_due_runs")
 @jobs.monitored("dispatch-campaign-runs")
 def dispatch_due_runs() -> dict:
-    started = closing = 0
+    started = closing = recovered = 0
     for tenant_id, run_id, status in runs.due():
         if status == "SCHEDULED":
             start_run.delay(tenant_id, run_id)
             started += 1
+        elif status == "PREPARING":
+            try:
+                with session.tenant_scope(tenant_id):
+                    recovered += int(runs.recover_preparing(tenant_id, run_id))
+            except Exception:                              # noqa: BLE001  one run's trouble must not stop the others
+                log.exception("run %s left PREPARING was not looked at", run_id)
         else:
-            finalize_run.delay(tenant_id, run_id)
+            finalize_run.delay(tenant_id, run_id, 0)
             closing += 1
-    return {"started": started, "checked_for_completion": closing}
+    return {"started": started, "checked_for_completion": closing, "prepared_again": recovered}

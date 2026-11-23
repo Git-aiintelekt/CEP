@@ -3597,6 +3597,17 @@ ALTER TABLE campaign ADD COLUMN IF NOT EXISTS include_unengaged BOOLEAN NOT NULL
 COMMENT ON COLUMN campaign.include_unengaged IS 'A win-back campaign: unengaged contacts are not left out of it (recorded in the activity log).';
 CREATE INDEX IF NOT EXISTS ix_attributed_order_party ON attributed_order(tenant_id, party_id, ordered_at DESC) WHERE party_id IS NOT NULL;
 
+-- Send window (patch 0095): with separate send workers, a run hands out a few batches at a time instead of all of them, and
+-- each finished batch hands out the next. enqueued_at = when a waiting message was last given to a worker (NULL: never, or
+-- given back); a retry waiting for its turn carries the time it is due. A message given out more than an hour ago and still
+-- waiting is taken to be lost (its worker died) and is given out again; the claim still stops it going out twice.
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS enqueued_at TIMESTAMPTZ;
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS enqueued_at TIMESTAMPTZ;
+COMMENT ON COLUMN sms_execution.enqueued_at IS 'When this waiting message was last given to a send worker (NULL: not given out). Older than an hour while still QUEUED: lost, given out again.';
+COMMENT ON COLUMN mailer_execution.enqueued_at IS 'When this waiting message was last given to a send worker (NULL: not given out). Older than an hour while still QUEUED: lost, given out again.';
+CREATE INDEX IF NOT EXISTS ix_sms_execution_run_waiting ON sms_execution(campaign_run_id, id) WHERE status = 'QUEUED';
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_run_waiting ON mailer_execution(campaign_run_id, id) WHERE status = 'QUEUED';
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

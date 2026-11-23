@@ -116,13 +116,16 @@ def test_rate_limited_run_waits_instead_of_failing(admin_email):
 
 
 def test_celery_worker_sends_a_held_batch_again_after_the_wait():
-    """A held batch is a fresh task after the wait: it uses up none of the five retries a failing provider gets."""
+    """A held batch is a fresh task after the wait: it uses up none of the five retries a failing provider gets, and its
+    messages stay with a worker until then (the send window does not give them out again)."""
     from workers import email, sms
-    for worker, target in ((email, "workers.email.dispatch.send_batch"), (sms, "workers.sms.dispatch_sms.send_batch")):
+    for worker, target, kind in ((email, "workers.email.dispatch.send_batch", "EMAIL"), (sms, "workers.sms.dispatch_sms.send_batch", "SMS")):
         with mock.patch(target, side_effect=RetryBatch([7, 8], "Waiting for the engine's limit of 2 messages per minute", retry_after=42)), \
                 mock.patch.object(worker.send_batch, "apply_async") as again, mock.patch.object(worker.send_batch, "retry") as retry, \
+                mock.patch.object(worker.runs, "hold") as hold, \
                 mock.patch("workers.campaign.finalize_run.delay"), mock.patch.object(worker.session, "tenant_scope", return_value=mock.MagicMock()):
             outcome = worker.send_batch("tenant", "run", [7, 8])
         assert outcome == {"held": 2, "retry_after": 42}
         again.assert_called_once_with(args=["tenant", "run", [7, 8]], countdown=42)
+        hold.assert_called_once_with("tenant", kind, [7, 8], 42)
         retry.assert_not_called()
