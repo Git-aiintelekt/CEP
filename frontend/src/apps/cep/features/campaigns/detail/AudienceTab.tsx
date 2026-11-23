@@ -159,7 +159,7 @@ function ExclusionsCard({ numbers, audience, zone }: { numbers: AudienceSummaryN
             {frozen ? (
               <div className="grid gap-6 md:grid-cols-2">
                 <Funnel label="At the Last Send" lines={frozenFunnel(frozen, audience.channel)} footnote={`Frozen ${dateTimeInZone(frozen.generated_at, zone)}. Later changes to the contact lists do not touch it.`} />
-                <Funnel label="If It Were Sent Today" lines={audienceFunnel(audience)} footnote={audience.note || undefined} />
+                <Funnel label="If It Were Sent Today" lines={audienceFunnel(audience)} />
               </div>
             ) : <Funnel label="Today's Estimate" lines={audienceFunnel(audience)} />}
           </div>
@@ -167,7 +167,6 @@ function ExclusionsCard({ numbers, audience, zone }: { numbers: AudienceSummaryN
             <CardSubheading className="mb-3">Reasons</CardSubheading>
             {reasons.length ? <ReasonList rows={reasons} label="Reasons people are left out" /> : <p className="text-sm text-ink-800">Nobody is left out by this campaign’s lists or send rules.</p>}
           </div>
-          {!frozen && audience.note && <p className="text-helper text-ink-800">{audience.note}</p>}
         </div>
       )}
     </section>

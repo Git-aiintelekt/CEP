@@ -4,11 +4,10 @@
  * upload, or one made from an audience or a clone (the Contact lists page's own wizard). An uploaded list waits as
  * Needs review until it is confirmed, because file data isn't checked upstream. The estimate is the API's, for the lists
  * as they are here, saved or not; the real Campaign List is frozen when a send starts.
- * A drip's audience is fixed at its first message: the note above Send To says so, and that the rules apply before each one.
  */
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
@@ -85,6 +84,17 @@ function SummaryCard({ included, pending, estimate, noun }: { included: number; 
   )
 }
 
+/** a list card with nothing in it yet: a dashed box with what goes here and the button that adds it */
+function EmptyLists({ kind, title, text, action, children }: { kind: 'send-to' | 'leave-out'; title: string; text: string; action: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line bg-surface-subtle px-6 py-10 text-center" data-empty={kind}>
+      <p className="text-sm font-semibold text-ink-900">{title}</p>
+      <p className="text-helper text-ink-800">{text}</p>
+      {children}
+      <div className="mt-2">{action}</div>
+    </div>
+  )
+}
 
 interface StepAudienceProps {
   campaign?: Campaign
@@ -112,6 +122,14 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
   /** lists made here from an audience or a clone: attached at once */
   const [auto, setAuto] = useState<string[]>([])
   const [notice, setNotice] = useState('')
+  /** "Review List": once the pop-up has closed, the new list's row is scrolled to and focused */
+  const revealList = (list: ContactList) => {
+    window.setTimeout(() => {
+      const link = document.querySelector<HTMLElement>(`a[href="/contact-lists/${list.id}"]`)
+      link?.scrollIntoView?.({ block: 'center' })
+      link?.focus()
+    }, 0)
+  }
 
   const lists = useQuery({
     queryKey: ['contact-lists', 'options'],
@@ -138,13 +156,13 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
   const sendRows = [...included.map((id) => rowOf(id, auto.includes(id) ? 'auto' : 'attached')), ...pending.map((list) => rowOf(list.id, 'review'))].filter((row): row is ListRow => Boolean(row))
   const leaveOutRows = excluded.map((id) => rowOf(id, 'attached')).filter((row): row is ListRow => Boolean(row))
   const testPicked = sendRows.filter((row) => row.state !== 'review' && row.list_environment === 'TEST')
-  const counted = sendRows.filter((row) => row.state !== 'review')
   const pendingContacts = pending.reduce((sum, list) => sum + list.member_count, 0)
   const nobody = included.length > 0 && estimate.data?.estimated_recipients === 0 && !estimate.isFetching
   const canMake = can('list.edit')
   const listError = errors.contact_lists?.message ?? errors.excluded_lists?.message
 
   const addButton = <Button size="sm" iconStart={Plus} onClick={() => setAdding('send')}>Add Contact List</Button>
+  const leaveOutButton = <Button size="sm" iconStart={Plus} onClick={() => setAdding('leave-out')}>Exclude a List</Button>
 
   return (
     <div className="flex flex-col gap-6">
@@ -154,13 +172,6 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
-          {drip && (
-            <div data-drip-audience-note>
-              <Notice tone="info" layout="banner" title="How a Drip Audience Works">
-                <p>Everyone eligible starts the drip together on the start date. People added to these lists later don’t join. Consent and frequency limits are checked again before each message.</p>
-              </Notice>
-            </div>
-          )}
           <DetailCard title="Send To" actions={addButton} flush={sendRows.length > 0}>
             <div className={sendRows.length > 0 ? 'flex flex-col md:gap-0' : 'flex flex-col gap-4'}>
               {notice && <p role="status" className={`text-sm text-ink-900 ${sendRows.length > 0 ? 'px-0 pb-4 md:px-6 md:pt-4' : ''}`}>{notice}</p>}
@@ -175,14 +186,11 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
               ) : lists.isError ? (
                 <div className="md:p-6"><CardError what="the contact lists" error={lists.error} onRetry={() => void lists.refetch()} /></div>
               ) : sendRows.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line bg-surface-subtle px-6 py-10 text-center" data-empty="send-to">
-                  <p className="text-sm font-semibold text-ink-900">No contact lists yet</p>
-                  <p className="text-helper text-ink-800">Add the lists this {noun} goes to. A draft can be saved without one; publishing needs at least one.</p>
+                <EmptyLists kind="send-to" title="No contact lists yet" text={`Pick the contact lists to send this ${noun} to.`} action={addButton}>
                   {lists.data && all.length === 0 && !canMake && (
                     <p className="text-helper text-ink-800">This workspace has no active contact lists yet. <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link></p>
                   )}
-                  <div className="mt-2">{addButton}</div>
-                </div>
+                </EmptyLists>
               ) : (
                 <ListsTable rows={sendRows} caption="Lists this campaign is sent to" zone={zone} campaignChannel={watch('channel')}
                   onRemove={(row) => {
@@ -195,12 +203,6 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
                     setNotice(`“${row.name}” is attached.`)
                   }} />
               )}
-              {sendRows.length > 0 && (
-                <p className="cep-num pt-4 text-helper text-ink-800 md:border-t md:border-line-subtle md:px-6 md:py-4" aria-live="polite">
-                  {counted.length === 0 ? 'Nothing is counted yet: confirm the uploaded list first.'
-                    : `${plural(counted.length, 'list')} selected, ${formatNumber(counted.reduce((sum, row) => sum + row.member_count, 0))} contacts before duplicates and governance`}
-                </p>
-              )}
               {testPicked.length > 0 && (
                 <div className="pt-4 md:px-6 md:pb-6">
                   <Notice tone="warning" layout="banner">
@@ -211,9 +213,11 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
             </div>
           </DetailCard>
 
-          <DetailCard title="Don’t Send To" description="People in these lists are left out, even if they’re in a list above."
-            actions={<Button size="sm" iconStart={Plus} onClick={() => setAdding('leave-out')}>Add List to Leave Out</Button>} flush={leaveOutRows.length > 0}>
-            {leaveOutRows.length === 0 ? <p className="text-sm text-ink-800" data-empty="leave-out">Nobody is left out by a list.</p> : (
+          <DetailCard title="Don’t Send To" description={`Anyone on these lists won’t get this ${noun}, even if they’re also in Send To.`}
+            actions={leaveOutButton} flush={leaveOutRows.length > 0}>
+            {leaveOutRows.length === 0 ? (
+              <EmptyLists kind="leave-out" title="No lists added" text={`Add a contact list to keep its people from getting this ${noun}.`} action={leaveOutButton} />
+            ) : (
               <ListsTable rows={leaveOutRows} caption="Lists whose people are left out" zone={zone}
                 onRemove={(row) => setValue('excluded_lists', excluded.filter((id) => id !== row.id), touch)} />
             )}
@@ -230,7 +234,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
       )}
 
       {adding && (
-        <AddListDialog purpose={adding} lists={all} sendTo={[...included, ...pending.map((list) => list.id)]} leftOut={excluded} canMake={canMake} onClose={() => setAdding(null)}
+        <AddListDialog purpose={adding} lists={all} sendTo={[...included, ...pending.map((list) => list.id)]} leftOut={excluded} canMake={canMake} campaignChannel={channel} onReview={revealList} onClose={() => setAdding(null)}
           onAdd={(ids) => {
             if (adding === 'send') setValue('contact_lists', [...new Set([...included, ...ids])], touch)
             else setValue('excluded_lists', [...new Set([...excluded, ...ids])], touch)

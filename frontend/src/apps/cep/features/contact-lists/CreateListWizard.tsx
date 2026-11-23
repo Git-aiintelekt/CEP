@@ -9,13 +9,18 @@
  * Cancel removes the draft and stops its job, so a half-finished upload never becomes a list.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Copy, Database, Download, FileSpreadsheet, FlaskConical, Layers, Mail, MessageSquare, Upload, Users } from 'lucide-react'
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
+import { ArrowLeft, Check, CheckCircle2, CircleAlert, Copy, Database, Download, FileSpreadsheet, FlaskConical, Layers, Mail, MessageSquare, Plus, Search, Upload, Users } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 
 import { Checkbox } from '@/components/Checkbox'
 import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { InputGroup } from '@/components/InputGroup'
+import { PillRadioGroup } from '@/components/PillRadioGroup'
 import { SetupDialog } from '@/components/SetupDialog'
 import { Spinner } from '@/components/States'
+import { Stepper } from '@/components/Stepper'
+import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { ChoiceCard as SetupCard, ChoiceGroup } from '@/apps/cep/features/campaigns/parts'
 import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
@@ -23,12 +28,13 @@ import { formatNumber } from '@/lib/format'
 import type { Audience, ConsentBasis, ContactList, ListImport, ListSource, Page, ListChannel } from '@/lib/types'
 
 import { problemText } from './problem'
+import { sourceLabel } from './sourceLabel'
 import { POLL_MS, watchedUploads } from './uploadJobs'
-import { UploadReport } from './UploadReport'
+import { ReportDownload, UploadReport } from './UploadReport'
 import { downloadTemplate, formatLine, uploadColumns } from './uploadTemplate'
 import { ProgressBar } from './UploadsIndicator'
 
-type Step = 'method' | 'file' | 'map' | 'consent' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
+type Step = 'source' | 'method' | 'file' | 'map' | 'consent' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
 
 const STEPS: Record<ListSource, Step[]> = {
   UPLOAD: ['method', 'file', 'map', 'consent', 'review', 'done'],                        // 'importing' is the tail of the review step
@@ -37,6 +43,7 @@ const STEPS: Record<ListSource, Step[]> = {
 }
 
 const TITLES: Record<Step, [string, string]> = {
+  source: ['Choose a Source', 'Pick an audience or a list to copy.'],
   method: ['New Contact List', ''],
   file: ['Add Your File', 'Upload the CSV that holds your contacts.'],
   map: ['Match Your Columns', 'Tell C360 what each column in your file means.'],
@@ -50,7 +57,7 @@ const TITLES: Record<Step, [string, string]> = {
 
 /** each step's name on the set-up frame's step line ("Step 3 of 6 · Match Columns") */
 const STEP_NAME: Record<Step, string> = {
-  method: 'List Details', file: 'Upload File', map: 'Match Columns', consent: 'Consent', review: 'Review', importing: 'Importing',
+  source: 'Source', method: 'List Details', file: 'Upload File', map: 'Match Columns', consent: 'Consent', review: 'Review', importing: 'Importing',
   audience: 'Choose an Audience', clone: 'Choose a List to Copy', done: 'Done',
 }
 
@@ -104,6 +111,60 @@ function TemplateNote({ channel }: { channel: ListChannel }) {
   )
 }
 
+/** "An Email column is required." / "A Mobile Number column is required." / "Email and Mobile Number columns are required." */
+function requiredColumns(channel: ListChannel): string {
+  const names = uploadColumns(channel).filter((column) => column.required).map((column) => column.header === 'Mobile number' ? 'Mobile Number' : column.header)
+  return names.length === 1 ? `${/^[AEIOU]/i.test(names[0]) ? 'An' : 'A'} ${names[0]} column is required.` : `${names.join(' and ')} columns are required.`
+}
+
+/** one answer to "How did these people opt in?": a full-width row with a radio mark; Blue 100 and a Blue 600 border when chosen */
+function OptInRow({ selected, disabled = false, onSelect, title, text, tag }: { selected: boolean; disabled?: boolean; onSelect: () => void; title: string; text?: string; tag?: string }) {
+  return (
+    <button type="button" role="radio" aria-checked={selected} aria-disabled={disabled || undefined} onClick={() => !disabled && onSelect()}
+      className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors duration-fast ease-standard ${selected ? 'border-link bg-brand-100 text-brand-800' : disabled ? 'cursor-not-allowed border-line bg-surface-subtle text-ink-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>
+      <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] bg-surface ${selected ? 'border-link' : 'border-line-control'}`}>
+        {selected && <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />}
+      </span>
+      <span className="flex min-w-0 grow flex-col">
+        <span className="text-sm font-semibold">{title}</span>
+        {text && <span className={`text-helper font-normal ${selected ? 'text-brand-800' : 'text-ink-800'}`}>{text}</span>}
+      </span>
+      {tag && <Tag>{tag}</Tag>}
+    </button>
+  )
+}
+
+interface SourceRowData { kind: 'audience' | 'list'; id: string; name: string; tag: string; count: number }
+
+/** one audience or list to start from: a radio row with its name, kind and size */
+function SourceRow({ selected, onSelect, row }: { selected: boolean; onSelect: () => void; row: SourceRowData }) {
+  return (
+    <button type="button" role="radio" aria-checked={selected} onClick={onSelect}
+      className={`flex w-full items-center gap-4 px-4 py-3 text-left transition-colors duration-fast ease-standard ${selected ? 'bg-brand-100 text-brand-800' : 'bg-surface text-ink-900 hover:bg-surface-hover'}`}>
+      <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] bg-surface ${selected ? 'border-link' : 'border-line-control'}`}>
+        {selected && <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />}
+      </span>
+      <span className="flex min-w-0 grow flex-col items-start gap-1.5">
+        <span className="text-card-title font-semibold">{row.name}</span>
+        <Tag>{row.tag}</Tag>
+      </span>
+      <span className="cep-num shrink-0 text-sm">{formatNumber(row.count)} contacts</span>
+    </button>
+  )
+}
+
+/** "Email 2 of 2" over an 8px bar */
+function ReachRow({ label, count, of }: { label: string; count: number; of: number }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-sm"><span className="text-ink-900">{label}</span><span className="cep-num font-semibold text-ink-900">{formatNumber(count)} of {formatNumber(of)}</span></div>
+      <div role="img" aria-label={`${formatNumber(count)} of ${formatNumber(of)} can be contacted by ${label.toLowerCase()} today`} className="mt-1.5 h-2 overflow-hidden rounded-pill bg-fill-subtle">
+        <div className="h-full rounded-pill bg-success" style={{ width: `${of ? (count * 100) / of : 0}%` }} />
+      </div>
+    </div>
+  )
+}
+
 function fileSize(bytes: number | null): string {
   if (!bytes) return ''
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
@@ -142,12 +203,34 @@ interface WizardProps {
   sources?: ListSource[]
   /** drawn inside another dialog (the campaign's Add Contact List pop-up) instead of its own */
   embedded?: boolean
+  /** what "Use for" starts on (the campaign's own channel) */
+  defaultChannel?: ListChannel
+  /** embedded: whether the wizard is on its first screen with nothing started, where the pop-up shows its way-in cards */
+  onAtStart?: (atStart: boolean) => void
+  /** embedded: the list is made (the pop-up's title says so) */
+  onDone?: (done: boolean) => void
+  /** embedded: "Review List" on the last screen: the pop-up closes and the page brings the list into view */
+  onReview?: (list: ContactList) => void
 }
 
-export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD', sources, embedded = false }: WizardProps) {
+const UPLOAD_STEP_NAMES = ['Details', 'File', 'Columns', 'Consent', 'Review']
+/** Audience or Clone in the campaign's pop-up: pick the source, then the details */
+const MAKE_STEPS: Step[] = ['source', 'method', 'done']
+const MAKE_STEP_NAMES = ['Source', 'Details']
+const CHANNEL_OPTIONS: { value: ListChannel; label: string }[] = [{ value: 'EMAIL', label: 'Email' }, { value: 'SMS', label: 'Texts' }, { value: 'BOTH', label: 'Email and Texts' }]
+const TYPE_OPTIONS = [{ value: 'PRODUCTION', label: 'Production' }, { value: 'TEST', label: 'Test' }]
+
+export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD', sources, embedded = false, defaultChannel, onAtStart, onDone, onReview }: WizardProps) {
   const queryClient = useQueryClient()
-  const [step, setStep] = useState<Step>('method')
-  const [channel, setChannel] = useState<ListChannel>('EMAIL')
+  /** Audience or Clone, inside the pop-up: one Source list of audiences and lists, then the details */
+  const making = embedded && initialSource !== 'UPLOAD'
+  const [step, setStep] = useState<Step>(making ? 'source' : 'method')
+  const [nameEdited, setNameEdited] = useState(false)
+  const [channel, setChannel] = useState<ListChannel>(defaultChannel ?? 'EMAIL')
+  const [showDescription, setShowDescription] = useState(false)
+  const useForId = useId()
+  const listTypeId = useId()
+  const basisId = useId()
   const [source, setSource] = useState<ListSource>(initialSource)
   const [name, setName] = useState('')
   const rule = useFieldRules('new_contact_list')
@@ -168,11 +251,11 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const [dragging, setDragging] = useState(false)
   const picker = useRef<HTMLInputElement>(null)
 
-  const audiences = useQuery({ queryKey: ['contact-lists', 'audiences'], queryFn: ({ signal }) => api.get<Audience[]>('/contact-lists/audiences/', undefined, signal), enabled: step === 'audience' })
+  const audiences = useQuery({ queryKey: ['contact-lists', 'audiences'], queryFn: ({ signal }) => api.get<Audience[]>('/contact-lists/audiences/', undefined, signal), enabled: step === 'audience' || making })
   const lists = useQuery({
     queryKey: ['contact-lists', 'clone-options'],
     queryFn: ({ signal }) => api.get<Page<ContactList>>('/contact-lists/', { page_size: 200 }, signal),
-    enabled: step === 'clone',
+    enabled: step === 'clone' || making,
   })
 
   // ---- the background job: polled while a worker is on it; what it reports replaces what the wizard holds
@@ -243,8 +326,13 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished, draft?.id])
 
-  const steps = STEPS[source]
-  const index = step === 'importing' ? steps.indexOf('review') : steps.indexOf(step)
+  /** the redesigned upload flow, inside the campaign's pop-up: a stepper over the steps, no Cancel (the pop-up's close does it) */
+  const fresh = embedded
+  const nameMax = rule('name')?.max ?? 200
+  /** the counter shows only when the name is near its limit */
+  const nameLimit = name.length >= nameMax * 0.8 ? { used: name.length, max: nameMax } : undefined
+  const steps = making ? MAKE_STEPS : STEPS[source]
+  const index =step === 'importing' ? steps.indexOf('review') : steps.indexOf(step)
   const [title, subtitle] = TITLES[step]
 
   const run = async (work: () => Promise<void>) => {
@@ -335,6 +423,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
   /** the job goes on without the wizard: the header's upload button and an alert report on it */
   const leaveRunning = () => {
+    leaving.current.keep = true
     void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
     onClose()
   }
@@ -368,7 +457,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const textsNeedDate = Boolean(consent?.policy.texts_need_date) && channel !== 'EMAIL' && columnOf('sms_consent_date') === ''
 
   const primary: { label: string; action: () => void; disabled: boolean } | null =
-    step === 'method' ? { label: 'Next', action: fromMethod, disabled: name.trim() === '' }
+    making && step === 'source' ? { label: 'Next', action: () => setStep('method'), disabled: audience === '' && parent === '' }
+    : making && step === 'method' ? { label: 'Create List', action: source === 'BI' ? fromAudience : fromClone, disabled: name.trim() === '' }
+    : step === 'method' ? { label: 'Next', action: fromMethod, disabled: name.trim() === '' }
     : step === 'file' ? { label: 'Next', action: () => setStep('map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
     : step === 'map' ? { label: 'Next', action: review, disabled: !emailMapped }
     : step === 'consent' ? { label: 'Next', action: declare, disabled: basis === '' || !basisAllowed || !attested }
@@ -378,20 +469,27 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     : null
 
   const footer =
-    step === 'done' ? (
+    step === 'done' && making ? (
+      <div className="flex w-full items-center justify-end"><button type="button" className={buttonPrimary} onClick={onClose}>Done</button></div>
+    ) : step === 'done' && fresh ? (
+      <div className="flex w-full items-center justify-end gap-2">
+        <button type="button" className={buttonClass({ variant: 'ghost' })} onClick={onClose}>Close</button>
+        {created && <button type="button" className={buttonPrimary} onClick={() => onReview?.(created)}>Review List</button>}
+      </div>
+    ) : step === 'done' ? (
       <button type="button" className={buttonPrimary} onClick={onClose}>
         Done
       </button>
     ) : (
       <div className="flex w-full items-center gap-2">
-        {step !== 'importing' && (
+        {step !== 'importing' && !fresh && (
           <button type="button" className={buttonSecondary} onClick={abandon}>
             Cancel
           </button>
         )}
         {index > 0 && step !== 'importing' && (
-          <button type="button" className={buttonSecondary} onClick={back} disabled={busy || (step === 'review' && Boolean(job?.working))}>
-            Back
+          <button type="button" className={fresh ? buttonClass({ variant: 'ghost' }) : buttonSecondary} onClick={back} disabled={busy || (step === 'review' && Boolean(job?.working))}>
+            {fresh && <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />}Back
           </button>
         )}
         <span className="grow" />
@@ -412,16 +510,52 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const needle = filter.trim().toLowerCase()
   const shownAudiences = (audiences.data ?? []).filter((item) => `${item.name} ${item.code} ${item.description ?? ''}`.toLowerCase().includes(needle))
   const shownLists = (lists.data?.results ?? []).filter((item) => item.status === 'ACTIVE' && item.name.toLowerCase().includes(needle))
+  /** Audience or Clone: audiences and lists in one list, each with its kind and its size */
+  const sourceRows: SourceRowData[] = [
+    ...shownAudiences.map((item) => ({ kind: 'audience' as const, id: item.id, name: item.name, tag: sourceLabel('SEGMENT'), count: item.member_count })),
+    ...shownLists.map((item) => ({ kind: 'list' as const, id: item.id, name: item.name, tag: sourceLabel(item.source_type), count: item.member_count })),
+  ]
+  const picked = audience !== ''
+    ? (audiences.data ?? []).filter((item) => item.id === audience).map((item) => ({ name: item.name, tag: sourceLabel('SEGMENT'), count: item.member_count }))[0]
+    : (lists.data?.results ?? []).filter((item) => item.id === parent).map((item) => ({ name: item.name, tag: sourceLabel(item.source_type), count: item.member_count }))[0]
+  const chooseSource = (row: SourceRowData) => {
+    setAudience(row.kind === 'audience' ? row.id : '')
+    setParent(row.kind === 'list' ? row.id : '')
+    setSource(row.kind === 'audience' ? 'BI' : 'CLONE')
+    if (!nameEdited) setName(`Copy of ${row.name}`)
+  }
   const review_ = job?.working ? null : job?.review
   const failed = job?.status === 'FAILED'
 
   const close = step === 'done' ? onClose : step === 'importing' || (step === 'review' && job?.working) ? leaveRunning : abandon
   const running = (step === 'importing' || (step === 'review' && Boolean(job?.working))) && job?.status !== 'FAILED'
+
+  useEffect(() => { onAtStart?.(making ? step === 'source' : step === 'method' && !draft) }, [making, step, draft, onAtStart])
+  useEffect(() => { onDone?.(fresh && step === 'done') }, [fresh, step, onDone])
+  // the pop-up's own close leaves no half-made list behind, unless an import is running or the list is made
+  const leaving = useRef({ draftId: '', keep: false })
+  useEffect(() => { leaving.current.draftId = !draft || created || running ? '' : draft.id }, [draft, created, running])
+  useEffect(() => () => {
+    if (embedded && leaving.current.draftId && !leaving.current.keep) void api.delete(`/contact-lists/${leaving.current.draftId}/`).catch(() => undefined)
+  }, [embedded])
   const framePrimary = step === 'done' ? { label: 'Done', onClick: onClose }
     : step === 'importing' ? { label: 'Continue in the Background', onClick: leaveRunning }
     : primary ? { label: primary.label, onClick: primary.action, disabled: primary.disabled, busy } : { label: 'Next', disabled: true }
   // a function, not a component: a component made here would remount the fields on every keystroke
-  const frame = (children: ReactNode) => embedded ? (
+  const enterToContinue = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement
+    if (event.key !== 'Enter' || !primary || primary.disabled || busy || target.tagName !== 'INPUT') return
+    event.preventDefault()
+    primary.action()
+  }
+  const frame = (children: ReactNode) => fresh ? (
+    <div data-embedded-wizard onKeyDown={enterToContinue}>
+      {step !== 'done' && <div className="mb-6"><Stepper steps={making ? MAKE_STEP_NAMES : UPLOAD_STEP_NAMES} current={index} /></div>}
+      {(step === 'importing' || (step === 'review' && !review_)) && <h3 className="mb-3 text-card-title font-semibold text-ink-900">{title}</h3>}
+      {children}
+      <div className="-mx-4 mt-6 flex flex-wrap justify-end gap-2 border-t border-line px-4 pt-4">{footer}</div>
+    </div>
+  ) : embedded ? (
     <div data-embedded-wizard>
       <h3 className="mb-1 text-card-title font-semibold text-ink-900">{title}</h3>
       {children}
@@ -439,7 +573,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
   return frame(
     <>
-      {embedded ? (
+      {fresh ? null : embedded ? (
         <p className="mb-4 text-xs text-ink-800" aria-live="polite">
           {step === 'done' ? subtitle : `Step ${index + 1} of ${steps.length}${subtitle ? ` · ${subtitle}` : ''}`}
         </p>
@@ -450,7 +584,68 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </p>
       )}
 
-      {step === 'method' && (
+      {step === 'source' && making && (
+        <div className="flex flex-col gap-4">
+          <InputGroup controlSize="md" type="search" aria-label="Search audiences and lists" placeholder="Search audiences and lists" value={filter}
+            onChange={(event) => setFilter(event.target.value)} start={<Search size={16} strokeWidth={1.5} aria-hidden />} autoFocus />
+          {audiences.isPending || lists.isPending ? (
+            <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner className="h-4 w-4" /> Loading</p>
+          ) : (
+            <div role="radiogroup" aria-label="Source to copy" className="max-h-80 divide-y divide-line-subtle overflow-y-auto rounded-lg border border-line">
+              {sourceRows.map((row) => (
+                <SourceRow key={`${row.kind}-${row.id}`} selected={row.kind === 'audience' ? audience === row.id : parent === row.id} onSelect={() => chooseSource(row)} row={row} />
+              ))}
+              {sourceRows.length === 0 && (
+                <p className="px-4 py-6 text-center text-sm text-ink-800">No audience or list matches. Audiences are defined by your data team in the BI / extraction tool.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 'method' && fresh && (
+        <div className="flex flex-col gap-5">
+          {making && picked && (
+            <div className="flex items-center gap-4 rounded-lg border border-line bg-surface-subtle px-4 py-3">
+              <div className="min-w-0 grow">
+                <p className="text-helper text-ink-800">Copying from</p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-card-title font-semibold text-ink-900">
+                  <span className="truncate">{picked.name}</span><Tag>{picked.tag}</Tag>
+                  <span className="cep-num text-sm font-normal text-ink-800">{formatNumber(picked.count)} contacts</span>
+                </p>
+              </div>
+              <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} onClick={() => setStep('source')}>Change</button>
+            </div>
+          )}
+          <Field label="List Name" strong limit={nameLimit}>
+            {(ids) => (
+              <TextInput {...ids} value={name} onChange={(event) => { setName(event.target.value); setNameEdited(true) }} placeholder="e.g. Lapsed buyers — West Q3" maxLength={nameMax} data-autofocus />
+            )}
+          </Field>
+          <div>
+            <span id={useForId} className="block text-sm font-semibold text-ink-900">Use For</span>
+            <div className="mt-1.5"><PillRadioGroup labelledBy={useForId} value={channel} onChange={setChannel} options={CHANNEL_OPTIONS} disabled={Boolean(draft)} /></div>
+          </div>
+          <div>
+            <span id={listTypeId} className="block text-sm font-semibold text-ink-900">List Type</span>
+            <div className="mt-1.5"><PillRadioGroup labelledBy={listTypeId} value={environment as 'PRODUCTION' | 'TEST'} onChange={setEnvironment} options={TYPE_OPTIONS} /></div>
+            <p className="mt-1.5 text-helper text-ink-800">Test lists are held out of live sends until you promote them.</p>
+          </div>
+          {showDescription || description !== '' ? (
+            <Field label="Description" strong hint="Shown under the name in the table.">
+              {(ids) => <TextArea {...ids} value={description} onChange={(event) => setDescription(event.target.value)} rows={3} placeholder="e.g. Gold and Platinum members who joined before October" autoFocus={showDescription} />}
+            </Field>
+          ) : (
+            <div>
+              <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setShowDescription(true)}>
+                <Plus size={16} strokeWidth={1.5} aria-hidden />Add Description
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 'method' && !fresh && (
         <div className="flex flex-col gap-6">
           <Field label="List Name" required strong limit={{ used: name.length, max: rule('name')?.max ?? 200 }} help="How the list is listed everywhere, including a campaign's Send To table and the Set-Up page. It can be changed later on the list's Edit Details.">
             {(ids) => (
@@ -481,7 +676,57 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </div>
       )}
 
-      {step === 'file' && (
+      {step === 'file' && fresh && (
+        <div className="flex flex-col gap-4">
+          <input ref={picker} type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV File" onChange={(event) => takeFile(event.target.files?.[0])} />
+          {upload ? (
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line p-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-fill-subtle text-ink-800"><FileSpreadsheet size={20} strokeWidth={1.5} aria-hidden /></span>
+              <div className="min-w-0 grow">
+                <p className="flex items-center gap-2 text-sm font-semibold text-ink-900">
+                  <span className="truncate">{upload.file_name}</span>
+                  {job?.status === 'FAILED'
+                    ? <span className="text-danger-plain"><CircleAlert size={16} strokeWidth={1.5} aria-label="Could not be read" /></span>
+                    : <span className="text-success-text"><CheckCircle2 size={16} strokeWidth={1.5} aria-label="Received" /></span>}
+                </p>
+                <p className="text-helper text-ink-800">
+                  {job && job.row_count > 0 ? `${formatNumber(job.row_count)} rows · ` : ''}{upload.columns.length} columns{upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}
+                </p>
+                {job?.working && (
+                  <p className="mt-1 text-helper text-ink-800" aria-live="polite">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}. You can match the columns meanwhile.</p>
+                )}
+                {job?.status === 'FAILED' && (
+                  <p role="alert" className="mt-1 text-helper font-medium text-danger-plain">{job.error ?? 'This file could not be read.'} Choose Replace to upload another file.</p>
+                )}
+              </div>
+              <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} onClick={() => picker.current?.click()} disabled={busy}>Replace</button>
+            </div>
+          ) : (
+            <div
+              onDragOver={(event) => { event.preventDefault(); setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              className={`flex flex-col items-center gap-3 rounded-lg border border-dashed px-6 py-10 text-center ${dragging ? 'border-link bg-callout-bg' : 'border-line bg-surface-subtle'}`}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-fill-subtle text-ink-800"><Upload size={20} strokeWidth={1.5} aria-hidden /></span>
+              <p className="text-sm font-semibold text-ink-900">Drop Your CSV Here</p>
+              <button type="button" className={buttonClass({ variant: 'secondary' })} onClick={() => picker.current?.click()} disabled={busy}>
+                {busy ? 'Reading the File' : 'Choose File'}
+              </button>
+              <p className="text-helper text-ink-800">Up to 50 MB and 250,000 rows. {requiredColumns(channel)}</p>
+            </div>
+          )}
+          {!upload && (
+            <div>
+              <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => downloadTemplate(channel)}>
+                <Download size={16} strokeWidth={1.5} aria-hidden />Download Sample CSV
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 'file' && !fresh && (
         <div>
           <input ref={picker} type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV File" onChange={(event) => takeFile(event.target.files?.[0])} />
           {upload ? (
@@ -525,7 +770,51 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </div>
       )}
 
-      {step === 'map' && upload && (
+      {step === 'map' && upload && fresh && (
+        <div className="flex flex-col gap-4">
+          <p className={`flex items-center gap-2 text-sm font-semibold ${emailMapped ? 'text-ink-900' : 'text-danger-plain'}`} aria-live="polite">
+            {emailMapped
+              ? <><Check size={16} strokeWidth={2} aria-hidden className="text-success-text" />{mappedCount} of {upload.columns.length} columns matched</>
+              : <>{mappedCount} of {upload.columns.length} columns matched · {missing.map((item) => item.label.toLowerCase()).join(' and ')} still {missing.length === 1 ? 'needs' : 'need'} a column</>}
+          </p>
+          <div className="max-h-[360px] overflow-auto rounded-lg border border-line">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <caption className="sr-only">Columns of {upload.file_name} and what they mean</caption>
+              <thead className="sticky top-0 bg-surface-subtle text-xs font-semibold text-ink-900">
+                <tr>
+                  <th scope="col" className="px-4 py-2.5">In Your File</th>
+                  <th scope="col" className="px-4 py-2.5">Maps To</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line-subtle">
+                {upload.columns.map((column) => {
+                  const property = propertyOf(column.name)
+                  return (
+                    <tr key={column.name}>
+                      <th scope="row" className="px-4 py-3 align-middle font-semibold text-ink-900">
+                        <span className="flex items-center gap-2">{column.name}{!property && <Tag tone="warning">Not Matched</Tag>}</span>
+                        <span className="block max-w-[260px] truncate text-helper font-normal text-ink-800">{column.samples.slice(0, 2).join(', ') || 'no values'}</span>
+                      </th>
+                      <td className="px-4 py-3 align-middle">
+                        <Select aria-label={`C360 Property for ${column.name}`} value={property} className="mt-0! w-[260px]" onChange={(event) => choose(column.name, event.target.value)}>
+                          <option value="">Skip This Column</option>
+                          {upload.properties.map((item) => (
+                            <option key={item.key} value={item.key}>
+                              {item.label}{item.required ? ' (required)' : ''}
+                            </option>
+                          ))}
+                        </Select>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {step === 'map' && upload && !fresh && (
         <div>
           <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full min-w-[560px] text-left text-sm">
@@ -574,7 +863,53 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </div>
       )}
 
-      {step === 'consent' && upload && consent && (
+      {step === 'consent' && upload && consent && fresh && (
+        <div className="flex flex-col gap-5">
+          <h3 id={basisId} className="font-display text-card-heading font-semibold text-ink-900">How did these people opt in?</h3>
+          <div role="radiogroup" aria-labelledby={basisId} className="-mt-2 flex flex-col gap-2">
+            {consent.bases.map((item) => (
+              <OptInRow key={item.key} selected={basis === item.key} disabled={!item.allowed} onSelect={() => setBasis(item.key)} title={item.label}
+                text={item.key === 'IMPLIED' ? 'Bought in the last two years and never opted out. Not valid for texts.' : undefined} tag={!item.allowed ? 'Not for Texts' : undefined} />
+            ))}
+            <OptInRow selected={false} disabled onSelect={() => undefined} title="Bought or Rented List" tag="Not Allowed" />
+          </div>
+          {basis && !basisAllowed && (
+            <p role="alert" className="rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
+              A texts list needs express consent: marketing texts need a written opt-in with a date (TCPA, CASL). Map a Text consent date column, or choose a basis where people opted in.
+            </p>
+          )}
+          <Field label="Where It Was Collected (Optional)" strong>
+            {(ids) => <TextInput {...ids} value={collectedAt} onChange={(event) => setCollectedAt(event.target.value)} maxLength={300} placeholder="e.g. Fall 2026 sign-up form" />}
+          </Field>
+          <div className="rounded-lg border border-line bg-surface-subtle p-4">
+            <Checkbox label={consent.attestation} checked={attested} onChange={(event: ChangeEvent<HTMLInputElement>) => setAttested(event.target.checked)} />
+            <p className="mt-1 pl-6 text-helper text-ink-800">
+              Recorded with your name and the time.{' '}
+              {consentMapped
+                ? `${upload.properties.find((item) => item.key === consentKey)?.label ?? 'Consent date'} is mapped: a valid date becomes an opt-in for people C360 has no answer for.`
+                : 'No consent date column is mapped.'}
+            </p>
+          </div>
+          {textsNeedDate ? (
+            <p role="status" className="rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
+              Workspace policy: a number needs a text consent date. No Text consent date column is mapped, so every row will be refused. Go back and map the column.
+            </p>
+          ) : !consentMapped && refuses ? (
+            <p role="status" className="rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
+              Workspace policy refuses new people without a consent date. No consent date column is mapped, so new people will not be imported. Go back and map a column, or ask an admin to change the policy.
+            </p>
+          ) : (
+            <p role="status" className="rounded-sm border border-line bg-callout-bg px-3 py-2 text-sm text-callout-text">
+              {refuses
+                ? 'Workspace policy: rows without a valid consent date are refused.'
+                : 'People without a consent date are imported and held back until they confirm. Workspace policy: hold back people without consent.'}
+              {consent.policy.approval_before_send ? ' The list will wait for approval before any campaign sends to it.' : ''}
+            </p>
+          )}
+        </div>
+      )}
+
+      {step === 'consent' && upload && consent && !fresh && (
         <div className="space-y-5">
           <div>
             <p id="cl-basis" className="mb-2 text-sm font-semibold text-ink-900">Consent Basis <span aria-hidden className="text-danger-text">*</span></p>
@@ -639,7 +974,57 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </div>
       )}
 
-      {step === 'review' && review_ && upload && job && (
+      {step === 'review' && review_ && upload && job && fresh && (
+        <div className="flex flex-col gap-5">
+          <div>
+            <p className="font-display text-section-title font-semibold text-ink-900">{formatNumber(review_.ready)} contacts ready to import</p>
+            <p className="text-sm text-ink-800">{upload.file_name}</p>
+          </div>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {([['New', review_.new, ''], ['Already in C360', review_.existing, ''], ['Warnings', review_.warnings, 'warning'], ['Held Back', review_.errors, 'danger']] as const).map(([label, value, tone]) => (
+              <div key={label} data-tile={label}
+                className={`rounded-lg border px-4 py-3 ${value > 0 && tone === 'warning' ? 'border-warning bg-warning-bg text-warning-text' : value > 0 && tone === 'danger' ? 'border-danger bg-danger-bg text-danger-text' : 'border-line text-ink-800'}`}>
+                <dd className={`cep-num text-section-title font-semibold ${value > 0 && tone ? '' : 'text-ink-900'}`}>{formatNumber(value)}</dd>
+                <dt className="text-sm">{label}</dt>
+              </div>
+            ))}
+          </dl>
+          {job.summary && (
+            <div className="rounded-lg border border-line p-4">
+              <p className="mb-3 text-sm font-semibold text-ink-900">Can Be Contacted Today</p>
+              <div className="flex flex-col gap-3">
+                <ReachRow label="Email" count={job.summary.governance.sendable} of={job.summary.ready.total} />
+                {job.summary.mobile && <ReachRow label="Texts" count={Math.max(0, job.summary.mobile.with_number - job.summary.mobile.blocked)} of={job.summary.ready.total} />}
+              </div>
+            </div>
+          )}
+          {job.summary && !job.summary.balanced && (
+            <p role="alert" className="text-helper font-medium text-danger-plain">These numbers do not add up. Download the row-by-row report and tell support.</p>
+          )}
+          {(job.issues ?? []).length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-ink-800">Rows to Look At{(job.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
+              <ul className="max-h-44 divide-y divide-line-subtle overflow-y-auto rounded-lg border border-line text-sm">
+                {(job.issues ?? []).map((issue) => (
+                  <li key={`${issue.line}-${issue.kind}`} className="flex items-start gap-3 px-3 py-1.5">
+                    <span className="cep-num w-14 shrink-0 text-xs text-ink-800">Line {issue.line}</span>
+                    <Tag tone={issue.kind === 'error' ? 'error' : 'warning'}>{issue.kind === 'error' ? 'Held Back' : 'Warning'}</Tag>
+                    <span className="min-w-0 text-ink-800">{issue.message}{issue.value ? <span className="text-ink-800"> · {issue.value}</span> : null}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {review_.new > 0 && <p className="text-helper text-ink-800">New contacts have no consent answer in C360 unless the file gives a consent date, so marketing sends will leave them out until they opt in.</p>}
+          <div className="flex flex-wrap items-center gap-3">
+            <ReportDownload job={job} className={buttonClass({ variant: 'link', size: 'sm' })}>
+              <Download size={16} strokeWidth={1.5} aria-hidden />Download Row-by-Row Report
+            </ReportDownload>
+          </div>
+        </div>
+      )}
+
+      {step === 'review' && review_ && upload && job && !fresh && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-line px-4 py-3">
             <p className="text-sm text-ink-800">Ready to Import <span className="cep-num ml-1 text-base font-semibold text-ink-900">{formatNumber(review_.ready)} contacts</span></p>
@@ -711,7 +1096,26 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </div>
       )}
 
-      {step === 'done' && created && (
+      {step === 'done' && created && making && (
+        <div className="flex items-center gap-4 rounded-lg border border-line p-4">
+          <div className="min-w-0 grow">
+            <p className="truncate text-card-title font-semibold text-link">{created.name}</p>
+            <p className="mt-1.5 flex items-center gap-2 text-sm text-ink-800"><Tag>{source === 'CLONE' ? 'Clone' : sourceLabel(created.source_type)}</Tag><span className="cep-num">{formatNumber(created.member_count)} contacts</span></p>
+          </div>
+        </div>
+      )}
+
+      {step === 'done' && created && fresh && !making && (
+        <div className="flex items-center gap-4 rounded-lg border border-line p-4">
+          <div className="min-w-0 grow">
+            <p className="truncate text-card-title font-semibold text-link">{created.name}</p>
+            <p className="mt-1.5 flex items-center gap-2 text-sm text-ink-800"><Tag>Upload</Tag><span className="cep-num">{formatNumber(created.member_count)} contacts</span></p>
+          </div>
+          <StatusBadge status="PAUSED" label="Needs Review" />
+        </div>
+      )}
+
+      {step === 'done' && created && !fresh && (
         <div className="flex items-start gap-3">
           <span className="mt-0.5 text-success-text"><CheckCircle2 size={22} strokeWidth={1.5} aria-hidden /></span>
           <div className="space-y-2 text-sm text-ink-800">

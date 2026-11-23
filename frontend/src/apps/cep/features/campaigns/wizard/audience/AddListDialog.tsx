@@ -3,19 +3,18 @@
  * (the Contact lists page's own wizard, drawn inside this pop-up). Leaving a list out uses the same pop-up with the
  * existing lists only.
  */
-import { Search } from 'lucide-react'
-import { useState } from 'react'
+import { List as ListIcon, Search, Upload, Users, type LucideIcon } from 'lucide-react'
+import { useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { buttonPrimary } from '@/components/Form'
+import { InputGroup } from '@/components/InputGroup'
 import { Modal } from '@/components/Modal'
-import { SegmentedControl } from '@/components/SegmentedControl'
 import { Tag } from '@/components/StatusBadge'
-import { buttonClass } from '@/components/buttonStyles'
 import { CreateListWizard } from '@/apps/cep/features/contact-lists/CreateListWizard'
 import { sourceLabel } from '@/apps/cep/features/contact-lists/sourceLabel'
 import { formatDate, formatNumber } from '@/lib/format'
-import type { ContactList } from '@/lib/types'
+import type { ContactList, ListChannel } from '@/lib/types'
 
 type Tab = 'existing' | 'upload' | 'make'
 type Environment = '' | 'PRODUCTION' | 'TEST'
@@ -35,6 +34,46 @@ function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
   )
 }
 
+interface WayIn { value: Tab; label: string; note: string; icon: LucideIcon }
+const EXISTING: WayIn = { value: 'existing', label: 'Existing Lists', note: 'Pick from lists already in this workspace.', icon: ListIcon }
+const UPLOAD: WayIn = { value: 'upload', label: 'Upload New', note: 'Bring in a file of contacts from your computer.', icon: Upload }
+const MAKE: WayIn = { value: 'make', label: 'Audience or Clone', note: 'Build from a saved audience, or copy a list.', icon: Users }
+
+/** the ways to add a list as three cards; a radio group like the segmented control: one tab stop, arrow keys move and choose */
+function WayInCards({ value, onChange, options }: { value: Tab; onChange: (tab: Tab) => void; options: WayIn[] }) {
+  const refs = useRef(new Map<Tab, HTMLButtonElement | null>())
+  const current = Math.max(0, options.findIndex((option) => option.value === value))
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const last = options.length - 1
+    const next =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown' ? (current === last ? 0 : current + 1)
+      : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? (current === 0 ? last : current - 1)
+      : event.key === 'Home' ? 0 : event.key === 'End' ? last : -1
+    if (next === -1) return
+    event.preventDefault()
+    onChange(options[next].value)
+    refs.current.get(options[next].value)?.focus()
+  }
+  return (
+    <div role="radiogroup" aria-label="How to add a list" className="grid gap-3 sm:grid-cols-3">
+      {options.map((option, index) => {
+        const selected = index === current
+        const Icon = option.icon
+        return (
+          <button key={option.value} ref={(node) => { refs.current.set(option.value, node) }} type="button" role="radio" aria-checked={selected} aria-label={option.label}
+            tabIndex={selected ? 0 : -1} onClick={() => onChange(option.value)} onKeyDown={onKeyDown}
+            className={`flex flex-col gap-1.5 rounded-lg border p-3.5 text-left transition-colors duration-fast ease-standard ${selected ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`}>
+            <span className={`flex items-center gap-2 text-sm font-semibold ${selected ? 'text-brand-800' : 'text-ink-900'}`}>
+              <Icon size={16} strokeWidth={1.5} aria-hidden />{option.label}
+            </span>
+            <span className="text-helper">{option.note}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 interface AddListDialogProps {
   /** send: the lists the campaign goes to; leave-out: lists whose people are left out */
   purpose: 'send' | 'leave-out'
@@ -42,15 +81,25 @@ interface AddListDialogProps {
   /** already sent to, and already left out: shown ticked or marked, never picked twice */
   sendTo: string[]
   leftOut: string[]
-  /** may make lists (list.edit): the Upload New and From an Audience or a Clone tabs */
+  /** may make lists (list.edit): the Upload New and Audience or Clone tabs */
   canMake: boolean
+  /** the campaign's channel: what "Use for" starts on when a list is uploaded or made here */
+  campaignChannel?: string
+  /** "Review List" on the last screen: the page brings the new list into view */
+  onReview?: (list: ContactList) => void
   onAdd: (ids: string[]) => void
   onCreated: (list: ContactList) => void
   onClose: () => void
 }
 
-export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd, onCreated, onClose }: AddListDialogProps) {
-  const [tab, setTab] = useState<Tab>('existing')
+const listChannelOf = (channel?: string): ListChannel | undefined => (channel === 'EMAIL' ? 'EMAIL' : channel === 'SMS' || channel === 'MMS' ? 'SMS' : undefined)
+
+export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, campaignChannel, onReview, onAdd, onCreated, onClose }: AddListDialogProps) {
+  const [tab, setTabNow] = useState<Tab>('existing')
+  /** the wizard is on its first screen with nothing started: the way-in cards show; from the next step they would discard the upload */
+  const [atStart, setAtStart] = useState(true)
+  const [done, setDone] = useState(false)
+  const setTab = (next: Tab) => { setAtStart(true); setTabNow(next) }
   const [search, setSearch] = useState('')
   const [environment, setEnvironment] = useState<Environment>('')
   const [source, setSource] = useState<Source>('')
@@ -64,30 +113,26 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
   const pickable = shown.filter((list) => !mine.includes(list.id) && !other.includes(list.id))
   const allPicked = pickable.length > 0 && pickable.every((list) => picked.includes(list.id))
   const toggle = (id: string, on: boolean) => setPicked((now) => (on ? [...new Set([...now, id])] : now.filter((item) => item !== id)))
-  const tabs = [
-    { value: 'existing' as const, label: 'Existing Lists' },
-    ...(sending && canMake ? [{ value: 'upload' as const, label: 'Upload New' }, { value: 'make' as const, label: 'From an Audience or a Clone' }] : []),
+  const tabs: WayIn[] = [
+    EXISTING,
+    ...(sending && canMake ? [UPLOAD, MAKE] : []),
   ]
 
   const footer = tab === 'existing' && (
     <>
-      <button type="button" className={buttonClass({ variant: 'ghost' })} onClick={onClose}>Cancel</button>
       <button type="button" className={buttonPrimary} disabled={picked.length === 0} onClick={() => { onAdd(picked); onClose() }}>
-        {sending ? 'Add' : 'Leave Out'} {picked.length === 0 ? 'Lists' : `${formatNumber(picked.length)} ${picked.length === 1 ? 'List' : 'Lists'}`}
+        {sending ? 'Add' : 'Exclude'} {picked.length === 0 ? 'Lists' : `${formatNumber(picked.length)} ${picked.length === 1 ? 'List' : 'Lists'}`}
       </button>
     </>
   )
 
   return (
-    <Modal title={sending ? 'Add Contact List' : 'Leave Out a List'} onClose={onClose} size="picker" scrollBody footer={footer || undefined}
-      toolbar={tabs.length > 1 ? <SegmentedControl label="How to add a list" value={tab} onChange={setTab} options={tabs} /> : undefined}>
+    <Modal title={done ? 'List Created' : sending ? 'Add Contact List' : 'Exclude a List'} onClose={onClose} size="picker" scrollBody footer={footer || undefined}>
+      {tabs.length > 1 && (tab === 'existing' || atStart) && <div className="mb-4"><WayInCards value={tab} onChange={setTab} options={tabs} /></div>}
       {tab === 'existing' && (
         <div className="flex flex-col gap-4">
-          <label className="flex h-10 items-center gap-2 rounded-control-lg bg-surface-sunken px-3 focus-within:bg-surface focus-within:shadow-focus">
-            <Search size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
-            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search lists by name" aria-label="Search contact lists"
-              className="min-w-0 flex-1 bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-300" autoFocus />
-          </label>
+          <InputGroup controlSize="md" type="search" aria-label="Search contact lists" placeholder="Search lists by name" value={search}
+            onChange={(event) => setSearch(event.target.value)} start={<Search size={16} strokeWidth={1.5} aria-hidden />} autoFocus />
           <div role="group" aria-label="Filter lists" className="flex flex-wrap gap-2">
             <Chip pressed={environment === '' && source === ''} onClick={() => { setEnvironment(''); setSource('') }}>All</Chip>
             {ENVIRONMENTS.map((item) => <Chip key={item.value} pressed={environment === item.value} onClick={() => setEnvironment(environment === item.value ? '' : item.value)}>{item.label}</Chip>)}
@@ -97,7 +142,7 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
           {lists.length === 0 ? (
             <p className="py-6 text-center text-sm text-ink-800">
               No active contact lists yet.{' '}
-              {canMake && sending ? 'Upload one on the Upload New tab, or make one from an audience.' : <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link>}
+              {canMake && sending ? 'Upload one with Upload New, or make one from an audience.' : <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link>}
             </p>
           ) : (
             <div className="rounded-lg border border-line">
@@ -128,7 +173,7 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
                             {(list.live_campaigns ?? 0) > 0 && <span>on {list.live_campaigns} live campaign{list.live_campaigns === 1 ? '' : 's'}</span>}
                           </span>
                         </span>
-                        <span className="cep-num w-20 shrink-0 text-right text-sm text-ink-800">{formatNumber(list.member_count)}</span>
+                        <span className="cep-num w-20 shrink-0 text-right text-sm font-semibold text-ink-900">{formatNumber(list.member_count)}</span>
                         <span className="cep-num hidden w-28 shrink-0 text-sm text-ink-800 sm:block">{formatDate(list.updated_at)}</span>
                       </label>
                     </li>
@@ -146,10 +191,10 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
         </div>
       )}
       {tab === 'upload' && (
-        <CreateListWizard embedded inCampaign initialSource="UPLOAD" sources={['UPLOAD']} onClose={onClose} onCreated={onCreated} />
+        <CreateListWizard embedded inCampaign initialSource="UPLOAD" sources={['UPLOAD']} defaultChannel={listChannelOf(campaignChannel)} onAtStart={setAtStart} onDone={setDone} onReview={(list) => { onReview?.(list); onClose() }} onClose={onClose} onCreated={onCreated} />
       )}
       {tab === 'make' && (
-        <CreateListWizard embedded inCampaign initialSource="BI" sources={['BI', 'CLONE']} onClose={onClose} onCreated={onCreated} />
+        <CreateListWizard embedded inCampaign initialSource="BI" sources={['BI', 'CLONE']} defaultChannel={listChannelOf(campaignChannel)} onAtStart={setAtStart} onDone={setDone} onReview={(list) => { onReview?.(list); onClose() }} onClose={onClose} onCreated={onCreated} />
       )}
     </Modal>
   )

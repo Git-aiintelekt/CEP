@@ -9,6 +9,8 @@ export interface Column<T> {
   render: (row: T) => ReactNode
   align?: 'left' | 'right'
   className?: string
+  /** a width for the column itself (a Tailwind width class), so two tables of the same width line their columns up */
+  colClassName?: string
   /** with phone="table": hidden on phones until "Show All Columns" */
   phoneOptional?: boolean
 }
@@ -163,8 +165,11 @@ function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, i
   const gap = relaxed ? 'px-2' : 'px-4'
   return (
     <div className={`overflow-x-auto bg-surface ${framed ? 'rounded-lg border border-line' : 'rounded-b-lg'}`}>
-      <table className="min-w-full text-sm">
+      <table className={`text-sm ${columns.some((column) => column.colClassName) ? 'w-full table-fixed' : 'min-w-full'}`}>
         <caption className="sr-only">{caption}</caption>
+        {columns.some((column) => column.colClassName) && (
+          <colgroup>{columns.map((column) => <col key={column.key} className={column.colClassName} />)}</colgroup>
+        )}
         <thead>
           <tr className={`border-b border-line ${relaxed ? 'h-12' : 'h-10'}`}>
             {columns.map((column) => (

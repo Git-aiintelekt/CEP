@@ -30,7 +30,6 @@ export function AudiencePicture({ audience }: { audience: CampaignAudience }) {
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-ink-800">{audience.note}</p>
     </div>
   )
 }
