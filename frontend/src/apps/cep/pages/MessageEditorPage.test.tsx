@@ -93,6 +93,28 @@ test('MMS: only MMS-safe pictures are offered, the chosen one is previewed and s
     { sms_body: 'The lookbook is here. Reply STOP to opt out.', subject_line: 'Fall lookbook', media_asset: 'img-1', base_version: 0 })
 })
 
+test('MMS: an emoji goes into the subject at the caret, counted once against its 80 characters, and is saved with it', async () => {
+  const calls = installMockApi({ template: { ...templates[1], id: 'tpl-mms', name: 'Fall MMS', channel: 'MMS', status: 'DRAFT' },
+                                 message: makeMessage({ template: 'tpl-mms', channel: 'MMS', version_number: 0, latest_version: 0, sms_body: '', saved_at: null, saved_by: null }) })
+  const user = userEvent.setup()
+  await renderAppAt('/templates/tpl-mms/message')
+
+  await user.type(await screen.findByLabelText('Message'), 'The lookbook is here. Reply STOP to opt out.')
+  const subject = screen.getByLabelText(/^Subject/) as HTMLInputElement
+  await user.type(subject, 'Fall lookbook')
+  subject.setSelectionRange(0, 0)
+  const field = subject.parentElement as HTMLElement
+  await user.click(within(field).getByRole('button', { name: 'Insert Emoji' }))
+  await user.click(await within(await screen.findByRole('region', { name: 'Insert Emoji' })).findByRole('option', { name: 'fire' }))
+  await vi.waitFor(() => expect(subject.value).toBe('🔥Fall lookbook'))
+  expect(screen.getByText('14 / 80')).toBeTruthy()
+  expect(within(screen.getByLabelText('Preview')).getByText('🔥Fall lookbook')).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await screen.findByRole('status')
+  expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/message/'))?.body).toMatchObject({ subject_line: '🔥Fall lookbook' })
+})
+
 test('a save refused by the API explains why: field errors, and a concurrent save', async () => {
   let attempt = 0
   installMockApi({ onSaveMessage: () => (++attempt === 1

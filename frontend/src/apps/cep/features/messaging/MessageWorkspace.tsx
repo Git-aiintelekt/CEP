@@ -13,6 +13,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
 import { asToken, extractTags, groupTags, unknownTags } from '@/apps/cep/features/designer/tags'
 import { EmojiPickerButton } from '@/apps/cep/features/emoji/EmojiPickerButton'
+import { charCount } from '@/apps/cep/features/emoji/text'
 import { isDripLockRefusal } from '@/apps/cep/features/templates/lastUsed'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
@@ -63,6 +64,9 @@ const asMedia = (asset: MediaAsset): NonNullable<Media> => ({
   id: asset.id, url: asset.url, file_name: asset.file_name, mime_type: asset.mime_type, byte_size: asset.byte_size, width_px: asset.width_px, height_px: asset.height_px,
 })
 
+/** the server's limit on an MMS subject, counted as the server counts: an emoji once */
+const MMS_SUBJECT_MAX = 80
+
 export function MessageWorkspace({ templateName, channel, status, message, tags, library, senderName = 'Your brand', backend, backTo, readOnly: readOnlyProp = false, lockNote = null }: WorkspaceProps) {
   // a save the API refused because a live drip uses the template: read-only from then on, saying why
   const [refusedLock, setRefusedLock] = useState<string | null>(null)
@@ -70,6 +74,10 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   const readOnly = readOnlyProp || lock !== null
   const textarea = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const subjectInput = useRef<HTMLInputElement>(null)
+  // the emoji button sits inside the subject while it has the caret, and stays while its picker is open, as on an email subject
+  const [subjectFocused, setSubjectFocused] = useState(false)
+  const [subjectPickerOpen, setSubjectPickerOpen] = useState(false)
   const [body, setBody] = useState(message.sms_body)
   const paste = usePlainPaste(body, setBody)
   const [subject, setSubject] = useState(message.subject_line)
@@ -132,6 +140,21 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
     const end = element?.selectionEnd ?? body.length
     setBody(body.slice(0, start) + text + body.slice(end))
     setFieldErrors((current) => ({ ...current, sms_body: '' }))
+    requestAnimationFrame(() => {
+      element?.focus()
+      element?.setSelectionRange(start + text.length, start + text.length)
+    })
+  }
+
+  /** An emoji goes into the subject at the caret, unless it would pass the 80 characters the server takes (an emoji counts once). */
+  function insertIntoSubject(text: string) {
+    const element = subjectInput.current
+    const start = element?.selectionStart ?? subject.length
+    const end = element?.selectionEnd ?? subject.length
+    const next = subject.slice(0, start) + text + subject.slice(end)
+    if (charCount(next) > MMS_SUBJECT_MAX) return
+    setSubject(next)
+    setFieldErrors((current) => ({ ...current, subject_line: '' }))
     requestAnimationFrame(() => {
       element?.focus()
       element?.setSelectionRange(start + text.length, start + text.length)
@@ -288,9 +311,21 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
         <section className="min-w-0 space-y-5">
           {isMms && (
             <div className="rounded-lg border border-line bg-surface p-5">
-              <label htmlFor="mms-subject" className="block text-sm font-medium text-ink-800">Subject <span className="font-normal text-ink-800">(optional, shown by some phones)</span></label>
-              <input id="mms-subject" value={subject} maxLength={80} disabled={readOnly} onChange={(event) => setSubject(event.target.value)}
-                className={`mt-1 h-10 w-full rounded-sm border bg-surface px-3 text-sm ${fieldErrors.subject_line ? 'border-danger' : 'border-line-control'}`} />
+              <div className="flex items-baseline gap-1.5">
+                <label htmlFor="mms-subject" className="block text-sm font-medium text-ink-800">Subject <span className="font-normal text-ink-800">(optional, shown by some phones)</span></label>
+                <span className="flex-1" />
+                <span className="cep-num text-xs text-ink-800">{charCount(subject)} / {MMS_SUBJECT_MAX}</span>
+              </div>
+              <div
+                className={`mt-1 flex h-10 w-full items-center gap-1 rounded-sm border bg-surface pr-1 pl-3 focus-within:border-focus focus-within:shadow-focus ${fieldErrors.subject_line ? 'border-danger' : 'border-line-control'}`}
+                onFocus={() => setSubjectFocused(true)}
+                onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setSubjectFocused(false) }}
+              >
+                <input id="mms-subject" ref={subjectInput} value={subject} disabled={readOnly}
+                  onChange={(event) => { if (charCount(event.target.value) <= MMS_SUBJECT_MAX) setSubject(event.target.value) }}
+                  className="cep-input-bare h-full w-full min-w-0 border-none bg-transparent text-sm outline-none" />
+                {!readOnly && (subjectFocused || subjectPickerOpen) && <EmojiPickerButton onPick={insertIntoSubject} variant="inset" onOpenChange={setSubjectPickerOpen} />}
+              </div>
             </div>
           )}
 
