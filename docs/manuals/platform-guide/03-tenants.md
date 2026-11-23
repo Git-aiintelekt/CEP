@@ -44,7 +44,7 @@ Staff read; platform administrators change. Suspend, Reactivate, Request a data 
 | Onboard a tenant | The guided flow (next chapter). |
 | Suspend | Blocks sign-in and API access at once; the data stays. Reactivate undoes it. |
 | Request a data export | Queues an export (Move and offboard chapter). |
-| Repair onboarding | Runs the provisioning again: partitions, the routing row, the three starting roles, the platform tags. Safe to repeat. |
+| Repair onboarding | Runs the provisioning again: partitions, the routing row, the three starting roles, the platform tags, and the storage record once uploads go to object storage. Safe to repeat; an existing storage record is left as it is. |
 
 ## How to
 

@@ -61,6 +61,9 @@ class TenantForm(FeatureChoicesMixin):
         return data
 
 
+STORAGE_WORDS = {"created": ", storage record made", "failed": ", storage record NOT made (see the server log; is CDN_BASE_URL set?)"}
+
+
 @admin.register(Tenant)
 class TenantAdmin(BaseAdmin):
     """Register, onboard, suspend. Saving a NEW tenant also creates its partitions, its routing row and its starting
@@ -227,7 +230,8 @@ class TenantAdmin(BaseAdmin):
         params.invalidate(obj.pk)
         if not change:
             result = services.onboard_tenant(obj, using=settings.PLATFORM_ALIAS, user_id=request.user.pk)
-            messages.success(request, f"{obj.code} onboarded: {result['partition_sets']} partition sets, roles {', '.join(result['roles']) or 'already present'}. "
+            messages.success(request, f"{obj.code} onboarded: {result['partition_sets']} partition sets, roles {', '.join(result['roles']) or 'already present'}"
+                                      f"{STORAGE_WORDS.get(result.get('storage'), '')}. "
                                       "Next: add its first administrator under Users and give them the Workspace Admin role.")
 
     def has_delete_permission(self, request, obj=None):
@@ -254,12 +258,13 @@ class TenantAdmin(BaseAdmin):
             TenantOperation.objects.using(settings.PLATFORM_ALIAS).create(tenant=tenant, operation="EXPORT", requested_by_id=request.user.pk)
             messages.success(request, f"{tenant.code}: export requested. See Operations, Tenant operations.")
 
-    @action(description="Repair Onboarding (partitions, routing row, default roles)")
+    @action(description="Repair Onboarding (partitions, routing row, default roles, storage record)")
     def provision(self, request, queryset):
         for tenant in queryset:
             result = services.onboard_tenant(tenant, using=settings.PLATFORM_ALIAS, user_id=request.user.pk)
             months = services.ensure_partitions(tenant, using=settings.PLATFORM_ALIAS)
-            messages.success(request, f"{tenant.code}: {result['partition_sets']} new partition sets, {months} monthly partitions added, roles added: {', '.join(result['roles']) or 'none'}.")
+            messages.success(request, f"{tenant.code}: {result['partition_sets']} new partition sets, {months} monthly partitions added, roles added: {', '.join(result['roles']) or 'none'}"
+                                      f"{STORAGE_WORDS.get(result.get('storage'), '')}.")
 
 
 @admin.register(SubscriptionPlan)

@@ -31,6 +31,7 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
     5. a copy of every active platform personalization tag (apps/templates/inherit.py)
     6. governance: a copy of every platform policy applied to all workspaces, and the standard caps as the workspace's own
        (apps/governance/standard.py)
+    7. the storage record (bucket, its own folder, the CDN address) once uploads go to object storage (apps/media/records.py)
     """
     with connections[using].cursor() as cursor:
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])       # audit triggers need a tenant
@@ -76,7 +77,14 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
     except Exception:                                      # noqa: BLE001  the same: manage.py governance_standard --apply adds them later
         log.exception("governance not set up for tenant %s", tenant.id)
         policies = {}
-    return {"partition_sets": partitions, "roles": created_roles, "coupon_tags": coupon_tags, "platform_tags": inherited, "platform_policies": policies}
+    from apps.media import records
+    try:
+        storage = records.ensure(tenant, using=using, user_id=user_id)
+    except Exception:                                      # noqa: BLE001  the same: Repair Onboarding or manage.py storage_records adds it later
+        log.exception("storage record not made for tenant %s", tenant.id)
+        storage = "failed"
+    return {"partition_sets": partitions, "roles": created_roles, "coupon_tags": coupon_tags, "platform_tags": inherited, "platform_policies": policies,
+            "storage": storage}
 
 
 def ensure_partitions(tenant, *, using: str, months_ahead: int = 3) -> int:
