@@ -1,41 +1,45 @@
-/** Step 3: the message, its subject line and preheader, and who it comes from. Templates are picked on cards (the prototype's "Use an existing template"), with a preview beside them. */
+/** The Content step: the template (chosen in a drawer), who it is sent from and its topic, the subject line and preheader if the campaign has its own, and a preview beside them. */
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Monitor, Smartphone } from 'lucide-react'
 import { useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { Field, Select } from '@/components/Form'
-import { ErrorState, Spinner } from '@/components/States'
+import { Field, buttonSecondary } from '@/components/Form'
+import { SegmentedControl } from '@/components/SegmentedControl'
+import { SelectMenu } from '@/components/SelectMenu'
+import { ErrorState } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { META_STATUS } from '@/apps/cep/features/messaging/whatsappStatus'
-import { lookOf } from '@/apps/cep/features/templates/channels'
 import { api } from '@/lib/api'
 import { editorRouteFor } from '@/lib/editorRoute'
-import { formatDate } from '@/lib/format'
 import type { Campaign, Page, SenderProfile, SubscriptionTopicList, Template } from '@/lib/types'
 
-import { MessagePreview } from '../MessagePreview'
-import { Panel } from '../parts'
+import { MessagePreview, type PreviewDevice } from '../MessagePreview'
 import type { CampaignFormValues } from '../schema'
 import { SENDER_FIT, TEMPLATE_FIT } from '../vocabulary'
 
-import { LinkTrackingCard } from './LinkTrackingCard'
+import { ChooseTemplateDrawer } from './ChooseTemplateDrawer'
+import { LinkTrackingRow } from './LinkTrackingRow'
 import { SubjectPreheaderCard } from './SubjectPreheaderCard'
 
 
+const LINK = 'text-sm font-medium text-brand-800 hover:underline'
 const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design: 'Designer', receipt: 'Receipt Editor', message: 'Message Editor', whatsapp: 'WhatsApp Editor' }
 
 export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const { can } = useAuth()
-  const { register, watch, setValue, clearErrors, formState: { errors } } = useFormContext<CampaignFormValues>()
+  const { watch, setValue, clearErrors, formState: { errors } } = useFormContext<CampaignFormValues>()
   const channel = watch('channel')
   const isReceipt = watch('campaign_type') === 'E_RECEIPT'
   const marketing = watch('solicitation_type') === 'MARKETING'
   const chosen = watch('template')
   const sender = watch('sender_profile')
-  const [search, setSearch] = useState('')
+  const [choosing, setChoosing] = useState(false)
+  const [device, setDevice] = useState<PreviewDevice>('desktop')
+  const hasOwnHeader = watch('subject_line').trim() !== '' || watch('preheader').trim() !== ''
+  const [overriding, setOverriding] = useState(hasOwnHeader)
 
   const templates = useQuery({
     queryKey: ['templates', 'options'],
@@ -54,7 +58,6 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
 
   const fit = isReceipt ? (channel === 'SMS' || channel === 'MMS' ? [channel] : ['E_RECEIPT']) : (TEMPLATE_FIT[channel] ?? [])     // a text receipt uses a message template
   const usable = (templates.data?.results ?? []).filter((item) => item.status !== 'ARCHIVED' && fit.includes(item.channel))
-  const shown = usable.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()))
   const picked = (templates.data?.results ?? []).find((item) => item.id === chosen)
   const wrongChannel = picked && !fit.includes(picked.channel)
   const senderOptions = (senders.data ?? []).filter((item) => (SENDER_FIT[channel] ?? []).includes(item.channel))
@@ -65,114 +68,132 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const topicOptions = (topics.data?.enabled ? topics.data.results : []).filter((item) => item.channels.includes(topicChannel))
   const askTopic = marketing && !isReceipt && topicOptions.length > 0
 
+  const hasEmailHeader = Boolean(picked && !wrongChannel && (picked.channel === 'EMAIL' || picked.channel === 'E_RECEIPT'))
+  const newSender = can('provider.edit') && (
+    <Link to={`/settings/delivery?add=sender${senderChannel ? `&channel=${senderChannel}` : ''}`} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1 ${LINK}`}>
+      New Sender <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
+    </Link>
+  )
+
   return (
     <div className="space-y-5">
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <div className="space-y-5">
-        <Panel
-          title="Use an Existing Template"
-          description="Both the template and the sender are needed to publish, not to save a draft."
-          actions={can('template.edit') && <Link to="/templates/new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">New Template <ExternalLink size={14} strokeWidth={1.5} aria-hidden /></Link>}
-        >
-          {errors.template?.message && <p role="alert" className="mb-3 text-xs font-medium text-danger-text">{errors.template.message}</p>}
-          {wrongChannel && (
-            <p role="alert" className="mb-3 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
-              “{picked.name}” is a {picked.channel} template and this is a {channelName} campaign. Choose another template.
-            </p>
-          )}
-          {templates.isPending ? (
-            <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner className="h-4 w-4" /> Loading templates</p>
-          ) : templates.isError ? (
-            <ErrorState error={templates.error} onRetry={() => void templates.refetch()} />
-          ) : usable.length === 0 ? (
-            <p className="text-sm text-ink-800">No {channelName} templates yet.</p>
-          ) : (
-            <>
-              {usable.length > 6 && (
-                <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search templates" aria-label="Search templates"
-                  className="mb-3 h-10 w-full rounded-control-lg border border-line-control bg-surface px-3 text-sm sm:w-64" />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-5">
+          <div>
+            <p id="content-template" className="text-sm font-semibold text-ink-900">Template</p>
+            <div aria-labelledby="content-template" role="group" data-template-row className="mt-1.5 flex items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+              {picked ? (
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-card-title font-semibold text-ink-900" title={picked.name}>{picked.name}</span>
+                  <StatusBadge status={picked.status} />
+                  {picked.whatsapp && <Tag tone={META_STATUS[picked.whatsapp.meta_status].tone}>{META_STATUS[picked.whatsapp.meta_status].label}</Tag>}
+                </span>
+              ) : (
+                <span className="text-sm text-ink-800">{templates.isPending ? 'Loading templates' : `No template chosen yet.`}</span>
               )}
-              <div role="radiogroup" aria-label="Template" className="grid max-h-[26rem] gap-3 overflow-y-auto sm:grid-cols-2">
-                {shown.map((item) => (
-                  <button key={item.id} type="button" role="radio" aria-checked={chosen === item.id} onClick={() => setValue('template', chosen === item.id ? '' : item.id, { shouldDirty: true, shouldValidate: true })}
-                    className={`flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors ${chosen === item.id ? 'border-link bg-callout-bg' : 'border-line bg-surface hover:bg-surface-hover'}`}>
-                    <span className="w-full truncate text-sm font-semibold text-ink-900">{item.name}</span>
-                    <span className="flex flex-wrap items-center gap-1.5"><Tag>{lookOf(item.channel).label}</Tag><StatusBadge status={item.status} />{item.whatsapp && <Tag tone={META_STATUS[item.whatsapp.meta_status].tone}>{META_STATUS[item.whatsapp.meta_status].label}</Tag>}</span>
-                    <span className="text-xs text-ink-800">Edited {formatDate(item.updated_at)}{item.latest_version ? ` · version ${item.latest_version}` : ''}</span>
-                  </button>
-                ))}
-                {shown.length === 0 && <p className="text-sm text-ink-800">No template matches that search.</p>}
-              </div>
-              {picked?.status === 'DRAFT' && !wrongChannel && (
-                <p className="mt-3 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
-                  “{picked.name}” is still a draft. It can be tested from here; a production publish needs the template to be published first.
-                </p>
-              )}
-            </>
-          )}
-        </Panel>
+              <button type="button" className={buttonSecondary} disabled={templates.isPending || templates.isError} onClick={() => setChoosing(true)}>{picked ? 'Change' : 'Choose a Template'}</button>
+            </div>
+            {errors.template?.message && <p role="alert" className="mt-1.5 text-helper font-medium text-danger-text">{errors.template.message}</p>}
+            {templates.isError && <div className="mt-2"><ErrorState error={templates.error} onRetry={() => void templates.refetch()} /></div>}
+            {wrongChannel && (
+              <p role="alert" className="mt-2 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
+                “{picked.name}” is a {picked.channel} template and this is a {channelName} campaign. Choose another template.
+              </p>
+            )}
+            {picked?.status === 'DRAFT' && !wrongChannel && (
+              <p className="mt-2 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
+                “{picked.name}” is still a draft. It can be tested from here; a production publish needs the template to be published first.
+              </p>
+            )}
+          </div>
 
-        {picked && !wrongChannel && (picked.channel === 'EMAIL' || picked.channel === 'E_RECEIPT') && <SubjectPreheaderCard key={picked.id} template={picked} />}
-
-        {askTopic && (
-          <Panel title="Topic" description="The preference-centre topic this campaign is filed under. People who unticked it on the preference page are left out of the audience.">
-            <Field label="Filed Under" required error={errors.topic?.message} help="The preference-centre topic this campaign belongs to. People who unticked it on the preference page are left out of this campaign, counted as Topic Opted Out." hint="Needed to publish. Topics are managed under Settings, Preference Centre.">
-              {(ids) => (
-                <Select {...ids} {...register('topic')}>
-                  <option value="">Choose a Topic</option>
-                  {topicOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </Select>
-              )}
-            </Field>
-          </Panel>
-        )}
-
-        <Panel title="Sender"
-          actions={can('provider.edit') && (
-            <Link to={`/settings/delivery?add=sender${senderChannel ? `&channel=${senderChannel}` : ''}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
-              New Sender <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
-            </Link>
-          )}>
-          <Field label="Send From" required error={errors.sender_profile?.message} help="The name and address, or the number, the message comes from; the sender brings its engine. Only a verified sender can publish to production; test sends work from any."
+          <Field label="Send From" strong labelEnd={newSender || undefined} error={errors.sender_profile?.message}
             hint={senders.isPending ? 'Loading senders'
               : senderOptions.length === 0 ? `No ${channel} sender is set up yet. ${can('provider.edit') ? 'Add one with New Sender; it appears here when you come back.' : 'An administrator adds one under Settings, Sending Engines.'}`
-              : can('provider.edit') ? 'Senders belong to the workspace: one added with New Sender can be used by every campaign.' : undefined}>
+              : undefined}>
             {(ids) => (
-              <Select key={senders.data ? 'ready' : 'loading'} {...ids} {...register('sender_profile', { onChange: () => clearErrors('sender_profile') })}>
-                <option value="">Choose a Sender</option>
-                {senderOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.display_name} · {item.from_address ?? item.sender_id ?? item.channel}{item.provider_type === 'SMTP' ? ' · your mail server' : ''}{item.verification_status === 'VERIFIED' ? '' : ' (not verified)'}
-                  </option>
-                ))}
-              </Select>
+              <SelectMenu id={ids.id} describedBy={ids.describedBy} invalid={ids.invalid} label="Send From" placeholder="Choose a Sender" value={sender}
+                options={[{ value: '', label: 'Choose a Sender' }, ...senderOptions.map((item) => ({
+                  value: item.id,
+                  label: `${item.display_name} · ${item.from_address ?? item.sender_id ?? item.channel}${item.provider_type === 'SMTP' ? ' · your mail server' : ''}${item.verification_status === 'VERIFIED' ? '' : ' (not verified)'}`,
+                }))]}
+                onChange={(next) => { setValue('sender_profile', next, { shouldDirty: true }); clearErrors('sender_profile') }} />
             )}
           </Field>
           {pickedSender && pickedSender.verification_status !== 'VERIFIED' && (
-            <p className="mt-3 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">This sender is not verified yet. Publishing needs a verified sender.</p>
+            <p className="-mt-3 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">This sender is not verified yet. Publishing needs a verified sender.</p>
           )}
-          {marketing && <p className="mt-3 text-xs text-ink-800">Marketing messages must let people opt out: an unsubscribe link in email, “Reply STOP” in a text. The pre-publish check looks for it.</p>}
-        </Panel>
-      </div>
 
-      <Panel title="Preview" className="self-start">
-        {!chosen ? (
-          <p className="text-sm text-ink-800">Choose a template to see it here.</p>
-        ) : !campaign ? (
-          <p className="text-sm text-ink-800">The preview appears once the draft is saved.</p>
-        ) : (
-          <>
-            <MessagePreview campaignId={campaign.id} templateId={chosen} />
-            {picked && can('template.edit') && (
-              <Link to={`/templates/${picked.id}/${editorRouteFor(picked.channel)}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
+          {askTopic && (
+            <Field label="Topic" strong error={errors.topic?.message}
+              hint="The preference-centre topic this campaign is filed under. People who unticked it on the preference page are left out, counted as Topic Opted Out. Needed to publish; topics are managed under Settings, Preference Centre.">
+              {(ids) => (
+                <SelectMenu id={ids.id} describedBy={ids.describedBy} invalid={ids.invalid} label="Topic" placeholder="Choose a Topic" value={watch('topic')}
+                  options={[{ value: '', label: 'Choose a Topic' }, ...topicOptions.map((item) => ({ value: item.id, label: item.name }))]}
+                  onChange={(next) => setValue('topic', next, { shouldDirty: true, shouldValidate: true })} />
+              )}
+            </Field>
+          )}
+
+          {picked && !wrongChannel && (
+            <section aria-label="Message Details" className="overflow-hidden rounded-lg border border-line bg-surface">
+              {hasEmailHeader && (
+                <div className="px-5 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-card-title font-semibold text-ink-900">Subject and Preheader</h2>
+                    {overriding ? (
+                      <button type="button" className={LINK} onClick={() => {
+                        setValue('subject_line', '', { shouldDirty: true, shouldValidate: true })
+                        setValue('preheader', '', { shouldDirty: true, shouldValidate: true })
+                        setOverriding(false)
+                      }}>Use Template’s</button>
+                    ) : (
+                      <button type="button" className={LINK} aria-expanded={false} onClick={() => setOverriding(true)}>Override</button>
+                    )}
+                  </div>
+                  {overriding && (
+                    <div className="mt-4">
+                      <SubjectPreheaderCard key={picked.id} template={picked} />
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className={hasEmailHeader ? 'border-t border-line' : ''}><LinkTrackingRow /></div>
+            </section>
+          )}
+        </div>
+
+        <section aria-labelledby="content-preview" className="self-start overflow-hidden rounded-lg border border-line bg-surface">
+          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+            <h2 id="content-preview" className="text-card-title font-semibold text-ink-900">Preview</h2>
+            {hasEmailHeader && (
+              <SegmentedControl label="Preview Size" iconOnly value={device} onChange={setDevice}
+                options={[{ value: 'desktop', label: 'Desktop', icon: Monitor }, { value: 'mobile', label: 'Mobile', icon: Smartphone }]} />
+            )}
+          </div>
+          <div className="bg-surface-subtle p-4">
+            {!chosen ? (
+              <p className="text-sm text-ink-800">Choose a template to see it here.</p>
+            ) : !campaign ? (
+              <p className="text-sm text-ink-800">The preview appears once the draft is saved.</p>
+            ) : hasEmailHeader ? (
+              <MessagePreview campaignId={campaign.id} templateId={chosen} controls={{ party: '', device, sender: pickedSender?.display_name ?? '' }} />
+            ) : (
+              <MessagePreview campaignId={campaign.id} templateId={chosen} />
+            )}
+            {chosen && campaign && picked && can('template.edit') && (
+              <Link to={`/templates/${picked.id}/${editorRouteFor(picked.channel)}`} target="_blank" rel="noreferrer" className={`mt-3 inline-flex items-center gap-1 ${LINK}`}>
                 Open in the {EDITOR_NAME[editorRouteFor(picked.channel)]} <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
               </Link>
             )}
-          </>
-        )}
-      </Panel>
-    </div>
-    {picked && !wrongChannel && <LinkTrackingCard campaign={campaign} />}
+          </div>
+        </section>
+      </div>
+
+      {choosing && (
+        <ChooseTemplateDrawer templates={usable} current={chosen} channelName={channelName} canCreate={can('template.edit')}
+          onUse={(id) => setValue('template', id, { shouldDirty: true, shouldValidate: true })} onClose={() => setChoosing(false)} />
+      )}
     </div>
   )
 }

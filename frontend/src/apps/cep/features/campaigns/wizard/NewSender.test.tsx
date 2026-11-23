@@ -18,16 +18,17 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const senderCard = async () => within((await screen.findByRole('heading', { name: 'Sender' })).closest('section') as HTMLElement)
+/** the Send From field: its label row (with New Sender), the select and its hint */
+const senderCard = async () => within((await screen.findByText('Send From')).closest('div:not([class])') as HTMLElement)
 
-test('New Sender opens Add a Sender in a new tab for the campaign’s channel, and says a sender belongs to the workspace', async () => {
+test('New Sender opens Add a Sender in a new tab for the campaign’s channel', async () => {
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 2, channel: 'MMS', template: null, sender_profile: null }) })
   await renderAppAt('/campaigns/c1/edit?step=content')
   const card = await senderCard()
   const link = card.getByRole('link', { name: 'New Sender' })
   expect(link.getAttribute('href')).toBe('/settings/delivery?add=sender&channel=SMS')
   expect(link.getAttribute('target')).toBe('_blank')
-  expect(await card.findByText(/Senders belong to the workspace/)).toBeTruthy()
+  expect(card.queryByRole('button', { name: 'About Send From' })).toBeNull()                               // no info icon beside the label
 })
 
 test('without provider.edit there is no New Sender link', async () => {

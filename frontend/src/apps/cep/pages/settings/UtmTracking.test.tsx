@@ -50,38 +50,16 @@ test('switching a channel on asks for your sites, shows the values and the examp
   expect(saved).toMatchObject({ email: true, sms: false, domains: ['shop.northwind.example'], params: { utm_source: { kind: 'text', value: 'Northwind News' } } })
 })
 
-test('the campaign lists its links with how each goes out; a label is saved on its own; the campaign can send its links as written', async () => {
+test('the campaign’s Content step has a Link Tracking row whose Edit goes to Settings → UTM Tracking; nothing is edited there', async () => {
   const calls = installMockApi({ utm: { email: true, domains: ['shop.northwind.example'] }, campaign: makeCampaign({ status: 'DRAFT', setup_step: 2 }) })
-  const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=content')
 
-  const card = within((await screen.findByRole('heading', { name: 'Link Tracking' })).closest('section') as HTMLElement)
-  expect(await card.findByText('2 of 4 links carry UTM tags. Change a link’s label to tell its clicks apart in Google Analytics.')).toBeTruthy()
-  const table = card.getByRole('table', { name: 'Links' })
-  expect(within(table).getAllByText('Tagged')).toHaveLength(2)
-  expect(within(table).getByText('Not Your Site')).toBeTruthy()
-  expect(within(table).getByText('Never Tagged')).toBeTruthy()
-  expect(within(table).getAllByText('Tagged')[0].querySelector('[data-live-dot]')).toBeNull()
-
-  const label = within(table).getByRole('textbox', { name: 'Label of Shop the Collection' })
-  await user.clear(label)
-  await user.type(label, 'Hero CTA')
-  await user.tab()
-  const put = () => calls.filter((call) => call.url.includes('/campaigns/c1/link-tracking/') && call.method === 'PUT').at(-1)?.body
-  await vi.waitFor(() => expect(put()).toMatchObject({ enabled: true, labels: { '2|https://shop.northwind.example/fall': 'hero-cta' } }))
-  expect(calls.some((call) => call.url.endsWith('/campaigns/c1/') && call.method === 'PATCH')).toBe(false)     // the campaign's own save is not touched
-
-  await user.click(card.getByRole('switch', { name: 'Tag Links in This Campaign' }))
-  await vi.waitFor(() => expect(put()).toMatchObject({ enabled: false }))
-  expect(await card.findByText('This campaign’s links go out as written.')).toBeTruthy()
-})
-
-test('with the workspace setting off, the card says where to switch it on', async () => {
-  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 2 }) })
-  await renderAppAt('/campaigns/c1/edit?step=content')
-  const card = within((await screen.findByRole('heading', { name: 'Link Tracking' })).closest('section') as HTMLElement)
-  expect(await card.findByText(/UTM tracking is off for email campaigns, so links go out as written/)).toBeTruthy()
-  expect(card.getByRole('link', { name: 'Settings, UTM Tracking' }).getAttribute('href')).toBe('/settings/utm-tracking')
+  const row = within((await screen.findByRole('heading', { name: 'Link Tracking' })).closest('[data-link-tracking]') as HTMLElement)
+  const edit = row.getByRole('link', { name: /^Edit/ })
+  expect([edit.getAttribute('href'), edit.getAttribute('target')]).toEqual(['/settings/utm-tracking', '_blank'])
+  expect(screen.queryByRole('table', { name: 'Links' })).toBeNull()                                         // the links table and its switch are gone from the step
+  expect(screen.queryByRole('switch', { name: 'Tag Links in This Campaign' })).toBeNull()
+  expect(calls.some((call) => call.url.includes('/link-tracking/'))).toBe(false)                            // the step does not call it at all
 })
 
 test('a text is counted with its links to your sites as short links', () => {

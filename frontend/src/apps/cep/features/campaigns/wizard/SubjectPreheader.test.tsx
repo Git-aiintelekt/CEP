@@ -23,7 +23,13 @@ afterEach(() => {
 })
 
 const design = makeDesign({ template: 'tpl-email', html_content: '<html><body><p>Hi</p></body></html>', subject_line: 'Fall is here, {{first_name}}', preheader: 'Three days only' })
-const card = async () => within((await screen.findByRole('heading', { name: 'Subject Line and Preheader' })).closest('section') as HTMLElement)
+/** the Subject and Preheader row, opened with Override when it is collapsed */
+const card = async () => {
+  const section = (await screen.findByRole('heading', { name: 'Subject and Preheader' })).closest('section') as HTMLElement
+  const override = within(section).queryByRole('button', { name: 'Override' })
+  if (override) await userEvent.click(override)
+  return within(section)
+}
 const saves = (calls: { url: string; method: string; body: unknown }[]) => calls.filter((call) => call.method === 'PATCH' && /\/campaigns\/c1\/$/.test(call.url))
 
 test("the template's are shown until the campaign has its own; edit them, save with the step, and go back to the template's", async () => {
@@ -34,42 +40,41 @@ test("the template's are shown until the campaign has its own; edit them, save w
   const box = await card()
   const subject = box.getByLabelText('Subject Line') as HTMLInputElement
   expect(subject.value).toBe('')
-  expect(await box.findAllByText("Empty: the template's is used.", {}, { timeout: 3000 })).toHaveLength(2)
-  expect(subject.placeholder).toBe('Fall is here, {{first_name}}')
-  const inbox = box.getByRole('group', { name: 'Inbox Row' })
-  expect(inbox.textContent).toContain('Three days only')
+  await vi.waitFor(() => expect(subject.placeholder).toBe('Fall is here, {{first_name}}'), { timeout: 3000 })      // the template's, as the placeholder
+  expect(box.queryByText(/is used\./)).toBeNull()                                                              // no helper lines under the fields
+  expect(screen.queryByRole('tab', { name: 'In the Inbox' })).toBeNull()                                // no inbox preview any more
 
   await user.click(box.getAllByRole('button', { name: "Edit the Template's" })[0])
   expect(subject.value).toBe('Fall is here, {{first_name}}')
   await user.clear(subject)
   await user.type(subject, '{{first_name}}, last days of the sale'.replace(/[{[]/g, '$&$&'))
   await user.type(box.getByLabelText('Preheader'), 'Ends Sunday at midnight')
-  expect(box.getByText(/This campaign's own\. The template's: “Fall is here/)).toBeTruthy()
-  expect(inbox.textContent).toContain('last days of the sale')
-  expect(inbox.textContent).toContain('Ends Sunday at midnight')
 
   await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])
   await vi.waitFor(() => expect(saves(calls).at(-1)?.body).toMatchObject({ subject_line: '{{first_name}}, last days of the sale', preheader: 'Ends Sunday at midnight' }))
 })
 
-test("Use the Template's empties the field, and an empty field is saved as the template's (null)", async () => {
+test("the row starts open when the campaign has its own; Use Template's clears both, closes it, and both are saved as the template's (null)", async () => {
   const calls = installMockApi({ design, campaign: makeCampaign({ status: 'DRAFT', setup_step: 2, subject_line: 'Our own subject', preheader: 'Our own preheader' }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=content')
 
   const box = await card()
+  expect(box.queryByRole('button', { name: 'Override' })).toBeNull()                                    // already overridden: open, with the way back
   expect((box.getByLabelText('Subject Line') as HTMLInputElement).value).toBe('Our own subject')
-  await user.click(box.getAllByRole('button', { name: "Use the Template's" })[0])
-  expect((box.getByLabelText('Subject Line') as HTMLInputElement).value).toBe('')
+  expect(box.getByText('15 / 60')).toBeTruthy()                                                          // the counter and the emoji button are in the label row
+  await user.click(box.getByRole('button', { name: 'Use Template’s' }))
+  expect(box.queryByLabelText('Subject Line')).toBeNull()                                                // closed
+  expect(box.getByRole('button', { name: 'Override' })).toBeTruthy()
   await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])
-  await vi.waitFor(() => expect(saves(calls).at(-1)?.body).toMatchObject({ subject_line: null, preheader: 'Our own preheader' }))
+  await vi.waitFor(() => expect(saves(calls).at(-1)?.body).toMatchObject({ subject_line: null, preheader: null }))
 })
 
 test('a text campaign has no subject line or preheader card', async () => {
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 2, channel: 'SMS', template: 'tpl-sms' }) })
   await renderAppAt('/campaigns/c1/edit?step=content')
-  await screen.findByRole('radiogroup', { name: 'Template' })
-  expect(screen.queryByRole('heading', { name: 'Subject Line and Preheader' })).toBeNull()
+  await screen.findByRole('group', { name: 'Template' })
+  expect(screen.queryByRole('heading', { name: 'Subject and Preheader' })).toBeNull()
 })
 
 test("the subject line test's A and the review summary say when the subject is the campaign's own", async () => {
@@ -87,11 +92,10 @@ test("an emoji picked while the subject is empty is added to the template's line
 
   const box = await card()
   const subject = box.getByLabelText('Subject Line') as HTMLInputElement
-  await box.findAllByText("Empty: the template's is used.", {}, { timeout: 3000 })
+  await vi.waitFor(() => expect((box.getByLabelText('Subject Line') as HTMLInputElement).placeholder).toBe('Fall is here, {{first_name}}'), { timeout: 3000 })
   await user.click(box.getAllByRole('button', { name: 'Insert Emoji' })[0])
   await user.click(await within(await screen.findByRole('region', { name: 'Insert Emoji' })).findByRole('option', { name: 'fire' }))
   await vi.waitFor(() => expect(subject.value).toBe('Fall is here, {{first_name}}🔥'))
-  expect(box.getByText(/This campaign's own\. The template's: “Fall is here/)).toBeTruthy()
 
   subject.setSelectionRange(0, 0)
   await user.click(box.getAllByRole('button', { name: 'Insert Emoji' })[0])

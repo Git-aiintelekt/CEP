@@ -1,7 +1,6 @@
 /** /dev/settings (dev builds only): the Settings menu panel beside a stand-in page, every feature on, nothing from the API; Set-Up, Attribution, Sending Engines and Governance are the real pages on sample data. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
-import { FormProvider, useForm } from 'react-hook-form'
 import { Outlet, Route, Routes, useSearchParams } from 'react-router-dom'
 
 import { SettingsMenuPanel } from '@/apps/cep/pages/settings/SettingsMenu'
@@ -16,9 +15,8 @@ import { MapDatasetPage } from '@/apps/cep/pages/settings/MapDatasetPage'
 import { DATABASES_KEY } from '@/apps/cep/pages/settings/reportDatabases'
 import type { ReportDatabase, SourceColumns, SourceList } from '@/apps/insights/types'
 import { UTM_KEY } from '@/apps/cep/pages/settings/utm'
-import { LinkTrackingCard } from '@/apps/cep/features/campaigns/wizard/LinkTrackingCard'
-import type { CampaignFormValues } from '@/apps/cep/features/campaigns/schema'
-import type { AttributedOrder, AttributionSettings, Campaign, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, GovernanceBlackout, GovernanceOverview, ProviderType, SendingDomains, UtmPreview, UtmSettings } from '@/lib/types'
+import { LinkTrackingRow } from '@/apps/cep/features/campaigns/wizard/LinkTrackingRow'
+import type { AttributedOrder, AttributionSettings, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, GovernanceBlackout, GovernanceOverview, ProviderType, SendingDomains, UtmSettings } from '@/lib/types'
 import { SETTINGS_GROUPS, pageAt } from '@/apps/cep/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/apps/cep/features/setup/sampleSetup'
@@ -170,31 +168,11 @@ const SAMPLE_UTM: UtmSettings = {
   by_channel: { utm_medium: { EMAIL: 'email', SMS: 'sms' }, utm_creative_format: { EMAIL: 'email', SMS: 'text' } },
   parameters: ['utm_source', 'utm_medium', 'utm_campaign', 'utm_id', 'utm_content', 'utm_term', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic'],
 }
-const tagged = (path: string, label: string) => `https://shop.northwindapparel.com${path}?utm_source=c360&utm_medium=email&utm_campaign=fall-launch-new-arrivals&utm_id=cmp-2026-0042&utm_content=${label}`
-const SAMPLE_LINKS: UtmPreview = {
-  channel: 'EMAIL', workspace_on: true, ready: true, enabled: true, values: { utm_campaign: 'fall-launch-new-arrivals' },
-  defaults: { utm_campaign: 'fall-launch-new-arrivals', utm_marketing_tactic: 'promotional' }, short_base: SAMPLE_UTM.short_base, has_content: true,
-  links: [
-    { key: '1|https://shop.northwindapparel.com/fall', position: 1, url: 'https://shop.northwindapparel.com/fall', text: 'Hero image', default_label: 'hero-image', label: 'hero-image', verdict: 'TAGGED', opens: tagged('/fall', 'hero-image'), short: false },
-    { key: '2|https://shop.northwindapparel.com/fall', position: 2, url: 'https://shop.northwindapparel.com/fall', text: 'Shop the Collection', default_label: 'shop-the-collection', label: 'hero-cta', verdict: 'TAGGED', opens: tagged('/fall', 'hero-cta'), short: false },
-    { key: '3|https://shop.northwindapparel.com/denim', position: 3, url: 'https://shop.northwindapparel.com/denim', text: 'Denim Jackets', default_label: 'denim-jackets', label: 'denim-jackets', verdict: 'TAGGED', opens: tagged('/denim', 'denim-jackets'), short: false },
-    { key: '4|https://northwindapparel.com/stores?utm_source=instore', position: 4, url: 'https://northwindapparel.com/stores?utm_source=instore', text: 'Find a Store', default_label: 'find-a-store', label: 'find-a-store', verdict: 'OWN_TAGS', opens: 'https://northwindapparel.com/stores?utm_source=instore&utm_medium=email&utm_campaign=fall-launch-new-arrivals', short: false },
-    { key: '5|https://instagram.com/northwind', position: 5, url: 'https://instagram.com/northwind', text: 'Instagram', default_label: 'instagram', label: 'instagram', verdict: 'NOT_YOUR_SITE', opens: 'https://instagram.com/northwind', short: false },
-    { key: '6|{{unsubscribe_url}}', position: 6, url: '{{unsubscribe_url}}', text: 'Unsubscribe', default_label: 'unsubscribe', label: 'unsubscribe', verdict: 'NEVER', opens: '{{unsubscribe_url}}', short: false },
-  ],
-}
-
-/** Settings → UTM Tracking with both channels on, and the Content step's Link Tracking card on a sample campaign; saving has no API here */
+/** Settings → UTM Tracking with both channels on, and the Content step's Link Tracking row; saving has no API here */
 function SampleUtm() {
-  const tracking = { enabled: true, overrides: {}, labels: { '2|https://shop.northwindapparel.com/fall': 'hero-cta' } }
-  const campaign = { id: 'pg1' } as Campaign
-  const form = useForm<CampaignFormValues>({ defaultValues: { template: 'tpl1', channel: 'EMAIL', name: 'Fall Launch: New Arrivals', code: 'CMP-2026-0042',
-    campaign_type: 'REGULAR_MARKETING', solicitation_type: 'MARKETING' } as Partial<CampaignFormValues> as CampaignFormValues })
   const [client] = useState(() => {
     const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchInterval: false } } })
     seeded.setQueryData(UTM_KEY, SAMPLE_UTM)
-    seeded.setQueryData(['campaigns', 'pg1', 'link-tracking'], { ...tracking, ready: true, clicks: [] })
-    seeded.setQueryData(['utm', 'preview', 'tpl1', 'EMAIL', 'Fall Launch: New Arrivals', 'CMP-2026-0042', 'REGULAR_MARKETING', 'MARKETING', tracking], SAMPLE_LINKS)
     return seeded
   })
   return (
@@ -202,7 +180,7 @@ function SampleUtm() {
       <div className="space-y-8">
         <UtmTrackingPage />
         <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-ink-800">On the Campaign’s Content Step</p>
-          <FormProvider {...form}><LinkTrackingCard campaign={campaign} /></FormProvider></div>
+          <div className="overflow-hidden rounded-lg border border-line bg-surface"><LinkTrackingRow /></div></div>
       </div>
     </QueryClientProvider>
   )

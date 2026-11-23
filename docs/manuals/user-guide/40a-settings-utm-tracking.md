@@ -1,6 +1,6 @@
 # UTM Tracking
 
-**Where:** Settings → Engagement → UTM Tracking, and on each campaign's Content step under **Link Tracking**.
+**Where:** Settings → Engagement → UTM Tracking, and a **Link Tracking** row on each campaign's Content step, whose **Edit** leads here.
 
 ## What this page is for
 
@@ -8,7 +8,7 @@ UTM tags are the `utm_…` parameters added to the end of a link. Google Analyti
 
 ## Who can use it
 
-Anyone with Sending Engines · Edit (`provider.edit`) changes the workspace settings. Anyone who edits campaigns sees the campaign's Link Tracking and can change its labels and its own campaign name and tactic.
+Anyone with Sending Engines · Edit (`provider.edit`) changes the workspace settings. Anyone who edits campaigns sees the campaign's Link Tracking row. Labels, a campaign name or a tactic set on a campaign before keep applying, but the Content step no longer changes them.
 
 ## The fields and controls
 
@@ -41,50 +41,21 @@ Never tagged, whatever the settings: links to other sites, `mailto:` and `tel:` 
 
 ### The campaign's Link Tracking (Content step)
 
-| Control | What it is | What it changes |
-|---|---|---|
-| Tag Links in This Campaign | On by default when the workspace has tagging on for the channel. | Off: this campaign's links go out as written. |
-| Campaign (utm_campaign) | This campaign's own campaign value; empty uses the campaign name. | |
-| Tactic (utm_marketing_tactic) | This campaign's own tactic; empty uses the campaign type. | |
-| Links | Every link of the chosen template: its text and address, its **Label** (utm_content), whether it is **Tagged**, **Own Tags Kept**, **Not Your Site** or **Never Tagged**, and the address it opens (email) or its short link and clicks (texts). | A label is saved as soon as you leave the field; it follows the link as long as its address stays the same. |
-
-These choices are saved on their own, as you change them.
-
-## Step by step
-
-**1. Switch UTM tracking on for your workspace** (needs Sending Engines · Edit)
-
-1. Open **Settings → Engagement → UTM Tracking**.
-2. Switch on **Email Campaigns**, **Text Campaigns**, or both.
-3. Under **Your Sites**, type each domain your links lead to (for example `northwindapparel.com`) and press **Add** or Enter. Subdomains such as `shop.northwindapparel.com` are included. If you paste a full address, only its domain is kept.
-4. Leave **Links That Already Have Tags** on **Keep their tags** unless every link must carry this workspace's values.
-5. Check the **Example** at the bottom: it shows a hero button's address as it would go out.
-6. Press **Save**. The message *UTM tracking saved* confirms it. Campaigns sent from now on carry the tags.
-
-**2. Change a value (optional)**
-
-1. In **Parameters**, open the **Value** list of the parameter.
-2. Choose **Fixed Text** and type the value, choose a campaign field (Campaign Name, Campaign Code, Campaign Type, Channel, Link Label, Link Label and A/B Variant), or choose **Not Sent**.
-3. The **Sent As** column shows the result for the example link. Values are sent lowercase with dashes.
-4. Press **Save**. **Reset to Recommended** puts the recommended values back before you save.
+The Content step has a **Link Tracking** row in the card with Subject and Preheader. **Edit** (for anyone with Sending Engines · Edit) opens Settings → UTM Tracking in a new tab. The campaign's own switch, labels, campaign name and tactic are not edited on the Content step; values saved on a campaign before still apply.
 
 `utm_source` cannot be Not Sent, and `utm_medium` and `utm_creative_format` always follow the campaign's channel.
 
-**3. Label the links of an email campaign**
+**3. Change how an email campaign's links are tagged**
 
 1. Open the campaign and go to its **Content** step (Edit → Content).
-2. Choose the template. The **Link Tracking** card appears under the template and the preview, listing every link of the message.
-3. For each **Tagged** link, check its **Label**: it starts as the link's text (an image link: its alt text). Type a clearer label where two links would read the same, for example `hero-image`, `hero-cta`, `footer-shop`, then click outside the field. It is saved at once.
-4. Look at **Tagging**: **Own Tags Kept** means the link already had tags; **Not Your Site** and **Never Tagged** go out as written.
-5. To use another campaign value in Google Analytics (for example the same name for a series), type it under **Campaign (utm_campaign)**. To file the campaign under a different tactic, choose one under **Tactic**.
-
-You don't press Save for these: each change is kept as you make it.
+2. Choose the template. The **Link Tracking** row appears under Subject and Preheader.
+3. To change how links are tagged, click **Edit**: Settings → UTM Tracking opens in a new tab.
 
 **4. Send a text campaign with short links**
 
 1. Make sure **Text Campaigns** is switched on (step 1).
 2. Write the message with the full address of your page, for example `https://shop.northwindapparel.com/weekend`. The editor's counter already counts it as a short link, and says *links to your sites counted as short links*.
-3. On the campaign's Content step, the Link Tracking card shows the link as a **Short link** and, after sending, how many times it was opened.
+3. After sending, the campaign page shows how many times the link was opened.
 4. Each recipient receives a short link such as `https://…/api/v1/l/NWA/k7Pq2Xs/`. Opening it counts a click and goes on to the tagged page.
 
 **5. Test before you publish**
@@ -100,10 +71,9 @@ You don't press Save for these: each change is kept as you make it.
 3. Add **Session manual ad content** as a second dimension to see each link label, and the A/B variant (`hero-cta-a`, `hero-cta-b`).
 4. GA4 files the visits under its **Email** and **SMS** channels in Reports → Acquisition → Traffic acquisition (Session default channel group).
 
-**7. Send one campaign's links as written**
+**7. Send campaigns' links as written**
 
-1. On the campaign's Content step, switch off **Tag Links in This Campaign** in the Link Tracking card.
-2. Its links go out exactly as in the template. Switch it on again at any time before sending.
+A campaign saved with tagging off keeps its links as written.
 
 To stop tagging everywhere, switch off the channel on Settings → UTM Tracking and press Save.
 

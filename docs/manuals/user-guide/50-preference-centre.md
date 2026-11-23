@@ -27,7 +27,7 @@ A page where a customer chooses which channels and topics they receive, reached 
 
 **Switch it on.** Add the topics (for example *Rewards and offers*, *New arrivals*, *Store events*), write the page's words, Save, Open Preview; then the switch. Put `{{preference_url}}` in the footer of your templates.
 
-**File a campaign.** On the campaign's Content step, Filed Under → the topic. Needed to publish while the centre is on.
+**File a campaign.** On the campaign's Content step, Topic → the topic. Needed to publish while the centre is on.
 
 ## What happens behind the scenes
 
