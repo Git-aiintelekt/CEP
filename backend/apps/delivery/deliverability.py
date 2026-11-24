@@ -21,6 +21,7 @@ from api.exceptions import Conflict
 from apps.delivery.inspect import PROVIDER_TYPE, InspectClient
 from apps.delivery.models import DeliverabilityService, DeliverabilityTest
 from apps.delivery.providers.base import ProviderError
+from apps.identity import names
 from apps.platform_ops import billing, crypto, params
 from apps.templates import design
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent, TemplateMaster
@@ -231,7 +232,7 @@ def tests_for(template: TemplateMaster) -> list[DeliverabilityTest]:
 
 def payload(test: DeliverabilityTest, *, full: bool = True) -> dict:
     rows = sorted(test.results.values(), key=lambda r: (r.get("category", ""), r.get("name", ""))) if full else []
-    who = getattr(test.requested_by, "display_name", None) or getattr(test.requested_by, "email", None)
+    who = names.label(test.requested_by_id)
     return {"id": str(test.pk), "template": str(test.template_id), "template_version": test.template_version, "kind": test.kind, "provider": test.provider,
             "status": test.status, "subject": test.subject, "clients": list(test.clients or []), "summary": dict(test.summary or {}), "error": test.error,
             "requested_by": who, "requested_at": test.requested_at, "completed_at": test.completed_at, "account": test.account,

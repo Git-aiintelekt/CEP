@@ -24,6 +24,7 @@ from rest_framework.exceptions import ValidationError
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.models import SenderProfile
+from apps.identity import names
 from apps.media.models import MediaAsset
 from apps.platform_ops import billing, params
 from apps.templates import datapoints, design, starters
@@ -264,7 +265,7 @@ class TemplateViewSet(BaseTenantViewSet):
                         .order_by("-version_number")[:100]):
             state = authors.get(content.version_number)
             rows.append({"version_number": content.version_number, "saved_at": state.created_at if state else content.rendered_at,
-                         "saved_by": state.created_by.display_name if state and state.created_by else None})
+                         "saved_by": names.label_of(state, "created_by") if state else None})
         return Response(s.DesignVersionSerializer(rows, many=True).data)
 
     @extend_schema(methods=["GET"], responses=s.ReceiptLayoutSerializer,
@@ -293,7 +294,7 @@ class TemplateViewSet(BaseTenantViewSet):
         states = (TemplateDesignState.objects.filter(template=template, editor_state__kind="receipt").select_related("created_by")
                   .order_by("-version_number")[:100])
         rows = [{"version_number": state.version_number, "saved_at": state.created_at,
-                 "saved_by": state.created_by.display_name if state.created_by else None} for state in states]
+                 "saved_by": names.label_of(state, "created_by")} for state in states]
         return Response(s.DesignVersionSerializer(rows, many=True).data)
 
     @extend_schema(methods=["GET"], responses=s.MessageSerializer,

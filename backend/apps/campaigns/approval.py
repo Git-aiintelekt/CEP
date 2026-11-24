@@ -7,6 +7,7 @@ it: what was approved is what goes out.
 """
 from django.utils import timezone
 
+from apps.identity import names
 from apps.identity.models import UserRole
 from apps.platform_ops import notifications
 from apps.tenants.models import Tenant
@@ -53,8 +54,8 @@ def state(campaign) -> dict | None:
     if not campaign.approval_status:
         return None
     return {"status": campaign.approval_status, "requested_by": str(campaign.approval_requested_by_id) if campaign.approval_requested_by_id else None,
-            "requested_by_name": _name(campaign.approval_requested_by), "requested_at": campaign.approval_requested_at, "note": campaign.approval_note,
-            "decided_by_name": _name(campaign.approval_decided_by), "decided_at": campaign.approval_decided_at, "decision_note": campaign.approval_decision_note}
+            "requested_by_name": names.label(campaign.approval_requested_by_id), "requested_at": campaign.approval_requested_at, "note": campaign.approval_note,
+            "decided_by_name": names.label(campaign.approval_decided_by_id), "decided_at": campaign.approval_decided_at, "decision_note": campaign.approval_decision_note}
 
 
 def actions(campaign) -> list[str]:
@@ -73,7 +74,7 @@ def problem(campaign) -> str | None:
     if not required(campaign) or is_approved(campaign):
         return None
     if campaign.approval_status == REQUESTED:
-        return f"Waiting for approval, asked {campaign.approval_requested_at:%d %b %H:%M} by {_name(campaign.approval_requested_by) or 'someone'}."
+        return f"Waiting for approval, asked {campaign.approval_requested_at:%d %b %H:%M} by {names.label(campaign.approval_requested_by_id) or 'someone'}."
     if campaign.approval_status == RETURNED:
         return "Sent back" + (f": {campaign.approval_decision_note}" if campaign.approval_decision_note else ".") + " Change what was asked and request approval again."
     return "This workspace needs a second person to approve a production send. Request approval from the Review & Publish step."

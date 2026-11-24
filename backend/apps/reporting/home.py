@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from apps.campaigns import approval, service
 from apps.campaigns.models import Campaign, CampaignRun
+from apps.identity import names
 from apps.journeys.models import Journey
 from apps.reporting import reports
 
@@ -209,7 +210,7 @@ def journeys(cursor, tenant_id) -> dict:
         out.append({"id": pk, "name": journey.name, "status": "FAILED" if failed else journey.status,
                     "channels": channels.get(str(journey.current_version_id), []),
                     "paused_at": journey.updated_at if paused else None,
-                    "paused_by": (journey.updated_by.display_name or journey.updated_by.email) if paused and journey.updated_by else None,
+                    "paused_by": names.label_of(journey, "updated_by") if paused else None,
                     "failing_since": failed[0] if failed else None, "failing_step": failed[1] if failed else None,
                     "in_flight": active, "entered": entered, "completed": completed,
                     "conversion_rate": round(completed * 100 / entered, 1) if entered else 0.0})

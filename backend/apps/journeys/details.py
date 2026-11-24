@@ -24,6 +24,7 @@ from django.db.models import Count
 from django.utils import timezone
 
 from apps.contact_lists.models import ContactList
+from apps.identity import names
 from apps.tenants import context
 
 from .engine import enroll as enroll_engine
@@ -241,11 +242,11 @@ def activity(journey: Journey) -> list[dict]:
     versions = list(JourneyVersion.objects.filter(journey=journey).select_related("created_by", "updated_by").order_by("version_number"))
     entries = []
     for version in versions:
-        who = version.created_by.display_name if version.created_by else None
+        who = names.label_of(version, "created_by")
         entries.append({"event_type": "CREATED", "message": f"Version {version.version_number} created.",
                         "actor_name": who, "occurred_at": version.created_at.isoformat(), "version_number": version.version_number})
         if version.published_at:
-            who = version.updated_by.display_name if version.updated_by else None
+            who = names.label_of(version, "updated_by")
             label = "activated" if version.status == JourneyVersion.Status.ACTIVE else version.get_status_display().lower()
             entries.append({"event_type": "PUBLISHED", "message": f"Version {version.version_number} {label}.",
                             "actor_name": who, "occurred_at": version.published_at.isoformat(), "version_number": version.version_number})
