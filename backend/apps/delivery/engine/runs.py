@@ -454,6 +454,17 @@ def codes_left_out(tenant_id, run_id) -> int:
     return sum(int((detail or {}).get("recipients") or 0) for detail in rows)
 
 
+def _unconfirmed(tenant_id, run_id, kind: str) -> bool:
+    """Some message was claimed (SUBMITTED) and the engine's answer was never recorded: its worker may still be at work, or have
+    died. The run stays open until sweep() marks it interrupted (after STALE_CLAIM), so it can be offered for Resend Interrupted;
+    closing first left such messages reading as sent (found in the .51 rehearsal, a worker killed mid-batch)."""
+    unconfirmed = "provider_acked_at IS NULL" if kind == "SMS" else "provider_message_id IS NULL"
+    with session.connection().cursor() as cursor:
+        cursor.execute(f"SELECT EXISTS (SELECT 1 FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'SUBMITTED' AND {unconfirmed})",
+                       [str(tenant_id), str(run_id)])
+        return bool(cursor.fetchone()[0])
+
+
 def finalize(tenant_id, run_id) -> str | None:
     """COMPLETED when nothing is queued any more; FAILED when nothing at all went out. Returns the new status, or None while still sending."""
     notice = None
@@ -463,8 +474,8 @@ def finalize(tenant_id, run_id) -> str | None:
             return None
         figures = stats(tenant_id, run_id, family(run.campaign))
         numbers = figures["messages"]
-        if numbers["queued"]:
-            return None
+        if numbers["queued"] or _unconfirmed(tenant_id, run_id, family(run.campaign)):
+            return None                                    # a message a worker took and the engine has not answered: the sweep decides it first
         outcome = "FAILED" if numbers["failed"] and not numbers["sent"] else "COMPLETED"
         missing_codes = codes_left_out(tenant_id, run.pk)
         if missing_codes:

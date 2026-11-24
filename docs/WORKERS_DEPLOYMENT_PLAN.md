@@ -75,7 +75,7 @@ The rest is in `config/settings/base.py` on the branch: `CELERY_TASK_ACKS_LATE`,
 
 **If PgBouncer is ever added** (section 6), the workers must use it in session mode, or connect to PostgreSQL directly: C2's lock lives on the worker's database connection.
 
-The `outbox-relay` job (every second) starts publishing to Valkey streams in this mode. Nothing reads them yet; turn it off in `CELERY_BEAT_SCHEDULE` for .68 unless something needs it.
+The `outbox-relay` job (every second) would publish to Valkey streams nothing reads yet. Since branch `workers-fixes`, beat leaves it out unless `CEP_OUTBOX_RELAY=true`, and the job report shows it as off.
 
 ---
 
@@ -108,17 +108,19 @@ ExecStart=/opt/cep/app/backend/.venv/bin/celery -A config worker -n out@%%h -Q c
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM
+KillMode=mixed
 TimeoutStopSec=600
 
 [Install]
 WantedBy=multi-user.target
 ```
 - `cep-worker-in`: `-n in@%%h -Q imports -c 2`
-- `cep-worker-bg`: `-n bg@%%h -Q journey,events,analytics,maintenance,default -c 4`
+- `cep-worker-bg`: `-n bg@%%h -Q journey,events,analytics,maintenance,default,audience -c 4`
+- **`KillMode=mixed` is required** (found in the .51 rehearsal): without it, systemd sends the stop signal to every worker process at once, and a restart or deploy cuts the batches in hand short. They then show as Interrupted (800 of a 50,000 send in the rehearsal). With it, only the main process is told; it lets each batch finish, then stops.
 - `cep-beat`: `ExecStart=… celery -A config beat -l info --schedule /var/lib/cep/celerybeat-schedule`, `-c` not used. **Only one beat, ever.** Create its folder first: `sudo install -d -o cep -g cep /var/lib/cep`.
 - `%%h` is written doubled because systemd reads `%h` itself; Celery receives `%h` (the host name).
 
-`TimeoutStopSec=600` lets a worker finish the batch in hand on a restart or deploy (a warm stop) instead of cutting it off. `--max-tasks-per-child` and `--max-memory-per-child` replace a process now and then, so a slow leak never builds up.
+`TimeoutStopSec=600` gives that warm stop up to 10 minutes before systemd forces it. `--max-tasks-per-child` and `--max-memory-per-child` replace a process now and then, so a slow leak never builds up.
 
 The deploy script (`deploy_68_<sha>.sh`) restarts `cep-worker-out cep-worker-in cep-worker-bg cep-beat` instead of `cep-jobs`.
 

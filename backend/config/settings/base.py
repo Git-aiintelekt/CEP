@@ -235,6 +235,10 @@ CELERY_BEAT_SCHEDULE = {
     "rollup-journey-analytics": {"task": "workers.journey.rollup_analytics", "schedule": 24 * 3600},     # the journey Performance figures, nightly
     "activate-scheduled-journeys": {"task": "workers.journey.activate_scheduled", "schedule": 60},        # Approved · Scheduled journeys whose time has come
 }
+# The outbox relay publishes domain events to Redis streams every second. Nothing reads those streams yet, so beat leaves it out
+# unless CEP_OUTBOX_RELAY=true; the job report then shows it as off, not overdue (docs/WORKERS_DEPLOYMENT_PLAN.md section 4)
+if not env.bool("CEP_OUTBOX_RELAY", default=False):
+    CELERY_BEAT_SCHEDULE.pop("outbox-relay")
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 
 # ---------------------------------------------------------------- media / CDN (see CEP_SaaS_Tenancy_and_CDN_Setup.md)

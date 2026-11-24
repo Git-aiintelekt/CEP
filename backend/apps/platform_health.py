@@ -182,6 +182,7 @@ def check_jobs():
     failed = [j["name"] for j in report if j["state"] == "failed"]
     overdue = [j["name"] for j in report if j["state"] == "overdue"]
     never = [j["name"] for j in report if j["state"] == "never"]
+    report = [j for j in report if j["state"] != "off"]                 # deliberately not scheduled: neither healthy nor a problem
     healthy = len(report) - len(failed) - len(overdue) - len(never)
     if failed:
         return _result("Scheduled jobs", FAIL, f"Last run failed: {', '.join(failed)}", "See Operations, Job runs, for the error.")
