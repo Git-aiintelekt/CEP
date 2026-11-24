@@ -8,11 +8,16 @@ import { costMoney, unitMoney, useMessagePrices, useSeesCosts } from './money'
 
 const PER_THOUSAND = 1000
 
-/** SMS and MMS: under the part counter */
-export function TextCostLine({ channel, segments, unicode }: { channel: 'SMS' | 'MMS'; segments: number; unicode?: boolean }) {
-  const sees = useSeesCosts()
+type TextProps = { channel: 'SMS' | 'MMS'; segments: number; unicode?: boolean }
+
+/** SMS and MMS: under the part counter. Nothing is asked of the API unless this person sees costs. */
+export function TextCostLine(props: TextProps) {
+  return useSeesCosts() ? <TextCostFigures {...props} /> : null
+}
+
+function TextCostFigures({ channel, segments, unicode }: TextProps) {
   const prices = useMessagePrices()
-  const line = sees ? textCostLine(prices.data, channel, segments) : null
+  const line = textCostLine(prices.data, channel, segments)
   if (!line) return null
   return (
     <div className="mt-2 rounded-sm border border-line-subtle bg-surface-subtle px-3 py-2" data-cost-line>
@@ -28,9 +33,12 @@ export function TextCostLine({ channel, segments, unicode }: { channel: 'SMS' | 
 
 /** WhatsApp: the price depends on the template's category and the country, not on the text */
 export function WhatsAppCostLine({ category }: { category: string }) {
-  const sees = useSeesCosts()
+  return useSeesCosts() ? <WhatsAppCostFigures category={category} /> : null
+}
+
+function WhatsAppCostFigures({ category }: { category: string }) {
   const prices = useMessagePrices()
-  const wa = sees ? prices.data?.whatsapp : null
+  const wa = prices.data?.whatsapp
   if (!wa) return null
   const key = (category || 'MARKETING').toLowerCase() as 'marketing' | 'utility' | 'authentication'
   const price = wa.prices[key]
