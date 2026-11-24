@@ -1,5 +1,5 @@
 /**
- * Development only (/dev/message and /dev/message?channel=MMS, not registered in production builds): the real
+ * Development only (/dev/message, /dev/message?channel=MMS, ?sender=none for a workspace with no sender; not registered in production builds): the real
  * SMS / MMS workspace on an in-memory backend. No sign-in and no API.
  */
 import { useMemo, useRef } from 'react'
@@ -64,6 +64,6 @@ export default function MessagePlayground() {
   const empty = build({ sms_body: '', subject_line: '', media_asset: null, base_version: 0 }, 0, 0)
   return (
     <MessageWorkspace key={channel} templateName={`Playground ${channel}`} channel={channel} status="DRAFT" message={{ ...empty, saved_at: null, saved_by: null }}
-      tags={TAGS} library={LIBRARY} senderName="Northwind" backend={backend} backTo="/templates" />
+      tags={TAGS} library={LIBRARY} senderName={params.get('sender') === 'none' ? null : 'Northwind'} backend={backend} backTo="/templates" />
   )
 }

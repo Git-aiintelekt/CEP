@@ -70,11 +70,11 @@ function FitWidth({ children }: { children: ReactNode }) {
   )
 }
 
-export function TextThumbnail({ channel, data, tags, sender }: { channel: string; data: Extract<PreviewContent, { kind: 'message' }>; tags: PersonalizationTag[]; sender: string }) {
+export function TextThumbnail({ channel, data, tags, sender }: { channel: string; data: Extract<PreviewContent, { kind: 'message' }>; tags: PersonalizationTag[]; sender: string | null }) {
   const wide = useMinWidth(BREAKPOINT.md)
   const text = resolvedText(data.body, tags)
   const phone = (
-    <PhoneFrame sender={sender}>
+    <PhoneFrame sender={sender} channel={channel === 'MMS' ? 'MMS' : 'SMS'}>
       {channel === 'MMS' && <MmsImage url={data.media?.url ?? null} />}
       {text.trim() ? <p data-testid="preview-bubble" className={BUBBLE}>{text}</p> : <p className="px-2 pt-10 text-center text-xs text-ink-800">This message has no text yet.</p>}
     </PhoneFrame>
@@ -89,7 +89,7 @@ export function TextThumbnail({ channel, data, tags, sender }: { channel: string
 
 export function CampaignThumbnail({ campaign, message }: { campaign: Campaign; message: CampaignMessage }) {
   const { channel, preview, content } = message
-  const sender = campaign.sender_profile_name ?? 'Your brand'
+  const sender = campaign.sender_profile_name
   const noPreview = preview.error instanceof ApiError && preview.error.status === 409
 
   if (!campaign.template) return <NoContent />

@@ -43,7 +43,8 @@ interface WorkspaceProps {
   message: Message
   tags: PersonalizationTag[]
   library: MediaAsset[]
-  senderName?: string
+  /** the name at the top of the phone (features/messaging/textSender): null when there is no sender for the channel */
+  senderName?: string | null
   backend: MessageBackend
   backTo: string
   /** opened from a campaign: where Back and Save & Return to Campaign go (the campaign's Content) */
@@ -70,7 +71,7 @@ const asMedia = (asset: MediaAsset): NonNullable<Media> => ({
 /** the server's limit on an MMS subject, counted as the server counts: an emoji once */
 const MMS_SUBJECT_MAX = 80
 
-export function MessageWorkspace({ templateName, channel, status, message, tags, library, senderName = 'Your brand', backend, backTo, campaignReturn, readOnly: readOnlyProp = false, lockNote = null }: WorkspaceProps) {
+export function MessageWorkspace({ templateName, channel, status, message, tags, library, senderName, backend, backTo, campaignReturn, readOnly: readOnlyProp = false, lockNote = null }: WorkspaceProps) {
   const navigate = useNavigate()
   // a save the API refused because a live drip uses the template: read-only from then on, saying why
   const [refusedLock, setRefusedLock] = useState<string | null>(null)
@@ -481,7 +482,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
         </section>
 
         <aside aria-label="Preview" className="lg:sticky lg:top-6 lg:self-start">
-          <PhoneFrame sender={senderName}>
+          <PhoneFrame sender={senderName} channel={channel} addSender={!readOnly}>
             {isMms && media && <img src={media.url} alt="Attached picture" className="max-h-56 w-auto max-w-[85%] rounded-lg rounded-bl-md object-cover" />}
             {isMms && subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-800">{subject}</p>}
             {sample.trim() ? (

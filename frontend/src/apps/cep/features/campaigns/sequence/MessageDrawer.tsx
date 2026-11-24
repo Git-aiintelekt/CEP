@@ -196,7 +196,7 @@ export function MessageDrawer({ campaign, step, steps, series, onClose, onOpenSt
         banner={conflict ? <Notice tone="warning" layout="box">{CHANGED_ELSEWHERE}</Notice> : undefined}>
         {composing !== null ? (
           <TextComposer draft={composing} onDraft={setComposing} mms={mms} imageUrl={message.data?.media_asset?.url ?? null}
-            sender={sender ? `${sender.display_name}${sender.sender_id ? ` · ${sender.sender_id}` : ''}` : 'Your Brand'}
+            sender={sender ? `${sender.display_name}${sender.sender_id ? ` · ${sender.sender_id}` : ''}` : null}
             when={when.date ? `${shortDay(when.date)}, ${when.time} ${series.zoneShort}` : `Day ${step.day}, ${when.time} ${series.zoneShort}`} />
         ) : (
           <div className="flex flex-col gap-6">

@@ -19,6 +19,8 @@ import { editorPathFor } from '@/lib/editorRoute'
 import { formatNumber, formatRelative } from '@/lib/format'
 import type { PersonalizationTag } from '@/lib/types'
 
+import { textSenderName, useSenderProfiles } from '@/apps/cep/features/messaging/textSender'
+
 import { lookOf } from '../channels'
 import { dripLockNote } from '../lastUsed'
 import { StatusTag } from '../StatusTag'
@@ -31,7 +33,6 @@ const DEVICE_OPTIONS = [
   { value: 'mobile' as const, label: 'Mobile', icon: Smartphone },
 ]
 const WIDTH: Record<Device, number> = { desktop: 600, mobile: 375 }
-const SENDER = 'Your brand'
 
 interface TemplatePreviewModalProps {
   item: PreviewItem
@@ -143,6 +144,7 @@ function EmailPreview({ content, tags, device }: { content: Extract<PreviewConte
 function MessagePreview({ content, tags }: { content: Extract<PreviewContent, { kind: 'message' }>; tags: PersonalizationTag[] }) {
   const text = resolvedText(content.body, tags)
   const isMms = content.channel === 'MMS'
+  const sender = textSenderName(useSenderProfiles().data, isMms ? 'MMS' : 'SMS')
   const counted = smsMetrics(text)
   const facts = content.findings
     ? { units: content.findings.units, segments: content.findings.segments, encoding: content.findings.encoding, perSegment: content.findings.per_segment, missingOptOut: content.findings.missing_opt_out }
@@ -162,7 +164,7 @@ function MessagePreview({ content, tags }: { content: Extract<PreviewContent, { 
 
   return (
     <div className="grid gap-6 md:grid-cols-[320px_minmax(0,1fr)] md:items-start">
-      <PhoneFrame sender={SENDER}>
+      <PhoneFrame sender={sender} channel={isMms ? 'MMS' : 'SMS'}>
         {isMms && (media ? (
           <figure className="max-w-[85%]">
             <img src={media.url} alt="Attached image" className="max-h-56 w-auto rounded-lg rounded-bl-md object-cover" />

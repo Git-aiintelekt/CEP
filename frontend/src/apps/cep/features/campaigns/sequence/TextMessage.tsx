@@ -106,7 +106,7 @@ export function TextView({ campaignId, templateId, mms, onEdit }: { campaignId: 
 }
 
 /** Edit Text open: the text, the personalisation chips, the counter, and the phone as one recipient sees it */
-export function TextComposer({ draft, onDraft, mms, sender, imageUrl, when }: { draft: string; onDraft: (text: string) => void; mms: boolean; sender: string; imageUrl: string | null; when: string }) {
+export function TextComposer({ draft, onDraft, mms, sender, imageUrl, when }: { draft: string; onDraft: (text: string) => void; mms: boolean; sender: string | null; imageUrl: string | null; when: string }) {
   const area = useRef<HTMLTextAreaElement>(null)
   const tags = usePersonalizationTags()
   const catalogue = useMemo(() => tags.data?.results ?? [], [tags.data])
@@ -157,7 +157,7 @@ export function TextComposer({ draft, onDraft, mms, sender, imageUrl, when }: { 
       )}
       <div className="flex flex-col items-center gap-2">
         <span className="self-start text-sm font-semibold text-ink-800">Preview</span>
-        <PhoneFrame sender={sender}>
+        <PhoneFrame sender={sender} channel={mms ? 'MMS' : 'SMS'}>
           <p className="text-center text-xs text-ink-800">{when}</p>
           {mms && (imageUrl ? <img src={imageUrl} alt="Attached picture" className="max-h-40 w-auto max-w-[85%] rounded-lg rounded-bl-md object-cover" />
             : <span className="flex h-24 w-36 items-center justify-center rounded-lg bg-fill-muted text-ink-800"><ImageIcon size={20} strokeWidth={1.5} aria-hidden /></span>)}

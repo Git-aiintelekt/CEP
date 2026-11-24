@@ -1,16 +1,17 @@
 /** /templates/:id/message : SMS / MMS editor wired to the API. */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ErrorState, FullPageSpinner } from '@/components/States'
 import { MessageWorkspace, type MessageBackend } from '@/apps/cep/features/messaging/MessageWorkspace'
+import { textSenderName, useSenderProfiles } from '@/apps/cep/features/messaging/textSender'
 import { api } from '@/lib/api'
 import { useCampaignReturn } from '@/lib/campaignReturn'
 import { announceTemplateSaved } from '@/lib/templateSaved'
-import type { DesignVersion, MediaAsset, Message, Page, PersonalizationTag, SenderProfile, Template } from '@/lib/types'
+import type { Campaign, DesignVersion, MediaAsset, Message, Page, PersonalizationTag, Template } from '@/lib/types'
 import { dripLockNote } from '@/apps/cep/features/templates/lastUsed'
 
 export function MessageEditorPage() {
@@ -25,7 +26,10 @@ export function MessageEditorPage() {
   const message = useQuery({ queryKey: ['templates', 'message', id], queryFn: ({ signal }) => api.get<Message>(`/templates/${id}/message/`, undefined, signal), enabled: isMessage, gcTime: 0, staleTime: Infinity })
   const tags = useQuery({ queryKey: ['personalization-tags', 'all'], queryFn: ({ signal }) => api.get<Page<PersonalizationTag>>('/personalization-tags/', { page_size: 200 }, signal) })
   const library = useQuery({ queryKey: ['media-assets', 'library'], queryFn: ({ signal }) => api.get<Page<MediaAsset>>('/media-assets/', { page_size: 100 }, signal), enabled: template.data?.channel === 'MMS' })
-  const senders = useQuery({ queryKey: ['sender-profiles', 'options'], queryFn: ({ signal }) => api.get<SenderProfile[]>('/sender-profiles/', undefined, signal), retry: false })
+  const senders = useSenderProfiles()
+  const [params] = useSearchParams()
+  const campaignId = campaignReturn ? params.get('campaign') ?? '' : ''
+  const campaign = useQuery({ queryKey: ['campaigns', 'detail', campaignId], queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${campaignId}/`, undefined, signal), enabled: Boolean(campaignId), retry: false })
 
   const backend = useMemo<MessageBackend>(
     () => ({
@@ -68,7 +72,8 @@ export function MessageEditorPage() {
   if (!template.data || !message.data || !tags.data) return <FullPageSpinner label="Opening the message editor" />
 
   const channel = template.data.channel as 'SMS' | 'MMS'
-  const sender = senders.data?.find((item) => item.channel === 'SMS' && item.is_default) ?? senders.data?.find((item) => item.channel === 'SMS')
+  // opened from a campaign: that campaign's sender; otherwise (or before it has one) the workspace's sender for the channel
+  const senderName = campaign.data?.sender_profile_name || textSenderName(senders.data, channel)
 
   return (
     <MessageWorkspace
@@ -79,7 +84,7 @@ export function MessageEditorPage() {
       message={message.data}
       tags={tags.data.results}
       library={library.data?.results ?? []}
-      senderName={sender?.display_name}
+      senderName={senderName}
       backend={backend}
       backTo={campaignReturn ?? '/templates'}
       campaignReturn={campaignReturn}
