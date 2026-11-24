@@ -11,6 +11,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { Select } from '@/components/Form'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { api } from '@/lib/api'
+import { campaignEditorLink } from '@/lib/editorRoute'
 import type { Campaign, CampaignFormOptions } from '@/lib/types'
 
 import { Detail } from '../CampaignPreviewDetails'
@@ -47,7 +48,7 @@ function DetailsCard({ campaign, editable, message }: { campaign: Campaign; edit
         <div className="flex flex-col gap-2">
           <Detail label="Template" {...template} />
           {campaign.template && can('template.edit') && (
-            <Link to={`/templates/${campaign.template}/${inDesigner ? 'design' : 'message'}`} className="inline-flex w-fit items-center gap-1 text-helper font-semibold text-brand-800 hover:underline">
+            <Link to={campaignEditorLink({ id: campaign.template, channel: inDesigner ? (campaign.channel === 'E_RECEIPT' ? 'E_RECEIPT' : 'EMAIL') : campaign.channel }, campaign.id, `/campaigns/${campaign.id}`)} className="inline-flex w-fit items-center gap-1 text-helper font-semibold text-brand-800 hover:underline">
               Open in the {inDesigner ? 'Designer' : 'Message Editor'} <ExternalLink size={16} strokeWidth={1.5} aria-hidden />
             </Link>
           )}

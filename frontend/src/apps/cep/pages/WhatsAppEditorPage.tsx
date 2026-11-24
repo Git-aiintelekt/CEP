@@ -8,11 +8,14 @@ import { useAuth } from '@/auth/AuthContext'
 import { ErrorState, FullPageSpinner } from '@/components/States'
 import { WhatsAppWorkspace, type WhatsAppBackend, type WhatsAppNumber } from '@/apps/cep/features/messaging/WhatsAppWorkspace'
 import { api } from '@/lib/api'
+import { useCampaignReturn } from '@/lib/campaignReturn'
+import { announceTemplateSaved } from '@/lib/templateSaved'
 import type { MediaAsset, Page, PersonalizationTag, SenderProfile, Template, WhatsAppTemplate } from '@/lib/types'
 import { dripLockNote } from '@/apps/cep/features/templates/lastUsed'
 
 export function WhatsAppEditorPage() {
   const { id = '' } = useParams()
+  const campaignReturn = useCampaignReturn()            // opened from a campaign: Back to Campaign, Save & Return to Campaign
   const { can } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -36,6 +39,7 @@ export function WhatsAppEditorPage() {
   const backend = useMemo<WhatsAppBackend>(() => ({
     save: async (input) => {
       const saved = await api.post<WhatsAppTemplate>(`/templates/${id}/whatsapp/`, input)
+      announceTemplateSaved(id)
       void queryClient.invalidateQueries({ queryKey: ['templates'], refetchType: 'none' })
       return saved
     },
@@ -81,7 +85,8 @@ export function WhatsAppEditorPage() {
       tags={tags.data.results}
       numbers={numbers}
       backend={backend}
-      backTo="/templates"
+      backTo={campaignReturn ?? '/templates'}
+      campaignReturn={campaignReturn}
       readOnly={!can('template.edit') || template.data.status === 'ARCHIVED'}
       lockNote={dripLockNote(template.data)}
       onCopied={(copy) => {

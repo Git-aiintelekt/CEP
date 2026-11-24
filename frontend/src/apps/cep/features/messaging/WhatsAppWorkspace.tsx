@@ -5,7 +5,7 @@
  * One made in WhatsApp Manager keeps Meta's words; the editor only says which tag fills each of its numbers.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { ArrowLeft, Lock, Plus, Trash2, X } from 'lucide-react'
 import { buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
@@ -14,6 +14,7 @@ import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
 import { asToken, extractTags, groupTags, unknownTags } from '@/apps/cep/features/designer/tags'
 import { ApiError } from '@/lib/api'
+import { leaveForCampaign } from '@/lib/campaignReturn'
 import { formatDateTime } from '@/lib/format'
 import type { MediaAsset, PersonalizationTag, WhatsAppButton, WhatsAppTemplate } from '@/lib/types'
 
@@ -59,6 +60,8 @@ interface WorkspaceProps {
   numbers: WhatsAppNumber[]
   backend: WhatsAppBackend
   backTo: string
+  /** opened from a campaign: where Back and Save & Return to Campaign go (the campaign's Content) */
+  campaignReturn?: string
   readOnly?: boolean
   lockNote?: string | null
   onCopied?: (id: string) => void
@@ -97,7 +100,8 @@ function withSamples(body: string, samples: (key: string) => string): string {
   return body.replace(TAG_ANY, (whole, modern?: string, legacy?: string) => samples((modern ?? legacy?.toLowerCase()) || '') || whole)
 }
 
-export function WhatsAppWorkspace({ templateName, status, template, tags, numbers, backend, backTo, readOnly: readOnlyProp = false, lockNote = null, onCopied }: WorkspaceProps) {
+export function WhatsAppWorkspace({ templateName, status, template, tags, numbers, backend, backTo, campaignReturn, readOnly: readOnlyProp = false, lockNote = null, onCopied }: WorkspaceProps) {
+  const navigate = useNavigate()
   const synced = template.origin === 'META'
   const [current, setCurrent] = useState(template)
   const [currentStatus, setCurrentStatus] = useState(status)
@@ -166,7 +170,8 @@ export function WhatsAppWorkspace({ templateName, status, template, tags, number
     }
   }
 
-  async function save() {
+  /** True when it saved. */
+  async function save(): Promise<boolean> {
     setBusy('save')
     setNotice(null)
     try {
@@ -181,12 +186,21 @@ export function WhatsAppWorkspace({ templateName, status, template, tags, number
       setForm(next)
       setSaved(next)
       setNotice({ tone: 'ok', title: synced ? 'Saved. Each of Meta’s numbers now has its tag.' : `Saved as version ${result.version_number}. Submit it to Meta when it is ready.` })
+      return true
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) setNotice({ tone: 'error', title: error.message })
       else refused(error, 'This template cannot be saved yet')
+      return false
     } finally {
       setBusy(null)
     }
+  }
+
+  /** Save & Return to Campaign: the latest changes saved, then back to the campaign's tab (lib/campaignReturn). */
+  async function returnToCampaign() {
+    if (!campaignReturn) return
+    if (!locked && dirty && !(await save())) return
+    leaveForCampaign(campaignReturn, (path) => navigate(path))
   }
 
   async function submit() {
@@ -252,7 +266,7 @@ export function WhatsAppWorkspace({ templateName, status, template, tags, number
           <Link to={backTo} className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline" onClick={(event) => {
             if (dirty && !window.confirm('Leave without saving your changes?')) event.preventDefault()
           }}>
-            <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates
+            <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> {campaignReturn ? 'Back to Campaign' : 'Templates'}
           </Link>
           <span className="flex min-w-0 items-center gap-1.5"><h1 className="min-w-0 truncate text-base font-semibold text-ink-900">{templateName}</h1><PageHelp chapter="whatsapp" /></span>
           <Tag>WhatsApp</Tag>
@@ -269,6 +283,12 @@ export function WhatsAppWorkspace({ templateName, status, template, tags, number
             {!locked && (!wordsFixed || synced) && (
               <button type="button" className={synced ? buttonPrimary : buttonSecondary} disabled={!dirty || problems.length > 0 || busy !== null} onClick={() => void save()}>
                 {busy === 'save' && <Spinner size="sm" tone={synced ? 'onBrand' : undefined} />} Save
+              </button>
+            )}
+            {campaignReturn && (
+              <button type="button" data-return-to-campaign className={buttonPrimary} disabled={busy !== null || (!locked && dirty && problems.length > 0)}
+                title={!locked && dirty && problems.length > 0 ? 'Fix the message first' : undefined} onClick={() => void returnToCampaign()}>
+                {locked ? 'Return to Campaign' : 'Save & Return to Campaign'}
               </button>
             )}
             {!locked && !synced && current.editable && (

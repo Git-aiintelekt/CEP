@@ -13,11 +13,12 @@ import { ErrorState } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { META_STATUS } from '@/apps/cep/features/messaging/whatsappStatus'
 import { api } from '@/lib/api'
-import { editorRouteFor } from '@/lib/editorRoute'
+import { campaignEditorLink, editorRouteFor } from '@/lib/editorRoute'
 import type { Campaign, Page, SenderProfile, SubscriptionTopicList, Template } from '@/lib/types'
 
 import { MessagePreview, type PreviewDevice } from '../MessagePreview'
 import type { CampaignFormValues } from '../schema'
+import { setupHref } from '../setupFlow'
 import { SENDER_FIT, TEMPLATE_FIT } from '../vocabulary'
 
 import { ChooseTemplateDrawer } from './ChooseTemplateDrawer'
@@ -182,7 +183,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
               <MessagePreview campaignId={campaign.id} templateId={chosen} />
             )}
             {chosen && campaign && picked && can('template.edit') && (
-              <Link to={`/templates/${picked.id}/${editorRouteFor(picked.channel)}`} target="_blank" rel="noreferrer" className={`mt-3 inline-flex items-center gap-1 ${LINK}`}>
+              <Link to={campaignEditorLink(picked, campaign.id, setupHref(campaign.id, { step: 'content' }))} target="_blank" rel="noreferrer" className={`mt-3 inline-flex items-center gap-1 ${LINK}`}>
                 Open in the {EDITOR_NAME[editorRouteFor(picked.channel)]} <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
               </Link>
             )}

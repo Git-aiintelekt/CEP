@@ -14,6 +14,7 @@ import { DeliverabilityPanel } from '@/apps/cep/features/deliverability/Delivera
 import { isDripLockRefusal } from '@/apps/cep/features/templates/lastUsed'
 import type { DeliverabilityBackend } from '@/apps/cep/features/deliverability/backend'
 import { ApiError } from '@/lib/api'
+import { leaveForCampaign } from '@/lib/campaignReturn'
 import { formatUtcClock } from '@/lib/format'
 import type { CodeSample, CodeSampleRequest, Design, DesignFindings, DesignSaveInput, DesignVersion, PersonalizationTag } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
@@ -98,10 +99,12 @@ interface WorkspaceProps {
   /** the app's navigation bar down the left edge; the dev playgrounds leave it off */
   showNav?: boolean
   drip?: DesignerDrip
+  /** opened from a campaign: where Back and Save & Return to Campaign go (the campaign's Content) */
+  campaignReturn?: string
 }
 
 
-export function DesignerWorkspace({ templateName, channel, status, design, tags, assets, backend, backTo: plainBackTo, readOnly: readOnlyProp = false, lockNote = null, showNav = false, drip }: WorkspaceProps) {
+export function DesignerWorkspace({ templateName, channel, status, design, tags, assets, backend, backTo: plainBackTo, readOnly: readOnlyProp = false, lockNote = null, showNav = false, drip, campaignReturn }: WorkspaceProps) {
   const editor = useRef<EmailDesignerHandle>(null)
   const [tab, setTab] = useState<EditorTab>('content')
   const [subject, setSubject] = useState(design.subject_line)
@@ -186,9 +189,9 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
   const editStamp = `${canvasTick}|${subject}|${preheader}`
   const failedStamp = useRef<string | null>(null)
 
-  /** `auto`: the clock's save, which says nothing unless it fails and never toasts a success. */
-  async function save(auto = false) {
-    if (!editor.current) return
+  /** `auto`: the clock's save, which says nothing unless it fails and never toasts a success. True when it saved. */
+  async function save(auto = false): Promise<boolean> {
+    if (!editor.current) return false
     setBusy('save')
     try {
       await editor.current.commitEdit()
@@ -212,6 +215,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       setSavedAt(clockOf(result.saved_at, word) ?? clockOf(new Date().toISOString(), word))
       if (!auto) toast.success(`Saved as version ${result.version_number}`)
       refreshLinks()
+      return true
     } catch (error) {
       if (auto) failedStamp.current = editStamp
       if (error instanceof ApiError && error.status === 409 && isDripLockRefusal(error.message)) {
@@ -224,9 +228,20 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       } else {
         toast.failure(error, 'The design was not saved')
       }
+      return false
     } finally {
       setBusy(null)
     }
+  }
+
+  /**
+   * Save & Return to Campaign: the latest changes are saved (the campaign's preview in its own tab refreshes with them), then this
+   * tab closes so the campaign's tab is in front again. A browser that will not let a page close its tab opens the campaign here.
+   */
+  async function returnToCampaign() {
+    if (!campaignReturn) return
+    if (!readOnly && (dirty || saved.version === 0) && !(await save())) return
+    leaveForCampaign(campaignReturn, (path) => guard.requestLeave(() => navigate(path)))
   }
 
   // Autosave: half a minute after the last edit the draft is saved as a new version, the way the Save button would.
@@ -385,6 +400,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       note={note.text}
       noteTone={note.tone}
       save={readOnly ? undefined : { onClick: () => void save(), busy: busy === 'save' }}
+      back={campaignReturn ? { label: readOnly ? 'Return to Campaign' : 'Save & Return to Campaign', onClick: () => void returnToCampaign(), busy: busy === 'save' } : undefined}
       primary={
         backend.activate && currentStatus === 'DRAFT' && !readOnly
           ? { label: 'Activate', onClick: () => void activate(), busy: busy === 'activate', disabled: Boolean(activateReason) || busy !== null, disabledReason: activateReason }
@@ -501,7 +517,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       saveNote={saveNote}
       saveNoteTone={dirty && !readOnly ? 'warning' : 'default'}
       backTo={backTo}
-      backText={drip ? 'Back to Drip Campaign Setup' : undefined}
+      backText={drip ? 'Back to Drip Campaign Setup' : campaignReturn ? 'Back to Campaign' : undefined}
       context={drip?.context}
       wizard={drip?.wizard}
       underBar={drip && (
