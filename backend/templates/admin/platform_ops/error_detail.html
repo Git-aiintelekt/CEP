@@ -46,6 +46,14 @@
         </form>
     </section>
 
+    <section class="cep-section" aria-labelledby="cep-user-note">
+        <div class="cep-section-head"><h2 id="cep-user-note">Note for Users</h2><span>shown under the error message to everyone who meets this error, until it is resolved</span></div>
+        <form method="post" class="cep-card cep-note-form">{% csrf_token %}
+            <textarea name="user_note" rows="2" maxlength="300" aria-labelledby="cep-user-note" placeholder="What it is and what to do, in plain words. For example: Uploading a list during Switch Workspace does not work yet. Sign in to the workspace directly.">{{ group.user_note|default:"" }}</textarea>
+            <button type="submit" class="cep-button cep-button-quiet">Save Note for Users</button>
+        </form>
+    </section>
+
     <section class="cep-section" aria-labelledby="cep-events">
         <div class="cep-section-head"><h2 id="cep-events">Recent Occurrences</h2><span>newest first, the last 20 kept</span></div>
         <div class="cep-card"><div class="cep-list">

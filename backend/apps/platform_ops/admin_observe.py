@@ -94,6 +94,8 @@ class ErrorGroupAdmin(BaseAdmin):
     def _set(self, request, queryset, status):
         values = {"status": status, "resolved_at": timezone.now() if status == "RESOLVED" else None,
                   "resolved_by_id": request.user.pk if status in ("RESOLVED", "IGNORED") else None}
+        if status == "RESOLVED":
+            values["user_note"] = None                     # fixed: nobody should read the workaround any more
         if status == "OPEN":
             values["regressed_at"] = None
         return queryset.update(**values)
@@ -116,11 +118,12 @@ class ErrorGroupAdmin(BaseAdmin):
             raise Http404
         if request.method == "POST":
             status = {"resolve": "RESOLVED", "ignore": "IGNORED", "reopen": "OPEN"}.get(request.POST.get("do"))
-            note = (request.POST.get("note") or "").strip()
             if status:
                 self._set(request, ErrorGroup.objects.using(P).filter(pk=group.pk), status)
-            if note != (group.note or ""):
+            if "note" in request.POST and (note := (request.POST.get("note") or "").strip()) != (group.note or ""):
                 ErrorGroup.objects.using(P).filter(pk=group.pk).update(note=note or None)
+            if "user_note" in request.POST and (user_note := " ".join((request.POST.get("user_note") or "").split())[:300]) != (group.user_note or ""):
+                ErrorGroup.objects.using(P).filter(pk=group.pk).update(user_note=user_note or None)
             messages.success(request, "Saved.")
             return HttpResponseRedirect(request.path)
         events = list(group.events.order_by("-occurred_at")[:20])

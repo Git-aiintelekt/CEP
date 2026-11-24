@@ -370,7 +370,8 @@ class ErrorGroup(models.Model):
     regressed_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     resolved_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='resolved_by', related_name='+', null=True, blank=True)
-    note = models.TextField(null=True, blank=True)
+    note = models.TextField(null=True, blank=True)  # for the platform team: what was found, the ticket, the fix
+    user_note = models.CharField(max_length=300, null=True, blank=True)  # patch 0096: shown to everyone who meets the error until it is resolved
 
     class Meta:
         managed = False

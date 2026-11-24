@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { useAuth } from '@/auth/AuthContext'
 import { Field, TextArea, TextInput, buttonSecondary } from '@/components/Form'
 import { Notice } from '@/components/Notice'
+import { ProblemExtras } from '@/components/ProblemExtras'
 import { SelectMenu } from '@/components/SelectMenu'
 import { SetupDialog } from '@/components/SetupDialog'
 import { useToast } from '@/components/Toast'
@@ -280,7 +281,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
       primary={{ label: editing ? 'Save' : 'Create Campaign', form: `${titleId}-form`, busy, busyLabel: editing ? 'Saving' : 'Creating' }}
       error={failure && !fieldsOnly ? {
         title: failure.title,
-        message: [failure.detail, ...(failure.title === FIELDS_TITLE ? failure.general : [])].join(' '),
+        message: <><p>{[failure.detail, ...(failure.title === FIELDS_TITLE ? failure.general : [])].join(' ')}</p><ProblemExtras failure={failure} /></>,
         onRetry: refused ? undefined : () => void submit(),
       } : null}
       banner={conflict && (

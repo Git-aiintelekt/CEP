@@ -128,11 +128,15 @@ def _reference(exc, request) -> str:
 
 
 def unexpected_problem(exc, request) -> dict:
+    """The 500 answer: the reference, the time, and the back-office's Note for Users on this error when a platform administrator
+    wrote one (patch 0096; docs/mockups/error-details.html, option C)."""
+    from apps.platform_ops import observe
     reference = _reference(exc, request)
     at = timezone.now()
+    extra = {"note": note} if (note := observe.user_note(getattr(exc, "_cep_group_id", None))) else {}
     return _problem(500, "C360 had a problem",
                     detail=f"C360 had a problem at {at:%H:%M} UTC. Try again. If it happens again, give your administrator the reference {reference}.",
-                    reference=reference, at=at.isoformat())
+                    reference=reference, at=at.isoformat(), **extra)
 
 
 def problem_json_exception_handler(exc, context):
