@@ -96,6 +96,8 @@ test("an emoji picked while the subject is empty is added to the template's line
   await user.click(box.getAllByRole('button', { name: 'Insert Emoji' })[0])
   await user.click(await within(await screen.findByRole('region', { name: 'Insert Emoji' })).findByRole('option', { name: 'fire' }))
   await vi.waitFor(() => expect(subject.value).toBe('Fall is here, {{first_name}}🔥'))
+  // the card puts the caret after the emoji on the next frame: let that frame pass, or it moves the caret set below back to the end
+  await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
 
   subject.setSelectionRange(0, 0)
   await user.click(box.getAllByRole('button', { name: 'Insert Emoji' })[0])
