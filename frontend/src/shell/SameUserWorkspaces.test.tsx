@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import type { Me } from '@/lib/types'
 import { cepReady, installMockApi, me, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string) {
@@ -18,7 +19,7 @@ afterEach(() => {
 })
 
 const staging = { ...me, tenant: { ...me.tenant, code: 'CITYST-STG' }, workspace: { name: 'Citi Trends Staging', plan: null, environment: 'STAGING' as const },
-  principal: { ...me.principal, roles: ['Marketing Admin', 'List Manager'], mfa_enabled: true } }
+  principal: { ...me.principal, roles: ['Marketing Admin', 'List Manager'], mfa_enabled: true } } as Partial<Me>
 
 test('a Staging workspace: the band on every page, the Staging tag by the Workspace ID, and the account menu says where, with which roles', async () => {
   installMockApi({ me: staging })
@@ -39,7 +40,7 @@ test('a Staging workspace: the band on every page, the Staging tag by the Worksp
 
 test('a Production workspace has no band; the account menu offers the other workspace logged in to on this computer', async () => {
   window.localStorage.setItem('cep.recentWorkspaces', JSON.stringify([{ code: 'CITYST-STG', name: 'Citi Trends Staging', environment: 'STAGING', origin: 'https://citist-stg.cep.example.com', at: 1 }]))
-  installMockApi({ me: { ...me, workspace: { name: 'Northwind Apparel', plan: null, environment: 'PRODUCTION' } } })
+  installMockApi({ me: { ...me, workspace: { name: 'Northwind Apparel', plan: null, environment: 'PRODUCTION' } } as Partial<Me> })
   const user = userEvent.setup()
   await renderAppAt('/')
   await screen.findByRole('button', { name: /^Account:/ })
