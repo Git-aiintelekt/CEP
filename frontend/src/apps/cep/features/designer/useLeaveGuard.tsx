@@ -16,7 +16,14 @@ const MARK = 'cepLeaveGuard'
 
 const isMarked = () => Boolean((window.history.state as Record<string, unknown> | null)?.[MARK])
 
-export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void, message = 'You have unsaved changes to this template. Leaving discards them.'): { requestLeave: (proceed: () => void) => void; dialog: ReactNode } {
+export interface LeaveGuard {
+  requestLeave: (proceed: () => void) => void
+  /** the work was just saved: stop guarding now, before the next render clears dirty (Save & Return closes the tab at once) */
+  markSaved: () => void
+  dialog: ReactNode
+}
+
+export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void, message = 'You have unsaved changes to this template. Leaving discards them.'): LeaveGuard {
   const [asking, setAsking] = useState(false)
   const pending = useRef<(() => void) | null>(null)
   const dirtyRef = useRef(dirty)
@@ -128,5 +135,9 @@ export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void, messag
     </Modal>
   ) : null
 
-  return { requestLeave, dialog }
+  const markSaved = useCallback(() => {
+    dirtyRef.current = false
+  }, [])
+
+  return { requestLeave, markSaved, dialog }
 }
