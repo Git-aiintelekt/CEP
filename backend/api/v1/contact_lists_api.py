@@ -12,7 +12,9 @@
     POST   /contact-lists/{id}/members/remove/      {ids}
     GET    /contact-lists/{id}/members/export/      CSV; ?ids=1,2,3 for a selection
     GET    /contact-lists/imports/                  the workspace's uploads, newest first; ?active=true = the unfinished ones
-    POST   /contact-lists/{id}/imports/             multipart `file`: store a CSV and queue it  (permission list.import)
+    GET    /contact-lists/lookup-sources/           Look Up in C360: the databases offered for list generation, and the roles
+    POST   /contact-lists/{id}/imports/             multipart `file`: store a CSV and queue it  (permission list.import);
+                                                    with `lookup_connections` (ids, comma separated, in order) and `lookup_role`: a file of IDs
     GET    /contact-lists/{id}/imports/{import}/    status, progress, columns, mapping, review numbers: poll this
     POST   /contact-lists/{id}/imports/{import}/review/   {mapping}: 202, the check runs in the background
     POST   /contact-lists/{id}/imports/{import}/apply/    202, the contacts are added in the background
@@ -38,7 +40,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.contact_lists import consent, governance, imports, jobs, lists
+from apps.contact_lists import consent, governance, imports, jobs, lists, lookup
 from apps.contact_lists.models import ContactList, ContactListImport
 from apps.identity import names
 from apps.tenants import context
@@ -145,7 +147,16 @@ class ApprovalSerializer(serializers.Serializer):
 
 PHASE = {"UPLOADED": "Waiting to be read", "STAGING": "Reading the file", "STAGED": "Read. Match the columns to continue", "MATCHING": "Checking the rows",
          "REVIEW": "Checked. Review it to continue", "APPLYING": "Adding contacts to the list", "APPLIED": "Imported", "FAILED": "Failed", "CANCELLED": "Cancelled"}
-WAITING = {"STAGE": "Waiting to be read", "REVIEW": "Waiting to be checked", "APPLY": "Waiting to be imported"}
+WAITING = {"STAGE": "Waiting to be read", "LOOKUP": "Waiting to be looked up", "REVIEW": "Waiting to be checked", "APPLY": "Waiting to be imported"}
+
+
+def _lookup_payload(record: ContactListImport) -> dict | None:
+    cfg = record.lookup
+    if not cfg:
+        return None
+    role = cfg.get("role")
+    return {"databases": cfg.get("databases") or [], "role": role, "role_label": lookup.ROLES[role][0] if role in lookup.ROLES else None,
+            "id_label": cfg.get("id_label") or lookup.id_label(role), "id_column": cfg.get("id_column"), "result": cfg.get("result")}
 
 
 def import_payload(record: ContactListImport, with_issues: bool = False) -> dict:
@@ -155,8 +166,11 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
     data = {
         "id": str(record.pk), "contact_list": str(record.contact_list_id), "list_name": record.contact_list.name, "list_status": record.contact_list.status,
         "file_name": record.file_name, "file_size": record.file_size, "status": record.status,
-        "phase": WAITING[record.next_action] if record.next_action and record.status not in ("STAGING", "MATCHING", "APPLYING") else PHASE.get(record.status, record.status),
-        "working": working, "progress": {"done": record.progress_done, "total": total, "percent": percent, "unit": "bytes" if record.status in ("UPLOADED", "STAGING") else "rows"},
+        "phase": WAITING[record.next_action] if record.next_action and record.status not in ("STAGING", "MATCHING", "APPLYING")
+                 else "Looking up in C360" if record.next_action == "LOOKUP" else PHASE.get(record.status, record.status),
+        "working": working, "progress": {"done": record.progress_done, "total": total, "percent": percent,
+                                                 "unit": "bytes" if record.status in ("UPLOADED", "STAGING") else "ids" if record.next_action == "LOOKUP" else "rows"},
+        "lookup": _lookup_payload(record),
         "mapping_confirmed": record.mapping_confirmed, "error": record.error,
         "row_count": record.row_count, "columns": record.file_columns, "mapping": record.column_mapping, "properties": imports.catalogue(imports.channel_of(record.contact_list)),
         "list_channel": imports.channel_of(record.contact_list),
@@ -175,7 +189,7 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
     return data
 
 
-HELD_BACK = (("NO_EMAIL", "No email address"), ("INVALID_EMAIL", "Not a valid email address"), ("NO_MOBILE", "No mobile number"), ("INVALID_MOBILE", "Mobile number not recognised"),
+HELD_BACK = (("LOOKUP", "Left out by the lookup in C360"), ("NO_EMAIL", "No email address"), ("INVALID_EMAIL", "Not a valid email address"), ("NO_MOBILE", "No mobile number"), ("INVALID_MOBILE", "Mobile number not recognised"),
              ("NO_CONSENT_DATE", "No consent date (refused by the workspace policy)"), ("NO_TEXT_CONSENT_DATE", "No text consent date (refused by the workspace policy)"),
              ("DUPLICATE_IN_FILE", "The same person earlier in the file"))
 
@@ -408,7 +422,16 @@ class ContactListViewSet(BaseTenantViewSet):
         active = request.query_params.get("active", "").lower() in ("1", "true", "yes")
         return Response([import_payload(record) for record in jobs.recent(context.require().tenant_id, active_only=active)])
 
-    @extend_schema(request={"multipart/form-data": inline_serializer("ListUpload", {"file": serializers.FileField()})}, responses={201: dict})
+    @extend_schema(responses=inline_serializer("LookupSources", {"sources": serializers.ListField(child=serializers.DictField()), "roles": serializers.ListField(child=serializers.DictField())}))
+    @action(detail=False, methods=["get"], url_path="lookup-sources", pagination_class=None,
+            permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
+    def lookup_sources(self, request, version=None):
+        """Look Up in C360: the Report Databases ticked "Use for List Generation" (names only), and the roles a list can check."""
+        tenant_id = context.require().tenant_id
+        return Response({"sources": [{k: row[k] for k in ("id", "name", "last_tested_at")} for row in lookup.sources(tenant_id)], "roles": lookup.roles()})
+
+    @extend_schema(request={"multipart/form-data": inline_serializer("ListUpload", {"file": serializers.FileField(), "lookup_connections": serializers.CharField(required=False),
+                                                                                     "lookup_role": serializers.CharField(required=False)})}, responses={201: dict})
     @action(detail=True, methods=["post"], url_path="imports", parser_classes=[MultiPartParser],
             permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
     def imports(self, request, pk=None, version=None):
@@ -421,8 +444,16 @@ class ContactListViewSet(BaseTenantViewSet):
         upload = request.FILES.get("file")
         if upload is None:
             raise ValidationError({"file": "Choose a CSV file."})
+        plan = None
+        if "lookup_connections" in request.data or "lookup_role" in request.data:
+            raw = request.data.getlist("lookup_connections") if hasattr(request.data, "getlist") else request.data.get("lookup_connections") or []
+            picked = [part for value in ([raw] if isinstance(raw, str) else raw) for part in str(value).split(",")]
+            try:
+                plan = lookup.plan(contact_list.tenant_id, picked, request.data.get("lookup_role"))
+            except lookup.LookupError_ as exc:
+                raise ValidationError({"lookup": str(exc)}) from exc
         try:
-            record = imports.accept(contact_list, upload, _user_id(request))
+            record = imports.accept(contact_list, upload, _user_id(request), lookup=plan)
         except imports.ImportError_ as exc:
             raise ValidationError({"file": str(exc)}) from exc
         except jobs.TooManyUploads as exc:
@@ -523,7 +554,7 @@ class ContactListViewSet(BaseTenantViewSet):
         spool.write("\ufeff".encode("utf-8"))                                  # Excel reads UTF-8 only with the mark
         text = _Echo()
         writer = csv.writer(text)
-        spool.write(writer.writerow(imports.REPORT_HEADER).encode("utf-8"))
+        spool.write(writer.writerow(imports.report_header(record)).encode("utf-8"))
         for row in imports.report_rows(record):
             # a leading = + - @ would be run as a formula by a spreadsheet: neutralise it
             spool.write(writer.writerow([_safe_cell(cell) for cell in row]).encode("utf-8"))

@@ -71,3 +71,20 @@ export function downloadTemplate(channel: ListChannel | string = 'EMAIL'): void 
   link.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+
+/** Look Up in C360: a one-column sample, the column named for the IDs the list looks up ("Customer ID") */
+export function lookupTemplateCsv(idLabel: string): string {
+  return [idLabel, '10023456', '10023457', ''].join('\r\n')
+}
+
+export function downloadLookupTemplate(idLabel: string): void {
+  const blob = new Blob([lookupTemplateCsv(idLabel)], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${idLabel.toLowerCase().replace(/\s+/g, '-')}s-sample.csv`
+  document.body.append(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

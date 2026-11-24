@@ -61,6 +61,8 @@ PROPERTIES = {
                          ("textconsentdate", "smsconsentdate", "textconsent", "smsconsent", "smsoptin", "textoptin", "smsoptindate", "textoptindate", "mobileconsent", "mobileoptin", "mobileconsentdate")),
     "whatsapp_consent_date": ("WhatsApp consent date", False, "Recorded as a WhatsApp opt-in for people C360 has no WhatsApp consent answer for. WhatsApp needs its own opt-in; it never overrides an opt-out.",
                               ("whatsappconsentdate", "whatsappconsent", "whatsappoptin", "whatsappoptindate", "waconsentdate", "waconsent", "waoptin")),
+    "party_id": ("Party ID", False, "The person's ID in your CRM. Used first to recognise people C360 already has under that ID, and kept on new people.",
+                 ("partyid", "icrmpartyid")),
 }
 # the column an upload must have, by what the list is for
 REQUIRED = {"EMAIL": ("email",), "SMS": ("mobile",), "BOTH": ("email", "mobile")}
@@ -72,6 +74,8 @@ def channel_of(contact_list) -> str:
     return channel if channel in REQUIRED else "EMAIL"
 EMAIL_RE = r"^[a-z0-9._%+'-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$"           # passed as a query parameter, applied to the lower-cased address
 PARTY_ID = "'UPL-' || substr(encode(sha256(convert_to(r.tenant_id::text || ':' || lower({email}), 'UTF8')), 'hex'), 1, 32)"
+# a new person from a file with the CRM's ID (Look Up in C360): keyed by workspace + that ID, so the next file finds the same person
+SOURCE_PARTY_ID = "'SRC-' || substr(encode(sha256(convert_to(r.tenant_id::text || ':' || upper({party}), 'UTF8')), 'hex'), 1, 32)"
 
 
 class ImportError_(Exception):
@@ -168,8 +172,20 @@ def _sniff(head: bytes, complete: bool) -> tuple[str, str, list[list[str]]]:
     return encoding, delimiter, lines[:400]
 
 
-def accept(contact_list: ContactList, upload, user_id=None) -> ContactListImport:
-    """In the request. Stores the file, samples its columns, queues the import. Raises ImportError_ for a file to fix."""
+def max_rows(record) -> int:
+    """250,000 rows a file; a file of IDs for Look Up in C360 may hold up to `lists.lookup_max_rows` (default 2,000,000)."""
+    if not getattr(record, "lookup", None):
+        return MAX_ROWS
+    from apps.platform_ops import params
+    try:
+        return max(MAX_ROWS, int(params.get("lists.lookup_max_rows", 2_000_000)))
+    except Exception:                                     # noqa: BLE001
+        return 2_000_000
+
+
+def accept(contact_list: ContactList, upload, user_id=None, lookup: dict | None = None) -> ContactListImport:
+    """In the request. Stores the file, samples its columns, queues the import. Raises ImportError_ for a file to fix.
+    `lookup`: Look Up in C360 (lookup.plan): the file holds IDs, and a worker reads the people from the databases."""
     from . import jobs
     name = (getattr(upload, "name", "") or "upload.csv")[:255]
     if not name.lower().endswith(".csv"):
@@ -195,12 +211,19 @@ def accept(contact_list: ContactList, upload, user_id=None) -> ContactListImport
             if value and len(samples[header]) < SAMPLES and value not in samples[header]:
                 samples[header].append(value[:80])
     guessed = guess(headers)
+    if lookup:
+        from . import lookup as lookups
+        try:
+            lookup = {**lookup, "id_column": lookups.id_column(headers)}
+        except lookups.LookupError_ as exc:
+            raise ImportError_(str(exc)) from None
+        guessed = {}
     by_column = {column: key for key, column in guessed.items()}
 
     record = ContactListImport(tenant_id=contact_list.tenant_id, contact_list=contact_list, file_name=name, file_size=size, created_by_id=user_id,
                                status=ContactListImport.Status.UPLOADED, file_encoding=encoding, file_delimiter=delimiter, column_mapping=guessed,
                                file_columns=[{"name": header, "samples": samples[header], "guess": by_column.get(header)} for header in headers],
-                               progress_total=size)
+                               progress_total=size, lookup=lookup or None)
     upload.seek(0)
     record.storage_key = storage().save(_key(record), upload)             # streamed in chunks by Django: the file is never held in memory
     record.save(force_insert=True)
@@ -306,6 +329,7 @@ def _stage_as(record: ContactListImport, encoding: str, chunk_rows: int, beat, r
         except StopIteration:
             raise ImportError_("The file is empty.") from None
         rows, total = [], 0
+        limit = max_rows(record)
 
         def flush():
             with session.tx(), _conn().cursor() as cursor:
@@ -322,8 +346,8 @@ def _stage_as(record: ContactListImport, encoding: str, chunk_rows: int, beat, r
             if not any((cell or "").strip() for cell in line):
                 continue                                                       # blank line
             total += 1
-            if total > MAX_ROWS:
-                raise ImportError_("The file has more than 250,000 rows. Split it and upload the parts as separate lists.")
+            if total > limit:
+                raise ImportError_(f"The file has more than {limit:,} rows. Split it and upload the parts as separate lists.")
             if total + 1 <= resume_after:
                 continue                                                       # stored before the worker stopped
             rows.append({"n": total + 1,                                        # + 1: the header is line 1 of the file
@@ -360,6 +384,8 @@ def _expressions(mapping: dict, channel: str = "EMAIL") -> tuple[dict, dict]:
     value["email_ok"] = f"({value['email']} IS NOT NULL AND length({value['email']}) <= 254 AND lower({value['email']}) ~ %(email_re)s)"
     value["email_use"] = f"CASE WHEN {value['email_ok']} THEN lower({value['email']}) END"
     value["identity"] = f"COALESCE({value['email_use']}, {value['mobile_e164']})" if channel == "SMS" else f"lower({value['email']})"
+    if "party_id" in mapping:                             # a file with the CRM's ID: the ID is who the person is
+        value["identity"] = f"upper({value['party_id']})"
     return value, params
 
 
@@ -401,7 +427,11 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
         # who C360 knows, once per job and indexed, instead of scanning the customer master for every range of lines.
         # Temporary tables are private to this database session; the worker keeps the connection for the whole job.
         with session.tx(), connection.cursor() as cursor:
-            cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty, cep_known_phone")
+            cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty, cep_known_phone, cep_known_party")
+            cursor.execute("""CREATE TEMP TABLE cep_known_party AS
+                              SELECT upper(cm.custom_attributes ->> 'party_id') AS source_id, min(cm.party_id) AS party_id
+                                FROM customer_master cm WHERE cm.tenant_id = %(tenant)s AND cm.custom_attributes ? 'party_id' GROUP BY 1""", base)
+            cursor.execute("CREATE UNIQUE INDEX ON cep_known_party (source_id)")
             cursor.execute("""CREATE TEMP TABLE cep_known_email AS
                               SELECT lower(e ->> 'address') AS address, min(cm.party_id) AS party_id
                                 FROM customer_master cm, jsonb_array_elements(cm.emails) e
@@ -444,11 +474,14 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                     cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'REJECTED', error_message = 'No consent date'
                                         WHERE {span} AND r.match_status = 'PENDING'
                                           AND NOT ({v[consent_key + '_ok']} AND ({v[consent_key]})::date <= current_date)""", params)
+                if record.lookup:                              # Look Up in C360: the reason the lookup gave wins
+                    cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'REJECTED', error_message = left(r.raw ->> 'c360:held', 300)
+                                        WHERE {span} AND r.raw ? 'c360:held'""", params)
             tick()
 
         with session.tx(), connection.cursor() as cursor:                 # 2. the same person again, anywhere further down the file
             cursor.execute(f"""UPDATE contact_list_import_row r
-                                  SET match_status = 'DUPLICATE', error_message = 'Same {"mobile number" if channel == "SMS" else "email address"} as line ' || d.first_line
+                                  SET match_status = 'DUPLICATE', error_message = 'Same {"ID" if "party_id" in mapping else "mobile number" if channel == "SMS" else "email address"} as line ' || d.first_line
                                  FROM (SELECT r.id, row_number() OVER w AS n, first_value(r.row_number) OVER w AS first_line
                                          FROM contact_list_import_row r WHERE {mine} AND r.match_status = 'PENDING'
                                        WINDOW w AS (PARTITION BY {v['identity']} ORDER BY r.row_number)) d
@@ -458,6 +491,9 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
         for a, b in ranges:                               # 3. known (loyalty ID, then address)  4. new  5. remarks
             params = {**base, "a": a, "b": b}
             with session.tx(), connection.cursor() as cursor:
+                if "party_id" in mapping:                      # the CRM's ID first: someone C360 already has under it
+                    cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'MATCHED', match_method = 'PARTY_ID', matched_party_id = k.party_id
+                                         FROM cep_known_party k WHERE {span} AND r.match_status = 'PENDING' AND upper({v['party_id']}) = k.source_id""", params)
                 if "loyalty_id" in mapping:
                     cursor.execute(f"""UPDATE contact_list_import_row r
                                           SET match_status = 'MATCHED', match_method = 'LOYALTY_ID', matched_party_id = k.party_id,
@@ -470,11 +506,13 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                 if channel == "SMS":                           # a text list: the number recognises someone C360 knows when the row has no usable address
                     cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'MATCHED', match_method = 'PHONE', matched_party_id = k.party_id
                                          FROM cep_known_phone k WHERE {span} AND r.match_status = 'PENDING' AND ({v['email_use']}) IS NULL AND ({v['mobile_e164']}) = k.number""", params)
-                cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'UNMATCHED', match_method = CASE WHEN ({v['email_use']}) IS NULL THEN 'PHONE' ELSE 'EMAIL' END,
-                                          matched_party_id = {PARTY_ID.format(email=v['identity'])}
+                new_key = SOURCE_PARTY_ID.format(party=v["party_id"]) if "party_id" in mapping else PARTY_ID.format(email=v["identity"])
+                cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'UNMATCHED',
+                                          match_method = CASE WHEN {"TRUE" if "party_id" in mapping else "FALSE"} THEN 'PARTY_ID' WHEN ({v['email_use']}) IS NULL THEN 'PHONE' ELSE 'EMAIL' END,
+                                          matched_party_id = {new_key}
                                     WHERE {span} AND r.match_status = 'PENDING'""", params)
                 cursor.execute(f"""UPDATE contact_list_import_row r
-                                      SET warning = NULLIF(concat_ws('; ', r.warning,
+                                      SET warning = NULLIF(concat_ws('; ', r.warning, r.raw ->> 'c360:warning',
                                             CASE WHEN {v['mobile']} IS NOT NULL AND ({v['mobile_e164']}) IS NULL THEN 'Mobile number not recognised: left out' END,
                                             CASE WHEN {v['email']} IS NOT NULL AND NOT {v['email_ok']} THEN 'Email address not recognised: left out' END,
                                             CASE WHEN {v['sms_consent_date']} IS NOT NULL AND NOT {v['sms_consent_date_ok']} THEN 'Text consent date not recognised: no consent recorded'
@@ -512,6 +550,8 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
             cursor.execute(f"""SELECT COALESCE(r.governance_status, 'x'), count(*) FROM contact_list_import_row r
                                 WHERE {mine} AND r.match_status IN ('MATCHED', 'UNMATCHED') GROUP BY 1""", base)
             by_status = dict(cursor.fetchall())
+            cursor.execute(f"SELECT count(*) FROM contact_list_import_row r WHERE {mine} AND r.match_status = 'REJECTED' AND r.raw ? 'c360:held'", base)
+            held_by_lookup = cursor.fetchone()[0]
             cursor.execute(f"""SELECT count(*) FILTER (WHERE r.error_message = 'No email address'),
                                       count(*) FILTER (WHERE r.match_status = 'REJECTED' AND r.error_message IN ('The email address is too long', 'Not a valid email address')),
                                       count(*) FILTER (WHERE r.error_message = 'No mobile number'),
@@ -539,7 +579,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     finally:
         try:
             with connection.cursor() as cursor:
-                cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty, cep_known_phone")
+                cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty, cep_known_phone, cep_known_party")
         except Exception:                                 # noqa: BLE001  (the session ends with the job anyway)
             pass
     record.column_mapping = mapping
@@ -547,7 +587,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     record.rejected_count, record.warning_count = rejected, warnings
     record.progress_done = record.progress_total = record.row_count
     record.summary = {"rows": record.row_count,
-                      "held_back": {"total": rejected + duplicate, "NO_EMAIL": no_email, "INVALID_EMAIL": bad_email, "NO_MOBILE": no_mobile, "INVALID_MOBILE": bad_mobile,
+                      "held_back": {"total": rejected + duplicate, "LOOKUP": held_by_lookup, "NO_EMAIL": no_email, "INVALID_EMAIL": bad_email, "NO_MOBILE": no_mobile, "INVALID_MOBILE": bad_mobile,
                                     "NO_CONSENT_DATE": no_consent_date, "NO_TEXT_CONSENT_DATE": no_text_consent_date, "DUPLICATE_IN_FILE": duplicate},
                       "policy": {"without_consent": policy["without_consent"], "texts_need_date": bool(texts_need_date)},
                       "ready": {"total": matched + new, "new": new, "existing": matched},
@@ -564,7 +604,7 @@ def issues(record: ContactListImport, limit: int = 50) -> list[dict]:
                             FROM contact_list_import_row
                            WHERE tenant_id = %s AND import_id = %s AND (match_status IN ('REJECTED', 'DUPLICATE') OR warning IS NOT NULL)
                            ORDER BY (match_status IN ('REJECTED', 'DUPLICATE')) DESC, row_number LIMIT %s""", [str(record.tenant_id), str(record.pk), limit])
-        email_column = (record.column_mapping or {}).get("email")
+        email_column = (record.column_mapping or {}).get("party_id" if record.lookup else "email")
         found = []
         for line, status, message, raw in cursor.fetchall():
             raw = json.loads(raw) if isinstance(raw, str) else (raw or {})          # Django leaves jsonb from a raw cursor as text
@@ -599,7 +639,7 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                       CASE WHEN ({v['mobile_e164']}) IS NULL THEN '[]'::jsonb
                                            ELSE jsonb_build_array(jsonb_build_object('number', {v['mobile_e164']}, 'type', 'MOBILE', 'is_primary', TRUE)) END,
                                       CASE WHEN {v['postal_code']} IS NULL THEN NULL ELSE jsonb_build_object('postal_code', {v['postal_code']}) END,
-                                      jsonb_strip_nulls(jsonb_build_object('loyalty_id', {v['loyalty_id']}, 'loyalty_tier', {v['loyalty_tier']},
+                                      jsonb_strip_nulls(jsonb_build_object('loyalty_id', {v['loyalty_id']}, 'loyalty_tier', {v['loyalty_tier']}, 'party_id', {v['party_id']},
                                             'last_purchase_at', CASE WHEN {v['last_order_date_ok']} THEN ({v['last_order_date']})::date END,
                                             'timezone', CASE WHEN {v['timezone_ok']} THEN {v['timezone']} END,
                                             'first_seen_in', %(file)s)),
@@ -607,6 +647,10 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                  FROM contact_list_import_row r WHERE {span} AND r.match_status = 'UNMATCHED'
                                ON CONFLICT (party_id) DO NOTHING""", params)
             created += cursor.rowcount
+            if "party_id" in record.column_mapping:          # someone recognised another way gets the CRM's ID, so the next file finds them by it
+                cursor.execute(f"""UPDATE customer_master cm SET custom_attributes = COALESCE(cm.custom_attributes, '{{}}'::jsonb) || jsonb_build_object('party_id', {v['party_id']})
+                                     FROM contact_list_import_row r WHERE {span} AND r.match_status = 'MATCHED' AND {v['party_id']} IS NOT NULL
+                                       AND cm.tenant_id = r.tenant_id AND cm.party_id = r.matched_party_id AND NOT (COALESCE(cm.custom_attributes, '{{}}'::jsonb) ? 'party_id')""", params)
             if "timezone" in record.column_mapping:          # someone known gets the file's time zone when their record has none
                 cursor.execute(f"""UPDATE customer_master cm SET custom_attributes = COALESCE(cm.custom_attributes, '{{}}'::jsonb) || jsonb_build_object('timezone', {v['timezone']})
                                      FROM contact_list_import_row r WHERE {span} AND r.match_status = 'MATCHED' AND {v['timezone_ok']}
@@ -675,10 +719,17 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
 REPORT_HEADER = ["line", "email", "outcome", "detail", "recognised", "marketing_email_status"]
 
 
+def report_header(record: ContactListImport) -> list[str]:
+    """A file with an ID column (Look Up in C360) reports the ID after the line."""
+    return ["line", "id", *REPORT_HEADER[1:]] if (record.column_mapping or {}).get("party_id") else REPORT_HEADER
+
+
 def report_rows(record: ContactListImport, page_rows: int = 5000):
     """Every row of the file with what happened to it, for reconciling the upload against its source."""
     email_column = (record.column_mapping or {}).get("email")
-    recognised = {("MATCHED", "EMAIL"): "Known: same email address", ("MATCHED", "LOYALTY_ID"): "Known: same loyalty ID", ("UNMATCHED", "EMAIL"): "New to C360"}
+    id_column = (record.column_mapping or {}).get("party_id")
+    recognised = {("MATCHED", "EMAIL"): "Known: same email address", ("MATCHED", "LOYALTY_ID"): "Known: same loyalty ID", ("MATCHED", "PARTY_ID"): "Known: same ID",
+                  ("MATCHED", "PHONE"): "Known: same mobile number", ("UNMATCHED", "EMAIL"): "New to C360", ("UNMATCHED", "PHONE"): "New to C360", ("UNMATCHED", "PARTY_ID"): "New to C360"}
     last = 0
     while True:
         with _conn().cursor() as cursor:
@@ -689,8 +740,9 @@ def report_rows(record: ContactListImport, page_rows: int = 5000):
         for line, raw, status, method, error, warning, verdict in page:
             raw = json.loads(raw) if isinstance(raw, str) else (raw or {})
             held = status in ("REJECTED", "DUPLICATE")
-            yield [line, raw.get(email_column, "") if email_column else "", "Held back" if held else ("Not checked yet" if status == "PENDING" else "Imported"),
-                   error or warning or "", "" if held else recognised.get((status, method), ""), "" if held else (governance.label(verdict) or "")]
+            cells = [line, raw.get(email_column, "") if email_column else "", "Held back" if held else ("Not checked yet" if status == "PENDING" else "Imported"),
+                     error or warning or "", "" if held else recognised.get((status, method), ""), "" if held else (governance.label(verdict) or "")]
+            yield [cells[0], raw.get(id_column, ""), *cells[1:]] if id_column else cells
         if len(page) < page_rows:
             return
         last = page[-1][0]

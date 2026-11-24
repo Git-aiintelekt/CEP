@@ -11,6 +11,7 @@ import { iconButtonClass } from '@/components/buttonStyles'
 import { useAuth } from '@/auth/AuthContext'
 import type { ListImport } from '@/lib/types'
 
+import { ProgressCount } from './ProgressCount'
 import { jobSummary, resumeLink, useImportJobs, watchedUploads } from './uploadJobs'
 
 export function ProgressBar({ job, className = '' }: { job: Pick<ListImport, 'progress' | 'working' | 'status' | 'phase'>; className?: string }) {
@@ -112,6 +113,7 @@ export function UploadsIndicator() {
                   <p className="truncate text-sm font-medium text-ink-900">{job.list_name}</p>
                   <p className="truncate text-xs text-ink-800">{job.file_name} · {jobSummary(job)}</p>
                   {job.working && <ProgressBar job={job} className="mt-1.5" />}
+                  <ProgressCount job={job} className="mt-1" />
                   {resumeLink(job) && <Link to={resumeLink(job) as string} onClick={() => setOpen(false)} className="mt-1 inline-block text-xs font-semibold text-brand-800 hover:underline">Continue →</Link>}
                 </li>
               ))}

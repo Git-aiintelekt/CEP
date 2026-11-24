@@ -151,7 +151,7 @@ class ContactListImport(models.Model):
     file_columns = models.JSONField(default=list)  # [{name, samples, guess}] as read from the file
     column_mapping = models.JSONField(default=dict)  # {property: column name}
     error = models.CharField(max_length=500, null=True, blank=True)
-    next_action = models.CharField(max_length=10, null=True, blank=True)  # what a worker should do next: STAGE, REVIEW, APPLY
+    next_action = models.CharField(max_length=10, null=True, blank=True)  # what a worker should do next: STAGE, LOOKUP, REVIEW, APPLY
     mapping_confirmed = models.BooleanField(default=False)  # confirmed by the operator, possibly while the file was still being read
     apply_when_ready = models.BooleanField(default=False)
     progress_done = models.BigIntegerField(default=0)
@@ -166,6 +166,7 @@ class ContactListImport(models.Model):
     file_encoding = models.CharField(max_length=20, null=True, blank=True)
     file_delimiter = models.CharField(max_length=4, null=True, blank=True)
     summary = models.JSONField(default=dict)  # the reconciliation: rows = held back + ready; ready = governance buckets = added + already in the list
+    lookup = models.JSONField(null=True, blank=True)  # Look Up in C360 (patch 0097): {connections, databases, role, id_label, id_column, result}
     consent_basis = models.CharField(max_length=30, null=True, blank=True)  # WEB_FORM, IN_STORE, CUSTOMER_REQUEST, IMPLIED: where these people agreed, declared by the uploader
     consent_collected_at = models.CharField(max_length=300, null=True, blank=True)  # a form, a store, a campaign: where to find the proof
     attested_by = models.UUIDField(null=True, blank=True)  # the user who confirmed these people agreed to marketing

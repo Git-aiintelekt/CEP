@@ -14,6 +14,7 @@ import { formatNumber } from '@/lib/format'
 import type { ListImport } from '@/lib/types'
 
 import { CreateListWizard } from './CreateListWizard'
+import { ProgressCount } from './ProgressCount'
 import { jobSummary, resumeLink, uploadedWhen, useImportJobs } from './uploadJobs'
 import { UploadReport } from './UploadReport'
 import { ProgressBar } from './UploadsIndicator'
@@ -82,12 +83,14 @@ export function UploadsPage() {
                   <tr key={job.id} className="h-[72px]">
                     <th scope="row" className="max-w-xs px-2 py-3 first:pl-6 last:pr-6 font-normal">
                       <p className="truncate text-card-title font-semibold text-ink-900">{job.list_name}</p>
-                      <p className="truncate text-helper text-ink-800">{job.file_name}{job.row_count ? ` · ${formatNumber(job.row_count)} rows` : ''}</p>
+                      <p className="truncate text-helper text-ink-800">{job.file_name}{job.row_count ? ` · ${formatNumber(job.row_count)} ${job.lookup ? `${job.lookup.id_label}s` : 'rows'}` : ''}</p>
+                      {job.lookup && <p className="truncate text-helper text-ink-800">Looked up in {job.lookup.databases.join(', ')}</p>}
                     </th>
                     <td className="px-2 py-3 first:pl-6 last:pr-6"><StatusBadge status={job.working ? 'SENDING' : (TONE[job.status] ?? job.status)} label={job.working ? 'In Progress' : job.status === 'APPLIED' ? 'Imported' : job.status === 'REVIEW' || job.status === 'STAGED' ? 'Waiting for You' : undefined} /></td>
                     <td className="px-2 py-3 first:pl-6 last:pr-6">
                       <p className="mb-1 text-xs text-ink-800">{jobSummary(job)}</p>
                       {job.working && <ProgressBar job={job} />}
+                      <ProgressCount job={job} className="mt-1" />
                     </td>
                     <td className="px-2 py-3 first:pl-6 last:pr-6 text-xs text-ink-800">{uploadedWhen(job)}</td>
                     <td className="px-2 py-3 first:pl-6 last:pr-6 text-right">

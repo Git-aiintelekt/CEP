@@ -311,9 +311,11 @@ export const api = {
     return response.blob()
   },
   /** multipart upload of one file in the `file` field */
-  upload: <T>(path: string, file: File) => {
+  /** a multipart POST of `file`, with any other `fields` alongside it */
+  upload: <T>(path: string, file: File, fields: Record<string, string> = {}) => {
     const form = new FormData()
     form.append('file', file)
+    for (const [key, value] of Object.entries(fields)) form.append(key, value)
     return request<T>(path, { method: 'POST', body: form })
   },
 

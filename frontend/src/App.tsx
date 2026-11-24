@@ -48,6 +48,7 @@ const AskPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/p
 const BaseReportsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/BaseReportsPlayground')) : null
 const UpgradePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/UpgradePlayground')) : null
 const ExplainPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/ExplainPlayground')) : null
+const ListLookupPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ListLookupPlayground')) : null
 const DataPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DataPlayground')) : null
 const NewReportPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/NewReportPlayground')) : null
 
@@ -92,6 +93,7 @@ export default function App() {
             {DevFields && (
               <Route path="/dev/fields" element={<Suspense fallback={<FullPageSpinner label="Loading the fields" />}><DevFields /></Suspense>} />
             )}
+            {ListLookupPlayground && <Route path="/dev/list-lookup" element={<Suspense fallback={<FullPageSpinner label="Loading the playground" />}><ListLookupPlayground /></Suspense>} />}
             {ToastPlayground && (
               <Route path="/dev/toasts" element={<Suspense fallback={<FullPageSpinner label="Loading the toasts" />}><ToastPlayground /></Suspense>} />
             )}

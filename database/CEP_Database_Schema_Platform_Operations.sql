@@ -590,7 +590,7 @@ ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS consent_count INTEGER N
 ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_encoding VARCHAR(20);
 ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_delimiter VARCHAR(4);
 ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_next_action;
-ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_next_action CHECK (next_action IN ('STAGE', 'REVIEW', 'APPLY'));
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_next_action CHECK (next_action IN ('STAGE', 'LOOKUP', 'REVIEW', 'APPLY'));
 CREATE INDEX IF NOT EXISTS ix_contact_list_import_queue ON contact_list_import(queued_at) WHERE next_action IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_contact_list_import_tenant_recent ON contact_list_import(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_line ON contact_list_import_row(tenant_id, import_id, row_number);
@@ -602,6 +602,21 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
      'A workspace with this many uploads in progress has to wait for one to finish before starting another'),
     ('lists.import_chunk_rows', '5000', 'INTEGER', 'Contact lists',
      'Rows per transaction while a file is read, checked and imported. Smaller = gentler on the database, slower overall')
+ON CONFLICT (key) DO NOTHING;
+
+-- 0097 (2026-11-24): Look Up in C360. A file of IDs only; a worker reads each person from the workspace's Report Databases that are
+-- ticked "Use for List Generation" (read-only, 1,000 IDs a query) and the usual check and import follow. contact_list_import.lookup
+-- holds what was asked (databases, role, the ID column) and, once read, what came back (the reasons rows were left out, fill rates).
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS lookup JSONB;
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_lookup_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_lookup_object CHECK (lookup IS NULL OR jsonb_typeof(lookup) = 'object');
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('lists.lookup_max_rows', '2000000', 'INTEGER', 'Contact lists',
+     'The most IDs one Look Up in C360 file may hold'),
+    ('lists.lookup_batch_ids', '1000', 'INTEGER', 'Contact lists',
+     'IDs read from a Report Database in one query during Look Up in C360. Smaller = gentler on that database, slower overall'),
+    ('lists.notify_email_rows', '1000000', 'INTEGER', 'Contact lists',
+     'A list upload with at least this many rows emails the person who uploaded it when it has been checked and when it is imported')
 ON CONFLICT (key) DO NOTHING;
 
 -- 13. GOVERNANCE CHECK ON LIST UPLOADS
@@ -3057,6 +3072,8 @@ ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS query_timeout_s INTEGER;
 ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS max_concurrent SMALLINT;
 -- the tables pinned to the top of Map a Dataset's list: the only thing kept about the customer's database (names are read live)
 ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS pinned_tables JSONB NOT NULL DEFAULT '[]';
+-- 0097: offered by New Contact List → Look Up in C360 (apps/contact_lists/lookup.py), read-only like every report read
+ALTER TABLE report_connection ADD COLUMN IF NOT EXISTS use_for_lists BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE report_connection DROP CONSTRAINT IF EXISTS ck_report_connection_limits;
 ALTER TABLE report_connection ADD CONSTRAINT ck_report_connection_limits CHECK (
     limit_profile IN ('STANDARD', 'LARGE', 'LIVE', 'CUSTOM')

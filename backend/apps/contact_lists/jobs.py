@@ -42,8 +42,8 @@ log = logging.getLogger("cep.lists")
 P = settings.PLATFORM_ALIAS
 STALE = "3 minutes"
 MAX_ATTEMPTS = 3
-STATUS_WHILE = {"STAGE": "STAGING", "REVIEW": "MATCHING", "APPLY": "APPLYING"}
-STATUS_BEFORE = {"STAGE": "UPLOADED", "REVIEW": "STAGED", "APPLY": "REVIEW"}
+STATUS_WHILE = {"STAGE": "STAGING", "LOOKUP": "MATCHING", "REVIEW": "MATCHING", "APPLY": "APPLYING"}
+STATUS_BEFORE = {"STAGE": "UPLOADED", "LOOKUP": "STAGED", "REVIEW": "STAGED", "APPLY": "REVIEW"}
 
 
 class TooManyUploads(Exception):
@@ -151,7 +151,7 @@ def claim(alias: str = P, tenant_id=None):
         cursor.execute("SELECT pg_advisory_xact_lock(hashtext('cep.contact_list_import.claim'))")
         cursor.execute(f"""UPDATE contact_list_import i
                               SET worker = %(worker)s, heartbeat_at = now(), started_at = COALESCE(i.started_at, now()), attempts = i.attempts + 1,
-                                  status = CASE i.next_action WHEN 'STAGE' THEN 'STAGING' WHEN 'REVIEW' THEN 'MATCHING' ELSE 'APPLYING' END,
+                                  status = CASE i.next_action WHEN 'STAGE' THEN 'STAGING' WHEN 'LOOKUP' THEN 'MATCHING' WHEN 'REVIEW' THEN 'MATCHING' ELSE 'APPLYING' END,
                                   progress_done = 0
                             WHERE i.id = (SELECT c.id FROM contact_list_import c JOIN tenant t ON t.id = c.tenant_id
                                            WHERE c.next_action IS NOT NULL AND t.status = 'ACTIVE' AND (%(tenant)s::uuid IS NULL OR c.tenant_id = %(tenant)s::uuid)
@@ -200,8 +200,14 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
                 imports.stage(record, chunk, beat)
                 with session.tx():
                     confirmed = ContactListImport.objects.filter(pk=import_id, tenant_id=tenant_id).values_list("mapping_confirmed", flat=True).first()
-                # the operator may have confirmed the mapping while the file was being read: go straight on
-                finish(status="STAGED", next_action="REVIEW" if confirmed else None, queued_at=timezone.now(), attempts=0)
+                # a file of IDs is looked up next; otherwise the operator may have confirmed the mapping while the file was being read: go straight on
+                finish(status="STAGED", next_action="LOOKUP" if record.lookup else "REVIEW" if confirmed else None, queued_at=timezone.now(), attempts=0)
+            elif action == "LOOKUP":
+                from . import lookup
+                with session.tx():
+                    record = ContactListImport.objects.select_related("contact_list", "tenant").get(pk=import_id, tenant_id=tenant_id)
+                lookup.run(record, beat)
+                finish(status="STAGED", next_action="REVIEW", queued_at=timezone.now(), attempts=0)
             elif action == "REVIEW":
                 # read again for the confirmed mapping, with its list and workspace: refresh_from_db() would drop them, and
                 # review() would then fetch them outside any transaction, where row-level security hides them
@@ -209,10 +215,12 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
                     record = ContactListImport.objects.select_related("contact_list", "tenant").get(pk=import_id, tenant_id=tenant_id)
                 imports.review(record, chunk, beat)
                 finish(status="REVIEW", next_action=None)
+                notify(import_id, tenant_id, "REVIEW")
             else:
                 imports.apply(record, chunk, beat, user_id=record.created_by_id)
                 # the staged rows stay: they are the row-by-row report of this upload (the partition retention policy ages them out)
                 finish(status="APPLIED", next_action=None)
+                notify(import_id, tenant_id, "APPLIED")
             return True
         except imports.Cancelled:
             with session.tx():
@@ -227,11 +235,46 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
         except Exception as exc:                          # noqa: BLE001
             log.exception("list import %s failed at %s (attempt %s)", import_id, action, attempts)
             if attempts >= MAX_ATTEMPTS:
+                from apps.insights.external import ExternalError
+                reason = (f"The database could not be read: {exc}. " if isinstance(exc, ExternalError) else "")
                 finish(status="FAILED", next_action=None, completed_at=timezone.now(),
-                       error=f"C360 could not finish this upload after {MAX_ATTEMPTS} attempts. Nothing was half-imported; upload the file again, or contact support."[:500])
+                       error=f"{reason}C360 could not finish this upload after {MAX_ATTEMPTS} attempts. Nothing was half-imported; upload the file again, or contact support."[:500])
+                notify(import_id, tenant_id, "FAILED")
             else:
                 finish(status=STATUS_BEFORE[action])      # still queued: claimed again by the next worker run
             return False
+
+
+def notify(import_id: str, tenant_id: str, outcome: str) -> None:
+    """A large upload (`lists.notify_email_rows` rows or more, default 1,000,000) emails the person who uploaded it when it has been
+    checked, imported or has failed: they have long left the page. The header's alert tells everyone else who is in C360."""
+    try:
+        threshold = _setting("lists.notify_email_rows", 1_000_000)
+        with session.tx():
+            record = ContactListImport.objects.select_related("contact_list").get(pk=import_id, tenant_id=tenant_id)
+        from apps.identity import names
+        address = names.email(record.created_by_id) if record.created_by_id else None       # a visitor from Switch Workspace too
+        if record.row_count < threshold or not address:
+            return
+        from apps.platform_ops import mail
+        name = record.contact_list.name
+        rows = f"{record.row_count:,}"
+        ready, held = record.matched_count + record.unmatched_count, record.duplicate_count + record.rejected_count
+        if outcome == "REVIEW":
+            title, lines, label, link = (f"“{name}” is ready for your review", [f"{rows} rows from {record.file_name} have been checked.",
+                                         f"{ready:,} contacts can be imported; {held:,} rows are held back.", "Review them and choose Create List to add them."],
+                                         "Review It", f"/contact-lists/uploads?resume={record.contact_list_id}:{record.pk}")
+        elif outcome == "APPLIED":
+            title, lines, label, link = (f"“{name}” is imported", [f"{record.applied_count:,} contacts from {record.file_name} were added to the list.",
+                                         f"{held:,} rows were held back; the upload report lists every row and why."], "Open the List", f"/contact-lists/{record.contact_list_id}")
+        else:
+            title, lines, label, link = (f"The upload for “{name}” failed", [record.error or "The upload could not be finished.", "Nothing was half-imported."],
+                                         "See Uploads", "/contact-lists/uploads")
+        from django.conf import settings
+        mail.send("list_upload", [address], {"title": title, "lines": lines, "event_label": "List Upload",
+                  "link": settings.FRONTEND_URL.rstrip("/") + link, "link_label": label}, subject=f"[C360] {title}", tenant_id=tenant_id)
+    except Exception:                                     # noqa: BLE001  an email never fails an upload
+        log.exception("list upload %s: the email was not sent", import_id)
 
 
 def recent(tenant_id, active_only: bool = False, limit: int = 50):
