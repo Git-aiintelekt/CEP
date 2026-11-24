@@ -76,7 +76,8 @@ def _limits_present() -> bool:
     present = cache.get(key)
     if present is None:
         present = bool(_q("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'report_connection' AND column_name = 'limit_profile') AS present")[0]["present"])
-        cache.set(key, present, 300)
+        if present:  # only a yes is remembered: a patch applied after a no counts at once
+            cache.set(key, present, 300)
     return present
 
 
@@ -242,7 +243,8 @@ def _lists_present() -> bool:
     present = cache.get(key)
     if present is None:
         present = bool(_q("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'report_connection' AND column_name = 'use_for_lists') AS present")[0]["present"])
-        cache.set(key, present, 300)
+        if present:  # only a yes is remembered: a patch applied after a no counts at once
+            cache.set(key, present, 300)
     return present
 
 

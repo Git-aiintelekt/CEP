@@ -44,7 +44,8 @@ def present() -> bool:
     found = cache.get("cep:insights:base-install-present")
     if found is None:
         found = bool(_q("SELECT to_regclass('public.report_base_install') IS NOT NULL AS present")[0]["present"])
-        cache.set("cep:insights:base-install-present", found, 300)
+        if found:  # only a yes is remembered: a patch applied after a no counts at once
+            cache.set("cep:insights:base-install-present", found, 300)
     return found
 
 
