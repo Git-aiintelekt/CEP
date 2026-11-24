@@ -598,6 +598,9 @@ Platform administrators.
 | lists.import_max_parallel | number | 2 | Uploads processed at once across the whole platform. |
 | lists.import_max_waiting_per_workspace | number | 5 | Unfinished uploads a workspace may have before a new one is refused. |
 | lists.import_chunk_rows | number | 5000 | Rows per chunk of an upload. |
+| lists.lookup_max_rows | number | 2000000 | The most IDs one Look Up in C360 file may hold (patch 0097). |
+| lists.lookup_batch_ids | number | 1000 | IDs read from the CRM database in one query during Look Up in C360. Smaller is gentler on that database and slower overall. |
+| lists.notify_email_rows | number | 1000000 | An upload with at least this many rows emails the person who started it when it has been checked, imported or has failed. |
 | integrations.inbound_per_minute | object | 60 / 600 / unlimited per plan | The inbound pace limit per plan code for the point of sale and other callers. |
 | integrations.log_body_max_bytes | number | 65536 | How much of a request or answer body the call log keeps. |
 | insights.report_db_read_only_required | yes/no | yes | Whether a workspace's Report Database account must hold SELECT only. Yes refuses an account that can write until it is fixed. No uses it, with a ! Can write warning on its card; C360 still opens every session on it read-only and runs SELECT only. Takes effect within a minute; test a refused connection again to use it. |
