@@ -101,7 +101,11 @@ server; a private network address is fine when CEP's server sits on that network
    whether the account is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds
    beyond SELECT; the connection can be saved but cannot be used until the account is fixed. Where the platform does not
    require a read-only account, it reads **! Can write** and the connection is used.
-3. **Save** keeps the connection and runs the test again. The password is stored encrypted and never shown; leave it
+3. **Use for List Generation** (MySQL only): tick it for the workspace's CRM database. New Contact List then offers
+   **Look Up in C360**, which reads people from it by their ID: name, mobile number, email, postal code, loyalty ID, time
+   zone and whether they may be contacted (Contact Lists chapter). Read-only, 1,000 IDs a query. The card says *Used for
+   list generation* when it is ticked.
+4. **Save** keeps the connection and runs the test again. The password is stored encrypted and never shown; leave it
    empty on a later edit to keep it.
 
 Each card shows the engine and version, host and database, the account with ✓ Read-only, ✕ Can write (refused) or ! Can write (allowed where read-only is not required), the datasets

@@ -4,7 +4,7 @@
 
 ## What this page is for
 
-A contact list is a reusable audience: the people a campaign is sent to. Lists come from a file you upload, from an audience your data team defined in the BI tool, or from a copy of another list. A campaign never reads a list while it sends: when a run starts, the attached lists are merged into the campaign's own frozen copy, so you can change a list at any time without changing a send that was already built.
+A contact list is a reusable audience: the people a campaign is sent to. Lists come from a file you upload, from a file of Customer IDs that C360 looks up in your CRM (**Look Up in C360**), from an audience your data team defined in the BI tool, or from a copy of another list. A campaign never reads a list while it sends: when a run starts, the attached lists are merged into the campaign's own frozen copy, so you can change a list at any time without changing a send that was already built.
 
 The page shows every list of the workspace with its size and where it is used, and starts the wizard that creates one.
 
@@ -57,7 +57,7 @@ Opened by a list's name. It shows who is in the list, how and when each was adde
 
 | Step | Field or control | What it is | What it changes |
 |---|---|---|---|
-| New Contact List | Upload a File / BI or Extraction Tool / Clone a List | Where the people come from. | The steps that follow. |
+| New Contact List | Upload a File / Look Up in C360 / BI or Extraction Tool / Clone a List | Where the people come from. Look Up in C360 is offered only when a Report Database is ticked *Use for List Generation* (see *The wizard: Look Up in C360* below). | The steps that follow. |
 | Add Your File | List Name | The list's name, up to 200 characters. | How it is listed everywhere, including a campaign's Send To table. |
 | | Description | Optional. Shown under the name in the table. | |
 | | What the List Is For | Email, Texts, or Email and Texts. | Which column the file must have (an email address, a mobile number, or both), how a new person is recognised, and how each row is judged (email consent and address status, or text consent and the number's standing). Changed later on the list's Edit Details. |
@@ -70,23 +70,59 @@ Opened by a list's name. It shows who is in the list, how and when each was adde
 | Review Before Importing | The report | How many rows will be imported and how many are held back (no address, not a valid address, the same address earlier in the file, and under a strict policy, no consent date); how many people are new to C360 and how many it already knows; and how the imported people would be judged by a marketing send today: can receive, unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent on record. | Nothing yet. **Import** starts the import; **Continue in the background** closes the wizard and leaves it running. |
 | List Created | Where the list is, and what to do next. | | |
 
+### The wizard: Look Up in C360
+
+For a list you have as IDs only: the file holds one Customer ID (or Lead, Account or Contact ID) per row, and C360 reads each person from your CRM: name, mobile number, email, postal code, loyalty ID, time zone and whether they may be contacted. The CRM is one of the workspace's Report Databases ticked **Use for List Generation** (Settings → Report Databases); it is only ever read. Five steps: List Details, the IDs, Consent, Review, Done. There are no columns to match.
+
+| Step | Field or control | What it is | What it changes |
+|---|---|---|---|
+| List Details | Look Up in C360 | The card beside Upload a File. Shown only when at least one database is ticked for list generation. | Opens the two choices below on the same step. |
+| | Look Up In | Shown when more than one database is offered: tick one or more. They are searched in the order ticked (the number beside each says its turn); the first that has the ID supplies the person. With one database, it is used without asking. | Where each ID is read from. |
+| | Role | Customer, Lead, Account, Account Primary Contact, or Any Role (Party ID). | Only people who hold the role in the CRM are imported; the others are held back as *Not a Customer* (and so on). It also names the IDs everywhere in the wizard: Customer ID, Lead ID, Account ID, Contact ID, or Party ID for any role. |
+| | List Name, What the List Is For, List Type, Description | As for Upload a File. | What the List Is For decides the rules below: a texts list needs a usable mobile number, an email list a usable address, both lists both. |
+| Customer IDs (the step is named after the role) | *Add your Customer IDs. C360 looks each one up and brings the rest of the person with it.* | The file: CSV only, up to 50 MB and 2,000,000 IDs, a header row and one ID per row. The ID column is the only column, or one named Customer ID, Party ID, Account ID, Lead ID or Contact ID; other columns are ignored. **Download Sample CSV** gives a one-column file with the right header. | The file is stored privately and read in the background; the lookup starts as soon as it is read. |
+| Consent | As for Upload a File. | The consent dates come from C360: *Allow Solicitation* Y on the number or address is an opt-in, dated by the solicitation change date (or the day it was linked), for people C360 has no answer for. | You can answer while the lookup runs. |
+| Review | **Looked Up in C360**, first | The databases and the role, how many IDs in how long; **Found in C360**; each reason rows were **Held Back**, with its count; each **Warning**. Then **Filled From C360**: how many of the usable people came with a name, mobile number, email, loyalty ID, postal code, time zone, text consent and email consent. | Nothing yet. The usual review follows (new, existing, warnings, errors, the governance check) and **Create List** imports. |
+
+Why a row is held back (for a texts list; an email list checks the email address the same way):
+
+| Reason | What C360 found |
+|---|---|
+| *Customer ID not found* | No person with that ID in any of the databases. |
+| *No Customer ID in this row* | The ID cell is empty. |
+| *Same ID as line N* | The ID appears earlier in the file. |
+| *Disabled in the source database* | The party is disabled in the CRM. |
+| *Not a Customer* (or the role chosen) | The party does not hold the role. |
+| *No primary phone* | No current primary phone in the CRM. |
+| *Number no longer in use* | The primary phone's end date has passed. |
+| *Number not valid* | Marked not valid in the CRM, or not 10 digits. |
+| *On Do Not Disturb* | The number is on DND. |
+| *Phone not open to solicitation* | Allow Solicitation is N, and the party is not a Customer. |
+| *No email*, *Email not valid*, *Email not open to solicitation* | The same checks on the primary email, for an email list. |
+
+A **Customer** whose number is not open to solicitation is still imported, with the warning *Customer not open to solicitation: imported with no text consent*: transactional texts reach them, marketing texts hold them back.
+
 The other two sources are shorter: **BI or Extraction Tool** asks for the audience (the list then follows the audience: who leaves is removed and who joins is added, hourly and on *Refresh now*), **Clone a List** asks for the list to copy and the copy's name.
 
 ### The Uploads page
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The table | Newest first: **List and File** (the list, the file and its rows), **Status** (In Progress, Waiting for You, Imported, Failed, Cancelled), **Progress** (what the upload is doing, with a bar while it works) and **Uploaded** (when, and who). | |
+| The table | Newest first: **List and File** (the list, the file and its rows; for a lookup, its IDs and *Looked up in* the databases), **Status** (In Progress, Waiting for You, Imported, Failed, Cancelled), **Progress** (what the upload is doing, with a bar while it works, and under it the count and the time left: *1,234,000 of 1,320,000 Customer IDs looked up · about 6 min left*) and **Uploaded** (when, and who). | |
 | Continue | On an upload waiting for you (matching, consent, review). Needs `list.import` or `list.edit`. | Opens the wizard again at the step it waits on. |
 | Report | On any upload that was checked: the review figures, and **Download the Row-by-Row Report**, a CSV with every line of the file, whether it was imported or held back and why, how the person was recognised, and their marketing email status. | Nothing changes. |
 | Open the List | On an imported upload. | Opens the list's page. |
 | Cancel | On an upload that is not finished and not already adding people. Needs `list.import` or `list.edit`. | The file and the staged rows are discarded. An import that is already adding people finishes. |
 
-The upload button in the header shows the uploads running on every page and raises an alert when one finishes, fails, or waits for a review.
+The upload button in the header shows the uploads running on every page, with the same count and time left, and raises an alert when one finishes, fails, or waits for a review. A large upload (1,000,000 rows or more unless the platform team set another size) also emails the person who started it when it has been checked, when it is imported and if it fails, so they can leave it running and come back. The time left is worked out on the page from the progress it sees: it shows after a few seconds of each step, and starts again when the step changes (reading, looking up, checking, adding).
 
 ## How to
 
 **Upload a file.** Contact Lists → Create List → Upload a File → name the list, say what it is for, choose Production or Test, add the file. Match the columns and confirm. Say where the people agreed and confirm the attestation. Read the review, then Import. The list is a draft until the import is applied; leaving the wizard before that deletes the draft.
+
+**Make a list from Customer IDs.** Contact Lists → Create List → Look Up in C360 → tick the databases (when there are several) and choose the role → name the list, say what it is for, choose Production or Test → Next → add the file of IDs. Answer the consent questions while C360 looks the IDs up. Read **Looked Up in C360** at the top of the review, then Create List. A large file can be left running: Continue in the Background, and come back from the Uploads page or the email.
+
+**Check a lookup before a big one.** Try a file of 20 IDs first and compare what *Filled From C360* and the held-back reasons say with the CRM; then send the full file.
 
 **Prepare a file that imports cleanly.** Use Download Sample CSV as the model: a header row, one person per row, dates as `YYYY-MM-DD`, mobile numbers with the country code (`+14045550101`). Put an email consent date and a text consent date in for everyone who gave one: without a date, a new person has no consent on record and marketing sends leave them out.
 
@@ -102,6 +138,8 @@ The upload button in the header shows the uploads running on every page and rais
 2. **Reading** stages every row and guesses the columns from the headers.
 3. **Checking** holds back rows without a usable address, rows whose address appears earlier in the file, and, under a strict policy, rows without a consent date. Everyone else is matched to a person C360 knows (by loyalty ID first, then by address or number) or marked as new. Each importable row is judged exactly as a marketing send would judge that person today, with the send engine's own rules, so a word means the same at upload and in a campaign's results.
 4. **The declaration** is recorded: the basis, where it was collected, who attested and when.
+For a file of IDs (Look Up in C360), a **lookup** comes between reading and checking: the IDs are read from the CRM 1,000 at a time, on a read-only connection, one upload at a time per workspace, so the CRM barely notices. A worker that stops carries on from the last batch it finished. The ID then becomes the person's key in C360: someone C360 already has under that ID is recognised by it first, a new person is created under it, and someone recognised by address or number gets the ID added, so the next file finds the same people.
+
 5. **Importing** creates the new people, adds everyone with a usable address to the list (whatever their status: people resubscribe, addresses get unblocked, and the send engine decides again for real at every run), writes an opt-in for a consent date only where C360 had no answer, and never overrides an unsubscribe. The list becomes active; under an approval policy it waits for approval first.
 6. **The compliance record** on the list's page shows, for as long as the list exists: the source, every upload with its declaration, the approval, the policy as it stands today and today's consent by channel.
 
@@ -112,6 +150,8 @@ The upload button in the header shows the uploads running on every page and rais
 - Lists are never deleted while a campaign uses them; archive instead. People are never deleted from C360 by a list action.
 - A Test list cannot go to production. Make the real list a Production one from the start, or clone it.
 - Excel files are not accepted; save as CSV first.
+- Look Up in C360 never writes to the CRM: it only reads, with the account the Report Database connects as.
+- A lookup takes about a second or two per 1,000 IDs, depending on the network to the CRM; 1.3 million IDs take a few tens of minutes. The Uploads page shows the time left.
 
 ## The customer page
 
