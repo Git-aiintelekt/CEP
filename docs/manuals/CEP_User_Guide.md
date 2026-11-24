@@ -8,6 +8,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How the guide is organised
   - Help inside the app
   - Three ideas that run through everything
+  - Logging in, and knowing which workspace you are in
   - Statuses you will meet
   - Where to start
 - Home
@@ -93,7 +94,6 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - What this page is for
   - Who can use it
   - The fields and controls
-  - Step by step
   - What happens behind the scenes
   - Things to know
   - When something does not work
@@ -323,11 +323,28 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 ## Three ideas that run through everything
 
-**Workspace.** Your company's own area of C360. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code (for example `NWA`) appears in the sign-in screen and in every address C360 gives you to register with other systems.
+**Workspace.** Your company's own area of C360. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code, shown as the **Workspace ID** (for example `NWA`), appears on the log-in page, at the top of every page and in every address C360 gives you to register with other systems. Your account belongs to one workspace: the same email address can also have an account in another workspace (a Staging and a Production one, say), with its own password, roles and two-factor.
 
 **Roles and permissions.** What a person may do is set by their role. A role is a set of permissions such as *campaign.edit* or *user.admin*. The chapter for each page names the permission it needs. If a page refuses you, it says which permission to ask an administrator for.
 
 **Features.** Some parts of C360 are switched on per workspace by the platform team: texts, MMS, e-receipts, journeys, A/B testing, API access, the preference centre, barcodes. A page that belongs to a feature that is off is simply not shown, and its chapter says which feature to ask for.
+
+## Logging in, and knowing which workspace you are in
+
+**The log-in page** asks for three things: the **Workspace ID**, your email and your password.
+
+| What you see | What it means |
+|---|---|
+| *Workspace ID: CITYST* above Email | The address you opened (the workspace's own address, for example `citist.cep.example.com`) already names the workspace. Type only your email and password. |
+| A **Workspace ID** field | You opened C360's own address. Type the workspace's ID; under it, **Recent** offers the workspaces you logged in to on this computer: one click fills the field. |
+| The button **Log In to CITYST** | The workspace you are about to enter. Each workspace has its own password: Staging's does not open Production. |
+| *The workspace, email and password do not match an account. Check the Workspace ID: Staging and Production have different passwords.* | One of the three is wrong. C360 never says whether the address has an account in some other workspace. |
+
+**Inside the app:**
+
+- The **Workspace ID** is at the top right, before the upload, help and notification buttons.
+- A **Staging** workspace shows an amber band under the top bar on every page (*Staging workspace · CITYST-STG · sends here are for testing*) and a Staging tag beside the Workspace ID, so nobody mistakes it for Production. Sending engines still send for real: a Staging workspace should send only to test lists.
+- The **account menu** (your name at the top right) shows your Workspace ID with Staging or Production, your roles in this workspace and whether two-factor is on. Under it, **Log In to CODE** offers the other workspaces you logged in to on this computer: it opens that workspace's log-in page, where you use that workspace's password.
 
 ## Statuses you will meet
 
@@ -1452,7 +1469,7 @@ The platform team creates the workspace and sends its first administrator an ema
 
 1. **The email.** It names the workspace and its code (for example `NWA`), carries the password link and lists the set-up steps. The link is one-time: if it was used or has expired, ask the platform team, or any administrator who already has access, for a new one (Settings → Users → Password Link).
 2. **Choose a password.** The link opens the password page; choose one and continue to the sign-in.
-3. **Sign in.** The workspace code, your email and the password. When the workspace requires multi-factor authentication, the next screen walks you through it before anything else: scan the code with an authenticator app, type the six digits, store the recovery codes.
+3. **Sign in.** The Workspace ID (already filled in when you open the workspace's own address), your email and the password you chose for this workspace. When the workspace requires multi-factor authentication, the next screen walks you through it before anything else: scan the code with an authenticator app, type the six digits, store the recovery codes.
 4. **You land on Set-Up.** An administrator whose workspace is not ready lands here instead of Home: *Welcome, {name}. Let's set up {CODE}.* with step 1 already done. Everyone else, and every later sign-in, lands on Home, where a card says how far the set-up is until the workspace is ready.
 
 ### The steps, in order
@@ -1947,6 +1964,8 @@ City HT is on the Growth plan (25,000 contacts) with a dedicated IP. They start 
 
 Who can sign in to the workspace, with which roles. You add a person with their email address and roles; they get a one-time password link, choose their own password and sign in. Administrators never see or set a password. Users are deactivated, never deleted, so everything they created keeps its author.
 
+An account is the **Workspace ID and the email address** together. The same person can have an account here and in another workspace (Staging and Production, for example): each is added in its own workspace, with its own password, roles and two-factor. The line above the table names this workspace: *Accounts in the workspace CODE.*
+
 ## Who can use it
 
 | | |
@@ -1958,7 +1977,7 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The table | User (name and email, *you* on your own row), Roles (*No role* when there is none), Status (Active or Deactivated), Sign-In: when they last signed in, *Never signed in* when they have a password but have not used it, *No password yet* until the password link is used, or the provider type (for example `OIDC`) for single sign-on accounts. | Nothing; it shows who can get in. *No password yet* means the person cannot sign in until they use a password link. |
+| The table | User (name and email, *you* on your own row), Roles (*No role* when there is none), Two-Factor (On, *Not set up*, or *Single sign-on* for an account the identity provider signs in), Status (Active or Deactivated), Sign-In: when they last signed in, *Never signed in* when they have a password but have not used it, *No password yet* until the password link is used, or the provider type (for example `OIDC`) for single sign-on accounts. | Nothing; it shows who can get in. *No password yet* means the person cannot sign in until they use a password link. |
 | Add User | Opens the *Add a User* form below. | Creates the account with no password. Nothing is emailed: make a password link next. Refused when the plan's active-user limit is reached: *Your plan allows {n} active users. Deactivate someone or upgrade the plan.* |
 | Edit | Opens the same form for one person: the name and the roles. The email address cannot be changed. | Saves with Save Changes. New roles take effect at the person's next request; no sign-out needed. |
 | Password Link | Shown for active users who sign in with a password. Opens a dialog with a fresh one-time link. | Makes a link on which the person chooses their own password: for a new user, someone who forgot, or when an earlier link expired. |
@@ -1969,7 +1988,7 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Email | The sign-in name. Must be a valid address not already used by another account. | What the person types to sign in, and where an emailed password link goes. Fixed once created: for a new address, deactivate the user and add a new one. |
+| Email | The sign-in name. A valid address, used once in this workspace; the hint under it says *They log in with this address and the Workspace ID CODE.* An address that has an account in another workspace is fine: it gets its own account here. Used twice here, it is refused: *This address already has an account in this workspace. Edit it to change the roles.* | What the person types to sign in, with this workspace's ID, and where an emailed password link goes. Fixed once created: for a new address, deactivate the user and add a new one. |
 | Name | At least two characters. | How the person appears everywhere: the Users table, the owner of a campaign, the author of a template, the approver of a campaign, the *Welcome* on Set-Up. |
 | Roles | A checkbox per role of the workspace, with its description. One or more. | What the person may do: the permissions of all their roles add up. Without a role the person can sign in but sees nothing. Taking `user.admin` away from the last active administrator is refused. |
 
@@ -1990,7 +2009,9 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 
 **Change what someone may do.** Edit → tick or untick roles → Save Changes. To change what a role allows, edit the role under Roles.
 
-**Someone leaves.** Deactivate. Their campaigns keep their name as owner; reassign the live ones from each campaign's Edit Details.
+**Someone leaves.** Deactivate. Their campaigns keep their name as owner; reassign the live ones from each campaign's Edit Details. Deactivating here closes this workspace's account only: if they also have an account in another workspace (Staging, say), deactivate it there too, or ask the platform team to close every account of the address at once.
+
+**Give someone access to both Staging and Production.** Add them in each workspace, with the roles they need there (often more in Staging). Each workspace sends its own password link, so they choose a password for each.
 
 ## What happens behind the scenes
 
@@ -2004,6 +2025,8 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 - A single sign-on account has no password link: the identity provider signs it in. An account that signs in through the provider once becomes a single sign-on account.
 - Roles are defined on the Roles page; this page only assigns them.
 - Opening Password Link again makes a new link but does not cancel one sent earlier: every link stops working as soon as one of them is used or the person signs in.
+- A password link sets the password for this workspace's account only; the person's account in another workspace keeps its own.
+- This page never says whether an address has an account in another workspace: each workspace sees only its own people.
 
 ---
 
@@ -2811,6 +2834,8 @@ Your own second step when you sign in: a six-digit code from an authenticator ap
 | Permission | Everyone, for their own account. When Settings → Security requires it for everyone, it cannot be turned off, and a person without it lands here at sign-in: *Your workspace requires multi-factor authentication. Set it up to continue: nothing else is available until you do.* |
 | Single sign-on | Someone who signs in through the company's identity provider sees *You sign in through your company's single sign-on. The second step, if any, is managed there.* and nothing to set up. |
 | Visiting another workspace | A platform administrator who entered another workspace with Switch Workspace sees *Managed in Your Own Workspace*: their sign-in belongs to their own workspace. |
+
+Each account has its own second step: someone with an account in two workspaces (Staging and Production) sets it up in each, and can use the same authenticator app for both (it shows two entries).
 
 ## The fields and controls
 

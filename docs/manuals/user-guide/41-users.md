@@ -6,6 +6,8 @@
 
 Who can sign in to the workspace, with which roles. You add a person with their email address and roles; they get a one-time password link, choose their own password and sign in. Administrators never see or set a password. Users are deactivated, never deleted, so everything they created keeps its author.
 
+An account is the **Workspace ID and the email address** together. The same person can have an account here and in another workspace (Staging and Production, for example): each is added in its own workspace, with its own password, roles and two-factor. The line above the table names this workspace: *Accounts in the workspace CODE.*
+
 ## Who can use it
 
 | | |
@@ -17,7 +19,7 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The table | User (name and email, *you* on your own row), Roles (*No role* when there is none), Status (Active or Deactivated), Sign-In: when they last signed in, *Never signed in* when they have a password but have not used it, *No password yet* until the password link is used, or the provider type (for example `OIDC`) for single sign-on accounts. | Nothing; it shows who can get in. *No password yet* means the person cannot sign in until they use a password link. |
+| The table | User (name and email, *you* on your own row), Roles (*No role* when there is none), Two-Factor (On, *Not set up*, or *Single sign-on* for an account the identity provider signs in), Status (Active or Deactivated), Sign-In: when they last signed in, *Never signed in* when they have a password but have not used it, *No password yet* until the password link is used, or the provider type (for example `OIDC`) for single sign-on accounts. | Nothing; it shows who can get in. *No password yet* means the person cannot sign in until they use a password link. |
 | Add User | Opens the *Add a User* form below. | Creates the account with no password. Nothing is emailed: make a password link next. Refused when the plan's active-user limit is reached: *Your plan allows {n} active users. Deactivate someone or upgrade the plan.* |
 | Edit | Opens the same form for one person: the name and the roles. The email address cannot be changed. | Saves with Save Changes. New roles take effect at the person's next request; no sign-out needed. |
 | Password Link | Shown for active users who sign in with a password. Opens a dialog with a fresh one-time link. | Makes a link on which the person chooses their own password: for a new user, someone who forgot, or when an earlier link expired. |
@@ -28,7 +30,7 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 
 | Field | What it is | What it changes |
 |---|---|---|
-| Email | The sign-in name. Must be a valid address not already used by another account. | What the person types to sign in, and where an emailed password link goes. Fixed once created: for a new address, deactivate the user and add a new one. |
+| Email | The sign-in name. A valid address, used once in this workspace; the hint under it says *They log in with this address and the Workspace ID CODE.* An address that has an account in another workspace is fine: it gets its own account here. Used twice here, it is refused: *This address already has an account in this workspace. Edit it to change the roles.* | What the person types to sign in, with this workspace's ID, and where an emailed password link goes. Fixed once created: for a new address, deactivate the user and add a new one. |
 | Name | At least two characters. | How the person appears everywhere: the Users table, the owner of a campaign, the author of a template, the approver of a campaign, the *Welcome* on Set-Up. |
 | Roles | A checkbox per role of the workspace, with its description. One or more. | What the person may do: the permissions of all their roles add up. Without a role the person can sign in but sees nothing. Taking `user.admin` away from the last active administrator is refused. |
 
@@ -49,7 +51,9 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 
 **Change what someone may do.** Edit → tick or untick roles → Save Changes. To change what a role allows, edit the role under Roles.
 
-**Someone leaves.** Deactivate. Their campaigns keep their name as owner; reassign the live ones from each campaign's Edit Details.
+**Someone leaves.** Deactivate. Their campaigns keep their name as owner; reassign the live ones from each campaign's Edit Details. Deactivating here closes this workspace's account only: if they also have an account in another workspace (Staging, say), deactivate it there too, or ask the platform team to close every account of the address at once.
+
+**Give someone access to both Staging and Production.** Add them in each workspace, with the roles they need there (often more in Staging). Each workspace sends its own password link, so they choose a password for each.
 
 ## What happens behind the scenes
 
@@ -63,3 +67,5 @@ Who can sign in to the workspace, with which roles. You add a person with their 
 - A single sign-on account has no password link: the identity provider signs it in. An account that signs in through the provider once becomes a single sign-on account.
 - Roles are defined on the Roles page; this page only assigns them.
 - Opening Password Link again makes a new link but does not cancel one sent earlier: every link stops working as soon as one of them is used or the person signs in.
+- A password link sets the password for this workspace's account only; the person's account in another workspace keeps its own.
+- This page never says whether an address has an account in another workspace: each workspace sees only its own people.

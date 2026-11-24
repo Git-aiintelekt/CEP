@@ -242,7 +242,7 @@ The back-office is Django's admin with the Unfold skin. It signs in with a sessi
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Email, Password | The staff account's sign-in. A staff account belongs to a tenant like any other user; the platform's own tenant is the usual home. | |
+| Email, Password | The staff account's sign-in, with no workspace: the back-office looks among staff and platform administrators only. A staff account belongs to a tenant like any other user; the platform's own tenant is the usual home. Staff keep one address across the platform; the same address may also have ordinary accounts in workspaces, which never open the back-office. | |
 | The code page | After the password, the six digits from the authenticator app, when enrolled or required. | The session opens only after it. |
 | Account menu → Log out | Ends the admin session. | |
 
@@ -349,7 +349,7 @@ Staff read; platform administrators change. Suspend, Reactivate, Request a data 
 
 | Section | Fields | What they change |
 |---|---|---|
-| Workspace | Name, Code (fixed), Status, Time zone. | The zone every schedule, quiet hour and report of the workspace reads. Any IANA zone can be typed here. |
+| Workspace | Name, Code (fixed), Status, Used For (Production or Staging), Time zone. | Used For: a Staging workspace shows an amber band and a Staging tag in the app on every page, so nobody mistakes it for Production; nothing else changes (its engines still send). The zone every schedule, quiet hour and report of the workspace reads; any IANA zone can be typed here. |
 | Access | Subdomain, Custom app domain. | Users reach the app at `<subdomain>.your-domain`; the API also accepts the code in the X-Tenant header. A custom domain needs the DNS record and a certificate; the subdomain works meanwhile. |
 | Hosting | Hosting (fixed), Region, Data residency, Onboarded at. | Shared tenants live in the pool database in their own partitions. Moving to dedicated is a migration (Move and offboard), not a field change. |
 | Industry and features | Industry profile, and one switch per feature: Default (follows the profile), On, Off. | What the workspace offers. The plan always has the last word: a feature the plan excludes stays off. |
@@ -402,10 +402,10 @@ Platform administrators.
 
 | Step | Asks | Checks and effects |
 |---|---|---|
-| 1 Workspace | Workspace name; Code; Subdomain; Custom app domain; Time zone; Region; Data residency; Hosting (shared, the usual choice, or dedicated). | Name and code unique; the code upper case, a letter then up to 19 letters, digits or underscores, fixed afterwards; the subdomain lower case; a known IANA zone. |
+| 1 Workspace | Workspace name; Code; Subdomain; Custom app domain; **Used For** (Production, the default, or Staging); Time zone; Region; Data residency; Hosting (shared, the usual choice, or dedicated). | Name and code unique; the code upper case, a letter then up to 19 letters, digits or underscores, fixed afterwards; the subdomain lower case; a known IANA zone. |
 | 2 Plan and features | Subscription plan; Trial days (0 with a billing reference starts the subscription active); Billing reference (the customer at the billing provider: no invoice without it); Industry profile; one switch per feature: follow, on, off. | The table under the form shows where every switch comes from: catalogue default → profile → this workspace → plan. A plan can only take a feature away. |
 | 3 Components and reports | **Components**: the suite components the workspace gets, the plan's ticked. **Base Reports**: the ready-made report packs, each naming the components it needs. | Untick a plan component to switch it off for this workspace; tick one outside the plan to add it as an add-on (both kept under the tenant's Components). A pack whose component is left out is refused. A pack reads a database the workspace connects, so it is not added here: it is remembered, and Insights → Reports → Add Base Reports shows it as **Chosen at Onboarding**. |
-| 4 First administrator | Full name; Email (must not exist in another workspace); Also invite (more administrators, one email per line). | Each gets the Workspace Admin role and a one-time password link. |
+| 4 First administrator | Full name; Email; Also invite (more administrators, one email per line). An address with an account in another workspace is fine: it gets its own account in the new one. | Each gets the Workspace Admin role and a one-time password link for the new workspace. |
 | 5 Policies (skippable) | The consent policy: People without consent (hold back or refuse), Texts need a consent date, Approval before first send, Consent lifetime. | Written into the workspace's settings; the administrator can change it under Settings → Consent Policy. The rest (quiet hours, security, tags, single sign-on) is shown, not asked. |
 | 6 Hand-off (skippable) | A line from you. | Goes into the password-link email under the set-up list. |
 | 7 Review and onboard | Everything in one place, and whether the platform's mail server can send the links. **Onboard CODE** does it. | |
@@ -415,6 +415,8 @@ Platform administrators.
 **Onboard a customer.** Tenants → Onboard a tenant → the seven steps → Onboard. The administrator's email carries the password link and the set-up list: choose a password, sign in, and the app's Set-Up page walks them through engines, senders, lists and the rest (User Guide: Setting Up a New Workspace).
 
 **The link could not be emailed.** The flow says so with the link to copy; send it by hand. The platform's mail server (Configuration → Mail server) is what carries it; without one, every link has to be copied.
+
+**A Staging and a Production workspace for one customer.** Onboard each, Used For set to Staging for the one used for testing. The same people can be the first administrators of both: each workspace gets its own accounts and password links. The Review step shows Staging or Production beside the hosting.
 
 **Something was missed.** The tenant's page: Industry and features, the plan under Subscriptions, more users under Users (each with Create password link), Repair onboarding if the provisioning looks incomplete.
 
@@ -791,14 +793,15 @@ Staff read; platform administrators change. A support session is logged under th
 
 | Section | Fields | What they change |
 |---|---|---|
-| The list | Email, name, tenant, roles, active, staff, platform administrator, last sign-in; filters by tenant, active, staff, sign-in provider. | |
-| Person | Tenant, Email (fixed once created), Name. | |
+| The list | Email, name, tenant, Used For (the tenant's Production or Staging), roles, Two-Factor, active, staff, platform administrator, last sign-in; sorted by email, then tenant; search by email, name or tenant code; filters by tenant, Used For, active, staff, sign-in provider. | Searching an address lists every account it has, one row per workspace, side by side. |
+| Person | Tenant, Email (fixed once created), Name. An address is used once per tenant: a second account for it in the same tenant is refused (*This address already has an account in this workspace.*). | |
 | Sign-in | Provider (local or the identity provider), external subject, Active, MFA enabled, last sign-in. Passwords are never typed here. | |
 | Roles in the tenant | The workspace's roles. | What the user may do in the app. |
-| Platform staff | Staff; Platform administrator. | Who may open the back-office and who may change everything in it. |
+| Platform staff | Staff; Platform administrator. Staff keep one address across the platform: ticking Staff on an address that is already staff in another tenant is refused. | Who may open the back-office and who may change everything in it. |
 | Create password link | A one-time link, emailed when a mail server can, shown to copy otherwise. | |
 | Sign in as this user (support session) | Reason (ticket and what the customer asked, readable by the tenant's administrators), Access mode (read only unless the customer asked for a change). | A short session in the app as that user. |
-| Deactivate, Activate | | |
+| Deactivate, Activate | Actions on the selected rows. | |
+| Deactivate in Every Workspace | An action on the selected rows. | Every account of the selected addresses, in every tenant, is deactivated in one step, each change audited under your name (your own account is never included). For someone who leaves: no account stays active in a Staging workspace. |
 
 ### Roles
 
@@ -824,6 +827,10 @@ Every tenant's keys with their type, prefix, state, last use and expiry; Revoke 
 
 **A customer cannot sign in.** Find the user → check Active and the provider → Create password link → send it. A user of a workspace that requires single sign-on signs in through the provider, not with a link.
 
+**Someone leaves a customer that has Staging and Production.** Users → search their address → tick the rows → Deactivate in Every Workspace.
+
+**One person in Staging and Production.** Each workspace's administrator adds them in the app (Settings → Users), or here: a new user with the other tenant and the same address. Each account has its own password link, roles and two-factor; a Staging account's password never opens Production.
+
 **See a problem with the customer's own eyes.** The user → Sign in as this user → the reason and read-only → Open. The app opens as them with a banner; the session ends after `security.support_access_minutes`, or on End session. The tenant's Security page lists it.
 
 **Work in another workspace as yourself (Switch Workspace).** Platform administrators only, from the app:
@@ -844,7 +851,9 @@ A visit is different: nobody is impersonated. Its tokens carry your own account 
 ## Things to know
 
 - Deactivating keeps everything the user made; nothing is deleted.
-- A user belongs to one tenant; the same email cannot exist in two workspaces.
+- An account is the tenant and the email address together (database patch 0098): the same address can have an account in several tenants, each with its own password, roles and two-factor. The app's log-in always names the workspace (its address, or the Workspace ID field), so it finds that tenant's account; the back-office log-in, which names no workspace, finds staff only.
+- Staff and platform administrators keep one address across the platform (a partial unique index); the same address may still have ordinary accounts in workspaces.
+- Once two tenants hold the same address, patch 0098 cannot be undone.
 
 ---
 
@@ -876,6 +885,8 @@ Staff read; platform administrators change what is editable.
 The feature **sso** must be on for the workspace; the sign-in page asks the API what the workspace offers and shows the button when a provider is active. Accounts created on first sign-in get the role the provider's row names.
 
 ## Things to know
+
+- Single sign-on finds the account in the workspace being signed in to: an address with accounts in several workspaces signs in to the one whose provider it came through, and an account created on first sign-in belongs to that workspace only.
 
 - The client secret is stored encrypted and never shown anywhere; a new one is entered in the app.
 

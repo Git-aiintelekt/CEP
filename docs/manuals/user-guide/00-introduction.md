@@ -25,11 +25,28 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 ## Three ideas that run through everything
 
-**Workspace.** Your company's own area of C360. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code (for example `NWA`) appears in the sign-in screen and in every address C360 gives you to register with other systems.
+**Workspace.** Your company's own area of C360. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code, shown as the **Workspace ID** (for example `NWA`), appears on the log-in page, at the top of every page and in every address C360 gives you to register with other systems. Your account belongs to one workspace: the same email address can also have an account in another workspace (a Staging and a Production one, say), with its own password, roles and two-factor.
 
 **Roles and permissions.** What a person may do is set by their role. A role is a set of permissions such as *campaign.edit* or *user.admin*. The chapter for each page names the permission it needs. If a page refuses you, it says which permission to ask an administrator for.
 
 **Features.** Some parts of C360 are switched on per workspace by the platform team: texts, MMS, e-receipts, journeys, A/B testing, API access, the preference centre, barcodes. A page that belongs to a feature that is off is simply not shown, and its chapter says which feature to ask for.
+
+## Logging in, and knowing which workspace you are in
+
+**The log-in page** asks for three things: the **Workspace ID**, your email and your password.
+
+| What you see | What it means |
+|---|---|
+| *Workspace ID: CITYST* above Email | The address you opened (the workspace's own address, for example `citist.cep.example.com`) already names the workspace. Type only your email and password. |
+| A **Workspace ID** field | You opened C360's own address. Type the workspace's ID; under it, **Recent** offers the workspaces you logged in to on this computer: one click fills the field. |
+| The button **Log In to CITYST** | The workspace you are about to enter. Each workspace has its own password: Staging's does not open Production. |
+| *The workspace, email and password do not match an account. Check the Workspace ID: Staging and Production have different passwords.* | One of the three is wrong. C360 never says whether the address has an account in some other workspace. |
+
+**Inside the app:**
+
+- The **Workspace ID** is at the top right, before the upload, help and notification buttons.
+- A **Staging** workspace shows an amber band under the top bar on every page (*Staging workspace · CITYST-STG · sends here are for testing*) and a Staging tag beside the Workspace ID, so nobody mistakes it for Production. Sending engines still send for real: a Staging workspace should send only to test lists.
+- The **account menu** (your name at the top right) shows your Workspace ID with Staging or Production, your roles in this workspace and whether two-factor is on. Under it, **Log In to CODE** offers the other workspaces you logged in to on this computer: it opens that workspace's log-in page, where you use that workspace's password.
 
 ## Statuses you will meet
 

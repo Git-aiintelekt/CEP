@@ -18,7 +18,7 @@ The back-office is Django's admin with the Unfold skin. It signs in with a sessi
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Email, Password | The staff account's sign-in. A staff account belongs to a tenant like any other user; the platform's own tenant is the usual home. | |
+| Email, Password | The staff account's sign-in, with no workspace: the back-office looks among staff and platform administrators only. A staff account belongs to a tenant like any other user; the platform's own tenant is the usual home. Staff keep one address across the platform; the same address may also have ordinary accounts in workspaces, which never open the back-office. | |
 | The code page | After the password, the six digits from the authenticator app, when enrolled or required. | The session opens only after it. |
 | Account menu → Log out | Ends the admin session. | |
 
