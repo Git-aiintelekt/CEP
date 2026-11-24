@@ -132,9 +132,13 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   if (isMms && !media) warnings.push('No picture yet. An MMS template needs one before it can be activated.')
   if (media && media.byte_size > MMS_WARN_BYTES) warnings.push(`The picture is ${kb(media.byte_size)}. Some carriers shrink or drop attachments over 600 KB.`)
 
+  // set once Save & Return has saved: the tab closes before the next render takes the warning away
+  const savedForReturn = useRef(false)
   useEffect(() => {
     if (!dirty) return
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!savedForReturn.current) event.preventDefault()
+    }
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
@@ -201,6 +205,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   async function returnToCampaign() {
     if (!campaignReturn) return
     if (!readOnly && dirty && !(await save())) return
+    savedForReturn.current = true
     leaveForCampaign(campaignReturn, (path) => navigate(path))
   }
 

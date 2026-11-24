@@ -143,9 +143,13 @@ export function WhatsAppWorkspace({ templateName, status, template, tags, number
     warnings.push('No way to stop marketing messages. Add “Reply STOP to opt out” to the footer, or a Stop Offers quick reply.')
   if (current.findings.too_many_tags && !dirty) warnings.push('Meta often refuses a short message with many tags: add words around them.')
 
+  // set once Save & Return has saved: the tab closes before the next render takes the warning away
+  const savedForReturn = useRef(false)
   useEffect(() => {
     if (!dirty) return
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!savedForReturn.current) event.preventDefault()
+    }
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
@@ -200,6 +204,7 @@ export function WhatsAppWorkspace({ templateName, status, template, tags, number
   async function returnToCampaign() {
     if (!campaignReturn) return
     if (!locked && dirty && !(await save())) return
+    savedForReturn.current = true
     leaveForCampaign(campaignReturn, (path) => navigate(path))
   }
 

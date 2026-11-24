@@ -274,6 +274,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
   async function returnToCampaign() {
     if (!campaignReturn) return
     if (!readOnly && (dirty || designSaved.version === 0 || layoutSaved.version === 0) && !(await save())) return
+    guard.markSaved()
     leaveForCampaign(campaignReturn, (path) => guard.requestLeave(() => navigate(path)))
   }
 

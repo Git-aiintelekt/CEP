@@ -38,6 +38,13 @@ async function renderAppAt(path: string) {
   render(<App />)
 }
 
+/** what the browser would do on closing the tab now: true = it asks "Leave site?" */
+function unloadWarns(): boolean {
+  const event = new Event('beforeunload', { cancelable: true })
+  window.dispatchEvent(event)
+  return event.defaultPrevented
+}
+
 const template = { id: 't9', name: 'Star Bag', description: null, channel: 'EMAIL', status: 'ACTIVE', cloned_from: null,
   created_at: '2026-10-01T10:00:00Z', updated_at: '2026-10-01T10:00:00Z', row_version: 1 } as unknown as Template
 
@@ -62,7 +69,8 @@ test('opened from a campaign: Back to Campaign, and Save & Return saves the chan
   const told: unknown[] = []
   class Channel { onmessage: unknown = null; postMessage(data: unknown) { told.push(data) } close() {} }
   vi.stubGlobal('BroadcastChannel', Channel)
-  const close = vi.spyOn(window, 'close').mockImplementation(() => undefined)
+  let warnedOnClose: boolean | null = null
+  const close = vi.spyOn(window, 'close').mockImplementation(() => { warnedOnClose = unloadWarns() })
   const user = userEvent.setup()
   await renderAppAt('/templates/t9/design?campaign=c1&return=%2Fcampaigns%2Fc1%2Fedit%3Fstep%3Dcontent')
 
@@ -72,10 +80,12 @@ test('opened from a campaign: Back to Campaign, and Save & Return saves the chan
   expect(within(footer).getByRole('button', { name: 'Save & Return to Campaign' })).toBeTruthy()
 
   await user.click(screen.getByRole('button', { name: 'Change the Canvas' }))
+  expect(unloadWarns()).toBe(true)                                              // unsaved: closing the tab still asks
   await user.click(screen.getByRole('button', { name: 'Save & Return to Campaign' }))
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/templates/t9/design/'))).toBe(true))
   expect(told).toEqual([{ templateId: 't9' }])                                  // the campaign's tab refreshes its preview
   await vi.waitFor(() => expect(close).toHaveBeenCalled())
+  expect(warnedOnClose).toBe(false)                                             // saved: the tab closes without "Leave site?"
   // the test's window cannot close: the campaign opens here instead
   await vi.waitFor(() => expect(window.location.pathname).toBe('/campaigns/c1/edit'), { timeout: 3000 })
 })
@@ -90,7 +100,8 @@ test('an address outside the campaigns is never followed: the designer keeps its
 
 test('the Message Editor (texts) opened from a campaign: Back to Campaign, and Save & Return saves the text and goes back', async () => {
   const calls = installMockApi() as { method: string; url: string }[]
-  vi.spyOn(window, 'close').mockImplementation(() => undefined)
+  let warnedOnClose: boolean | null = null
+  const close = vi.spyOn(window, 'close').mockImplementation(() => { warnedOnClose = unloadWarns() })
   const user = userEvent.setup()
   await renderAppAt('/templates/tpl-sms/message?campaign=c1&return=%2Fcampaigns%2Fc1')
 
@@ -98,7 +109,10 @@ test('the Message Editor (texts) opened from a campaign: Back to Campaign, and S
   expect(back.getAttribute('href')).toBe('/campaigns/c1')
   const body = (await screen.findByLabelText('Message')) as HTMLTextAreaElement
   await user.type(body, ' Last day!')
+  expect(unloadWarns()).toBe(true)
   await user.click(screen.getByRole('button', { name: 'Save & Return to Campaign' }))
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/templates/tpl-sms/message/'))).toBe(true))
+  await vi.waitFor(() => expect(close).toHaveBeenCalled())
+  expect(warnedOnClose).toBe(false)
   await vi.waitFor(() => expect(window.location.pathname).toBe('/campaigns/c1'), { timeout: 3000 })
 })

@@ -241,6 +241,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
   async function returnToCampaign() {
     if (!campaignReturn) return
     if (!readOnly && (dirty || saved.version === 0) && !(await save())) return
+    guard.markSaved()
     leaveForCampaign(campaignReturn, (path) => guard.requestLeave(() => navigate(path)))
   }
 
