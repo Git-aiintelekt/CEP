@@ -177,6 +177,8 @@ Mailgun Inspect Basic covers client previews; the spam verdict and inbox placeme
 
 **Make inboxes trust a domain.** Under Sending Domains, open the domain's row. For each record marked Missing, Two Records, Lets Anyone Send or Monitor Only, press **Copy** and add or change that TXT record at your DNS provider (for DMARC, copy the Name too). Add the DKIM selector from your engine's DNS page and press **Save and Check**. DNS changes can take up to an hour to appear; then press **Check Now** until the domain reads *Nothing to change*. Start DMARC at quarantine; move to reject once its reports show only your own mail.
 
+**Set up a text sender (SMS and MMS).** First the engine: Add Engine → the text provider (Digivize) → its keys → Add Engine, then Check. Then Add Sender → **Sends Through** that engine: the form changes to Name and Sender Number. Enter the short code or number the provider gave you (the `55123` shown in the field is only an example), tick **Default Sender for Texts** if it is the usual one, and Add Sender. One SMS sender also sends MMS when the provider supports pictures. Press **Verify** and enter your own mobile number with its country code: a real text goes to it from the Sender Number through the engine. When the provider accepts it the sender reads Verified and campaigns can publish with it; when it refuses, the row reads Verification Failed with the provider's reason (usually a Sender Number the provider does not know, or wrong keys).
+
 **Replace a leaked key.** Edit the engine, type the new key over the stored one, save, press Check. For the callback address, press **Rotate Address** and register the new address with the provider; the old one answers nothing from the moment you rotate.
 
 **An engine reads Failing.** Press **See Health** and read the first check marked Failing. *No callback*: Copy Webhook URL and check that the address is registered and switched on at the provider (Postal: the mail server's Webhooks). *Key refused*: Edit the engine, enter its current key, save and press **Check**. *Bounces*: find the campaign and the list behind them before the next send. The platform team has been told as well and may already be on it.
@@ -199,6 +201,8 @@ The campaign's **Recipients** tab shows each message's story, and **Check with t
 
 - A sent message with no delivered time, and *No callback has ever arrived* on the engine, means the callback address is not registered with the provider. The send worked; the news is not coming back.
 - Verification is per address. Changing a sender's From Address resets it to Not Verified Yet.
+- Verifying a text sender sends a real text, which the provider may charge for. Use your own phone.
+- A campaign whose sender is not verified shows *This sender is not verified yet. Publishing needs a verified sender.* on its Content step: verify the sender here, then reload the campaign.
 - Verified and Sending Domains answer different questions: Verified means the engine accepted a message from the address; Sending Domains means inboxes can tell the mail is really yours.
 - Removing an engine removes its senders. Switch it off instead when you may need it again.
 - Keys are stored encrypted and are never shown, exported or written to the audit trail.

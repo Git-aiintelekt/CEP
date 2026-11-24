@@ -56,6 +56,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - The fields and controls
   - How to
   - What happens behind the scenes
+  - The sender on a text preview
   - What a text costs
   - Things to know
 - WhatsApp Templates
@@ -399,7 +400,7 @@ Home is the marketing command centre: how the workspace's campaigns are doing, w
 |---|---|---|
 | The greeting | Good morning, afternoon or evening in the workspace's time zone, with your first name. | Nothing. |
 | Create New | Campaign, Template, Contact List, and Journey where journeys are on: one tile each, only the ones you may create. | Opens the Create Campaign pop-up, the New Template page, the contact list wizard. |
-| Needs Attention | One card per thing to act on: campaigns with delivery failures in the last week, campaigns waiting for a production publish, campaigns waiting for approval; red first, then amber, then the rest; three cards until View All. An opportunity card from the funnel takes one slot when there is one. | Each card's link opens the campaign list filtered to those campaigns. The section is left out when there is nothing to act on. |
+| Needs Attention | One card per thing to act on: campaigns with delivery failures in the last week, campaigns waiting for a production publish, campaigns waiting for approval, and **Message Budget** once this month's texts reach the Warn At percent of the budget set under Settings → Message Costs (shown as a percent, never as money); red first, then amber, then the rest; three cards until View All. An opportunity card from the funnel takes one slot when there is one. | Each card's link opens the campaign list filtered to those campaigns. The section is left out when there is nothing to act on. |
 | Set Up Your Workspace | For administrators until the workspace is ready: how many of the seven set-up steps are done and what comes next. | Continue Set-Up opens Settings → Set-Up (the chapter Setting Up a New Workspace walks the whole path). Hide Until Later on that page hides the card. |
 
 ### Marketing Performance
@@ -680,7 +681,7 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 | Performance | Sent, delivered, opened, clicked, bounced, unsubscribed, complaints and conversions per run, the curve by hour or by day, and for an email campaign with a subject line test, A and B side by side with the winner and Send A / Send B to the Rest while people wait. | |
 | Recipients | One row per person of a run: address or number, name, status (Queued, Sent, Delivered, Opened, Clicked, Bounced, Marked as Spam, Failed), the reason, the times, the engine's message id; filter by status, search, Export CSV. A row opens the message's timeline with every callback the engine sent, and Check with the Engine asks Postal directly. Blocked & Unsubscribed lists this campaign's people who cannot be sent to and why. | |
 | Audience | The lists attached and excluded, the funnel from everyone in the lists to the estimated recipients, the reasons people are left out, system exclusions, and once sent, the frozen picture of the last send beside today's estimate; Export CSV of the frozen list with who was left out and why. | |
-| Content | The template, subject line and preheader (the campaign's own or the template's), the sender, the length of a text, the receipt layout of an e-receipt, with a desktop and mobile preview. | |
+| Content | The template, subject line and preheader (the campaign's own or the template's), the sender, the length of a text, the receipt layout of an e-receipt, with a desktop and mobile preview. **Open in the Designer** (or Message Editor) opens the template in its own tab. The editor shows **Back to Campaign** at the top and **Save & Return to Campaign**: it saves your changes, closes the editor's tab and brings the campaign back in front, its preview already showing the new version. | The preview here refreshes by itself whenever the template is saved in another tab. |
 | Activity Log | Who did what and what the engine did, newest first, with a filter for warnings and errors. Entries are never changed. | |
 
 ### Statuses and what they allow
@@ -854,7 +855,7 @@ A draft can be saved without a list; publishing needs at least one.
 | Subject and Preheader (email and e-receipt templates) | A row that starts closed: **Override** opens it, and it starts open when the campaign already has its own. Subject Line and Preheader, up to 300 characters each; left blank, the template's is used. **Edit the Template's** copies the template's text in to change it; **Use Template's** on the row empties both and closes it. The counter in each field's label row marks where an inbox cuts off (60 characters for a subject, 90 for a preheader), and the smiley button beside it adds an emoji at the cursor; picked while the field is empty, it is added to the template's text, which becomes this campaign's own. Tags such as {{first_name}} work. | Only this campaign's subject and preheader; the template never changes. |
 | Topic | The preference-centre topic the campaign belongs to. Asked for marketing campaigns (not e-receipts) when the preference centre is on and has topics for the channel. Needed to publish. | People who unticked the topic on the preference page are left out of this campaign, counted as Topic Opted Out. Topics are managed under Settings → Preference Centre. |
 | Sender · Send From (required) | The name and address, or the number, the message comes from; the sender brings its engine. The list starts at **Choose a Sender**. An unverified sender is marked "(not verified)"; one on the workspace's own mail server says so. **New Sender** opens Settings → Sending Engines in a new tab. | Mandatory: **Continue to Test** stays on Content and says *Choose who this campaign comes from* until one is chosen. **Save and Close** still keeps a draft without one. Only a verified sender can publish to production; test sends work from any. A sender added with New Sender is the workspace's and can be used by every campaign. |
-| Preview | The chosen template, once the draft is saved. For an email or e-receipt, a desktop / mobile switch; a text shows the phone. **Open in the Designer** (or the Receipt Editor, Message Editor or WhatsApp Editor) opens the template in a new tab. | |
+| Preview | The chosen template, once the draft is saved. For an email or e-receipt, a desktop / mobile switch; a text shows the phone. **Open in the Designer** (or the Receipt Editor, Message Editor or WhatsApp Editor) opens the template in its own tab. The editor shows **Back to Campaign** at the top and **Save & Return to Campaign**: it saves your changes, closes the editor's tab and brings the campaign back in front, its preview already showing the new version. | Saving in the editor changes the template, so every campaign and journey that uses it. |
 | Link Tracking | A row in the same card as Subject and Preheader, shown once a template is chosen. **Edit** (for anyone with Sending Engines · Edit) opens Settings → UTM Tracking in a new tab. | How a campaign's links go out comes from the workspace's settings; the campaign no longer edits them here. The UTM Tracking chapter has the details. |
 
 Both the template and the sender are needed to publish, not to save a draft. A marketing message must let people opt out: an unsubscribe link in an email, opt-out wording such as "Reply STOP" in a text, or the {{opt_out_text}} tag. The pre-publish check looks for it.
@@ -917,6 +918,8 @@ The step has two parts: **When and How It Goes Out**, then **Summary and Publish
 
 **Set up a one-time email.** Create Campaign → name it, Regular Marketing, Email (Message Purpose becomes Marketing) → Create Campaign → Audience: Add Contact List, tick the list → Content: pick the template, check the subject line, choose the topic and the sender → Test: send yourself a test → Targets: Skip for Now or enter the revenue target → Review & Publish: Send Immediately or Schedule for Later → Publish to Production.
 
+**Change the template while setting up.** On the Content step, **Open in the Designer** (or the editor for the channel) under the preview. Edit in the new tab, then **Save & Return to Campaign**: the editor saves, its tab closes, and the Content step shows the new version. Carry on with Test, Targets and Review & Publish. A template used by a live drip cannot be changed: the button then reads **Return to Campaign** and only takes you back.
+
 **Rehearse without sending to anyone.** Attach a Test list and send tests to colleagues from the Test step. A test send moves the status to Test Published and reaches nobody else.
 
 **Send a series.** Drip on Create Campaign → Audience: tick the list → Drip Campaign Setup: build message 1, then Add Message (a copy of the last keeps the header and footer), give each its day and subject, choose the start date, the send time and the zone, and the sender → Targets → Test & Publish: Send All as a Test, check each message, then Publish to Production.
@@ -971,7 +974,7 @@ The card's tag says whether the estimate is within the workspace's limits or ove
 
 # Templates and Content
 
-**Where:** Templates in the main navigation; a template opens in its own editor: the email designer, the message editor for texts, or the receipt editor.
+**Where:** Templates in the main navigation; a template opens in its own editor: the email designer, the message editor for texts, or the receipt editor. A campaign's **Open in the …** opens the same editors in their own tab, with a way back to the campaign (see *Opened from a campaign* below).
 
 ## What this page is for
 
@@ -1080,6 +1083,17 @@ The Store Register's settings (select a part under Receipt Parts):
 
 A Custom HTML receipt has three parts: **Receipt** (the HTML around the lines, with `{{receipt_items}}` where the rows go), **Item Row** (one line, repeated per item, with `{{item.description}}`, `{{item.sku}}`, `{{item.upc}}`, `{{item.size}}`, `{{item.color}}`, `{{item.quantity}}`, `{{item.unit_price}}`, `{{item.discount}}`, `{{item.tax}}`, `{{item.amount}}`, `{{item.status}}`) and **CSS**. Without an Item Row, `{{receipt_body}}` still gives the built-in item table.
 
+### Opened from a campaign
+
+Every editor (email designer, receipt editor, message editor for SMS and MMS, WhatsApp editor) opened from a campaign's Content step or Content tab works the same way:
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Back to Campaign | Top left, in place of the link back to Templates. | Goes back to the campaign in this tab; unsaved changes ask first. |
+| Save & Return to Campaign | Bottom right in the email designer and the receipt editor; beside Save in the message editor and the WhatsApp editor. *Return to Campaign* when the template cannot be changed (a live drip uses it). | Saves your changes (when there are any; a text or a WhatsApp message must be valid first), then closes the editor's tab so the campaign is in front again. If the browser does not let the tab close, the campaign opens in this tab. A refused save keeps you here and says why. |
+
+Every save in an editor tells the campaign's tab, so its preview shows the new version without a reload.
+
 ### Receipt Layouts
 
 Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates can pick, with how many templates use each. **New Layout** starts one from Store Register, Standard, Itemized, Compact, Custom HTML, or a copy of another; each row's menu has Edit, Duplicate, Rename and Archive. Editing a layout used by templates names them before you save, because the change reaches all of them; a layout used by a template in a running drip cannot be changed until the drip ends. A layout a template still uses cannot be archived.
@@ -1104,6 +1118,10 @@ Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates 
 2. Every save is a new version in the template's history; Activate marks the template usable by campaigns.
 3. At send time the engine fills the tags from the workspace's tag catalogue, the recipient's list columns and the customer record, draws each barcode and QR code, puts the campaign's subject and preheader in when it has its own, and for a receipt lays out the transaction the point of sale sent into the receipt slot.
 4. Images are uploaded once per workspace and served from the media store, never embedded in the email.
+
+## The sender on a text preview
+
+The phone in a text template's editor and previews shows the sender at the top: the workspace's default SMS sender; for an MMS template its MMS sender first, then the SMS one. Opened from a campaign (Edit Template), it shows that campaign's own sender. A workspace with no text sender reads *No SMS Sender* (or *No MMS Sender*), and the editor adds an **Add a Sender** link that opens Settings → Sending Engines in a new tab, so the template you are working on stays open.
 
 ## What a text costs
 
@@ -1139,6 +1157,8 @@ WhatsApp lets a business start a conversation only with a template Meta has appr
 ## The fields and controls
 
 ### The WhatsApp editor
+
+Opened from a campaign's Content, it shows **Back to Campaign** and **Save & Return to Campaign** beside Save (Templates and Content: *Opened from a campaign*).
 
 | Field | What it is | What it changes |
 |---|---|---|
@@ -1272,7 +1292,7 @@ Run these in order on a new set-up; each says what to look for.
 
 ## What a WhatsApp message costs
 
-Meta charges a delivered template message by its category and the recipient's country; a message that is not delivered is free, and so are replies within 24 hours of the customer's own message. The template editor shows the price of the category in your home country, and a campaign's Estimated Cost is worked out country by country. Settings → Message Costs → WhatsApp Countries decides where WhatsApp goes: numbers in other countries are left out of WhatsApp campaigns.
+Meta charges a delivered template message by its category and the recipient's country; a message that is not delivered is free, and so are replies within 24 hours of the customer's own message. The template editor shows the price of the category in your home country, and a campaign's Estimated Cost is worked out country by country. Settings → Message Costs → WhatsApp Countries decides where WhatsApp goes: numbers in other countries are left out of WhatsApp campaigns, and the campaign's Recipients tab gives them as *Country Not Chosen for WhatsApp*.
 
 ## Things to know
 
@@ -1286,7 +1306,7 @@ Meta charges a delivered template message by its category and the recipient's co
 
 # The Email Designer
 
-**Where:** Templates → an email template, or New Template → Email. Full screen, with Back to Templates at the top left and the help icon beside the template's name.
+**Where:** Templates → an email template, or New Template → Email; or a campaign's **Open in the Designer**, which opens it in its own tab with **Back to Campaign** instead. Full screen, with Back to Templates at the top left and the help icon beside the template's name.
 
 ## What this page is for
 
@@ -1305,7 +1325,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 
 | Part | What it is | What it changes |
 |---|---|---|
-| The top bar | Back to Templates, the template's name and status, the three modes (Content, Preview, Deliverability) and History. | The mode you work in. |
+| The top bar | Back to Templates (**Back to Campaign** when a campaign opened the designer), the template's name and status, the three modes (Content, Preview, Deliverability) and History. | The mode you work in. |
 | Subject | The subject line, with a tag picker and an emoji picker beside it; the counter turns amber past 60 characters (inboxes cut it there) and the field stops at 300; a hint appears when a word is one spam filters dislike. | The subject every campaign on this template sends, unless the campaign writes its own. Empty, it blocks Activate. |
 | Preheader | The text an inbox shows after the subject, with the same pickers; amber past 90 characters. | Hidden text at the top of the email that inboxes show in the list. Optional. |
 | Blocks (left rail) | The palette: Structure, Content, Brand and Commerce blocks, with a search. Drag a tile onto the canvas, or focus a tile with the arrow keys and press Enter to add it below the selected block. | The design. |
@@ -1315,7 +1335,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 | The canvas | The email as it renders, desktop, tablet or phone width, with the selected block outlined and its breadcrumb (section → column → block) above. Click a block to select it, drag to move it, double-click text to edit it with the formatting toolbar. | |
 | The canvas toolbar | Undo, Redo, Zoom In, Zoom Out, Fit to Width, Desktop / Tablet / Mobile, Show Block Outlines, Preview, Fullscreen, View Code, Download HTML. | How you look at the design; View Code and Download HTML hand it to someone else. |
 | The settings panel (right) | The selected block's settings in three groups: Content, Layout, Appearance. Every field is listed under the block types below. | The block. |
-| The footer | The note: errors that must be fixed, warnings that are advisory, or No errors; **Save**; **Activate** (draft only, with the reason when it cannot). | |
+| The footer | The note: errors that must be fixed, warnings that are advisory, or No errors; **Save**; **Activate** (draft only, with the reason when it cannot); and, when a campaign opened the designer, **Save & Return to Campaign** (*Return to Campaign* when the template cannot be changed). | Save & Return saves the changes (when there are any), closes this tab and brings the campaign back in front, its preview refreshed. If the browser does not let the tab close, the campaign opens in this tab. A save that is refused keeps you here and says why. |
 | Errors and Links pills | The findings on the design, each leading to the field or block concerned; every link in the design with its address and what is wrong with it. | |
 
 ## Starting a template
@@ -1379,6 +1399,7 @@ Run Inbox Previews renders the last saved version in real email clients through 
 - **A conflict**: when someone else saved a newer version, the strip says so and offers Load Latest Version. Nothing is sent until you do.
 - **Activate** runs the blockers: a subject line, the design saved at least once, an unsubscribe link for marketing mail, images with an alt text and no placeholder images, the HTML under Gmail's 102 KB clip limit. A template with an error cannot be activated; warnings are advisory. Once active, campaigns can pick it on their Content step and journeys on a message step.
 - **Leaving** with unsaved changes asks first.
+- **Opened from a campaign**: Save & Return to Campaign saves and goes back to the campaign in one step. Every save, from either button, also tells the campaign's tab, which shows the new version without a reload.
 
 ## How to use the editor: worked examples
 
@@ -1781,6 +1802,8 @@ Mailgun Inspect Basic covers client previews; the spam verdict and inbox placeme
 
 **Make inboxes trust a domain.** Under Sending Domains, open the domain's row. For each record marked Missing, Two Records, Lets Anyone Send or Monitor Only, press **Copy** and add or change that TXT record at your DNS provider (for DMARC, copy the Name too). Add the DKIM selector from your engine's DNS page and press **Save and Check**. DNS changes can take up to an hour to appear; then press **Check Now** until the domain reads *Nothing to change*. Start DMARC at quarantine; move to reject once its reports show only your own mail.
 
+**Set up a text sender (SMS and MMS).** First the engine: Add Engine → the text provider (Digivize) → its keys → Add Engine, then Check. Then Add Sender → **Sends Through** that engine: the form changes to Name and Sender Number. Enter the short code or number the provider gave you (the `55123` shown in the field is only an example), tick **Default Sender for Texts** if it is the usual one, and Add Sender. One SMS sender also sends MMS when the provider supports pictures. Press **Verify** and enter your own mobile number with its country code: a real text goes to it from the Sender Number through the engine. When the provider accepts it the sender reads Verified and campaigns can publish with it; when it refuses, the row reads Verification Failed with the provider's reason (usually a Sender Number the provider does not know, or wrong keys).
+
 **Replace a leaked key.** Edit the engine, type the new key over the stored one, save, press Check. For the callback address, press **Rotate Address** and register the new address with the provider; the old one answers nothing from the moment you rotate.
 
 **An engine reads Failing.** Press **See Health** and read the first check marked Failing. *No callback*: Copy Webhook URL and check that the address is registered and switched on at the provider (Postal: the mail server's Webhooks). *Key refused*: Edit the engine, enter its current key, save and press **Check**. *Bounces*: find the campaign and the list behind them before the next send. The platform team has been told as well and may already be on it.
@@ -1803,6 +1826,8 @@ The campaign's **Recipients** tab shows each message's story, and **Check with t
 
 - A sent message with no delivered time, and *No callback has ever arrived* on the engine, means the callback address is not registered with the provider. The send worked; the news is not coming back.
 - Verification is per address. Changing a sender's From Address resets it to Not Verified Yet.
+- Verifying a text sender sends a real text, which the provider may charge for. Use your own phone.
+- A campaign whose sender is not verified shows *This sender is not verified yet. Publishing needs a verified sender.* on its Content step: verify the sender here, then reload the campaign.
 - Verified and Sending Domains answer different questions: Verified means the engine accepted a message from the address; Sending Domains means inboxes can tell the mail is really yours.
 - Removing an engine removes its senders. Switch it off instead when you may need it again.
 - Keys are stored encrypted and are never shown, exported or written to the audit trail.
@@ -2346,6 +2371,7 @@ Asking emails every approver; the decision goes back to the person who asked. An
 ## Things to know
 
 - Test publishing never needs approval.
+- A text campaign can need approval even with the switch off: when its estimated cost is above the approval limit under Settings → Message Costs, or would take the month over a budget set to Needs Approval. Its Review & Publish step then shows the Approval card, and the approvers listed here decide.
 - Switching approvals off leaves pending requests where they are; the campaigns can simply be published.
 - The switch cannot be turned on while nobody can approve; if the last approver later leaves, approvals stay on and campaigns wait until someone gets the permission.
 
