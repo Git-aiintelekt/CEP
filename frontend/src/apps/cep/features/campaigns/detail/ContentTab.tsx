@@ -131,7 +131,7 @@ export function ContentTab({ campaign, focusTest = 0, zone = 'UTC' }: { campaign
           {campaign.template ? (
             <div className="flex flex-col gap-4">
               <p className="text-helper text-ink-800">With the catalogue's sample values, or as one customer of the audience would get it.</p>
-              <MessagePreview campaignId={campaign.id} controls={{ party, device, sender: campaign.sender_profile_name ?? 'Your brand', image: mmsImage }} />
+              <MessagePreview campaignId={campaign.id} controls={{ party, device, sender: campaign.sender_profile_name, image: mmsImage }} />
             </div>
           ) : (
             <NoContent title="No template chosen yet" text="Choose the message on the Content step of the campaign setup."

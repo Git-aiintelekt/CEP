@@ -9,6 +9,7 @@ import { tabId, tabPanelId } from '@/components/tabIds'
 import { Tabs } from '@/components/Tabs'
 import { DEFAULT_PROFILE, fillForPreview } from '@/apps/cep/features/designer/preview/previewProfiles'
 import { BUBBLE, PhoneFrame } from '@/apps/cep/features/messaging/PhoneFrame'
+import { textSenderName, useSenderProfiles } from '@/apps/cep/features/messaging/textSender'
 import { resolvedText, usePreviewContent } from '@/apps/cep/features/templates/preview/usePreviewContent'
 import type { JourneyGraphNode, Template } from '@/lib/types'
 
@@ -65,6 +66,7 @@ export function ContentPreviewCard({ messageNodes }: { messageNodes: JourneyGrap
 function TemplateContentPreview({ templateId, channel, tab }: { templateId: string; channel: string; tab: PreviewTab }) {
   const template = { id: templateId, name: '', channel, status: 'ACTIVE' } as Template
   const preview = usePreviewContent({ kind: 'template', template })
+  const senders = useSenderProfiles()
 
   if (preview.isError) {
     return <p className="mt-4 text-helper text-danger-text">This template could not be loaded.</p>
@@ -98,11 +100,12 @@ function TemplateContentPreview({ templateId, channel, tab }: { templateId: stri
     )
   }
   const text = resolvedText(preview.data.body, preview.tags)
+  const textChannel = preview.data.channel === 'MMS' ? 'MMS' : 'SMS'
   return (
     <div className="mt-4 overflow-hidden rounded-lg border border-line">
       {header}
       <div className="bg-surface py-4">
-        <PhoneFrame sender="Your Brand">
+        <PhoneFrame sender={textSenderName(senders.data, textChannel)} channel={textChannel}>
           {text.trim() ? (
             <p data-testid="preview-bubble" className={BUBBLE}>{text}</p>
           ) : (

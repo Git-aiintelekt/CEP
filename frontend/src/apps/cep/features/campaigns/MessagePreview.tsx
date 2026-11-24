@@ -114,7 +114,7 @@ interface MessagePreviewProps {
   /** a click on the message opens it large in a pop-up */
   enlarge?: boolean
   /** `image`: an MMS's picture (null: none yet); left out for every other channel */
-  controls?: { party: string; device: PreviewDevice; sender: string; image?: string | null }
+  controls?: { party: string; device: PreviewDevice; sender: string | null; image?: string | null }
 }
 
 export function MessagePreview({ campaignId, templateId, stepId, subject: subjectShown, hideSubject = false, withCustomers = false, compact = false, enlarge = false, controls }: MessagePreviewProps) {
@@ -163,7 +163,7 @@ export function MessagePreview({ campaignId, templateId, stepId, subject: subjec
         {isEmail ? <FittedEmail key={device} html={data.html ?? ''} device={device} /> : (
           <div className="rounded-lg bg-surface-sunken p-6">
             <div className="mx-auto w-full max-w-[320px]">
-              <PhoneFrame sender={controls.sender}>
+              <PhoneFrame sender={controls.sender} channel={controls.image !== undefined ? 'MMS' : 'SMS'}>
                 {controls.image !== undefined && <MmsImage url={controls.image} />}
                 <p aria-label="Text message preview" className={BUBBLE}>{data.text}</p>
               </PhoneFrame>

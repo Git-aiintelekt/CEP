@@ -27,7 +27,7 @@ const LIST_KIND: Record<string, string> = { STATIC: 'Static List', DYNAMIC: 'Dyn
 function StepText({ campaign, step }: { campaign: Campaign; step: DripStep }) {
   const content = usePreviewContent(templateItem(step.template!))
   if (content.data?.kind === 'message' && content.tagsReady) {
-    return <TextThumbnail channel={campaign.channel} data={content.data} tags={content.tags} sender={campaign.sender_profile_name ?? 'Your brand'} />
+    return <TextThumbnail channel={campaign.channel} data={content.data} tags={content.tags} sender={campaign.sender_profile_name} />
   }
   return <SkeletonLine width="100%" height={240} />
 }
