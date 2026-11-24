@@ -314,7 +314,7 @@ test('setup: a picked template opens in its own editor, an e-receipt in the rece
 
   await pickTemplate(user, /Northline order receipt/)
   const open = await screen.findByRole('link', { name: /Open in the Receipt Editor/ })
-  expect(open.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
+  expect(open.getAttribute('href')).toBe('/templates/tpl-receipt/receipt?campaign=c1&return=%2Fcampaigns%2Fc1%2Fedit%3Fstep%3Dcontent')          // with the way back to this step
 })
 
 test('list filters: Status is a multi-select sent as one comma list; Date created presets and a custom range fill date_from / date_to; every change goes back to page 1', async () => {

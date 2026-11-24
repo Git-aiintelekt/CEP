@@ -11,10 +11,13 @@ import { EditorFailure, EditorLoading } from '@/apps/cep/features/designer/Edito
 import { canEditTemplate } from '@/apps/cep/features/designer/editAccess'
 import { ReceiptWorkspace, type ReceiptBackend } from '@/apps/cep/features/receipt/ReceiptWorkspace'
 import { api } from '@/lib/api'
+import { useCampaignReturn } from '@/lib/campaignReturn'
+import { announceTemplateSaved } from '@/lib/templateSaved'
 import type { CodeSample, Design, DesignVersion, MediaAsset, Page, PersonalizationTag, ReceiptLayout, ReceiptLayoutSummary, ReceiptLibraryLayout, Template } from '@/lib/types'
 
 export default function ReceiptEditorPage() {
   const { id = '' } = useParams()
+  const campaignReturn = useCampaignReturn()            // opened from a campaign: Back to Campaign, Save & Return to Campaign
   const { can, has } = useAuth()
   const codes = has('dynamic_codes')
   const queryClient = useQueryClient()
@@ -38,6 +41,7 @@ export default function ReceiptEditorPage() {
       listDesignVersions: () => api.get<DesignVersion[]>(`/templates/${id}/design/versions/`),
       saveReceiptLayout: async (input) => {
         const saved = await api.post<ReceiptLayout>(`/templates/${id}/receipt/`, input)
+        announceTemplateSaved(id)
         void queryClient.invalidateQueries({ queryKey: ['templates'], refetchType: 'none' })
         return saved
       },
@@ -105,7 +109,8 @@ export default function ReceiptEditorPage() {
       tags={tags.data.results}
       assets={(assets.data?.results ?? []).map((asset) => ({ url: asset.url, name: asset.file_name, width: asset.width_px, height: asset.height_px }))}
       backend={backend}
-      backTo="/templates"
+      backTo={campaignReturn ?? '/templates'}
+      campaignReturn={campaignReturn}
       showNav
       readOnly={!canEditTemplate(can, template.data.status)}
     />

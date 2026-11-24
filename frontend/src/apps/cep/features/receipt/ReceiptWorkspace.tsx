@@ -24,6 +24,7 @@ import { useRecentTags } from '@/apps/cep/features/designer/tags/useRecentTags'
 import { useLeaveGuard } from '@/apps/cep/features/designer/useLeaveGuard'
 import type { ReceiptSlotPreset } from '@/apps/cep/features/designer/inspector/receiptSettings'
 import { ApiError } from '@/lib/api'
+import { leaveForCampaign } from '@/lib/campaignReturn'
 import { formatUtcClock, titleCase } from '@/lib/format'
 import type { CodeSample, CodeSampleRequest, Design, DesignSaveInput, DesignVersion, PersonalizationTag, ReceiptLayout, ReceiptLayoutSaveInput, ReceiptLayoutSummary, ReceiptLibraryLayout } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
@@ -81,6 +82,8 @@ interface ReceiptWorkspaceProps {
   readOnly?: boolean
   /** the app's navigation bar down the left edge; the dev playground leaves it off */
   showNav?: boolean
+  /** opened from a campaign: where Back and Save & Return to Campaign go (the campaign's Content) */
+  campaignReturn?: string
 }
 
 /** Where a versioned resource stands: the newest version that exists, and the one on screen. */
@@ -101,7 +104,7 @@ const sameConfig = (a: WorkspaceLayout, b: WorkspaceLayout) => JSON.stringify(a)
 /** "v3", "v2 of 4", or "not saved" when nothing has been. */
 const versionText = ({ version, shown }: Saved) => (shown === 0 ? 'not saved' : `v${shown}${shown !== version ? ` of ${version}` : ''}`)
 
-export function ReceiptWorkspace({ templateName, status, design, receiptLayout, tags, assets, backend, backTo, readOnly = false, showNav = false }: ReceiptWorkspaceProps) {
+export function ReceiptWorkspace({ templateName, status, design, receiptLayout, tags, assets, backend, backTo, readOnly = false, showNav = false, campaignReturn }: ReceiptWorkspaceProps) {
   const editor = useRef<EmailDesignerHandle>(null)
   const [tab, setTab] = useState<ReceiptTab>('outer')
   const [currentStatus, setCurrentStatus] = useState(status)
@@ -209,8 +212,9 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
   }
 
   /** Each part is saved when it has changed or has never been saved; with nothing changed, both are. */
-  async function save() {
-    if (!editor.current) return
+  /** True when everything that was to be saved was saved. */
+  async function save(): Promise<boolean> {
+    if (!editor.current) return false
     const handle = editor.current
     const neither = !designDirty && !layoutDirty
     const saveDesign = neither || designDirty || designSaved.version === 0
@@ -257,11 +261,20 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       if (designResult.status === 'rejected') failed(designResult.reason, DESIGN_NAME, setDesignConflict)
       if (layoutResult.status === 'rejected') failed(layoutResult.reason, LAYOUT_NAME, setLayoutConflict)
       refreshFooter()
+      return designResult.status === 'fulfilled' && layoutResult.status === 'fulfilled'
     } catch (error) {
       toast.failure(error, 'The receipt was not saved')
+      return false
     } finally {
       setBusy(null)
     }
+  }
+
+  /** Save & Return to Campaign: the latest changes saved, then back to the campaign's tab (lib/campaignReturn). */
+  async function returnToCampaign() {
+    if (!campaignReturn) return
+    if (!readOnly && (dirty || designSaved.version === 0 || layoutSaved.version === 0) && !(await save())) return
+    leaveForCampaign(campaignReturn, (path) => guard.requestLeave(() => navigate(path)))
   }
 
   function failed(error: unknown, name: string, markConflict: (conflict: boolean) => void) {
@@ -460,6 +473,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
     <FooterBar
       note={note}
       save={readOnly ? undefined : { onClick: () => void save(), busy: busy === 'save' }}
+      back={campaignReturn ? { label: readOnly ? 'Return to Campaign' : 'Save & Return to Campaign', onClick: () => void returnToCampaign(), busy: busy === 'save' } : undefined}
       primary={
         backend.activate && currentStatus === 'DRAFT' && !readOnly ?
           { label: 'Activate', onClick: () => void activate(), busy: busy === 'activate', disabled: Boolean(activateReason) || busy !== null, disabledReason: activateReason }
@@ -490,6 +504,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
         saveNote={saveNote}
         saveNoteTone={dirty && !readOnly ? 'warning' : 'default'}
         backTo={backTo}
+        backText={campaignReturn ? 'Back to Campaign' : undefined}
         onBack={(event) => {
           event.preventDefault()
           guard.requestLeave(() => navigate(backTo))

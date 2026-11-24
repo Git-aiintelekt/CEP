@@ -1,6 +1,8 @@
 /**
  * /templates/:id/design : loads the template, its latest design, the tag catalogue and the image library.
  * ?drip={campaign}&step={message}: a drip message's template, opened from the Sequence step (drip mode, sequence/dripEditor).
+ * ?campaign={id}&return={path}: opened from a campaign's Content (its own tab): Back to Campaign and Save & Return to Campaign go
+ * back to that path, and every save tells the campaign's tab to refresh its preview (lib/templateSaved).
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
@@ -18,6 +20,8 @@ import { dripLockNote } from '@/apps/cep/features/templates/lastUsed'
 import { DripTestButton } from '@/apps/cep/features/campaigns/sequence/DripTestButton'
 import { useDripMode } from '@/apps/cep/features/campaigns/sequence/dripEditor'
 import { api } from '@/lib/api'
+import { useCampaignReturn } from '@/lib/campaignReturn'
+import { announceTemplateSaved } from '@/lib/templateSaved'
 import type { CodeSample, Design, DesignVersion, MediaAsset, Page, PersonalizationTag, Template } from '@/lib/types'
 
 
@@ -25,6 +29,7 @@ export default function TemplateDesignerPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
   const dripMode = useDripMode(id, params.get('drip'), params.get('step'))
+  const campaignReturn = useCampaignReturn()
   const { can, has } = useAuth()
   const codes = has('dynamic_codes')
   const queryClient = useQueryClient()
@@ -39,6 +44,7 @@ export default function TemplateDesignerPage() {
     () => ({
       save: async (input) => {
         const saved = await api.post<Design>(`/templates/${id}/design/`, input)
+        announceTemplateSaved(id)
         void queryClient.invalidateQueries({ queryKey: ['templates'], refetchType: 'none' })
         return saved
       },
@@ -96,7 +102,8 @@ export default function TemplateDesignerPage() {
       tags={tags.data.results}
       assets={(assets.data?.results ?? []).map((asset) => ({ url: asset.url, name: asset.file_name, width: asset.width_px, height: asset.height_px }))}
       backend={backend}
-      backTo="/templates"
+      backTo={campaignReturn ?? '/templates'}
+      campaignReturn={dripMode ? undefined : campaignReturn}
       drip={dripMode ? { ...dripMode, test: (dirty) => <DripTestButton drip={dripMode} dirty={dirty} /> } : undefined}
       showNav
       readOnly={!canEditTemplate(can, template.data.status, Boolean(template.data.used_in_drip?.locked))}

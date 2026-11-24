@@ -8,11 +8,14 @@ import { useAuth } from '@/auth/AuthContext'
 import { ErrorState, FullPageSpinner } from '@/components/States'
 import { MessageWorkspace, type MessageBackend } from '@/apps/cep/features/messaging/MessageWorkspace'
 import { api } from '@/lib/api'
+import { useCampaignReturn } from '@/lib/campaignReturn'
+import { announceTemplateSaved } from '@/lib/templateSaved'
 import type { DesignVersion, MediaAsset, Message, Page, PersonalizationTag, SenderProfile, Template } from '@/lib/types'
 import { dripLockNote } from '@/apps/cep/features/templates/lastUsed'
 
 export function MessageEditorPage() {
   const { id = '' } = useParams()
+  const campaignReturn = useCampaignReturn()            // opened from a campaign: Back to Campaign, Save & Return to Campaign
   const { can } = useAuth()
   const queryClient = useQueryClient()
 
@@ -28,6 +31,7 @@ export function MessageEditorPage() {
     () => ({
       save: async (input) => {
         const saved = await api.post<Message>(`/templates/${id}/message/`, input)
+        announceTemplateSaved(id)
         void queryClient.invalidateQueries({ queryKey: ['templates'], refetchType: 'none' })
         return saved
       },
@@ -77,7 +81,8 @@ export function MessageEditorPage() {
       library={library.data?.results ?? []}
       senderName={sender?.display_name}
       backend={backend}
-      backTo="/templates"
+      backTo={campaignReturn ?? '/templates'}
+      campaignReturn={campaignReturn}
       readOnly={!can('template.edit') || template.data.status === 'ARCHIVED' || Boolean(template.data.used_in_drip?.locked)}
       lockNote={dripLockNote(template.data)}
     />

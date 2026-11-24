@@ -27,6 +27,8 @@ interface FooterBarProps {
   noteTone?: 'default' | 'danger'
   save?: { onClick: () => void; busy?: boolean }
   primary?: FooterAction
+  /** opened from a campaign: Save & Return to Campaign (or Return to Campaign when the template cannot be edited) */
+  back?: FooterAction
 }
 
 /** What the footer says about the design, most urgent first. */
@@ -38,7 +40,7 @@ export function footerNote(summary: Summary, flaggedLinks: number): { text: stri
   return { text: 'No errors.', tone: 'default' }
 }
 
-export function FooterBar({ note, noteTone = 'default', save, primary }: FooterBarProps) {
+export function FooterBar({ note, noteTone = 'default', save, primary, back }: FooterBarProps) {
   const reasonId = useId()
 
   return (
@@ -79,6 +81,12 @@ export function FooterBar({ note, noteTone = 'default', save, primary }: FooterB
               </span>
             )}
           </>
+        )}
+        {back && (
+          <button type="button" data-return-to-campaign className={back.busy ? SECONDARY_BUSY : PRIMARY} disabled={back.busy} onClick={back.onClick}>
+            {back.busy ? <Spinner className="h-[15px] w-[15px]" /> : <Save size={15} strokeWidth={1.5} aria-hidden />}
+            {back.label}
+          </button>
         )}
       </div>
     </div>

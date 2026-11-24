@@ -9,6 +9,7 @@ import { UpgradeNotice } from '@/components/UpgradeNotice'
 import { UploadsIndicator } from '@/apps/cep/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { useTemplateSavedRefresh } from '@/lib/templateSaved'
 import { leaveVisit } from '@/lib/visit'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { PageRail } from '@/shell/LeftNav'
@@ -132,6 +133,7 @@ function ShortcutsHelp({ onClose, engagement }: { onClose: () => void; engagemen
  * height under the top bar with no padding or footer, so the editor's own panes do the scrolling.
  */
 export function AppShell({ workspace = false }: { workspace?: boolean }) {
+  useTemplateSavedRefresh()                         // a template saved in another tab (the designer): its previews here refresh
   const { me, logout, can, has } = useAuth()
   const location = useLocation()
   /** the campaign editor ends on its bottom action bar, with no legal line */

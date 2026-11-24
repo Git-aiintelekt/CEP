@@ -10,3 +10,9 @@ export function editorRouteFor(channel: string): 'design' | 'receipt' | 'message
 export function editorPathFor(template: { id: string; channel: string }): string {
   return `/templates/${template.id}/${editorRouteFor(template.channel)}`
 }
+
+/** A template's editor opened from a campaign: it learns the campaign and the page to return to (Back to Campaign, Save & Return
+ * to Campaign; lib/campaignReturn), whatever the channel. */
+export function campaignEditorLink(template: { id: string; channel: string }, campaignId: string, returnTo: string): string {
+  return `/templates/${template.id}/${editorRouteFor(template.channel)}?${new URLSearchParams({ campaign: campaignId, return: returnTo }).toString()}`
+}

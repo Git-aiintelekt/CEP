@@ -3,7 +3,7 @@
  * Talks to a `MessageBackend`, so the template page passes the API and the dev playground an in-memory one.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { ArrowLeft, Lock, X } from 'lucide-react'
 import { buttonPrimary } from '@/components/Form'
@@ -16,6 +16,7 @@ import { EmojiPickerButton } from '@/apps/cep/features/emoji/EmojiPickerButton'
 import { charCount } from '@/apps/cep/features/emoji/text'
 import { isDripLockRefusal } from '@/apps/cep/features/templates/lastUsed'
 import { ApiError } from '@/lib/api'
+import { leaveForCampaign } from '@/lib/campaignReturn'
 import { formatDateTime } from '@/lib/format'
 import type { DesignVersion, MediaAsset, Message, MessageSaveInput, PersonalizationTag } from '@/lib/types'
 
@@ -45,6 +46,8 @@ interface WorkspaceProps {
   senderName?: string
   backend: MessageBackend
   backTo: string
+  /** opened from a campaign: where Back and Save & Return to Campaign go (the campaign's Content) */
+  campaignReturn?: string
   readOnly?: boolean
   /** a live drip's message: why it is read-only, in grey */
   lockNote?: string | null
@@ -67,7 +70,8 @@ const asMedia = (asset: MediaAsset): NonNullable<Media> => ({
 /** the server's limit on an MMS subject, counted as the server counts: an emoji once */
 const MMS_SUBJECT_MAX = 80
 
-export function MessageWorkspace({ templateName, channel, status, message, tags, library, senderName = 'Your brand', backend, backTo, readOnly: readOnlyProp = false, lockNote = null }: WorkspaceProps) {
+export function MessageWorkspace({ templateName, channel, status, message, tags, library, senderName = 'Your brand', backend, backTo, campaignReturn, readOnly: readOnlyProp = false, lockNote = null }: WorkspaceProps) {
+  const navigate = useNavigate()
   // a save the API refused because a live drip uses the template: read-only from then on, saying why
   const [refusedLock, setRefusedLock] = useState<string | null>(null)
   const lock = lockNote ?? refusedLock
@@ -161,7 +165,8 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
     })
   }
 
-  async function save() {
+  /** True when it saved. */
+  async function save(): Promise<boolean> {
     setBusy('save')
     setNotice(null)
     setFieldErrors({})
@@ -173,6 +178,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
       setVersions(null)
       const parts = result.findings.segments
       setNotice({ tone: 'ok', title: `Saved as version ${result.version_number}: ${parts} part${parts === 1 ? '' : 's'} per recipient${result.findings.estimated ? ' (estimated with sample values)' : ''}` })
+      return true
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
         setFieldErrors(error.fieldErrors)
@@ -184,9 +190,17 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
       } else {
         setNotice({ tone: 'error', title: error instanceof Error ? error.message : 'Could not save the message' })
       }
+      return false
     } finally {
       setBusy(null)
     }
+  }
+
+  /** Save & Return to Campaign: the latest changes saved, then back to the campaign's tab (lib/campaignReturn). */
+  async function returnToCampaign() {
+    if (!campaignReturn) return
+    if (!readOnly && dirty && !(await save())) return
+    leaveForCampaign(campaignReturn, (path) => navigate(path))
   }
 
   async function activate() {
@@ -264,7 +278,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
           <Link to={backTo} className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline" onClick={(event) => {
             if (dirty && !window.confirm('Leave without saving your changes?')) event.preventDefault()
           }}>
-            <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates
+            <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> {campaignReturn ? 'Back to Campaign' : 'Templates'}
           </Link>
           <h1 className="min-w-0 truncate text-base font-semibold text-ink-900">{templateName}</h1>
           <PageHelp chapter="templates" />
@@ -285,6 +299,12 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             {!readOnly && (
               <button type="button" className={buttonPrimary} disabled={!dirty || tooLong || !body.trim() || busy !== null} onClick={() => void save()}>
                 {busy === 'save' && <Spinner size="sm" tone="onBrand" />} Save
+              </button>
+            )}
+            {campaignReturn && (
+              <button type="button" data-return-to-campaign className={buttonPrimary} disabled={busy !== null || (!readOnly && dirty && (tooLong || !body.trim()))}
+                title={!readOnly && dirty && (tooLong || !body.trim()) ? 'Fix the message first' : undefined} onClick={() => void returnToCampaign()}>
+                {readOnly ? 'Return to Campaign' : 'Save & Return to Campaign'}
               </button>
             )}
           </div>

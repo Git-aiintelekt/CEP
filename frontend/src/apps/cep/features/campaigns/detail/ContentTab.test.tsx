@@ -116,7 +116,7 @@ test('Details for an email: template and version, subject and preheader with sam
   expect(await within(detail('Sender')).findByText('rewards@northwind.example')).toBeTruthy()
   expect((await within(details()).findByTestId('checks-line')).textContent).toBe('No errors')
   expect(within(details()).getByRole('link', { name: 'Edit Content' }).getAttribute('href')).toBe('/campaigns/c1/edit?step=content')
-  expect(within(details()).getByRole('link', { name: /Open in the Designer/ }).getAttribute('href')).toBe('/templates/tpl-email/design')
+  expect(within(details()).getByRole('link', { name: /Open in the Designer/ }).getAttribute('href')).toBe('/templates/tpl-email/design?campaign=c1&return=%2Fcampaigns%2Fc1')
 })
 
 test('Details for a text: sender number, and length in characters and segments with Unicode noted; the message on the Templates phone', async () => {
@@ -124,7 +124,7 @@ test('Details for a text: sender number, and length in characters and segments w
   expect(labels()).toEqual(['Template', 'Sender', 'Length'])
   expect(await within(detail('Sender')).findByText('55512')).toBeTruthy()
   expect(await within(detail('Length')).findByText('44 characters · 1 segment')).toBeTruthy()
-  expect(within(details()).getByRole('link', { name: /Open in the Message Editor/ }).getAttribute('href')).toBe('/templates/tpl-sms/message')
+  expect(within(details()).getByRole('link', { name: /Open in the Message Editor/ }).getAttribute('href')).toBe('/templates/tpl-sms/message?campaign=c1&return=%2Fcampaigns%2Fc1')
   expect(await screen.findByText('Text Message')).toBeTruthy()                                           // PhoneFrame's header
 
   cleanup()
