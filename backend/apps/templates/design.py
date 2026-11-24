@@ -16,6 +16,7 @@ from rest_framework.exceptions import ValidationError
 from api.exceptions import Conflict
 
 from .models import PersonalizationTag, RenderedTemplateContent, TemplateDesignState, TemplateMaster, TemplateTag
+from apps.identity import names
 
 TAG_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}")
 LEGACY_TAG_RE = re.compile(r"\$\{\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}")          # ${STORE_NAME}: the standard templates' spelling of {{store_name}}
@@ -132,7 +133,7 @@ def design_payload(template: TemplateMaster, version: int | None = None) -> dict
         "subject_line": (content.subject_line if content else None) or "",
         "preheader": (content.preheader if content else None) or "",
         "saved_at": state.created_at if state else (content.rendered_at if content else None),
-        "saved_by": state.created_by.display_name if state and state.created_by else None,
+        "saved_by": names.label_of(state, "created_by") if state else None,
     }
 
 
@@ -342,7 +343,7 @@ def receipt_payload(template: TemplateMaster, version: int | None = None) -> dic
         "layout_id": str(library.id) if library else None,
         "layout_name": library.name if library else None,
         "saved_at": state.created_at if state else None,
-        "saved_by": state.created_by.display_name if state and state.created_by else None,
+        "saved_by": names.label_of(state, "created_by") if state else None,
     }
 
 
@@ -539,7 +540,7 @@ def message_payload(template: TemplateMaster, version: int | None = None) -> dic
         "media_asset": {"id": str(media.id), "url": media.public_url, "file_name": media.file_name, "mime_type": media.mime_type,
                         "byte_size": media.byte_size, "width_px": media.width_px, "height_px": media.height_px} if media else None,
         "saved_at": state.created_at if state else (content.rendered_at if content else None),
-        "saved_by": state.created_by.display_name if state and state.created_by else None,
+        "saved_by": names.label_of(state, "created_by") if state else None,
         "findings": analyse_message(template, body, media),
     }
 

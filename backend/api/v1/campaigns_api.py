@@ -63,6 +63,7 @@ from api.permissions import HasPermissionCode, SameTenant
 from apps.campaigns import approval, drip, drip_lifecycle, drip_publish, service
 from apps.campaigns.models import Campaign, CampaignActivityLog, CampaignDripStep, CampaignList, CampaignRun, CampaignTarget, ContactListCampaign
 from apps.contact_lists.models import ContactList
+from apps.identity import names
 from apps.identity.models import AppUser
 from apps.platform_ops import billing
 from apps.templates import design
@@ -176,8 +177,7 @@ class CampaignSerializer(s.CampaignSerializer):
         return sum(included) if included else None
 
     def get_owner_name(self, campaign) -> str | None:
-        owner = campaign.owner_user
-        return (owner.display_name or owner.email) if owner else None
+        return names.label_of(campaign, "owner_user")
 
     def get_setup_complete(self, campaign) -> bool:
         return service.setup_complete(campaign)
@@ -221,7 +221,9 @@ class CampaignSerializer(s.CampaignSerializer):
         return tags
 
     def validate_owner_user(self, value):
-        if value is not None and (str(value.tenant_id) != str(context.require().tenant_id) or not value.is_active or value.deleted_at is not None):
+        request = self.context.get("request")
+        visitor = getattr(request, "platform_visit", None) is not None and value is not None and str(value.pk) == str(request.user.pk)
+        if value is not None and not visitor and (str(value.tenant_id) != str(context.require().tenant_id) or not value.is_active or value.deleted_at is not None):
             raise serializers.ValidationError("Choose an active user of this workspace.")
         return value
 

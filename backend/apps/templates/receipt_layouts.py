@@ -13,6 +13,7 @@ from api.exceptions import Conflict
 
 from . import design
 from .models import ReceiptLayout, TemplateDesignState, TemplateMaster
+from apps.identity import names
 
 PRESETS = ("COMPACT", "STANDARD", "ITEMIZED", "REGISTER", "CUSTOM_HTML")
 CONTENT_KEYS = ("sections", "custom_html", "custom_css", "item_row", "register")
@@ -42,7 +43,7 @@ def _kind(layout: ReceiptLayout) -> str:
 def summary(layout: ReceiptLayout, using: list[TemplateMaster]) -> dict:
     return {"id": str(layout.id), "name": layout.name, "layout_preset": layout.layout_preset, "kind": _kind(layout),
             "used_by": len(using), "version_number": layout.version_number, "updated_at": layout.updated_at,
-            "updated_by": layout.updated_by.display_name if layout.updated_by else None, "archived": layout.archived_at is not None}
+            "updated_by": names.label_of(layout, "updated_by"), "archived": layout.archived_at is not None}
 
 
 def payload(layout: ReceiptLayout, using: list[TemplateMaster] | None = None) -> dict:

@@ -40,6 +40,7 @@ from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.contact_lists import consent, governance, imports, jobs, lists
 from apps.contact_lists.models import ContactList, ContactListImport
+from apps.identity import names
 from apps.tenants import context
 
 from .serializers import AUDIT_FIELDS, TenantModelSerializer
@@ -162,7 +163,7 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
         "review": None, "applied_count": record.applied_count, "new_people": record.new_customer_count, "consents_recorded": record.consent_count,
         "consent": consent.declaration_of(record),
         "created_at": record.created_at, "started_at": record.started_at, "completed_at": record.completed_at,
-        "created_by_name": getattr(record.created_by, "display_name", None) or getattr(record.created_by, "email", None),
+        "created_by_name": names.label_of(record, "created_by"),
     }
     if record.status in ("REVIEW", "APPLYING", "APPLIED") and not (record.status == "REVIEW" and record.next_action == "REVIEW"):
         held_back = record.duplicate_count + record.rejected_count

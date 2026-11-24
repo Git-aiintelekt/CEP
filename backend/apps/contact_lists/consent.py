@@ -18,7 +18,6 @@ an express opt-in: TCPA, CASL).
 from django.db import connections
 from django.utils import timezone
 
-from apps.identity.models import AppUser
 from apps.tenants.models import Tenant
 
 from .models import ContactList, ContactListImport
@@ -129,10 +128,8 @@ def decide(contact_list: ContactList, *, approved: bool, user_id=None, note: str
 
 # ------------------------------------------------------------------------------------------------------------ the record
 def user_name(user_id) -> str | None:
-    if not user_id:
-        return None
-    user = AppUser.objects.filter(pk=user_id).values("display_name", "email").first()
-    return (user["display_name"] or user["email"]) if user else None
+    from apps.identity import names
+    return names.label(user_id)                              # also a visiting platform administrator (Switch Workspace)
 
 
 def record_of(contact_list: ContactList) -> dict:

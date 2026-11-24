@@ -12,6 +12,7 @@ from django.db import connections
 from django.utils import timezone
 
 from apps.campaigns.models import CampaignRun, CampaignRunVariant
+from apps.identity import names
 
 from . import session
 
@@ -160,7 +161,7 @@ def decide(tenant_id, run_id, *, chosen: str | None = None, user=None) -> dict:
             notice = {"config": notifications.prepare(campaign.tenant), "title": f"{campaign.name}: subject line {winner} won",
                       "lines": [f"A \"{variants['A'].subject_line}\": {a}% {METRICS[metric]}.", f"B \"{variants['B'].subject_line}\": {b}% {METRICS[metric]}.",
                                 f"{released:,} more people now get the winner."],
-                      "link": notifications.campaign_link(campaign.pk), "link_label": "Open the Campaign", "owner_email": campaign.owner_user.email if campaign.owner_user else None}
+                      "link": notifications.campaign_link(campaign.pk), "link_label": "Open the Campaign", "owner_email": names.email(campaign.owner_user_id)}
         except Exception:                                  # noqa: BLE001
             log.exception("A/B notification not prepared")
     if notice:
