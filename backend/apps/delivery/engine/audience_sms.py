@@ -13,6 +13,8 @@ Rules, in order (first match is the recorded suppression_reason):
     FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached, or a Gap Between
                        Messages policy's gap_hours have not passed since the last message
     DUPLICATE_NUMBER   another party in this run has the same number (the first keeps it)
+    COUNTRY_NOT_CHOSEN WhatsApp only: the number is in a country the workspace did not choose (Settings → Message Costs,
+                       WhatsApp Countries), when its WhatsApp engine has a rate card
 
 A GLOBAL policy counts every message the person received (email and text); a CHANNEL policy counts texts only.
 
@@ -143,6 +145,8 @@ def build(*, tenant_id, campaign, run, campaign_list, content, provider, sender,
             "topic": preferences.topic_filter(campaign), "base": str(base_list_id) if base_list_id else None}
     with session.connection().cursor() as cursor:
         cursor.execute(BUILD_FROM_BASE if base_list_id else BUILD, args)
+        if channel == "WHATSAPP":
+            _leave_out_countries(cursor, args, campaign, provider)
         cursor.execute(LOG_SUPPRESSED, args)
         cursor.execute(QUEUE, args)
         queued = cursor.rowcount
@@ -150,3 +154,28 @@ def build(*, tenant_id, campaign, run, campaign_list, content, provider, sender,
                            WHERE tenant_id = %(tenant)s AND campaign_list_id = %(list)s GROUP BY 1""", args)
         breakdown = dict(cursor.fetchall())
     return {"queued": queued, "members": sum(breakdown.values()), "eligible": breakdown.pop("ELIGIBLE", 0), "suppressed": breakdown}
+
+
+def _leave_out_countries(cursor, args: dict, campaign, provider) -> int:
+    """WhatsApp: members whose number is in a country the workspace did not choose are left out (COUNTRY_NOT_CHOSEN). Nothing changes
+    while the workspace has chosen no countries or its WhatsApp engine has no rate card."""
+    from apps.delivery import costs, countries
+    from apps.tenants.models import Tenant
+    tenant = Tenant.objects.filter(pk=args["tenant"]).first()
+    own = costs.workspace_settings(tenant) if tenant else None
+    chosen = set((own or {}).get("wa_countries") or [])
+    if not chosen:
+        return 0
+    book = costs.WhatsAppBook(args["tenant"])
+    card = book.card(provider.pk, costs.tenant_day(tenant))
+    if card is None:
+        return 0
+    markets = list(book.rates.get(str(card["id"]), {}))
+    cursor.execute(f"""SELECT m.id, {PRIMARY_PHONE} FROM campaign_list_member m JOIN customer_master cm ON cm.party_id = m.party_id AND cm.tenant_id = m.tenant_id
+                         WHERE m.tenant_id = %(tenant)s AND m.campaign_list_id = %(list)s AND m.status = 'ELIGIBLE'""", args)
+    out = [member for member, phone in cursor.fetchall()
+           if countries.market_for(costs._phone_country(phone, own["home_country"]), markets) not in chosen]
+    for start in range(0, len(out), 5000):
+        cursor.execute("""UPDATE campaign_list_member SET status = 'SUPPRESSED', suppression_reason = 'COUNTRY_NOT_CHOSEN'
+                           WHERE tenant_id = %(tenant)s AND campaign_list_id = %(list)s AND id = ANY(%(ids)s)""", {**args, "ids": out[start:start + 5000]})
+    return len(out)

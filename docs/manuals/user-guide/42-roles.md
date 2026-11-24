@@ -60,6 +60,10 @@ A role is a named set of permissions. A user with the role may do what its permi
 
 Every API request checks the permission the endpoint needs against the sum of the user's roles; a page without the permission says which one to ask for. Changing a role takes effect at the user's next request, no sign-out needed.
 
+## View Message Costs
+
+`cost.view` lets a role see money: the price line on text templates, a campaign's Estimated Cost and its actual Cost. Without it people see parts and recipients only. Workspace Admin has it, and a new workspace's Campaign Manager role starts with it.
+
 ## Things to know
 
 - Settings needs user.admin as a whole; a role with provider.edit alone cannot open Sending Engines through the menu, though the API allows it.

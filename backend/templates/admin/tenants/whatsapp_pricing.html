@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ tenant.name }} · WhatsApp Pricing | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p class="cep-muted"><a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">{{ tenant.name }}</a> › <a class="cep-link" href="{{ back }}">WhatsApp Rates</a> › Edit Pricing</p>
+            <h1>Edit Pricing</h1>
+            <p>Card from {{ card.effective_from|date:"j M Y" }}, {{ card.currency }}. {% if in_place %}It has not started, so it is changed as it is.{% else %}It is in force, so it is not changed: the new pricing starts from the date below on a copy of its costs.{% endif %}</p>
+        </div>
+    </div>
+    <form method="post" class="cep-card" style="padding:1.125rem">{% csrf_token %}
+        {% for error in fixed_errors %}<p style="color:var(--cep-bad-text);margin:0 0 0.5rem">{{ error }}</p>{% endfor %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:0.875rem 1.25rem">
+            {% for field in form %}{% include "admin/tenants/rate_field.html" with field=field %}{% endfor %}
+        </div>
+        <h2 style="margin:1.5rem 0 0.5rem;font-size:16px;font-weight:600">Fixed Prices</h2>
+        <p class="cep-muted" style="margin:0 0 0.75rem">With Markup on Cost, a fixed price overrides the markup for one market and category; leave it empty to use the markup. With Fixed Price, every market and category needs one.</p>
+        <div class="cep-table-wrap">
+            <table class="cep-table" aria-label="Fixed prices">
+                <thead><tr><th>Market</th><th>Marketing (cost)</th><th>Utility (cost)</th><th>Authentication (cost)</th></tr></thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr><td><strong>{{ row.rate.market }}</strong></td>
+                    {% for cell in row.cells %}<td><input type="text" inputmode="decimal" name="fixed_{{ row.rate.pk }}_{{ cell.key }}" value="{{ cell.fixed }}" aria-label="{{ row.rate.market }} {{ cell.key }} fixed price" class="border rounded-default px-2 py-1" style="width:7rem"> <small class="cep-muted">{{ cell.cost|default_if_none:"—" }}</small></td>{% endfor %}</tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="cep-actions" style="margin-top:1.25rem">
+            <button type="submit" class="cep-button">Save Pricing</button>
+            <a class="cep-button cep-button-quiet" href="{{ back }}">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

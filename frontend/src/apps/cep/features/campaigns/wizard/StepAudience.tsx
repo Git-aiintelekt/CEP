@@ -19,6 +19,7 @@ import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, ContactList, Page } from '@/lib/types'
 
+import { CostEstimateCard } from '../../costs/CostEstimateCard'
 import { AudiencePicture } from '../AudiencePicture'
 import { estimateSummary, useAudienceEstimate } from '../audienceNumbers'
 import { AudienceSummary } from '../detail/AudienceSummary'
@@ -168,7 +169,10 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
     <div className="flex flex-col gap-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="order-first lg:sticky lg:top-6 lg:order-last" data-audience-summary>
-          <SummaryCard included={included.length} pending={pending.length ? pendingContacts : 0} estimate={estimate} noun={noun} />
+          <div className="flex flex-col gap-6">
+            <SummaryCard included={included.length} pending={pending.length ? pendingContacts : 0} estimate={estimate} noun={noun} />
+            <CostEstimateCard campaignId={campaign?.id} include={included} exclude={excluded} enabled={included.length > 0 && !drip && channel !== 'EMAIL' && channel !== 'MULTI'} />
+          </div>
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">

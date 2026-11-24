@@ -147,6 +147,11 @@ def apply_sms(tenant_id, event: DeliveryEvent) -> str:
         execution_id, party_id, phone, status, created_at = found
         when = _plausible(event.occurred_at)
         kind = event.event_type
+        pricing = event.raw.get("pricing") if isinstance(getattr(event, "raw", None), dict) else None
+        if isinstance(pricing, dict) and "billable" in pricing:          # WhatsApp: whether Meta charges for it, and as what (apps/delivery/costs.py)
+            cursor.execute("UPDATE sms_execution SET wa_billable = %s, wa_category = %s, wa_pricing_type = %s WHERE tenant_id = %s AND id = %s AND created_at = %s",
+                           [bool(pricing.get("billable")), str(pricing.get("category") or "")[:40] or None, str(pricing.get("type") or pricing.get("pricing_model") or "")[:40] or None,
+                            str(tenant_id), execution_id, created_at])
         if kind is EventType.DELIVERED:
             if status in ("OPTED_OUT", "FAILED") or SMS_RANK.get(status, 0) >= SMS_RANK["DELIVERED"]:
                 return "ignored"

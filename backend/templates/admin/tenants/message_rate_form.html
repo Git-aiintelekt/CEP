@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ tenant.name }} · {{ heading }} | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p class="cep-muted"><a class="cep-link" href="{% url 'admin:tenants_tenant_changelist' %}">Tenants</a> › <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">{{ tenant.name }}</a> › <a class="cep-link" href="{{ back }}">Message Rates</a> › {{ heading }}</p>
+            <h1>{{ heading }}</h1>
+            <p>{% if rate and not editing %}This rate is in force, so it is not changed: the figures below start from the date you give, and the current rate ends the day before.{% elif editing %}This rate has not started yet, so it can still be changed or deleted.{% else %}Amounts in {{ currency }}, up to 4 decimals.{% endif %}</p>
+        </div>
+    </div>
+    <form method="post" class="cep-card" style="padding:1.125rem" data-rate-form>{% csrf_token %}
+        {% if form.non_field_errors %}<div style="margin-bottom:1rem;color:var(--cep-bad-text);font-size:14px">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+        {% for title, names in groups %}
+            <h2 style="margin:{% if forloop.first %}0{% else %}1.5rem{% endif %} 0 0.75rem;font-size:16px;font-weight:600">{{ title }}</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:0.875rem 1.25rem">
+                {% for field in form %}{% if field.name in names %}{% include "admin/tenants/rate_field.html" with field=field %}{% endif %}{% endfor %}
+            </div>
+        {% endfor %}
+        <p class="cep-muted" data-margin style="margin:1rem 0 0" aria-live="polite"></p>
+        <div class="cep-actions" style="margin-top:1.25rem">
+            <button type="submit" class="cep-button">Save Rate</button>
+            <a class="cep-button cep-button-quiet" href="{{ back }}">Cancel</a>
+            {% if editing %}<button type="submit" name="delete" value="1" class="cep-button cep-button-danger" formnovalidate>Delete This Rate</button>{% endif %}
+        </div>
+    </form>
+</div>
+<script>
+// the margin as the platform team types; the server checks it again on Save
+(function () {
+    const form = document.querySelector('[data-rate-form]');
+    if (!form) return;
+    const out = form.querySelector('[data-margin]');
+    const num = (name) => { const el = form.elements[name]; const v = el ? parseFloat(el.value) : NaN; return isNaN(v) ? null : v; };
+    const pick = (name) => { const el = form.querySelector(`[name="${name}"]:checked`) || form.elements[name]; return el ? el.value : ''; };
+    function line(kind, cost, price, markup, fee) {
+        if (cost === null) return null;
+        const markupOn = pick('pricing') === 'MARKUP';
+        const p = markupOn ? (markup === null ? null : Math.round(cost * (1 + markup / 100) * 10000) / 10000) : price;
+        if (p === null) return null;
+        const spent = cost + (pick('carrier_fees') === 'INCLUDED' ? (fee || 0) : 0);
+        const pct = p > 0 ? Math.round((p - spent) / p * 100) : 0;
+        return `${kind} ${p.toFixed(4)} a ${kind === 'SMS' ? 'part' : 'message'}, margin ${(p - spent).toFixed(4)} (${pct}%)` + (p < spent ? ' — below cost' : '');
+    }
+    function update() {
+        const parts = [line('SMS', num('sms_cost'), num('sms_price'), num('sms_markup'), num('carrier_fee_part')),
+                       line('MMS', num('mms_cost'), num('mms_price'), num('mms_markup'), num('carrier_fee_mms'))].filter(Boolean);
+        out.textContent = parts.length ? 'Price: ' + parts.join('; ') + '.' : '';
+    }
+    form.addEventListener('input', update);
+    form.addEventListener('change', update);
+    update();
+})();
+</script>
+{% endblock %}

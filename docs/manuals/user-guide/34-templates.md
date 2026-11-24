@@ -134,6 +134,10 @@ Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates 
 3. At send time the engine fills the tags from the workspace's tag catalogue, the recipient's list columns and the customer record, draws each barcode and QR code, puts the campaign's subject and preheader in when it has its own, and for a receipt lays out the transaction the point of sale sent into the receipt slot.
 4. Images are uploaded once per workspace and served from the media store, never embedded in the email.
 
+## What a text costs
+
+With View Message Costs, and once the platform team has set prices (Settings → Message Costs), a line under an SMS or MMS template's part counter says what one recipient costs at the default sender's price, and per 1,000: parts × (price a part + carrier fee) for SMS, one flat price for MMS. It updates as you type: an emoji makes every part shorter (70 characters instead of 160), so the line shows the extra parts. Tags are counted with their sample values, so a long value can add a part. A WhatsApp template shows the price of its category in the home country instead: length and pictures do not change it.
+
 ## Things to know
 
 - Changing a template changes what every campaign using it sends from then on. Duplicate when a campaign must keep its own version.

@@ -1,0 +1,8 @@
+{% if original and rates_panel %}
+<section class="cep-section" aria-labelledby="cep-message-rates" style="margin-top:1.25rem">
+    <div class="cep-section-head">
+        <h2 id="cep-message-rates">Message Rates</h2>
+        <span>{% if rates_panel.currency %}{{ rates_panel.currency }} · {{ rates_panel.current }} rate{{ rates_panel.current|pluralize }} in force{% if rates_panel.future %}, {{ rates_panel.future }} starting later{% endif %}{% if rates_panel.cards %} · WhatsApp rate card in force{% endif %}{% else %}No currency or rates yet: the workspace sees no costs{% endif %} · <a class="cep-link" href="{% url 'admin:tenants_tenant_message_rates' original.pk %}">Manage Message Rates →</a></span>
+    </div>
+</section>
+{% endif %}

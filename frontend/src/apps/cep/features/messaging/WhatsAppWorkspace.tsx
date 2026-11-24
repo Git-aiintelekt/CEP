@@ -20,6 +20,7 @@ import type { MediaAsset, PersonalizationTag, WhatsAppButton, WhatsAppTemplate }
 
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
+import { WhatsAppCostLine } from '../costs/TemplateCostLine'
 import { WhatsAppPreview } from './WhatsAppPreview'
 import { META_STATUS } from './whatsappStatus'
 
@@ -338,7 +339,12 @@ export function WhatsAppWorkspace({ templateName, status, template, tags, number
                   onChange={(event) => set('metaName', event.target.value.toLowerCase().replace(/[^a-z0-9_]+/g, '_'))} />}
               </Field>
               <Field label="Category" required error={errors.category} hint="Utility is only for an update the person expects, such as a receipt or an order. Meta moves anything promotional to Marketing.">
-                {() => <Segmented label="Category" value={form.category} disabled={wordsFixed} options={[['MARKETING', 'Marketing'], ['UTILITY', 'Utility']]} onChange={(value) => set('category', value)} />}
+                {() => (
+                  <div>
+                    <Segmented label="Category" value={form.category} disabled={wordsFixed} options={[['MARKETING', 'Marketing'], ['UTILITY', 'Utility']]} onChange={(value) => set('category', value)} />
+                    <WhatsAppCostLine category={form.category} />
+                  </div>
+                )}
               </Field>
               <Field label="Language" required error={errors.language}>
                 {(ids) => <Select {...ids} value={form.language} disabled={wordsFixed} onChange={(event) => set('language', event.target.value)}>

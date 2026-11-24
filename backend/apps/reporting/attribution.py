@@ -358,6 +358,17 @@ def _money(value):
     return None if value is None else Decimal(str(value)).quantize(Decimal("0.01"))
 
 
+def _text_prices(tenant_id, scope: list[str], alias: str) -> dict:
+    """campaign id -> what its texts cost the workspace at its message prices (apps/delivery/costs.py), for the campaigns that sent a
+    priced text; the per-1,000 text rate still applies to the others."""
+    from apps.delivery import costs
+    if not costs.has_rates(tenant_id):
+        return {}
+    tallies = costs.tally_sent(tenant_id, alias=alias, where="AND e.campaign_id::text = ANY(%s)", params=[scope], extra=", e.campaign_id::text", group=", 12",
+                               split=lambda value: value)
+    return {pk: tally.total for pk, tally in tallies.items() if tally.lines}
+
+
 def rollup(tenant_id, config: dict, campaign_ids=(), *, full: bool = False) -> int:
     """Writes campaign_actual for the campaigns given, those that sent in the last 35 days, or (full) every campaign that ever
     sent. Revenue is net of refunds; buyers are distinct people (an order without
@@ -396,12 +407,15 @@ def rollup(tenant_id, config: dict, campaign_ids=(), *, full: bool = False) -> i
                            WHERE tenant_id = %s AND campaign_id::text = ANY(%s) ORDER BY campaign_id, computed_at DESC""", [tenant_id, scope])
         existing = {pk: (cost, offer) for pk, cost, offer in cursor.fetchall()}
         email_rate, text_rate = config.get("email_cost_per_1000"), config.get("text_cost_per_1000")
+        priced = _text_prices(tenant_id, scope, session.connection().alias)       # texts at the workspace's message prices, when it has them
         written = 0
         for pk in scope:
             revenue, orders, buyers = credit.get(pk, (Decimal("0.00"), 0, 0))
             sent_emails, sent_texts = int(emails.get(pk, 0)), int(texts.get(pk, 0))
             delivered = sent_emails + sent_texts
-            if email_rate is None and text_rate is None:
+            if pk in priced:
+                delivery_cost = _money(Decimal(sent_emails) / 1000 * Decimal(str(email_rate or 0)) + priced[pk])
+            elif email_rate is None and text_rate is None:
                 delivery_cost = existing.get(pk, (None, None))[0]
             else:
                 delivery_cost = _money(Decimal(sent_emails) / 1000 * Decimal(str(email_rate or 0)) + Decimal(sent_texts) / 1000 * Decimal(str(text_rate or 0)))

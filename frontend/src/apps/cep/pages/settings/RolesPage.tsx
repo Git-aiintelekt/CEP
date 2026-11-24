@@ -14,11 +14,11 @@ import type { PermissionDef, Role } from '@/lib/types'
 
 const AREA_LABEL: Record<string, string> = {
   campaign: 'Campaigns', list: 'Contact Lists', template: 'Templates', journey: 'Journeys', consent: 'Consent', governance: 'Sending Rules',
-  provider: 'Delivery Providers', report: 'Reports', user: 'Administration',
+  provider: 'Delivery Providers', report: 'Reports', user: 'Administration', cost: 'Message Costs',
 }
 const ACTION_LABEL: Record<string, string> = { view: 'View', edit: 'Create and Edit', publish: 'Publish', activate: 'Activate', import: 'Import' }
 /** an "admin" permission means something different in each area */
-const PERMISSION_LABEL: Record<string, string> = { 'user.admin': 'Manage Users, Roles and API Keys', 'report.admin': 'Manage Every Report, Its Sharing and Report Access' }
+const PERMISSION_LABEL: Record<string, string> = { 'user.admin': 'Manage Users, Roles and API Keys', 'cost.view': 'View Message Costs', 'report.admin': 'Manage Every Report, Its Sharing and Report Access' }
 const permissionLabel = (permission: PermissionDef) => PERMISSION_LABEL[permission.code] ?? ACTION_LABEL[permission.code.split('.')[1]] ?? permission.description ?? permission.code
 
 type Editing = { role: Role | null } | null

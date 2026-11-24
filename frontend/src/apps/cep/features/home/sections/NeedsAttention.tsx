@@ -26,7 +26,7 @@ function Action({ href, label, describedAs }: { href: string; label: string; des
 
 /** The count, large, with "+" when it is a floor */
 function Count({ group }: { group: AttentionGroup }) {
-  return <span data-count className="font-display text-kpi font-semibold text-ink-900 cep-num">{formatNumber(group.count)}{group.atLeast ? '+' : ''}</span>
+  return <span data-count className="font-display text-kpi font-semibold text-ink-900 cep-num">{formatNumber(group.count)}{group.atLeast ? '+' : ''}{group.suffix ?? ''}</span>
 }
 
 /** One alert group as a grey box: its severity tag, the count, the sentence, and the way to fix it. A group of separate problems (Drip Problems) lists each with its own link. */

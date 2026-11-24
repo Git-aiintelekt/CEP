@@ -27,9 +27,12 @@ USAGE = reverse_lazy("admin:platform_ops_usage")          # lives under the invo
 GUIDE = reverse_lazy("admin:platform_ops_guide")          # the Platform Guide, under the global parameters admin's address
 UPGRADE = reverse_lazy("admin:platform_ops_upgrade")      # Scheduled Upgrade, likewise
 PERFORMANCE = reverse_lazy("admin:tenants_tenant_performance")   # under the tenant admin's address
+MESSAGE_USAGE = reverse_lazy("admin:tenants_tenant_message_usage")   # likewise
 
 
 def _is_performance(request):
+    if request.path.startswith(str(MESSAGE_USAGE)):
+        return True                                      # its own entry lights up, not Tenants
     return request.path.startswith(str(PERFORMANCE)) or (request.path.startswith(str(reverse_lazy("admin:tenants_tenant_changelist")))
                                                          and request.path.endswith("/performance/"))
 
@@ -39,7 +42,9 @@ def _under(link):
     with the current page: four entries at once on the tenant lists.) Usage and Tenant performance live under other
     admins' addresses, so those admins' entries stay dark there."""
     if link is PERFORMANCE:
-        return _is_performance
+        return lambda request: _is_performance(request) and not request.path.startswith(str(MESSAGE_USAGE))
+    if link is MESSAGE_USAGE:
+        return lambda request: request.path.startswith(str(MESSAGE_USAGE))
     return lambda request: request.path.startswith(str(link)) and (str(link) == str(USAGE) or not request.path.startswith(str(USAGE)))         and not _is_performance(request)
 
 
@@ -96,6 +101,7 @@ UNFOLD = {
                 _link("Subscriptions", "receipt_long", "tenants_tenantsubscription"),
                 _link("Plans", "sell", "tenants_subscriptionplan"),
                 _link("Invoices", "request_quote", "platform_ops_tenantinvoice"),
+                {"title": "Message Usage", "icon": "sms", "link": MESSAGE_USAGE, "active": _under(MESSAGE_USAGE)},
                 _link("Move and Offboard", "move_up", "platform_ops_tenantoperation"),
             ]},
             {"title": "People and Access", "separator": True, "items": [

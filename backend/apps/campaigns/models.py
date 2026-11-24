@@ -85,6 +85,7 @@ class Campaign(models.Model):
     drip_config = models.JSONField(null=True, blank=True)  # {steps: [{day}], time}
     respect_governance = models.BooleanField(default=True)
     include_unengaged = models.BooleanField(default=False)  # patch 0094: a win-back campaign reaches unengaged contacts
+    cost_estimate = models.JSONField(null=True, blank=True)  # patch 0099: the last text-cost estimate and its standing against the limits (apps/delivery/costs.py)
     rate_limit_per_hour = models.IntegerField(null=True, blank=True)
     timezone_optimization = models.BooleanField(default=False)
     receipt_config = models.JSONField(null=True, blank=True)

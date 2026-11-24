@@ -25,7 +25,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .platform_status_api import PlatformStatusView
-from . import (receipt_layouts_api, attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
+from . import (receipt_layouts_api, costs_api, attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api, governance_api)
 
@@ -80,6 +80,9 @@ urlpatterns = [
     path("platform/visits/", platform_visits.VisitsView.as_view(), name="platform_visits"),
     path("auth/visit/end/", platform_visits.VisitEndView.as_view(), name="auth_visit_end"),
     path("workspace/approvals/", workspace_api.ApprovalsView.as_view(), name="workspace_approvals"),
+    path("message-costs/", costs_api.MessageCostsView.as_view(), name="message_costs"),
+    path("message-prices/", costs_api.MessagePricesView.as_view(), name="message_prices"),
+    path("campaigns/<uuid:pk>/cost/", costs_api.CampaignCostView.as_view(), name="campaign_cost"),
     path("workspace/notifications/", workspace_api.NotificationsView.as_view(), name="workspace_notifications"),
     path("workspace/notifications/test/", workspace_api.NotificationsTestView.as_view(), name="workspace_notifications_test"),
     path("workspace/mail-server/", workspace_api.MailServerView.as_view(), name="workspace-mail-server"),

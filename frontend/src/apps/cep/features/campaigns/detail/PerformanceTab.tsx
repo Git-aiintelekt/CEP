@@ -20,11 +20,17 @@ import { hasAction, isText } from '../vocabulary'
 import { resultsStamp, useCampaignMetrics } from './campaignMetrics'
 import { economicsHeadline, economicsRows, economicsSubline, hasTargets, type ActualCosts, type EconomicsRow, type Tone } from './economics'
 import { MessageComparison } from './MessageComparison'
+import { CampaignCostCard } from '../../costs/CampaignCostCard'
+import { useCampaignCost } from '../../costs/data'
 import { RunsCard } from './RunsCard'
 import { TimeseriesChart } from './TimeseriesChart'
 
-/** the API doesn't report what a campaign really cost yet */
-const NO_COSTS: ActualCosts = { campaign: null, offer: null }
+/** what the campaign really cost: its texts at the workspace's message prices (people with View Message Costs); email has no figure */
+function useActualCosts(campaign: Campaign): ActualCosts {
+  const cost = useCampaignCost(campaign.id, isText(campaign))
+  const actual = cost.data?.actual
+  return { campaign: actual && !actual.sending ? Number(actual.total) : null, offer: null }
+}
 
 const rate = (value: number) => `${value}%`
 
@@ -98,6 +104,7 @@ const economicsColumns: Column<EconomicsRow>[] = [
 
 function EconomicsCard({ campaign, metrics }: { campaign: Campaign; metrics: CampaignMetrics }) {
   const { can } = useAuth()
+  const costs = useActualCosts(campaign)
   const editable = can('campaign.edit') && hasAction(campaign, 'edit') && !campaign.is_journey_generated
   const targets = campaign.targets
   const edit = editable && <CardLink to={setupHref(campaign.id, { step: 'targets' })}>Edit Targets</CardLink>
@@ -108,11 +115,11 @@ function EconomicsCard({ campaign, metrics }: { campaign: Campaign; metrics: Cam
   return (
     <DetailCard title="Economics" actions={edit} flush>
       <div className="flex flex-col gap-1.5 pb-5 md:px-6 md:pt-6">
-        <p className="cep-num font-display text-section-title font-semibold text-ink-900" data-testid="economics-headline">{economicsHeadline(metrics, NO_COSTS)}</p>
+        <p className="cep-num font-display text-section-title font-semibold text-ink-900" data-testid="economics-headline">{economicsHeadline(metrics, costs)}</p>
         {subline && <p className="cep-num text-sm text-ink-800">{subline}</p>}
       </div>
       <div className="md:border-t md:border-line-subtle">
-        <DataTable columns={economicsColumns} rows={economicsRows(targets, metrics, { texts: isText(campaign), costs: NO_COSTS })} rowKey={(row) => row.measure}
+        <DataTable columns={economicsColumns} rows={economicsRows(targets, metrics, { texts: isText(campaign), costs })} rowKey={(row) => row.measure}
           caption="Targets against results" framed={false} inset="card" phone="table" />
       </div>
       <div className="flex flex-col gap-6 pt-6 md:border-t md:border-line-subtle md:p-6">
@@ -149,6 +156,7 @@ export function PerformanceTab({ campaign, zone, live, focusRun, onSkipped }: { 
     <div className="flex flex-col gap-6">
       {campaign.campaign_type === 'DRIP' && <MessageComparison campaign={campaign} zone={zone} onSkipped={onSkipped ?? (() => {})} />}
       <ResultsCard campaign={campaign} zone={zone} metrics={metrics} />
+      {texts && <CampaignCostCard campaignId={campaign.id} />}
       <EngagementCard campaign={campaign} zone={zone} live={live} />
       {data && <EconomicsCard campaign={campaign} metrics={data} />}
       <RunsCard campaign={campaign} zone={zone} live={live} expandable focusRun={focusRun} />
