@@ -4,7 +4,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 
-import { useAuth } from '@/auth/AuthContext'
+import { useOptionalAuth } from '@/auth/AuthContext'
 import { api } from '@/lib/api'
 import type { MessagePrices } from '@/lib/types'
 
@@ -32,10 +32,10 @@ export function unitMoney(value: string | number | null | undefined, currency?: 
   return Number.isNaN(amount) ? '—' : format(amount, currency, 4)
 }
 
-/** whether this person sees money (View Message Costs) */
+/** whether this person sees money (View Message Costs); nobody does outside a signed-in workspace (the /dev playgrounds) */
 export function useSeesCosts(): boolean {
-  const { can } = useAuth()
-  return can(COST_PERMISSION)
+  const auth = useOptionalAuth()
+  return Boolean(auth?.can(COST_PERMISSION))
 }
 
 /** the prices for the template line; nothing is asked for without the permission */
