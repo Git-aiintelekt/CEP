@@ -113,6 +113,17 @@ def record_error(*, source: str, kind: str, message: str, place: str = "", culpr
         _local.recording = False
 
 
+def answered(record, exc) -> int:
+    """The status the request was answered with: Django says it on its own log lines (a refused Host header is 400), else by the exception."""
+    from django.core.exceptions import BadRequest, PermissionDenied, RequestDataTooBig, SuspiciousOperation
+    status = getattr(record, "status_code", None)
+    if isinstance(status, int):
+        return status
+    if isinstance(exc, (SuspiciousOperation, BadRequest, RequestDataTooBig)):
+        return 400
+    return 403 if isinstance(exc, PermissionDenied) else 500
+
+
 class ErrorCaptureHandler(logging.Handler):
     """Records every ERROR that carries an exception: Django's 'Internal Server Error', a job that failed, a worker's
     log.exception. Errors without an exception are left to the log; they have no place to group by."""
@@ -138,7 +149,7 @@ class ErrorCaptureHandler(logging.Handler):
                          stack="".join(traceback.format_exception(exc_type, exc, tb)),
                          tenant_id=(tenant or {}).get("id") if isinstance(tenant, dict) else None, tenant_code=(tenant or {}).get("code") if isinstance(tenant, dict) else None,
                          user_id=getattr(user, "id", None) if getattr(user, "is_authenticated", False) else None,
-                         method=getattr(request, "method", None), path=getattr(request, "path", None), status_code=500 if request is not None else None,
+                         method=getattr(request, "method", None), path=getattr(request, "path", None), status_code=answered(record, exc) if request is not None else None,
                          release=release(),
                          context={k: v for k, v in {"logger": record.name, "job": job, "correlation_id": getattr(request, "correlation_id", None) if request is not None else None,
                                           # the screen the person was on (the app sends it with every call): what an alert names as where
@@ -409,9 +420,16 @@ def user_note(group_id) -> str | None:
         return None
 
 
-# errors people met: an API request that answered with a reference (ER-…), or a screen that failed in their browser. A job's
-# errors are not here: nobody saw them; the Errors health check and the Errors page carry those.
-MET_BY_PEOPLE = "(g.source = 'BROWSER' OR (g.source = 'BACKEND' AND e.path IS NOT NULL))"
+# errors people met: an API request that answered with a reference (ER-…, a 5xx), or a screen that failed in their browser. A job's
+# errors are not here: nobody saw them; the Errors health check and the Errors page carry those. Nor are refused requests (a bot's
+# wrong Host header, a request too big): Django answered them 400/403. Events recorded before that status was kept said 500 for
+# every request, so the refusals' kinds are left out by name as well.
+REFUSALS = ("django.core.exceptions.DisallowedHost", "django.core.exceptions.DisallowedRedirect", "django.core.exceptions.SuspiciousOperation",
+            "django.core.exceptions.SuspiciousFileOperation", "django.core.exceptions.SuspiciousMultipartForm", "django.core.exceptions.TooManyFieldsSent",
+            "django.core.exceptions.TooManyFilesSent", "django.core.exceptions.RequestDataTooBig", "django.core.exceptions.BadRequest",
+            "django.core.exceptions.PermissionDenied", "django.contrib.sessions.exceptions.SuspiciousSession")
+MET_BY_PEOPLE = ("(g.source = 'BROWSER' OR (g.source = 'BACKEND' AND e.path IS NOT NULL AND coalesce(e.status_code, 500) >= 500 AND g.kind NOT IN ("
+                 + ", ".join(f"'{kind}'" for kind in REFUSALS) + ")))")
 
 
 def people_errors(hours: int = 24) -> list[dict]:
