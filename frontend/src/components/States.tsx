@@ -5,6 +5,8 @@ import { Inbox, type LucideIcon } from 'lucide-react'
 import { ApiError } from '@/lib/api'
 import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
 
+import { ProblemExtras } from './ProblemExtras'
+
 type SpinnerSize = 'sm' | 'md' | 'lg'
 type SpinnerTone = 'default' | 'onBrand'
 
@@ -98,6 +100,7 @@ export function ErrorState({ error, detail, onRetry, title, shownFields }: { err
           ))}
         </ul>
       )}
+      <ProblemExtras failure={failure} />
       {onRetry && !forbidden && (
         <button type="button" onClick={onRetry} className="mt-3 font-medium underline underline-offset-2">
           Try Again

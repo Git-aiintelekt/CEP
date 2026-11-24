@@ -3608,6 +3608,11 @@ COMMENT ON COLUMN mailer_execution.enqueued_at IS 'When this waiting message was
 CREATE INDEX IF NOT EXISTS ix_sms_execution_run_waiting ON sms_execution(campaign_run_id, id) WHERE status = 'QUEUED';
 CREATE INDEX IF NOT EXISTS ix_mailer_execution_run_waiting ON mailer_execution(campaign_run_id, id) WHERE status = 'QUEUED';
 
+-- Error notes for users (patch 0096): a platform administrator who has worked out an error writes a short note for the people who
+-- meet it (what it is, what to do); every error answer of that group carries it until the error is resolved, which clears it.
+ALTER TABLE error_group ADD COLUMN IF NOT EXISTS user_note VARCHAR(300);
+COMMENT ON COLUMN error_group.user_note IS 'Shown under the error message to everyone who meets this error (back-office Errors, Note for Users); cleared when resolved.';
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

@@ -19,6 +19,10 @@ export interface SaveFailure {
   tone: 'error' | 'warning'
   /** ER-123 for C360's own problem: the back-office Errors page finds it */
   reference: string | null
+  /** when C360 had the problem (ISO), for Copy Details */
+  at: string | null
+  /** the platform team's Note for Users on a known problem (the back-office Errors page): what it is, what to do */
+  note: string | null
   /** field → message, for the fields the form shows */
   fields: Record<string, string>
   /** problems not about a shown field, for the banner */
@@ -50,13 +54,13 @@ function messagesOf(errors: unknown): [string, string][] {
 }
 
 export function saveFailure(error: unknown, failedTitle: string, shownFields?: string[]): SaveFailure {
-  const base: SaveFailure = { title: failedTitle, detail: '', short: '', tone: 'error', reference: null, fields: {}, general: [] }
+  const base: SaveFailure = { title: failedTitle, detail: '', short: '', tone: 'error', reference: null, at: null, note: null, fields: {}, general: [] }
   const failure = (made: Omit<SaveFailure, 'short'> & { short?: string }): SaveFailure => ({ ...made, short: made.short ?? made.detail })
   if (!(error instanceof ApiError)) {
     // a mistake in the page itself, not the server's answer: its own words would mean nothing to the reader
     return failure({ ...base, detail: 'Your entries are still here; try again. If it happens again, tell your administrator.', short: 'Try again.' })
   }
-  const problem = error.problem as typeof error.problem & { reference?: string; at?: string }
+  const problem = error.problem as typeof error.problem & { reference?: string; at?: string; note?: string }
   const said = problem.detail ? sentence(String(problem.detail)) : ''
   switch (true) {
     case error.status === 0:
@@ -95,7 +99,9 @@ export function saveFailure(error: unknown, failedTitle: string, shownFields?: s
       const reference = typeof problem.reference === 'string' && problem.reference ? problem.reference : null
       const after = reference ? ` If it happens again, give your administrator the reference ${reference}.` : ' If it happens again, tell your administrator.'
       const when = `C360 had a problem at ${clock(problem.at)}.`
-      return failure({ ...base, reference, detail: `${when} Your entries are still here; try again.${after}`, short: `${when} Try again.` })
+      const note = typeof problem.note === 'string' && problem.note.trim() ? problem.note.trim() : null
+      const at = typeof problem.at === 'string' ? problem.at : null
+      return failure({ ...base, reference, at, note, detail: `${when} Your entries are still here; try again.${after}`, short: `${when} Try again.` })
     }
     default:
       return failure({ ...base, detail: said || 'Try again in a moment.' })
@@ -106,6 +112,8 @@ export function saveFailure(error: unknown, failedTitle: string, shownFields?: s
 export function failureText(error: unknown, failedTitle = ''): string {
   const failure = saveFailure(error, failedTitle)
   const fields = Object.values(failure.fields)
-  const lead = failure.title === FIELDS_TITLE ? [...fields, ...failure.general] : [failure.detail, ...failure.general]
-  return lead.filter(Boolean).join(' ')
+  // what failed first, when the caller named it ("The file was not uploaded."), then why and what to do
+  const lead = failure.title === FIELDS_TITLE ? [...fields, ...failure.general] : [failedTitle && sentence(failedTitle), failure.detail, ...failure.general]
+  // a known problem: the platform team's note says what it is and what to do
+  return [...lead, failure.note && `Known problem: ${sentence(failure.note)}`].filter(Boolean).join(' ')
 }

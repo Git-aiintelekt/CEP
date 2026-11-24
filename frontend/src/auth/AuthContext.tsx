@@ -137,3 +137,9 @@ export function useAuth(): AuthValue {
   if (!value) throw new Error('useAuth must be used inside <AuthProvider>')
   return value
 }
+
+/** the same, or null outside <AuthProvider> (an error shown on a page that may render before or without it) */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalAuth(): AuthValue | null {
+  return useContext(AuthContext)
+}

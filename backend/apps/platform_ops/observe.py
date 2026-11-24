@@ -140,7 +140,9 @@ class ErrorCaptureHandler(logging.Handler):
                          user_id=getattr(user, "id", None) if getattr(user, "is_authenticated", False) else None,
                          method=getattr(request, "method", None), path=getattr(request, "path", None), status_code=500 if request is not None else None,
                          release=release(),
-                         context={k: v for k, v in {"logger": record.name, "job": job, "correlation_id": getattr(request, "correlation_id", None) if request is not None else None}.items() if v})
+                         context={k: v for k, v in {"logger": record.name, "job": job, "correlation_id": getattr(request, "correlation_id", None) if request is not None else None,
+                                          # the screen the person was on (the app sends it with every call): what an alert names as where
+                                          "page": (request.headers.get("X-CEP-Page") or "")[:300] if request is not None and hasattr(request, "headers") else None}.items() if v})
             exc._cep_recorded = True
             exc._cep_group_id = group_id                            # the reference the API's 500 answer gives (api/exceptions.py: ER-<group>)
         except Exception:                                           # noqa: BLE001
@@ -391,6 +393,47 @@ def check_errors():
     if new:
         return _result("Errors", WARN, f"{new} new or returning error{'s' if new != 1 else ''} in the last hour", f"{recent} open errors seen in 24 hours. See Overview, Errors.")
     return _result("Errors", OK, f"No new errors in the last hour · {recent} open seen in 24 hours")
+
+
+def user_note(group_id) -> str | None:
+    """The back-office's Note for Users on an error (patch 0096), for the error answer of whoever meets it; none once resolved."""
+    if not group_id:
+        return None
+    try:
+        with _cursor() as cursor:
+            cursor.execute("SELECT user_note FROM error_group WHERE id = %s AND status <> 'RESOLVED'", [group_id])
+            row = cursor.fetchone()
+        return (row[0] or None) if row else None
+    except Exception:                                               # noqa: BLE001  before patch 0096, or the database busy: no note
+        _forget()
+        return None
+
+
+# errors people met: an API request that answered with a reference (ER-…), or a screen that failed in their browser. A job's
+# errors are not here: nobody saw them; the Errors health check and the Errors page carry those.
+MET_BY_PEOPLE = "(g.source = 'BROWSER' OR (g.source = 'BACKEND' AND e.path IS NOT NULL))"
+
+
+def people_errors(hours: int = 24) -> list[dict]:
+    """Open errors people met in the last `hours`: for the alert evaluator, one alert each (apps/platform_ops/alerts.py)."""
+    with _cursor() as cursor:
+        cursor.execute(f"""SELECT g.id, g.kind, g.message, g.culprit, g.first_seen, g.regressed_at,
+                                  count(e.id), count(e.id) FILTER (WHERE e.occurred_at > now() - interval '1 hour'),
+                                  count(DISTINCT e.user_id), string_agg(DISTINCT e.tenant_code, ', '), max(e.occurred_at)
+                             FROM error_group g JOIN error_event e ON e.group_id = g.id
+                            WHERE g.status = 'OPEN' AND e.occurred_at > now() - make_interval(hours => %s) AND {MET_BY_PEOPLE}
+                            GROUP BY g.id ORDER BY max(e.occurred_at) DESC LIMIT 20""", [hours])
+        groups = cursor.fetchall()
+        out = []
+        for gid, kind, message, culprit, first_seen, regressed_at, n, last_hour, people, tenants, _last in groups:
+            cursor.execute("""SELECT e.occurred_at, e.tenant_code, e.method, e.path, e.context ->> 'page', u.display_name, u.email
+                                FROM error_event e LEFT JOIN app_user u ON u.id = e.user_id
+                               WHERE e.group_id = %s ORDER BY e.occurred_at DESC LIMIT 1""", [gid])
+            at, code, method, path, page, name, email = cursor.fetchone()
+            out.append({"id": gid, "kind": kind, "message": message, "culprit": culprit, "first_seen": first_seen, "regressed": regressed_at is not None,
+                        "count": n, "last_hour": last_hour, "people": people, "workspaces": tenants or "",
+                        "last": {"at": at, "workspace": code, "who": name or email, "where": page or (f"{method} {path}" if path else culprit)}})
+    return out
 
 
 # ---------------------------------------------------------------------------------------------------- tenant performance

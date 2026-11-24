@@ -27,6 +27,9 @@ import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { Audience, ConsentBasis, ContactList, ListImport, ListSource, Page, ListChannel } from '@/lib/types'
 
+import { ProblemExtras } from '@/components/ProblemExtras'
+import { saveFailure, type SaveFailure } from '@/lib/saveFeedback'
+
 import { problemText } from './problem'
 import { sourceLabel } from './sourceLabel'
 import { POLL_MS, watchedUploads } from './uploadJobs'
@@ -248,6 +251,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const [created, setCreated] = useState<ContactList | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** C360's own problem (a reference): Copy Details and a known problem's note under the message */
+  const [problemFailure, setProblemFailure] = useState<SaveFailure | null>(null)
   const [dragging, setDragging] = useState(false)
   const picker = useRef<HTMLInputElement>(null)
 
@@ -335,13 +340,17 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const index =step === 'importing' ? steps.indexOf('review') : steps.indexOf(step)
   const [title, subtitle] = TITLES[step]
 
-  const run = async (work: () => Promise<void>) => {
+  /** `what`: what failed, in the message's first words ("The file was not uploaded") */
+  const run = async (work: () => Promise<void>, what = '') => {
     setBusy(true)
     setError('')
+    setProblemFailure(null)
     try {
       await work()
     } catch (problem) {
-      setError(problemText(problem))
+      setError(problemText(problem, what))
+      const failure = saveFailure(problem, what)
+      setProblemFailure(failure.reference ? failure : null)
     } finally {
       setBusy(false)
     }
@@ -369,7 +378,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       const body = { name, description, list_environment: environment, channel }
       setDraft(draft ? await api.patch<ContactList>(`/contact-lists/${draft.id}/`, body) : await api.post<ContactList>('/contact-lists/', body))
       setStep('file')
-    })
+    }, 'The list was not saved')
 
   const takeFile = (file: File | undefined) => {
     if (!file || !draft) return
@@ -381,7 +390,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       setUpload(staged)
       setMapping(staged.mapping)
       void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
-    })
+    }, 'The file was not uploaded')
   }
 
   const onDrop = (event: DragEvent) => {
@@ -399,7 +408,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
       // the check runs in the background while the consent questions are answered
       setStep(queued.consent?.required === false ? 'review' : 'consent')
-    })
+    }, 'The columns were not checked')
 
   /** where the file's people agreed, and the uploader's word that they did: kept on the import and the list's compliance record */
   const declare = () =>
@@ -409,7 +418,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       setUpload(declared)
       queryClient.setQueryData(['contact-lists', 'import', declared.contact_list, declared.id], declared)
       setStep('review')
-    })
+    }, 'The consent was not saved')
 
   const apply = () =>
     run(async () => {
@@ -419,7 +428,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       queryClient.setQueryData(['contact-lists', 'import', queued.contact_list, queued.id], queued)
       void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
       setStep('importing')
-    })
+    }, 'The import did not start')
 
   /** the job goes on without the wizard: the header's upload button and an alert report on it */
   const leaveRunning = () => {
@@ -428,8 +437,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     onClose()
   }
 
-  const fromAudience = () => run(async () => finish(await api.post<ContactList>('/contact-lists/from-audience/', { name, description, list_environment: environment, channel, audience })))
-  const fromClone = () => run(async () => finish(await api.post<ContactList>(`/contact-lists/${parent}/clone/`, { name, description, list_environment: environment, channel })))
+  const fromAudience = () => run(async () => finish(await api.post<ContactList>('/contact-lists/from-audience/', { name, description, list_environment: environment, channel, audience })), 'The list was not made')
+  const fromClone = () => run(async () => finish(await api.post<ContactList>(`/contact-lists/${parent}/clone/`, { name, description, list_environment: environment, channel })), 'The list was not copied')
 
   const back = () => {
     setError('')
@@ -566,7 +575,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       onBack={index > 0 && step !== 'importing' && step !== 'done' && !(step === 'review' && job?.working) ? back : undefined}
       primary={framePrimary} hideCancel={step === 'done' || step === 'importing'} locked={busy}
       extraActions={running && step !== 'importing' ? <button type="button" className={buttonSecondary} onClick={leaveRunning}>Continue in the Background</button> : undefined}
-      error={error ? { title: 'That Didn’t Work', message: error } : null}>
+      error={error ? { title: 'That Didn’t Work', message: <><p>{error}</p><ProblemExtras failure={problemFailure} /></> } : null}>
       {children}
     </SetupDialog>
   )
@@ -579,9 +588,10 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </p>
       ) : subtitle && <p className="-mb-2 text-helper text-ink-800" aria-live="polite">{subtitle}</p>}
       {error && embedded && (
-        <p role="alert" className="mb-4 rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
-          {error}
-        </p>
+        <div role="alert" className="mb-4 rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
+          <p>{error}</p>
+          <ProblemExtras failure={problemFailure} />
+        </div>
       )}
 
       {step === 'source' && making && (

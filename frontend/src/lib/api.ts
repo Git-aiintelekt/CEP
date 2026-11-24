@@ -243,7 +243,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const { method = 'GET', body, query, auth = true, signal } = options
 
   const send = () => {
-    const headers: Record<string, string> = { Accept: 'application/json', 'X-Tenant': memory.tenant }
+    // X-CEP-Page: the screen the person is on, kept with a server error so the platform's alert can say where it happened
+    const headers: Record<string, string> = { Accept: 'application/json', 'X-Tenant': memory.tenant, 'X-CEP-Page': window.location.pathname.slice(0, 300) }
     if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json'
     if (auth && memory.access) headers.Authorization = `Bearer ${memory.access}`
     return fetch(buildUrl(path, query), {

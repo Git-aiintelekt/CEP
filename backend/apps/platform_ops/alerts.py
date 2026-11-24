@@ -46,6 +46,30 @@ def _problems() -> dict:
         found.update(stalls.problems())
     except Exception as exc:                               # noqa: BLE001  nor the stall checks (before patch 0095 they cannot run)
         log.error("stalled sends and uploads not read for alerts: %s", exc)
+    try:
+        found.update(people_errors())
+    except Exception as exc:                               # noqa: BLE001  nor the errors people met
+        log.error("errors people met not read for alerts: %s", exc)
+    return found
+
+
+def people_errors() -> dict:
+    """One alert per open error that people met in the last 24 hours (an ER-… answer, or a screen that failed in the browser): what
+    it is, how often and for whom, the last time, where, and where to look. It closes once the error is resolved or ignored on the
+    Errors page, or after 24 hours without it. FAIL from 10 times in an hour."""
+    from . import observe
+    found = {}
+    for error in observe.people_errors():
+        last = error["last"]
+        times = f"{error['count']} time{'s' if error['count'] != 1 else ''} in 24 hours" + (f", {error['people']} people" if error["people"] > 1 else "")
+        state = ("returned after it was resolved" if error["regressed"] else
+                 "new today" if error["first_seen"] > timezone.now() - timedelta(hours=24) else "still happening")
+        detail = (f"ER-{error['id']} ({error['kind']}). Last {last['at']:%d %b %H:%M} UTC"
+                  + (f" in {last['workspace']}" if last["workspace"] else "") + (f", {last['who']}" if last["who"] else "")
+                  + (f", {last['where']}" if last["where"] else "") + (f". Workspaces: {error['workspaces']}" if "," in error["workspaces"] else "")
+                  + f". Back-office → Errors → ER-{error['id']}: the details, and a Note for Users.")
+        found[f"Error ER-{error['id']} · {error['kind'].rsplit('.', 1)[-1]}"[:100]] = (
+            "FAIL" if error["last_hour"] >= 10 else "WARN", f"{error['message'][:180]} · {times} · {state}", detail)
     return found
 
 
