@@ -44,6 +44,8 @@ export interface AttentionGroup {
   label: string
   /** the count is a floor: more exist than were counted ("100+") */
   atLeast?: boolean
+  /** after the count: "%" when the count is a percent (Message Budget) */
+  suffix?: string
   actionLabel: string
   href: string
   /** a group of separate problems (Drip Problems): each its own sentence and link, shown in the card */

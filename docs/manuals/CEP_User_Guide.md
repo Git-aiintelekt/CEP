@@ -32,6 +32,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - The fields and controls
   - How to
   - What happens behind the scenes
+  - What a text campaign cost
   - Things to know
 - Reports
   - What this page is for
@@ -47,6 +48,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How to
   - A Drip Campaign
   - What happens behind the scenes
+  - Estimated Cost
   - Things to know
 - Templates and Content
   - What this page is for
@@ -54,6 +56,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - The fields and controls
   - How to
   - What happens behind the scenes
+  - What a text costs
   - Things to know
 - WhatsApp Templates
   - What this page is for
@@ -63,6 +66,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - Test it
   - What happens behind the scenes
   - When something goes wrong
+  - What a WhatsApp message costs
   - Things to know
 - The Email Designer
   - What this page is for
@@ -117,6 +121,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - The fields and controls
   - How to
   - What happens behind the scenes
+  - View Message Costs
   - Things to know
 - Tags
   - What this page is for
@@ -138,6 +143,13 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - The fields and controls
   - How to
   - What happens behind the scenes
+  - Things to know
+- Message Costs
+  - What this page is for
+  - Who can use it
+  - How a text is priced
+  - The fields and controls
+  - Where costs show
   - Things to know
 - Plan & Usage
   - What this page is for
@@ -711,6 +723,10 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 4. **The engine calls back** and every message's row moves forward: delivered, opened, clicked, bounced, complained. The campaign's figures, the report and Home all read those rows.
 5. **The activity log** records each step, and a failed run raises a banner on the campaign and an alert on Home.
 
+## What a text campaign cost
+
+On the Performance tab, people with View Message Costs see a **Cost** card for an SMS, MMS or WhatsApp campaign: the actual figure from the parts each message really used (WhatsApp: from Meta's delivery reports, so undelivered and free messages cost nothing), next to the estimate made at publish. While it is still sending it shows the figure so far. Economics then compares the Planned Campaign Cost with this actual figure.
+
 ## Things to know
 
 - **Unengaged** as the reason someone was left out means the workspace's Unengaged Contacts rule: no click, purchase or preference visit in its period, after at least its number of marketing emails. The person is not unsubscribed; their next click or purchase brings them back. A win-back campaign reaches them with Include Unengaged Contacts.
@@ -937,6 +953,12 @@ Once published, the campaign page shows the Series Timeline: each message Sent w
 3. The audience estimate runs the send engine's own governance order as of today; the frozen list at the run is the record of what a send used.
 4. Production Publish runs the checklist, records who published, waits for the approval when the workspace requires one, and creates the runs the dispatcher will start on time.
 
+## Estimated Cost
+
+For an SMS, MMS or WhatsApp campaign, people with View Message Costs see an **Estimated Cost** card beside the audience on the Audience step, and again on Review & Publish (Settings → Message Costs, once the platform team has set prices). Only people who can receive the campaign are counted. Once the template is picked, each person's own text is filled in and its parts counted, so a long name or an emoji shows up as extra parts; before that the figure is a *From* price, one part each. Above 50,000 people a sample is counted, and the card says so. A WhatsApp estimate is by country and assumes every message is delivered.
+
+The card's tag says whether the estimate is within the workspace's limits or over its approval limit or budget. Over the approval limit (or over the budget, when the workspace asks for approval then) the campaign needs an approver: its Approval card appears on Review & Publish, as when Settings → Approvals is on. Over a budget set to Block Publishing, Publish to Production is refused. The *Publish to production?* confirmation shows the estimate and the month's spend after it. On Targets & Economics, **Use the Estimate** puts the figure in Planned Campaign Cost.
+
 ## Things to know
 
 - The type and channel are fixed once the content (a template or a sender) is chosen; until then Edit Details can change them. After that, make a new campaign.
@@ -1082,6 +1104,10 @@ Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates 
 2. Every save is a new version in the template's history; Activate marks the template usable by campaigns.
 3. At send time the engine fills the tags from the workspace's tag catalogue, the recipient's list columns and the customer record, draws each barcode and QR code, puts the campaign's subject and preheader in when it has its own, and for a receipt lays out the transaction the point of sale sent into the receipt slot.
 4. Images are uploaded once per workspace and served from the media store, never embedded in the email.
+
+## What a text costs
+
+With View Message Costs, and once the platform team has set prices (Settings → Message Costs), a line under an SMS or MMS template's part counter says what one recipient costs at the default sender's price, and per 1,000: parts × (price a part + carrier fee) for SMS, one flat price for MMS. It updates as you type: an emoji makes every part shorter (70 characters instead of 160), so the line shows the extra parts. Tags are counted with their sample values, so a long value can add a part. A WhatsApp template shows the price of its category in the home country instead: length and pictures do not change it.
 
 ## Things to know
 
@@ -1243,6 +1269,10 @@ Run these in order on a new set-up; each says what to look for.
 | The run fails: *Meta has no approved template of this name and language* | The template was deleted or renamed in WhatsApp Manager. | Sync from Meta, then choose an approved template. |
 | *No value for {{tag}} and the template has no fallback* | That person has no value for the tag. | Give the tag an If Empty value and save (a written template needs a copy, reviewed again). |
 | Everyone is *No Consent* | Nobody has a WhatsApp opt-in yet. | Record consent (step 4). |
+
+## What a WhatsApp message costs
+
+Meta charges a delivered template message by its category and the recipient's country; a message that is not delivered is free, and so are replies within 24 hours of the customer's own message. The template editor shows the price of the category in your home country, and a campaign's Estimated Cost is worked out country by country. Settings → Message Costs → WhatsApp Countries decides where WhatsApp goes: numbers in other countries are left out of WhatsApp campaigns.
 
 ## Things to know
 
@@ -2132,6 +2162,10 @@ A role is a named set of permissions. A user with the role may do what its permi
 
 Every API request checks the permission the endpoint needs against the sum of the user's roles; a page without the permission says which one to ask for. Changing a role takes effect at the user's next request, no sign-out needed.
 
+## View Message Costs
+
+`cost.view` lets a role see money: the price line on text templates, a campaign's Estimated Cost and its actual Cost. Without it people see parts and recipients only. Workspace Admin has it, and a new workspace's Campaign Manager role starts with it.
+
 ## Things to know
 
 - Settings needs user.admin as a whole; a role with provider.edit alone cannot open Sending Engines through the menu, though the API allows it.
@@ -2314,6 +2348,63 @@ Asking emails every approver; the decision goes back to the person who asked. An
 - Test publishing never needs approval.
 - Switching approvals off leaves pending requests where they are; the campaigns can simply be published.
 - The switch cannot be turned on while nobody can approve; if the last approver later leaves, approvals stay on and campaigns wait until someone gets the permission.
+
+---
+
+# Message Costs
+
+**Where:** Settings → Engagement → Message Costs.
+
+## What this page is for
+
+What texts cost this workspace, and the limits that apply before a campaign goes out. The platform team sets the price of an SMS part, an MMS and a WhatsApp message; you see those prices here, read-only. You set an approval limit and a monthly budget, and for WhatsApp the countries you send to.
+
+Before the platform team adds a price the page says *Prices are not set up yet*: nobody in the workspace sees costs, limits cannot be set, and sending works as it always has.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin` to open the page and change the limits. Seeing money anywhere else (templates, campaigns, results) needs **View Message Costs** (`cost.view`) on a role; Workspace Admin has it. |
+
+## How a text is priced
+
+| Channel | What you pay |
+|---|---|
+| SMS | recipients × parts each × (price a part + carrier fee a part). A part is 160 characters, 153 each when the message is longer; with an emoji or other special character, 70 and 67. |
+| MMS | recipients × (price an MMS + carrier fee an MMS): one price whatever the length. |
+| WhatsApp | delivered messages × the price for the template's category (Marketing, Utility, Authentication) in the recipient's country. A message that is not delivered is free, and so are replies within 24 hours of the customer's own message. |
+
+Carrier fees are the carriers' own charges (US 10DLC and the like). Depending on what the platform team chose they are a line of their own, included in the price, or not charged.
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Prices | One row per text sender: the price of an SMS part, an MMS and the carrier fees. A coming change shows below the table with its date. | Nothing: ask the platform team to change a price. Campaigns sent before a change keep the price of their send date. |
+| This Month | Every text sent this calendar month (campaigns, journeys and drips, e-receipts) plus production campaigns scheduled later in the month at their estimate; against the budget when there is one, with the days left. | Nothing; it is what the budget is checked against. |
+| Approval Above | An amount a campaign. Empty: never. | A campaign whose estimate is higher needs approval before Publish to Production: its Review & Publish step shows the Approval card, as when Settings → Approvals is on. The author cannot approve their own. |
+| Monthly Budget | An amount a calendar month. Empty: no budget. | Checked at Publish to Production: this month's spend plus the campaign's estimate. |
+| Warn At | 50 to 100 percent of the budget. Default 80. | Once the month reaches it, administrators see *Message Budget* under Needs Attention on Home. |
+| Over Budget | Warn Only, Needs Approval or Block Publishing. Default Needs Approval. | What happens when a campaign would take the month over the budget. Warn Only publishes; Needs Approval asks for an approver; Block Publishing refuses Publish to Production. E-receipts, journeys already running and sends already started are never held. |
+| WhatsApp Countries | The countries, as Meta groups them, where you send WhatsApp. Shown with how many of your contacts have a number in each. | Numbers elsewhere are left out of WhatsApp campaigns (*Country Not Chosen for WhatsApp* on the campaign's Recipients tab) and are not counted in the estimate. All countries when none is chosen. |
+| Home Country | One country. | Used for numbers saved without a country code, and for the headline price on WhatsApp templates. |
+| WhatsApp Prices | A delivered message by category and country. Billing currency and Free Messages are set by the platform team. | Nothing. |
+| Who Sees Costs | The roles with View Message Costs. Edit Roles opens Roles. | Everyone else sees parts and recipients, never money. |
+
+## Where costs show
+
+- **On a text template**, under the part counter: what one recipient costs at the default sender's price, as you type. Tags are counted with their sample values: a long value can add a part. On a WhatsApp template, the price of its category in your home country.
+- **On a campaign**, an Estimated Cost card beside the Audience estimate and again on Review & Publish: only people who can receive the campaign are counted, each with their own text filled in and its parts counted (above 50,000 people, a sample). Before a template is picked it is a *From* price, one part each. Targets & Economics offers the estimate as the Planned Campaign Cost.
+- **At Publish to Production**, the confirmation shows the estimate and the month's spend after it.
+- **After sending**, a Cost card on the campaign's Performance tab: the actual figure from the parts each message used, or from Meta's delivery reports for WhatsApp, next to the estimate. Failed messages are included when the provider bills attempts.
+
+## Things to know
+
+- Estimates use the price on the send date: a scheduled campaign after a price change is estimated at the new price.
+- The estimate counts people who can receive the campaign today; the real Campaign List is frozen when the send starts, so the actual can differ.
+- WhatsApp estimates assume every message is delivered, so the actual is usually lower.
+- Changing the limits does not touch campaigns already published.
 
 ---
 

@@ -24,6 +24,7 @@ import { useUtmSettings, withShortLinks } from '@/apps/cep/pages/settings/utm'
 
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
 import { PasteNote, PlainPunctuationNotice } from './PlainText'
+import { TextCostLine } from '../costs/TemplateCostLine'
 import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, OPT_OUT_TAG, optOutSuggestion, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
 import { usePlainPaste } from './usePlainPaste'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
@@ -392,6 +393,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
               {shortened && <span className="text-xs text-ink-800">links to your sites counted as short links</span>}
             </div>
             <div className="mt-1"><PasteNote note={paste.note} /></div>
+            {!tooLong && <TextCostLine channel={channel} segments={metrics.segments} unicode={metrics.encoding === 'UCS-2'} />}
             {tooLong && <p className="mt-1 text-xs font-medium text-danger-text">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
             {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-danger-text">{fieldErrors.sms_body}</p>}
             {metrics.encoding === 'UCS-2' && canBePlain(metrics.nonGsmCharacters) && !readOnly && (

@@ -1,0 +1,87 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ tenant.name }} · Message Rates | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p class="cep-muted"><a class="cep-link" href="{% url 'admin:tenants_tenant_changelist' %}">Tenants</a> › <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">{{ tenant.name }}</a> › Message Rates</p>
+            <h1>{{ tenant.name }} · Message Rates</h1>
+            <p>What an SMS part and an MMS cost the platform, and what {{ tenant.code }} pays. The workspace sees the Price columns only: costs, carrier costs and margin never leave the back-office.</p>
+        </div>
+        {% if currency %}
+        <div class="cep-actions">
+            <a class="cep-button cep-button-quiet" href="{% url 'admin:tenants_tenant_whatsapp_rates' tenant.pk %}">WhatsApp Rates</a>
+            <a class="cep-button" href="{% url 'admin:tenants_tenant_message_rate_add' tenant.pk %}">Add Rate</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="post" class="cep-card" style="padding:1.125rem;margin-bottom:1.25rem">{% csrf_token %}
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end">
+            <div style="min-width:12rem">{% include "admin/tenants/rate_field.html" with field=currency_form.currency %}</div>
+            <button type="submit" class="cep-button cep-button-quiet">{% if currency %}Change Currency{% else %}Set Currency{% endif %}</button>
+            <p class="cep-muted" style="margin:0;max-width:40rem">Rounding: 4 decimals a part, 2 on totals. {% if currency %}Changing the currency ends every open rate yesterday.{% else %}Set once, before the first rate.{% endif %}</p>
+        </div>
+    </form>
+
+    {% if not rows %}
+    <div class="cep-card cep-empty" style="padding:1.5rem">
+        <strong>No rates yet</strong>
+        <p class="cep-muted">{% if engines %}{{ tenant.code }} sends texts through {% for engine in engines %}{{ engine.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Until a rate is added, its users see no costs. Sending is not affected.{% else %}{{ tenant.code }} has no SMS or MMS engine yet.{% endif %}</p>
+        {% if currency and engines %}<div class="cep-actions"><a class="cep-button" href="{% url 'admin:tenants_tenant_message_rate_add' tenant.pk %}">Add Rate</a></div>{% endif %}
+    </div>
+    {% else %}
+    <div class="cep-card">
+        <div class="cep-table-wrap">
+            <table class="cep-table" aria-label="Message rates">
+                <thead>
+                    <tr><th rowspan="2">Applies To</th><th colspan="3">Cost (provider charges us)</th><th colspan="3">Price (workspace pays)</th><th rowspan="2">Margin</th><th rowspan="2">Effective</th><th rowspan="2"><span class="cep-sr">Actions</span></th></tr>
+                    <tr><th>SMS a Part</th><th>MMS</th><th>Carrier Fees</th><th>SMS a Part</th><th>MMS</th><th>Carrier Fees</th></tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr{% if row.state == 'ended' %} style="opacity:0.6"{% endif %}>
+                        <td><strong>{{ row.rate.delivery_provider.name }} · {{ row.sender_type }}</strong><br><small class="cep-muted">{{ row.country }}</small></td>
+                        <td>{{ currency }} {{ row.rate.sms_cost }}</td>
+                        <td>{% if row.rate.mms_cost is not None %}{{ currency }} {{ row.rate.mms_cost }}{% else %}—{% endif %}</td>
+                        <td><small>{{ row.rate.carrier_fee_part }} a part<br>{{ row.rate.carrier_fee_mms }} an MMS</small></td>
+                        <td>{{ currency }} {{ row.rate.sms_price }}<br><small class="cep-muted">{% if row.rate.pricing == 'MARKUP' %}markup {{ row.rate.sms_markup|floatformat:"0" }}%{% else %}fixed{% endif %}</small></td>
+                        <td>{% if row.rate.mms_price is not None %}{{ currency }} {{ row.rate.mms_price }}<br><small class="cep-muted">{% if row.rate.pricing == 'MARKUP' %}markup {{ row.rate.mms_markup|floatformat:"0" }}%{% else %}fixed{% endif %}</small>{% else %}—{% endif %}</td>
+                        <td><small>{{ row.fees }}</small></td>
+                        <td><small>SMS {{ row.sms_margin|default:"—" }}{% if row.mms_margin %}<br>MMS {{ row.mms_margin }}{% endif %}</small>{% if row.rate.below_cost %}<br><span class="cep-pill" data-kind="warning">Below cost</span>{% endif %}</td>
+                        <td>
+                            {% if row.state == 'future' %}<span class="cep-pill" data-kind="info">Starts {{ row.rate.effective_from|date:"j M Y" }}</span>
+                            {% else %}{{ row.rate.effective_from|date:"j M Y" }}{% endif %}
+                            {% if row.rate.effective_until %}<br><small class="cep-muted">until {{ row.rate.effective_until|date:"j M Y" }}</small>{% endif %}
+                        </td>
+                        <td>{% if row.state == 'future' %}<a class="cep-link" href="{% url 'admin:tenants_tenant_message_rate_edit' tenant.pk row.rate.pk %}">Edit</a>{% elif row.state == 'current' %}<a class="cep-link" href="{% url 'admin:tenants_tenant_message_rate_edit' tenant.pk row.rate.pk %}">Change From a Date</a>{% endif %}</td>
+                    </tr>
+                    {% if row.rate.source %}<tr><td colspan="10" style="border-top:0;padding-top:0"><small class="cep-muted">Source: {{ row.rate.source }}</small></td></tr>{% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="cep-muted" style="margin:0.75rem 1rem">Margin = (price − cost) ÷ price; carrier fees are left out when they are passed on at cost. A rate in force is never changed: a new price starts from a date.
+            {% if ended %}{% if show_ended %}<a class="cep-link" href="?">Hide Ended Rates</a>{% else %}<a class="cep-link" href="?ended=1">Show {{ ended }} Ended Rate{{ ended|pluralize }}</a>{% endif %}{% endif %}</p>
+    </div>
+    {% endif %}
+
+    {% if currency and others %}
+    <form method="post" action="{% url 'admin:tenants_tenant_message_rate_copy' tenant.pk %}" class="cep-card" style="padding:1.125rem;margin-top:1.25rem">{% csrf_token %}
+        <h2 style="margin:0 0 0.75rem;font-size:16px;font-weight:600">Copy From Another Tenant</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end">
+            <div><label class="block font-semibold mb-2 text-sm" for="copy-source">Copy From</label>
+                <select id="copy-source" name="source" class="border rounded-default px-3 py-2">{% for other in others %}<option value="{{ other.pk }}">{{ other.code }} · {{ other.name }}</option>{% endfor %}</select></div>
+            <div><label class="block font-semibold mb-2 text-sm" for="copy-from">Effective From</label>
+                <input id="copy-from" type="date" name="effective_from" value="{{ today }}" min="{{ today }}" class="border rounded-default px-3 py-2"></div>
+            <button type="submit" class="cep-button cep-button-quiet">Copy Rates</button>
+        </div>
+        <p class="cep-muted" style="margin:0.75rem 0 0">The other tenant's rates in force on that date, onto {{ tenant.code }}'s engines of the same provider. Same currency only.</p>
+    </form>
+    {% endif %}
+
+    <div class="cep-actions" style="margin-top:1.25rem"><a class="cep-button cep-button-quiet" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">Back to the Tenant</a></div>
+</div>
+{% endblock %}

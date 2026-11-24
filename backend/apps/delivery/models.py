@@ -222,6 +222,9 @@ class SmsExecution(models.Model):
     read_at = models.DateTimeField(null=True, blank=True)  # WhatsApp only: when Meta reported the person read it
     failed_at = models.DateTimeField(null=True, blank=True)
     send_after = models.DateTimeField(null=True, blank=True)  # the recipient's local send time (patch 0023)
+    wa_billable = models.BooleanField(null=True, blank=True)  # WhatsApp: Meta's pricing.billable from the delivery report (patch 0099)
+    wa_category = models.CharField(max_length=40, null=True, blank=True)  # WhatsApp: pricing.category (marketing, utility, authentication, service ...)
+    wa_pricing_type = models.CharField(max_length=40, null=True, blank=True)  # WhatsApp: pricing.type (regular, free_customer_service, free_entry_point)
     created_at = models.DateTimeField(db_default=Now())
 
     class Meta:
@@ -376,3 +379,92 @@ class DeliverabilityTest(models.Model):
     class Meta:
         managed = False
         db_table = 'deliverability_test'
+
+
+class MessageRate(models.Model):
+    """What an SMS part and an MMS cost the platform and the workspace, per sending engine, sender type and country, from a date
+    (patch 0099). The workspace's login may read the price columns only (apps/delivery/costs.PRICE_FIELDS)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    delivery_provider = models.ForeignKey('delivery.DeliveryProvider', on_delete=models.PROTECT, db_column='delivery_provider_id', related_name='+')
+    sender_type = models.CharField(max_length=12, default='ANY')  # ANY, SHORT_CODE, LONG_CODE, TOLL_FREE, ALPHANUMERIC
+    country_code = models.CharField(max_length=2, null=True, blank=True)  # NULL: all countries
+    effective_from = models.DateField()
+    effective_until = models.DateField(null=True, blank=True)
+    sms_cost = models.DecimalField(max_digits=12, decimal_places=4)
+    mms_cost = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    carrier_fee_part = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    carrier_fee_mms = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    failed_billed = models.BooleanField(default=True)
+    source = models.CharField(max_length=200, null=True, blank=True)
+    pricing = models.CharField(max_length=10, default='FIXED')  # FIXED, MARKUP
+    sms_markup = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    mms_markup = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    below_cost = models.BooleanField(default=False)
+    sms_price = models.DecimalField(max_digits=12, decimal_places=4)
+    mms_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    carrier_fees = models.CharField(max_length=10, default='PASS_ON')  # PASS_ON, INCLUDED, ABSORBED
+    fee_part_price = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    fee_mms_price = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'message_rate'
+        verbose_name = 'Message Rate'
+
+    def __str__(self):
+        return f"{self.delivery_provider_id} {self.sender_type} {self.country_code or 'all'} from {self.effective_from}"
+
+
+class WhatsAppRateCard(models.Model):
+    """Meta's rate card for one WhatsApp engine from a date, and how the platform prices it (patch 0099)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    delivery_provider = models.ForeignKey('delivery.DeliveryProvider', on_delete=models.PROTECT, db_column='delivery_provider_id', related_name='+')
+    currency = models.CharField(max_length=3)
+    effective_from = models.DateField()
+    effective_until = models.DateField(null=True, blank=True)
+    file_name = models.CharField(max_length=200, null=True, blank=True)
+    pricing = models.CharField(max_length=10, default='MARKUP')  # MARKUP, FIXED
+    markup = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    other_countries = models.BooleanField(default=True)
+    free_messages = models.CharField(max_length=12, default='FREE')  # FREE, PLATFORM_FEE
+    platform_fee = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    volume_discounts = models.CharField(max_length=10, default='MARGIN')  # MARGIN, PASS_ON
+    imported_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='imported_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'whatsapp_rate_card'
+        verbose_name = 'WhatsApp Rate Card'
+
+
+class WhatsAppRate(models.Model):
+    """One market of a WhatsApp rate card: Meta's cost and the workspace's price for a delivered message of each category."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    rate_card = models.ForeignKey(WhatsAppRateCard, on_delete=models.CASCADE, db_column='rate_card_id', related_name='rates')
+    market = models.CharField(max_length=80)
+    cost_marketing = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    cost_utility = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    cost_authentication = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    fixed_marketing = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    fixed_utility = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    fixed_authentication = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    price_marketing = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    price_utility = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    price_authentication = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    below_cost = models.BooleanField(default=False)
+
+    class Meta:
+        managed = False
+        db_table = 'whatsapp_rate'
+        verbose_name = 'WhatsApp Rate'

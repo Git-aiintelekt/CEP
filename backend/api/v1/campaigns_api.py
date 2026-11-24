@@ -602,6 +602,20 @@ class CampaignViewSet(views.CampaignViewSet):
                          "workspace_timezone": getattr(request, "tenant", {}).get("timezone") or "UTC"})
 
     # ------------------------------------------------------------ publish
+    def _cost_check(self, campaign) -> str | None:
+        """Works the text-cost estimate out again and keeps it on the campaign (the approval reads it); the words when the workspace's
+        budget blocks the publish. A failure to estimate never stops a publish."""
+        from apps.delivery import costs
+        if costs.text_kind(campaign) is None or not costs.has_rates(campaign.tenant_id):
+            return None
+        try:
+            figure = costs.estimate_with_check(campaign, store=True)
+        except Exception:                                   # noqa: BLE001  logged; the publish goes on without a figure
+            log.exception("the cost estimate of campaign %s failed", campaign.pk)
+            return None
+        check = figure.get("check") or {}
+        return check.get("message") if check.get("state") == "BLOCK" else None
+
     def _content_problems(self, campaign, missing: dict) -> dict:
         if campaign.template_id is not None and "template" not in missing:
             problem = service.content_problem(campaign.template, campaign.solicitation_type)
@@ -624,12 +638,17 @@ class CampaignViewSet(views.CampaignViewSet):
             return Response({"ready": not problems, "problems": problems, "test_sent": tested,
                              "items": items + ([{"key": "approval", "label": "Approved for production", "ok": holdup is None, "problem": holdup}] if approval.required(campaign) else [])})
         problems = self._content_problems(campaign, service.publish_problems(campaign, production=True))
+        stopped = self._cost_check(campaign)
+        holdup = approval.problem(campaign)
         if holdup:
             problems["approval"] = holdup
+        if stopped:
+            problems["cost"] = stopped
         return Response({"ready": not problems, "problems": problems, "test_sent": tested,
                          "items": [{"key": key, "label": label, "ok": key not in problems, "problem": problems.get(key)}
                                    for key, label in (("template", "Template content finalized"), ("contact_lists", "Campaign List attached"), ("sender_profile", "Verified sender chosen"),
-                                                      ("topic", "Topic chosen"), ("scheduled_at", "Send time set"), ("recurring_config", "Recurrence valid"), ("drip_config", "Series steps valid"))
+                                                      ("topic", "Topic chosen"), ("scheduled_at", "Send time set"), ("recurring_config", "Recurrence valid"), ("drip_config", "Series steps valid"),
+                                                      ("cost", "Within the monthly budget"))
                                    if key in problems or key in ("template", "contact_lists", "sender_profile")]
                                   + [{"key": "test", "label": "Test message sent and reviewed", "ok": tested, "problem": None if tested else "Send yourself a test before publishing.", "advisory": True}]
                                   + ([{"key": "approval", "label": "Approved for production", "ok": holdup is None, "problem": holdup}] if approval.required(campaign) else [])})
@@ -648,6 +667,9 @@ class CampaignViewSet(views.CampaignViewSet):
         missing = drip_publish.problems(campaign) if drip_campaign else self._content_problems(campaign, service.publish_problems(campaign, production=True))
         if missing:
             raise ValidationError(missing)
+        stopped = None if drip_campaign else self._cost_check(campaign)
+        if stopped:
+            raise Conflict(stopped)
         holdup = approval.problem(campaign)
         if holdup:
             raise Conflict(holdup)

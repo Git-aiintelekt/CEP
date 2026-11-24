@@ -22,8 +22,15 @@ NOTE_MAX = 1000
 
 
 def required(campaign_or_tenant) -> bool:
+    """The workspace asks for approval on every production publish, or (a campaign) its estimated cost is above the workspace's limit."""
     tenant = campaign_or_tenant if isinstance(campaign_or_tenant, Tenant) else campaign_or_tenant.tenant
-    return bool((tenant.settings.get(KEY) or {}).get("require_approval"))
+    return bool((tenant.settings.get(KEY) or {}).get("require_approval")) or (not isinstance(campaign_or_tenant, Tenant) and cost_required(campaign_or_tenant))
+
+
+def cost_required(campaign) -> bool:
+    """Approval because of what the campaign costs (apps/delivery/costs.py: the stored estimate is above the approval limit or the budget)."""
+    from apps.delivery import costs
+    return costs.needs_approval(campaign)
 
 
 def set_required(tenant, value: bool) -> None:
@@ -77,6 +84,8 @@ def problem(campaign) -> str | None:
         return f"Waiting for approval, asked {campaign.approval_requested_at:%d %b %H:%M} by {names.label(campaign.approval_requested_by_id) or 'someone'}."
     if campaign.approval_status == RETURNED:
         return "Sent back" + (f": {campaign.approval_decision_note}" if campaign.approval_decision_note else ".") + " Change what was asked and request approval again."
+    if cost_required(campaign) and not bool((campaign.tenant.settings.get(KEY) or {}).get("require_approval")):
+        return "The estimated cost is above this workspace's limit, so a second person approves it first. Request approval from the Review & Publish step."
     return "This workspace needs a second person to approve a production send. Request approval from the Review & Publish step."
 
 

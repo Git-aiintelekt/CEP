@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ tenant.name }} · Import Meta Rate Card | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p class="cep-muted"><a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">{{ tenant.name }}</a> › <a class="cep-link" href="{{ back }}">WhatsApp Rates</a> › Import</p>
+            <h1>Import Meta Rate Card</h1>
+            <p>Meta publishes a new card a few times a year. The upload is checked before anything changes: nothing is saved until you import the changes.</p>
+        </div>
+    </div>
+    {% if review %}
+    <form method="post" class="cep-card" style="padding:1.125rem">{% csrf_token %}
+        <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0.75rem 1.5rem;margin:0 0 1rem">
+            <div><dt class="cep-muted">File</dt><dd style="margin:0">{{ pending.file_name }}</dd></div>
+            <div><dt class="cep-muted">Effective From</dt><dd style="margin:0">{{ review.start|date:"j M Y" }}</dd></div>
+            <div><dt class="cep-muted">Currency</dt><dd style="margin:0">{{ pending.currency }}</dd></div>
+            <div><dt class="cep-muted">Markets</dt><dd style="margin:0">{{ review.count }} read · {{ review.changes|length }} change{{ review.changes|length|pluralize }} · {% if review.new or review.missing %}{{ review.new|length }} new, {{ review.missing|length }} missing{% else %}none new or missing{% endif %}</dd></div>
+        </dl>
+        {% if review.before %}<p class="cep-muted">Against the card from {{ review.before.effective_from|date:"j M Y" }}. Pricing carries over: {% if review.pricing == 'MARKUP' %}markup {{ review.markup|floatformat:"-2" }}%{% else %}fixed prices{% endif %}, with the same fixed prices per market.</p>{% else %}<p class="cep-muted">The first card for this account: priced at cost (markup 0%) until you set the pricing under Edit Pricing.</p>{% endif %}
+        {% if review.changes %}
+        <div class="cep-table-wrap">
+            <table class="cep-table" aria-label="Changes">
+                <thead><tr><th>Market · Category</th><th>Cost Now</th><th>New Cost</th><th>Price</th></tr></thead>
+                <tbody>{% for change in review.changes_shown %}<tr><td>{{ change.market }} · {{ change.category }}</td><td>{{ change.was|default_if_none:"—" }}</td><td>{{ change.cost|default_if_none:"—" }}</td><td>{{ change.price|default_if_none:"—" }}</td></tr>{% endfor %}
+                {% if review.more %}<tr><td colspan="4" class="cep-muted">and {{ review.more }} more</td></tr>{% endif %}</tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if review.new %}<p><strong>New markets:</strong> {{ review.new|join:", " }}</p>{% endif %}
+        {% if review.missing %}<p><strong>Missing from the file:</strong> {{ review.missing|join:", " }}. Numbers there fall back to Other, if it is on.</p>{% endif %}
+        {% if review.below %}
+            <div style="margin:1rem 0;padding:0.75rem 1rem;border-radius:6px;background:var(--cep-warn-soft);color:var(--cep-warn-text)">
+                {% for line in review.below %}<p style="margin:0">{{ line }}.</p>{% endfor %}
+                <label style="display:flex;gap:0.5rem;margin-top:0.5rem"><input type="checkbox" name="below_cost" value="1"> Below Cost on Purpose</label>
+            </div>
+        {% endif %}
+        <div class="cep-actions" style="margin-top:1rem">
+            <button type="submit" name="confirm" value="1" class="cep-button">Import {{ review.count }} Market{{ review.count|pluralize }}</button>
+            <button type="submit" name="cancel" value="1" class="cep-button cep-button-quiet">Cancel</button>
+        </div>
+    </form>
+    {% else %}
+    <form method="post" enctype="multipart/form-data" class="cep-card" style="padding:1.125rem">{% csrf_token %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:0.875rem 1.25rem">
+            {% for field in form %}{% include "admin/tenants/rate_field.html" with field=field %}{% endfor %}
+        </div>
+        <div class="cep-actions" style="margin-top:1.25rem">
+            <button type="submit" name="upload" value="1" class="cep-button">Check the File</button>
+            <a class="cep-button cep-button-quiet" href="{{ back }}">Cancel</a>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

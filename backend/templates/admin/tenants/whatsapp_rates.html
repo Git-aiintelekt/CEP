@@ -1,0 +1,65 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ tenant.name }} · WhatsApp Rates | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p class="cep-muted"><a class="cep-link" href="{% url 'admin:tenants_tenant_changelist' %}">Tenants</a> › <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">{{ tenant.name }}</a> › <a class="cep-link" href="{{ back }}">Message Rates</a> › WhatsApp</p>
+            <h1>{{ tenant.name }} · WhatsApp Rates</h1>
+            <p>Meta charges a delivered template message by its category in the recipient's market; length and pictures do not matter, and messages Meta does not charge for are free. The workspace sees the Price columns only.</p>
+        </div>
+    </div>
+
+    {% if not engines %}
+    <div class="cep-card cep-empty" style="padding:1.5rem"><strong>No WhatsApp engine</strong><p class="cep-muted">{{ tenant.code }} adds its WhatsApp account under Settings → Sending Engines.</p></div>
+    {% endif %}
+
+    {% for entry in engines %}
+    <section class="cep-card" style="margin-bottom:1.25rem">
+        <div class="cep-section-head" style="padding:1rem 1rem 0">
+            <h2>{{ entry.engine.name }}</h2>
+            {% if entry.card %}<span>{{ entry.card.currency }} · rate card from {{ entry.card.effective_from|date:"j M Y" }}{% if entry.card.file_name %} · {{ entry.card.file_name }}{% endif %}</span>{% endif %}
+            <span class="cep-head-end">
+                {% if entry.card %}<a class="cep-link" href="{% url 'admin:tenants_tenant_whatsapp_pricing' tenant.pk entry.card.pk %}">Edit Pricing</a>{% endif %}
+                <a class="cep-button" href="{% url 'admin:tenants_tenant_whatsapp_import' tenant.pk %}?engine={{ entry.engine.pk }}">Import Meta Rate Card</a>
+            </span>
+        </div>
+        {% if not entry.card %}
+            <div class="cep-empty" style="padding:1.25rem 1rem"><strong>No WhatsApp rate card yet</strong>
+                <p class="cep-muted">Download the current card from Meta's WhatsApp pricing page and import it. The currency must match the WhatsApp account's billing currency. Until then, {{ tenant.code }}'s users see no WhatsApp costs.</p></div>
+        {% else %}
+            <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0.75rem 1.5rem;padding:1rem;margin:0">
+                <div><dt class="cep-muted">Pricing</dt><dd style="margin:0">{% if entry.card.pricing == 'MARKUP' %}Markup {{ entry.card.markup|floatformat:"-2" }}% on cost{% else %}Fixed prices{% endif %}</dd></div>
+                <div><dt class="cep-muted">Free Messages</dt><dd style="margin:0">{% if entry.card.free_messages == 'FREE' %}Free to the workspace{% else %}Platform fee {{ entry.card.platform_fee }} a message{% endif %}</dd></div>
+                <div><dt class="cep-muted">Other Countries</dt><dd style="margin:0">{% if entry.card.other_countries %}On: priced at Other{% else %}Off: not sent to{% endif %}</dd></div>
+                <div><dt class="cep-muted">Volume Discounts</dt><dd style="margin:0">{% if entry.card.volume_discounts == 'MARGIN' %}Kept as margin{% else %}Passed on{% endif %} · estimates use list rates</dd></div>
+            </dl>
+            <div class="cep-table-wrap">
+                <table class="cep-table" aria-label="WhatsApp rates of {{ entry.engine.name }}">
+                    <thead>
+                        <tr><th rowspan="2">Market</th><th colspan="3">Cost (Meta charges us), a delivered message</th><th colspan="3">Price (workspace pays)</th><th rowspan="2">{{ tenant.code }} Contacts</th></tr>
+                        <tr><th>Marketing</th><th>Utility</th><th>Authentication</th><th>Marketing</th><th>Utility</th><th>Authentication</th></tr>
+                    </thead>
+                    <tbody>
+                    {% for row in entry.rows %}
+                        <tr>
+                            <td><strong>{{ row.rate.market }}</strong></td>
+                            {% for cell in row.cells %}<td>{{ cell.cost|default_if_none:"—" }}</td>{% endfor %}
+                            {% for cell in row.cells %}<td>{{ cell.price|default_if_none:"—" }}{% if cell.fixed %}<br><small class="cep-muted">fixed · margin {{ cell.margin|default:"—" }}</small>{% endif %}</td>{% endfor %}
+                            <td>{{ row.contacts }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="cep-muted" style="margin:0.75rem 1rem">Sorted by where {{ tenant.code }}'s contacts are. Free messages are 0 on both sides.
+                {% if entry.future %}{{ entry.future|length }} card{{ entry.future|length|pluralize }} starting later.{% endif %}
+                {% if entry.ended %}{{ entry.ended|length }} ended card{{ entry.ended|length|pluralize }}.{% endif %}</p>
+        {% endif %}
+    </section>
+    {% endfor %}
+    <div class="cep-actions"><a class="cep-button cep-button-quiet" href="{{ back }}">Back to Message Rates</a></div>
+</div>
+{% endblock %}

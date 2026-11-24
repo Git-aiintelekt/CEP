@@ -153,6 +153,12 @@ Once published, the campaign page shows the Series Timeline: each message Sent w
 3. The audience estimate runs the send engine's own governance order as of today; the frozen list at the run is the record of what a send used.
 4. Production Publish runs the checklist, records who published, waits for the approval when the workspace requires one, and creates the runs the dispatcher will start on time.
 
+## Estimated Cost
+
+For an SMS, MMS or WhatsApp campaign, people with View Message Costs see an **Estimated Cost** card beside the audience on the Audience step, and again on Review & Publish (Settings → Message Costs, once the platform team has set prices). Only people who can receive the campaign are counted. Once the template is picked, each person's own text is filled in and its parts counted, so a long name or an emoji shows up as extra parts; before that the figure is a *From* price, one part each. Above 50,000 people a sample is counted, and the card says so. A WhatsApp estimate is by country and assumes every message is delivered.
+
+The card's tag says whether the estimate is within the workspace's limits or over its approval limit or budget. Over the approval limit (or over the budget, when the workspace asks for approval then) the campaign needs an approver: its Approval card appears on Review & Publish, as when Settings → Approvals is on. Over a budget set to Block Publishing, Publish to Production is refused. The *Publish to production?* confirmation shows the estimate and the month's spend after it. On Targets & Economics, **Use the Estimate** puts the figure in Planned Campaign Cost.
+
 ## Things to know
 
 - The type and channel are fixed once the content (a template or a sender) is chosen; until then Edit Details can change them. After that, make a new campaign.

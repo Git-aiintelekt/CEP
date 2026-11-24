@@ -462,6 +462,27 @@ def clone(campaign, user=None, code: str | None = None, scheduled_at: datetime |
 
 
 # ---------------------------------------------------------------- audience, before anything is sent
+# a list awaiting approval (or refused) keeps its people out, unless an approved list also has them: the same rule as the send
+AUDIENCE_BASE = """WITH picked AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(include)s)),
+ dropped AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(exclude)s)),
+ unapproved AS (SELECT p.party_id FROM picked p
+                 WHERE NOT EXISTS (SELECT 1 FROM contact_list_member m JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
+                                    WHERE m.tenant_id = %(tenant)s AND m.party_id = p.party_id AND m.contact_list_id::text = ANY(%(include)s)
+                                      AND l.approval_status NOT IN ('AWAITING', 'REFUSED'))),
+ kept AS (SELECT p.party_id FROM picked p WHERE NOT EXISTS (SELECT 1 FROM dropped d WHERE d.party_id = p.party_id)
+                                           AND NOT EXISTS (SELECT 1 FROM unapproved u WHERE u.party_id = p.party_id))"""
+# texts: a usable number, not blocked (STOP, registry), and for marketing an opt-in
+TEXT_JUDGED = """SELECT k.party_id,
+           CASE WHEN ph.number IS NULL THEN 'NO_PHONE' WHEN cps.blocked THEN 'BLOCKED' WHEN cs.consent_status = 'OPTED_OUT' THEN 'UNSUBSCRIBED'
+                WHEN COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT' ELSE 'MARKETABLE' END AS status,
+           ph.number AS address, cm.first_name, cm.last_name
+      FROM kept k LEFT JOIN customer_master cm ON cm.party_id = k.party_id AND cm.tenant_id = %(tenant)s
+      LEFT JOIN LATERAL (SELECT p ->> 'number' AS number FROM jsonb_array_elements(cm.phones) p
+                          ORDER BY COALESCE((p ->> 'is_primary')::boolean, FALSE) DESC LIMIT 1) ph ON TRUE
+      LEFT JOIN consent_suppression cs ON cs.tenant_id = %(tenant)s AND cs.party_id = k.party_id AND cs.channel = 'SMS'
+      LEFT JOIN contact_point_status cps ON cps.tenant_id = %(tenant)s AND cps.contact_point_type = 'PHONE' AND cps.contact_value = ph.number::citext"""
+
+
 def audience(campaign, include: list | None = None, exclude: list | None = None, sample: int = 10) -> dict:
     """Merged and de-duplicated across the attached lists, minus the excluded lists, with the governance picture of today.
     `include` / `exclude` override the attached lists: the wizard asks before anything is saved."""
@@ -479,15 +500,7 @@ def audience(campaign, include: list | None = None, exclude: list | None = None,
         lists = {row[0]: {"id": row[0], "name": row[1], "member_count": row[6], "updated_at": row[3], "list_environment": row[4], "source_type": row[5], "channel": row[7],
                           "approval_status": row[8]}
                  for row in cursor.fetchall()}
-        # a list awaiting approval (or refused) keeps its people out, unless an approved list also has them: the same rule as the send
-        base = """WITH picked AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(include)s)),
-                       dropped AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(exclude)s)),
-                       unapproved AS (SELECT p.party_id FROM picked p
-                                       WHERE NOT EXISTS (SELECT 1 FROM contact_list_member m JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
-                                                          WHERE m.tenant_id = %(tenant)s AND m.party_id = p.party_id AND m.contact_list_id::text = ANY(%(include)s)
-                                                            AND l.approval_status NOT IN ('AWAITING', 'REFUSED'))),
-                       kept AS (SELECT p.party_id FROM picked p WHERE NOT EXISTS (SELECT 1 FROM dropped d WHERE d.party_id = p.party_id)
-                                                                 AND NOT EXISTS (SELECT 1 FROM unapproved u WHERE u.party_id = p.party_id))"""
+        base = AUDIENCE_BASE
         cursor.execute(base + " SELECT (SELECT count(*) FROM picked), (SELECT count(*) FROM kept), (SELECT count(*) FROM unapproved u WHERE NOT EXISTS (SELECT 1 FROM dropped d WHERE d.party_id = u.party_id))", params)
         unique, kept, not_approved = cursor.fetchone()
         if channel == "EMAIL":
@@ -496,16 +509,8 @@ def audience(campaign, include: list | None = None, exclude: list | None = None,
                            LEFT JOIN consent_suppression cs ON cs.tenant_id = %(tenant)s AND cs.party_id = k.party_id AND cs.channel = 'EMAIL'
                            LEFT JOIN contact_point_status cps ON cps.tenant_id = %(tenant)s AND cps.contact_point_type = 'EMAIL'
                                 AND cps.contact_value = {governance.PRIMARY_EMAIL_SQL}::citext"""
-        else:                                              # texts: a usable number, not blocked (STOP, registry), and for marketing an opt-in
-            judged = """SELECT k.party_id,
-                               CASE WHEN ph.number IS NULL THEN 'NO_PHONE' WHEN cps.blocked THEN 'BLOCKED' WHEN cs.consent_status = 'OPTED_OUT' THEN 'UNSUBSCRIBED'
-                                    WHEN COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT' ELSE 'MARKETABLE' END AS status,
-                               ph.number AS address, cm.first_name, cm.last_name
-                          FROM kept k LEFT JOIN customer_master cm ON cm.party_id = k.party_id AND cm.tenant_id = %(tenant)s
-                          LEFT JOIN LATERAL (SELECT p ->> 'number' AS number FROM jsonb_array_elements(cm.phones) p
-                                              ORDER BY COALESCE((p ->> 'is_primary')::boolean, FALSE) DESC LIMIT 1) ph ON TRUE
-                          LEFT JOIN consent_suppression cs ON cs.tenant_id = %(tenant)s AND cs.party_id = k.party_id AND cs.channel = 'SMS'
-                          LEFT JOIN contact_point_status cps ON cps.tenant_id = %(tenant)s AND cps.contact_point_type = 'PHONE' AND cps.contact_value = ph.number::citext"""
+        else:
+            judged = TEXT_JUDGED
         cursor.execute(base + f", judged AS ({judged}) SELECT status, count(*) FROM judged GROUP BY 1", params)
         counts = dict(cursor.fetchall())
         cursor.execute(base + f", judged AS ({judged}) SELECT party_id, address, first_name, last_name, status FROM judged ORDER BY (status = 'MARKETABLE') DESC, party_id LIMIT %(sample)s",

@@ -1,0 +1,60 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}Message Usage | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <h1>Message Usage</h1>
+            <p>What texts cost the platform and what the workspaces pay, by month: every SMS part, MMS and WhatsApp message sent by a tenant with message rates. Platform only.</p>
+        </div>
+        <form method="get" class="cep-actions">
+            {% if chosen %}<input type="hidden" name="tenant" value="{{ chosen.pk }}">{% endif %}
+            <label class="cep-sr" for="usage-month">Month</label>
+            <select id="usage-month" name="month" onchange="this.form.submit()" class="border rounded-default px-3 py-2">
+                {% for month in months %}<option value="{{ month|date:'Y-m' }}" {% if month == start %}selected{% endif %}>{{ month|date:"F Y" }}</option>{% endfor %}
+            </select>
+            <noscript><button class="cep-button cep-button-quiet" type="submit">Show</button></noscript>
+        </form>
+    </div>
+
+    <section class="cep-card" style="margin-bottom:1.25rem">
+        <div class="cep-table-wrap">
+            <table class="cep-table" aria-label="Tenants in {{ start|date:'F Y' }}">
+                <thead><tr><th>Tenant</th><th>Cost</th><th>Price</th><th>Margin</th><th><span class="cep-sr">Open</span></th></tr></thead>
+                <tbody>
+                {% for row in summary %}
+                    <tr{% if chosen and row.tenant.pk == chosen.pk %} style="background:var(--cep-accent-soft)"{% endif %}>
+                        <td><strong>{{ row.tenant.code }}</strong> <small class="cep-muted">{{ row.tenant.name }}</small></td>
+                        <td>{{ row.currency }} {{ row.cost }}</td><td>{{ row.currency }} {{ row.price }}</td><td>{{ row.currency }} {{ row.margin }} <small class="cep-muted">{{ row.margin_pct|default:"" }}</small></td>
+                        <td><a class="cep-link" href="?month={{ start|date:'Y-m' }}&tenant={{ row.tenant.pk }}">Campaigns</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="cep-muted">No tenant has message rates yet. Add them on a tenant's page → Message Rates.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {% if chosen %}
+    <section class="cep-card">
+        <div class="cep-section-head" style="padding:1rem 1rem 0"><h2>{{ chosen.code }} · {{ start|date:"F Y" }}</h2><a href="{% url 'admin:tenants_tenant_message_rates' chosen.pk %}">Message Rates</a></div>
+        <div class="cep-table-wrap">
+            <table class="cep-table" aria-label="{{ chosen.code }} campaigns">
+                <thead><tr><th>Sent</th><th>Units</th><th>Cost</th><th>Price</th><th>Margin</th></tr></thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr><td><strong>{{ row.name }}</strong> <small class="cep-muted">{{ row.kind }}</small></td><td>{{ row.units }}</td><td>{{ currency }} {{ row.cost }}</td><td>{{ currency }} {{ row.price }}</td><td>{{ currency }} {{ row.margin }} <small class="cep-muted">{{ row.margin_pct|default:"" }}</small></td></tr>
+                {% empty %}
+                    <tr><td colspan="5" class="cep-muted">Nothing priced was sent this month.</td></tr>
+                {% endfor %}
+                {% if rows %}<tr><td><strong>Total</strong></td><td></td><td><strong>{{ currency }} {{ totals.cost }}</strong></td><td><strong>{{ currency }} {{ totals.price }}</strong></td><td><strong>{{ currency }} {{ totals.margin }}</strong> <small class="cep-muted">{{ totals.margin_pct|default:"" }}</small></td></tr>{% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

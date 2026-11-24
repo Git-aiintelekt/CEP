@@ -4,7 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CircleAlert, CircleCheck, CircleDashed } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
@@ -17,6 +17,9 @@ import { api } from '@/lib/api'
 import { formatMoney, formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, CampaignChecklist, CampaignRun } from '@/lib/types'
 
+import { CostEstimateCard } from '../../costs/CostEstimateCard'
+import { useCostEstimate } from '../../costs/data'
+import { costMoney } from '../../costs/money'
 import { AudiencePicture } from '../AudiencePicture'
 import { ChecklistItems } from '../ChecklistItems'
 import { APPROVAL_CARD_ID, ApprovalCard } from './ApprovalCard'
@@ -102,6 +105,14 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
     queryFn: ({ signal }) => api.get<CampaignAudience>(`/campaigns/${campaign.id}/audience/`, undefined, signal),
     enabled: !isReceipt && campaign.contact_lists.length > 0,
   })
+  const texts = !isReceipt && campaign.campaign_type !== 'DRIP' && ['SMS', 'MMS', 'WHATSAPP'].includes(campaign.channel)
+  const cost = useCostEstimate(campaign.id, undefined, undefined, texts && campaign.contact_lists.length > 0)
+  const costFigure = cost.data?.available ? cost.data : null
+  // the checklist works the estimate out again; over the workspace's limit, the campaign now needs approval: show its card
+  const costApproval = Boolean(checklist.data?.items.some((item) => item.key === 'approval'))
+  useEffect(() => {
+    if (costApproval && !campaign.approval_required) void queryClient.invalidateQueries({ queryKey: ['campaigns', 'detail', campaign.id] })
+  }, [costApproval, campaign.approval_required, campaign.id, queryClient])
   const publish = useMutation({
     mutationFn: () => api.post<CampaignRun>(`/campaigns/${campaign.id}/publish/`),
     onSuccess: async () => {
@@ -171,6 +182,8 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
 
         {audience.data && <Panel title="Audience Estimate"><AudiencePicture audience={audience.data} /></Panel>}
 
+        {texts && <CostEstimateCard campaignId={campaign.id} enabled={campaign.contact_lists.length > 0} />}
+
         {campaign.approval_required && <ApprovalCard campaign={campaign} />}
 
         {publish.isError && <ErrorState title="The campaign was not published" error={publish.error} />}
@@ -200,6 +213,13 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
           <div className="space-y-2 text-sm text-ink-800">
             <p><strong className="text-ink-900">{campaign.name}</strong> {isReceipt ? 'starts answering receipt requests.' : <>goes to about <strong className="text-ink-900">{audience.data ? formatNumber(audience.data.estimated_recipients) : 'the attached'}</strong> people.</>}</p>
             <p>When: {when}.</p>
+            {costFigure && (
+              <p data-publish-cost>
+                Estimated cost: <strong className="cep-num text-ink-900">{costFigure.upto ? 'up to ' : ''}{costMoney(costFigure.total, costFigure.currency)}</strong>
+                {costFigure.check?.after && costFigure.check.monthly_budget && <span className="cep-num">, this month&rsquo;s spend {costMoney(costFigure.check.after, costFigure.currency)} of {costMoney(costFigure.check.monthly_budget, costFigure.currency)} after it</span>}.
+                {' '}{costFigure.channel === 'WHATSAPP' ? 'Charged per delivered message.' : 'You are charged for what is actually sent.'}
+              </p>
+            )}
             <p>After publishing the campaign can no longer be edited. It can be paused, and a scheduled send can be cancelled.</p>
             {!checklist.data?.test_sent && <p className="rounded-sm border border-warning bg-warning-bg px-3 py-2 text-warning-text">No test has been sent for this campaign.</p>}
           </div>

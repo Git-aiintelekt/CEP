@@ -54,6 +54,15 @@ const overviewQuery = (filters: HomeFilters, zone: string) => {
   return { ...SETTLED, queryKey: ['home', 'overview', params], queryFn: ({ signal }: { signal: AbortSignal }) => api.get<HomeOverview>('/home/overview/', params, signal) }
 }
 
+/** the month's text spend at or past Warn At of the budget: one line, the percent only */
+function messageBudgetGroup(budget: { percent: number; over: boolean }): AttentionGroup {
+  return {
+    id: 'message-budget', severity: budget.over ? 'blocking' : 'governance', category: 'Message Budget', count: budget.percent, suffix: '%',
+    label: budget.over ? `Texts this month are over the budget (${budget.percent}%)` : `Texts this month have used ${budget.percent}% of the budget`,
+    actionLabel: 'Open Message Costs', href: '/settings/message-costs',
+  }
+}
+
 function useAttention(filters: HomeFilters): SectionResult<Attention> {
   const { viewer } = useHomeData()
   const single = filters.campaignIds.length === 1 ? filters.campaignIds[0] : null
@@ -77,7 +86,8 @@ function useAttention(filters: HomeFilters): SectionResult<Attention> {
       ]
     // drips in trouble: one group, each problem with its own link (one campaign: only its own)
     const drips = dripProblemsGroup((alerts.drip_problems ?? []).filter((problem) => !single || problem.campaign_id === single), viewer.timezone, overview.dataUpdatedAt)
-    return { groups: [...groups.filter((group) => group.count > 0), ...(drips ? [drips] : [])], freshness }
+    const budget = !single && alerts.message_budget ? [messageBudgetGroup(alerts.message_budget)] : []
+    return { groups: [...groups.filter((group) => group.count > 0), ...(drips ? [drips] : []), ...budget], freshness }
   })
 }
 

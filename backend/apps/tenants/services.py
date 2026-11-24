@@ -16,7 +16,7 @@ DEFAULT_ROLES = {
     "Workspace Admin": ("Everything, including users, roles and API keys", None),                       # None = every permission
     "Campaign Manager": ("Builds and publishes campaigns, lists and templates",
                          ["campaign.view", "campaign.edit", "campaign.publish", "list.view", "list.edit", "list.import",
-                          "template.view", "template.edit", "report.view"]),
+                          "template.view", "template.edit", "report.view", "cost.view"]),
     "Analyst": ("Read-only access with reports", ["campaign.view", "journey.view", "list.view", "template.view", "report.view"]),
 }
 

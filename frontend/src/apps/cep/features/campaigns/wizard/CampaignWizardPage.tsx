@@ -331,7 +331,7 @@ export function CampaignWizardPage() {
                 {current === 'audience' && <StepAudience campaign={loaded} onChangeType={canChangeType ? () => openDetails(true) : undefined} pending={pendingUploads} onPendingChange={setPendingUploads} />}
                 {current === 'content' && !drip && <StepTemplate campaign={loaded} />}
                 {current === 'sequence' && <StepSequence campaign={loaded} options={options.data} workspaceZone={zone} attempt={sequenceAttempt} onEditDetails={() => openDetails(true)} />}
-                {current === 'targets' && <StepTargets />}
+                {current === 'targets' && <StepTargets campaignId={loaded?.id} />}
                 {current === 'test' && <StepTest campaign={loaded} options={options.data} onTested={() => void markTested()} />}
                 {current === 'publish' && drip && (
                   <StepDripPublish campaign={loaded} options={options.data} workspaceZone={zone} onAllTested={() => void markTested()}

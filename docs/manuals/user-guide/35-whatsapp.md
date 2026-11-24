@@ -148,6 +148,10 @@ Run these in order on a new set-up; each says what to look for.
 | *No value for {{tag}} and the template has no fallback* | That person has no value for the tag. | Give the tag an If Empty value and save (a written template needs a copy, reviewed again). |
 | Everyone is *No Consent* | Nobody has a WhatsApp opt-in yet. | Record consent (step 4). |
 
+## What a WhatsApp message costs
+
+Meta charges a delivered template message by its category and the recipient's country; a message that is not delivered is free, and so are replies within 24 hours of the customer's own message. The template editor shows the price of the category in your home country, and a campaign's Estimated Cost is worked out country by country. Settings → Message Costs → WhatsApp Countries decides where WhatsApp goes: numbers in other countries are left out of WhatsApp campaigns.
+
 ## Things to know
 
 - Meta rejects a body that starts or ends with a tag, or that has two tags side by side; the editor says so before you submit.

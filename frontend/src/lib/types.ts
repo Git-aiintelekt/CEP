@@ -2717,6 +2717,8 @@ export interface HomeOverviewAttention {
   awaiting_approval: number
   /** drips in trouble: a message nobody received, or paused 3+ days */
   drip_problems?: DripProblem[]
+  /** the month's text spend once it reaches Warn At of the budget (Settings → Message Costs); the percent only */
+  message_budget?: { percent: number; warn_at: number; over: boolean } | null
 }
 
 export type DripProblem =
@@ -3331,4 +3333,160 @@ export interface GovernanceOverview {
   activity: { days: number; checked: number; sent: number; capped: number; sent_percent: number | null }
   text_quiet_hours: { start: string; end: string } | null
   soft_bounces: number
+}
+
+// ---- what texts cost (patch 0099, backend apps/delivery/costs.py): prices only, never the platform's cost
+export type OverBudget = 'WARN' | 'APPROVAL' | 'BLOCK'
+export type CostState = 'OK' | 'WARN' | 'APPROVAL' | 'BLOCK'
+
+export interface TextPrice {
+  effective_from: string
+  effective_until: string | null
+  sms: string | null
+  mms: string | null
+  fee_part: string | null
+  fee_mms: string | null
+  fees: 'PASS_ON' | 'INCLUDED' | 'ABSORBED'
+}
+
+export interface TextPriceRow {
+  sender_id: string
+  sender: string
+  number: string | null
+  channel: 'SMS' | 'MMS'
+  is_default: boolean
+  engine: string
+  sender_type: string
+  current: TextPrice | null
+  next: TextPrice | null
+  countries: { code: string; name: string }[]
+}
+
+export interface WhatsAppMarketPrice {
+  market: string
+  marketing: string | null
+  utility: string | null
+  authentication: string | null
+  contacts: number
+  chosen: boolean
+  countries: string[]
+}
+
+export interface WhatsAppPrices {
+  engine_id: string
+  engine: string
+  currency: string
+  effective_from: string
+  free_messages: 'FREE' | 'PLATFORM_FEE'
+  platform_fee: string | null
+  other_countries: boolean
+  markets: WhatsAppMarketPrice[]
+  left_out_contacts: number
+}
+
+export interface MessageCostSettings {
+  approval_above: string | null
+  monthly_budget: string | null
+  warn_at: number
+  over_budget: OverBudget
+  wa_countries: string[] | null
+  home_country: string | null
+  home_country_name: string | null
+}
+
+export interface MonthSpend {
+  month: string
+  sent: string
+  campaigns: string
+  journeys: string
+  receipts: string
+  scheduled: string
+  total: string
+  days_left: number
+}
+
+export interface MessageCosts {
+  currency: string | null
+  set_up: boolean
+  texts: TextPriceRow[]
+  whatsapp: WhatsAppPrices[]
+  settings: MessageCostSettings
+  month: MonthSpend | null
+  viewers: string[]
+  can_edit: boolean
+  countries: { code: string; name: string }[]
+}
+
+export interface MessagePrices {
+  currency: string | null
+  sms: { each: string; fee: string; fees: string; sender: string; number: string | null } | null
+  mms: { each: string; fee: string; fees: string; sender: string; number: string | null } | null
+  whatsapp: {
+    home_country: string
+    home_name: string
+    market: string | null
+    prices: Record<'marketing' | 'utility' | 'authentication', { home: string | null; others_max: string | null }>
+    free_messages: 'FREE' | 'PLATFORM_FEE'
+  } | null
+}
+
+export interface CostLine {
+  label: string
+  units: number
+  each: string
+  total: string
+}
+
+export interface CostCheck {
+  state: CostState
+  reasons: string[]
+  message: string
+  approval_above: string | null
+  monthly_budget: string | null
+  over_budget: OverBudget
+  month_spent?: string
+  after?: string
+}
+
+export type CostEstimate =
+  | { available: false; reason: string }
+  | {
+      available: true
+      currency: string | null
+      channel: 'SMS' | 'MMS' | 'WHATSAPP'
+      price_date: string
+      sender: string
+      recipients: number
+      units: number
+      unit: 'parts' | 'MMS' | 'messages'
+      parts: { parts: number; people: number; units: number }[]
+      lines: CostLine[]
+      total: string
+      per_recipient: string | null
+      unpriced: number
+      empty?: number
+      exact: boolean
+      counted: number
+      upto: boolean
+      from_price: boolean
+      each?: string
+      fees?: string
+      category?: string
+      country_not_chosen?: number
+      check?: CostCheck
+    }
+
+export interface CampaignActualCost {
+  currency: string | null
+  channel: 'SMS' | 'MMS' | 'WHATSAPP'
+  total: string
+  lines: CostLine[]
+  failed_included: number
+  not_charged: number
+  free: number
+  unpriced: number
+  units: Record<string, number>
+  messages: number
+  sending: boolean
+  estimate: string | null
 }

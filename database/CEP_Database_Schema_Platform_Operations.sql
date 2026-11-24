@@ -3650,6 +3650,148 @@ ALTER TABLE tenant ADD COLUMN IF NOT EXISTS environment VARCHAR(12) NOT NULL DEF
 ALTER TABLE tenant DROP CONSTRAINT IF EXISTS ck_tenant_environment;
 ALTER TABLE tenant ADD CONSTRAINT ck_tenant_environment CHECK (environment IN ('PRODUCTION', 'STAGING'));
 
+-- 0099 (2026-11-25): what texts cost (docs/mockups/sms-mms-costs.html, option A). Two figures, two audiences: the cost is what the
+-- provider charges the platform, the price is what the platform charges the workspace. The platform team enters both in the
+-- back-office (Tenants -> a tenant -> Message Rates); the workspace's database login is granted the price columns only, so the
+-- cost columns are read through the platform alias alone. A rate has a start date and is never edited once it is in force:
+-- a new price is a new row from a date, which ends the previous one the day before, so a text sent on a day is always priced
+-- by the rate of that day (apps/delivery/costs.py works the figures out from sms_execution; nothing is stored per message).
+-- The workspace's own parameters (approval limit, monthly budget, WhatsApp countries) are in tenant.settings.message_costs.
+CREATE TABLE IF NOT EXISTS message_rate (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    delivery_provider_id UUID NOT NULL REFERENCES delivery_provider(id),
+    sender_type         VARCHAR(12) NOT NULL DEFAULT 'ANY',              -- ANY, SHORT_CODE, LONG_CODE, TOLL_FREE, ALPHANUMERIC
+    country_code        CHAR(2),                                         -- ISO 3166 alpha-2; NULL = all countries
+    effective_from      DATE NOT NULL,
+    effective_until     DATE,                                            -- the last day it applies (NULL: open)
+    -- cost: the provider's contract, platform only
+    sms_cost            NUMERIC(12,4) NOT NULL,                          -- a part
+    mms_cost            NUMERIC(12,4),                                   -- a message; NULL: this engine sends no MMS
+    carrier_fee_part    NUMERIC(12,4) NOT NULL DEFAULT 0,
+    carrier_fee_mms     NUMERIC(12,4) NOT NULL DEFAULT 0,
+    failed_billed       BOOLEAN NOT NULL DEFAULT TRUE,                   -- the provider charges for messages carriers refuse
+    source              VARCHAR(200),
+    pricing             VARCHAR(10) NOT NULL DEFAULT 'FIXED',            -- FIXED, MARKUP
+    sms_markup          NUMERIC(7,2),                                    -- percent on cost, with MARKUP
+    mms_markup          NUMERIC(7,2),
+    below_cost          BOOLEAN NOT NULL DEFAULT FALSE,                  -- a price below the cost, on purpose
+    -- price: what the workspace sees and pays
+    sms_price           NUMERIC(12,4) NOT NULL,
+    mms_price           NUMERIC(12,4),
+    carrier_fees        VARCHAR(10) NOT NULL DEFAULT 'PASS_ON',          -- PASS_ON (its own line, at cost), INCLUDED (in the price), ABSORBED (not charged)
+    fee_part_price      NUMERIC(12,4) NOT NULL DEFAULT 0,                -- the carrier fee the workspace pays: the fee when passed on, else 0
+    fee_mms_price       NUMERIC(12,4) NOT NULL DEFAULT 0,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_message_rate_sender_type CHECK (sender_type IN ('ANY', 'SHORT_CODE', 'LONG_CODE', 'TOLL_FREE', 'ALPHANUMERIC')),
+    CONSTRAINT ck_message_rate_dates CHECK (effective_until IS NULL OR effective_until >= effective_from),
+    CONSTRAINT ck_message_rate_pricing CHECK (pricing IN ('FIXED', 'MARKUP')),
+    CONSTRAINT ck_message_rate_fees CHECK (carrier_fees IN ('PASS_ON', 'INCLUDED', 'ABSORBED')),
+    CONSTRAINT ck_message_rate_amounts CHECK (sms_cost >= 0 AND (mms_cost IS NULL OR mms_cost >= 0) AND carrier_fee_part >= 0 AND carrier_fee_mms >= 0
+                                              AND sms_price >= 0 AND (mms_price IS NULL OR mms_price >= 0) AND fee_part_price >= 0 AND fee_mms_price >= 0),
+    CONSTRAINT ck_message_rate_mms CHECK ((mms_cost IS NULL) = (mms_price IS NULL))
+);
+CREATE INDEX IF NOT EXISTS ix_message_rate_lookup ON message_rate(tenant_id, delivery_provider_id, effective_from);
+COMMENT ON TABLE message_rate IS 'What an SMS part and an MMS cost the platform (cost) and the workspace (price), per sending engine, sender type and country, from a date. Back-office -> Tenants -> Message Rates.';
+
+-- WhatsApp: Meta's rate card, one per WhatsApp engine (account) and date. A delivered template message is charged by its category
+-- in the recipient's market; length and pictures do not matter, and a message Meta does not charge for is free.
+CREATE TABLE IF NOT EXISTS whatsapp_rate_card (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    delivery_provider_id UUID NOT NULL REFERENCES delivery_provider(id),
+    currency            CHAR(3) NOT NULL,
+    effective_from      DATE NOT NULL,
+    effective_until     DATE,
+    file_name           VARCHAR(200),
+    pricing             VARCHAR(10) NOT NULL DEFAULT 'MARKUP',           -- MARKUP (every market), FIXED (a price for every market and category)
+    markup              NUMERIC(7,2) NOT NULL DEFAULT 0,                 -- percent on cost
+    other_countries     BOOLEAN NOT NULL DEFAULT TRUE,                   -- numbers outside the listed markets may be sent to (the card's Other row)
+    free_messages       VARCHAR(12) NOT NULL DEFAULT 'FREE',             -- FREE, PLATFORM_FEE: what the workspace pays when Meta charges nothing
+    platform_fee        NUMERIC(12,4),                                   -- a free message, with PLATFORM_FEE
+    volume_discounts    VARCHAR(10) NOT NULL DEFAULT 'MARGIN',           -- MARGIN (kept by the platform), PASS_ON
+    imported_by         UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_whatsapp_rate_card_dates CHECK (effective_until IS NULL OR effective_until >= effective_from),
+    CONSTRAINT ck_whatsapp_rate_card_pricing CHECK (pricing IN ('MARKUP', 'FIXED') AND markup BETWEEN 0 AND 500),
+    CONSTRAINT ck_whatsapp_rate_card_free CHECK (free_messages IN ('FREE', 'PLATFORM_FEE') AND (free_messages = 'FREE' OR platform_fee >= 0)),
+    CONSTRAINT ck_whatsapp_rate_card_discounts CHECK (volume_discounts IN ('MARGIN', 'PASS_ON'))
+);
+CREATE INDEX IF NOT EXISTS ix_whatsapp_rate_card_lookup ON whatsapp_rate_card(tenant_id, delivery_provider_id, effective_from);
+CREATE TABLE IF NOT EXISTS whatsapp_rate (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    rate_card_id        UUID NOT NULL REFERENCES whatsapp_rate_card(id) ON DELETE CASCADE,
+    market              VARCHAR(80) NOT NULL,                            -- Meta's market as the card names it: United Kingdom, Rest of Latin America, Other
+    cost_marketing      NUMERIC(12,4),
+    cost_utility        NUMERIC(12,4),
+    cost_authentication NUMERIC(12,4),
+    fixed_marketing     NUMERIC(12,4),                                   -- the platform's own price for one market and category, instead of the markup
+    fixed_utility       NUMERIC(12,4),
+    fixed_authentication NUMERIC(12,4),
+    price_marketing     NUMERIC(12,4),                                   -- what the workspace pays: the fixed price, else cost x (1 + markup)
+    price_utility       NUMERIC(12,4),
+    price_authentication NUMERIC(12,4),
+    below_cost          BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT ck_whatsapp_rate_amounts CHECK (coalesce(cost_marketing, 0) >= 0 AND coalesce(cost_utility, 0) >= 0 AND coalesce(cost_authentication, 0) >= 0
+                                               AND coalesce(price_marketing, 0) >= 0 AND coalesce(price_utility, 0) >= 0 AND coalesce(price_authentication, 0) >= 0)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_whatsapp_rate_market ON whatsapp_rate(rate_card_id, lower(market));
+COMMENT ON TABLE whatsapp_rate_card IS 'Meta''s WhatsApp rate card for one WhatsApp engine from a date, and how the platform prices it (back-office -> Tenants -> Message Rates -> WhatsApp).';
+COMMENT ON TABLE whatsapp_rate IS 'One market of a WhatsApp rate card: Meta''s cost and the workspace''s price for a delivered Marketing, Utility and Authentication message.';
+
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['message_rate', 'whatsapp_rate_card', 'whatsapp_rate'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+DROP TRIGGER IF EXISTS trg_message_rate_touch ON message_rate;
+CREATE TRIGGER trg_message_rate_touch BEFORE UPDATE ON message_rate FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+DROP TRIGGER IF EXISTS trg_whatsapp_rate_card_touch ON whatsapp_rate_card;
+CREATE TRIGGER trg_whatsapp_rate_card_touch BEFORE UPDATE ON whatsapp_rate_card FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+-- the workspace reads prices, never costs; the back-office writes everything through the platform alias
+REVOKE ALL ON message_rate, whatsapp_rate_card, whatsapp_rate FROM cep_app;
+GRANT SELECT (id, tenant_id, delivery_provider_id, sender_type, country_code, effective_from, effective_until, sms_price, mms_price, carrier_fees,
+              fee_part_price, fee_mms_price) ON message_rate TO cep_app;
+GRANT SELECT (id, tenant_id, delivery_provider_id, currency, effective_from, effective_until, other_countries, free_messages, platform_fee) ON whatsapp_rate_card TO cep_app;
+GRANT SELECT (id, tenant_id, rate_card_id, market, price_marketing, price_utility, price_authentication) ON whatsapp_rate TO cep_app;
+GRANT ALL ON message_rate, whatsapp_rate_card, whatsapp_rate TO cep_admin;
+
+-- what Meta's delivery report says about a WhatsApp message's charge (its pricing block), so the actual cost is exact
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS wa_billable BOOLEAN;                       -- NULL: not reported (yet)
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS wa_category VARCHAR(40);                   -- marketing, utility, authentication, service, referral_conversion ...
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS wa_pricing_type VARCHAR(40);               -- regular, free_customer_service, free_entry_point
+ALTER TABLE sms_execution ALTER COLUMN wa_category TYPE VARCHAR(40), ALTER COLUMN wa_pricing_type TYPE VARCHAR(40);   -- a longer limit: no rewrite
+COMMENT ON COLUMN sms_execution.wa_billable IS 'WhatsApp only: whether Meta charges for this message (the delivery report''s pricing.billable).';
+
+-- a text campaign's estimate when it was last worked out (the Estimated Cost panel, Publish): {total, currency, state OK|WARN|APPROVAL|BLOCK,
+-- message, at}. State APPROVAL makes the campaign's approval required; the month's budget counts production campaigns not yet sent at it.
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS cost_estimate JSONB;
+COMMENT ON COLUMN campaign.cost_estimate IS 'The last estimate of what this text campaign costs and how it stands against the workspace''s limits (apps/delivery/costs.py).';
+
+-- who sees money in the workspace: View Message Costs, given to the roles that hold user.admin when it is first added
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM permission WHERE code = 'cost.view') THEN
+        INSERT INTO permission (id, code, description) VALUES ('a3000000-0000-4000-8000-00000000001c', 'cost.view', 'View message costs');
+        INSERT INTO role_permission (role_id, permission_id)
+        SELECT rp.role_id, p.id FROM role_permission rp JOIN permission a ON a.id = rp.permission_id AND a.code = 'user.admin'
+          CROSS JOIN permission p WHERE p.code = 'cost.view'
+        ON CONFLICT DO NOTHING;
+    END IF;
+END $$;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

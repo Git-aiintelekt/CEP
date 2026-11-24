@@ -87,6 +87,10 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 4. **The engine calls back** and every message's row moves forward: delivered, opened, clicked, bounced, complained. The campaign's figures, the report and Home all read those rows.
 5. **The activity log** records each step, and a failed run raises a banner on the campaign and an alert on Home.
 
+## What a text campaign cost
+
+On the Performance tab, people with View Message Costs see a **Cost** card for an SMS, MMS or WhatsApp campaign: the actual figure from the parts each message really used (WhatsApp: from Meta's delivery reports, so undelivered and free messages cost nothing), next to the estimate made at publish. While it is still sending it shows the figure so far. Economics then compares the Planned Campaign Cost with this actual figure.
+
 ## Things to know
 
 - **Unengaged** as the reason someone was left out means the workspace's Unengaged Contacts rule: no click, purchase or preference visit in its period, after at least its number of marketing emails. The person is not unsubscribed; their next click or purchase brings them back. A win-back campaign reaches them with Include Unengaged Contacts.

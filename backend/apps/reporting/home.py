@@ -10,7 +10,9 @@
 
 The period, channel and campaign filters are Home's. Marketing only: e-receipt campaigns are left out, as the report leaves them out. An answer is kept for 30 s, like the report.
 """
+import logging
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.core.cache import cache
 from django.db.models import Count, Exists, OuterRef, Q
@@ -26,6 +28,7 @@ FAMILY = {"EMAIL": "EMAIL", "SMS": "SMS", "MMS": "SMS", "WHATSAPP": "SMS"}
 DELIVERED = {"EMAIL": "('DELIVERED', 'OPENED', 'CLICKED')", "SMS": "('DELIVERED', 'RESPONDED', 'OPTED_OUT')"}
 WEEKLY_OVER_DAYS = 31
 TOP_CAMPAIGNS = 5
+log = logging.getLogger("cep.reporting")
 FAILED_WITHIN = timedelta(days=7)
 HELD_BACK = {"frequency_cap": ("FREQUENCY_CAP",), "no_consent": ("NO_CONSENT", "UNSUBSCRIBED", "TOPIC_OPTED_OUT"), "suppression": ("SUPPRESSED", "BLOCKED_ADDRESS", "INVALID_ADDRESS")}
 COMMUNICATION_CHANNELS = ("EMAIL", "SMS", "MMS")
@@ -54,7 +57,25 @@ def attention(tenant_id) -> dict:
     failed = campaigns.filter(Exists(failed_run)).exclude(status="PAUSED").exclude(asked).order_by("-updated_at").values_list("id", flat=True)
     counts = campaigns.aggregate(publish=Count("id", filter=Q(status="TEST_PUBLISHED")), approval=Count("id", filter=asked))
     return {"failed_ids": [str(pk) for pk in failed], "awaiting_publish": counts["publish"], "awaiting_approval": counts["approval"],
-            "drip_problems": drip_problems(tenant_id)}
+            "drip_problems": drip_problems(tenant_id), "message_budget": message_budget(tenant_id)}
+
+
+def message_budget(tenant_id) -> dict | None:
+    """The month's text spend once it reaches the workspace's Warn At percent of its budget (Settings → Message Costs): the percent
+    only, since everyone sees Home and money is for View Message Costs."""
+    from apps.delivery import costs
+    from apps.tenants.models import Tenant
+    tenant = Tenant.objects.filter(pk=tenant_id).first()
+    own = costs.workspace_settings(tenant) if tenant else None
+    if not own or not own["monthly_budget"]:
+        return None
+    try:
+        spent = Decimal(costs.month_spend(tenant)["total"])
+    except Exception:                                    # noqa: BLE001  logged; Home shows the other alerts
+        log.exception("the message budget of %s could not be read", tenant_id)
+        return None
+    percent = int(spent / own["monthly_budget"] * 100)
+    return {"percent": percent, "warn_at": own["warn_at"], "over": percent >= 100} if percent >= own["warn_at"] else None
 
 
 PAUSED_LONG_AFTER = timedelta(days=3)

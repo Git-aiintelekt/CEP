@@ -11,6 +11,8 @@ import { InputGroup } from '@/components/InputGroup'
 import { useFieldRules } from '@/lib/fieldRules'
 import { formatMoney, formatNumber } from '@/lib/format'
 
+import { useCostEstimate } from '../../costs/data'
+import { costMoney } from '../../costs/money'
 import { useAudienceEstimate } from '../audienceNumbers'
 import { DetailCard, Fact } from '../parts'
 import type { CampaignFormValues } from '../schema'
@@ -55,7 +57,7 @@ function ShareLine({ value, recipients, receipt }: { value: string; recipients: 
 }
 
 /** $500 · $1,000 · $2,500 · Custom, and Clear: a chip fills the amount; Custom (or any other amount) shows the box */
-function CostPicker({ name, label, hint, error }: { name: 'planned_cost' | 'planned_offer_cost'; label: string; hint: string; error?: string }) {
+function CostPicker({ name, label, hint, error, suggestion }: { name: 'planned_cost' | 'planned_offer_cost'; label: string; hint: string; error?: string; suggestion?: { amount: string; words: string } | null }) {
   const { watch, setValue } = useFormContext<CampaignFormValues>()
   const value = watch(`targets.${name}`)
   const number = toNumber(value)
@@ -81,6 +83,12 @@ function CostPicker({ name, label, hint, error }: { name: 'planned_cost' | 'plan
               ) : null}
             </div>
             {custom && <div className="sm:w-1/2 sm:pr-3"><AmountInput name={`targets.${name}`} money ids={ids} /></div>}
+            {suggestion && toNumber(value) !== Number(suggestion.amount) && (
+              <p className="text-helper text-ink-800" data-cost-suggestion>
+                {suggestion.words}{' '}
+                <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={() => { setCustomAsked(true); set(suggestion.amount) }}>Use the Estimate</button>
+              </p>
+            )}
           </div>
         )}
       </Field>
@@ -117,7 +125,7 @@ function PlanCard({ targets }: { targets: CampaignFormValues['targets'] }) {
   )
 }
 
-export function StepTargets() {
+export function StepTargets({ campaignId }: { campaignId?: string } = {}) {
   const { register, watch, formState: { errors } } = useFormContext<CampaignFormValues>()
   const targets = watch('targets')
   const channel = watch('channel')
@@ -125,6 +133,10 @@ export function StepTargets() {
   const receipt = watch('campaign_type') === 'E_RECEIPT'
   const estimate = useAudienceEstimate(receipt ? [] : watch('contact_lists'), watch('excluded_lists'), channel, watch('solicitation_type'))
   const recipients = estimate.data ? estimate.data.estimated_recipients : null
+  const cost = useCostEstimate(campaignId, undefined, undefined, texts && !receipt && watch('campaign_type') !== 'DRIP')
+  const costSuggestion = cost.data?.available && !cost.data.from_price && Number(cost.data.total) > 0
+    ? { amount: String(Math.ceil(Number(cost.data.total) * 100) / 100), words: `The texts are estimated at ${costMoney(cost.data.total, cost.data.currency)}.` }
+    : null
   const issues = errors.targets
   const rule = useFieldRules('campaign')
   const NOTES_MAX = rule('targets.notes')?.max ?? 1000
@@ -155,7 +167,7 @@ export function StepTargets() {
             <div className="sm:w-1/2 sm:pr-3">
               <Field label="Target Revenue" strong error={issues?.target_revenue?.message} help="What the campaign is meant to earn. Home reads attributed revenue against it, Top Campaigns ranks by revenue against target, and the Performance tab shows the progress.">{(ids) => <AmountInput name="targets.target_revenue" money ids={ids} />}</Field>
             </div>
-            <CostPicker name="planned_cost" label="Planned Campaign Cost" hint="Creative, sending and agency costs." error={issues?.planned_cost?.message} />
+            <CostPicker name="planned_cost" label="Planned Campaign Cost" hint="Creative, sending and agency costs." error={issues?.planned_cost?.message} suggestion={costSuggestion} />
             <CostPicker name="planned_offer_cost" label="Planned Offer Cost" hint="Discounts and rewards you expect to give away." error={issues?.planned_offer_cost?.message} />
             <Field label="Notes" strong error={issues?.notes?.message} limit={{ used: (targets.notes ?? '').length, max: rule('targets.notes')?.max ?? NOTES_MAX }}>
               {(ids) => <TextArea {...ids} rows={3} maxLength={rule('targets.notes')?.max ?? NOTES_MAX} {...register('targets.notes')} />}

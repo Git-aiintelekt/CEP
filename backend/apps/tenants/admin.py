@@ -209,7 +209,8 @@ class TenantAdmin(BaseAdmin):
         from apps.platform_ops.admin_components import tenant_panel as components_panel
         from apps.platform_ops.admin_observe import tenant_panel
         from apps.platform_ops.admin_deliverability import tenant_summary
-        extra = {**(extra_context or {}), "readiness": readiness.readiness(tenant) if tenant else None,
+        from apps.platform_ops.admin_rates import tenant_panel as rates_panel
+        extra = {"rates_panel": rates_panel(tenant) if tenant else None, **(extra_context or {}), "readiness": readiness.readiness(tenant) if tenant else None,
                  "performance": tenant_panel(tenant.pk) if tenant else None, "deliverability": tenant_summary(tenant) if tenant else None,
                  "components_panel": components_panel(tenant) if tenant else None}
         return super().change_view(request, object_id, form_url, extra)
@@ -218,7 +219,8 @@ class TenantAdmin(BaseAdmin):
         from apps.platform_ops.admin_components import component_urls
         from apps.platform_ops.admin_deliverability import tenant_urls
         from apps.platform_ops.admin_observe import performance_urls
-        return [*performance_urls(self.admin_site), *tenant_urls(self.admin_site), *component_urls(self.admin_site), *super().get_urls()]
+        from apps.platform_ops.admin_rates import rate_urls
+        return [*performance_urls(self.admin_site), *rate_urls(self.admin_site), *tenant_urls(self.admin_site), *component_urls(self.admin_site), *super().get_urls()]
 
     @display(description="Active Users")
     def show_users(self, obj):
