@@ -240,6 +240,11 @@ export function AppShell({ workspace = false }: { workspace?: boolean }) {
       <div className={`flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
         {visit && <VisitBanner workspace={me?.workspace?.name ?? me?.tenant.code ?? 'this workspace'} home={visit.home} />}
+        {me?.workspace?.environment === 'STAGING' && (
+          <p role="note" data-staging-band className="border-b border-warning bg-warning-bg px-4 py-1.5 text-center text-xs font-semibold text-warning-text">
+            Staging workspace · {me.tenant.code} · sends here are for testing
+          </p>
+        )}
         {/* every workspace, Platform included: a scheduled upgrade, the pause while it runs, Reload after */}
         <UpgradeNotice />
         {/* same side padding as the top bar's search and account, and no width cap, so content lines up with them */}

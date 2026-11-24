@@ -149,11 +149,13 @@ def provision(claims: dict, tenant_id):
     if user is None:
         name = claims["display_name"] or claims["email"].split("@")[0]
         try:
-            with transaction.atomic():                     # savepoint: the email may belong to another workspace, hidden by RLS
+            with transaction.atomic():                     # savepoint: a second sign-in at the same moment may have made it
                 user = AppUser.objects.create(tenant_id=tenant_id, email=claims["email"], display_name=name[:200],
                                               auth_provider="LOCAL", password=None, is_active=True)
         except IntegrityError:
-            raise OfbizError(f"{claims['email']} is already used in another CEP workspace. Ask your administrator.") from None
+            user = AppUser.objects.filter(tenant_id=tenant_id, email__iexact=claims["email"]).first()
+            if user is None:
+                raise OfbizError(f"{claims['email']} could not be given a CEP account in this workspace. Ask your administrator.") from None
         log.info("OFBiz sign-in: created CEP user %s for OFBiz login %s", user.pk, claims["sub"])
     if not user.is_active or user.deleted_at is not None:
         raise OfbizError("Your CEP account is deactivated. Ask your administrator.")

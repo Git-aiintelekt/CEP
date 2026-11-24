@@ -41,6 +41,8 @@ export interface Me {
     scopes?: string[]
     /** the user's role names, for the header: ["Marketing Admin"] */
     roles?: string[]
+    /** two-factor on for this account (in this workspace: each account has its own) */
+    mfa_enabled?: boolean
   }
   tenant: { id: string; code: string; timezone: string; db_alias: string; db_status: string }
   /** industry profile of the workspace, e.g. RETAIL */
@@ -49,8 +51,8 @@ export interface Me {
   features?: Partial<Record<Feature, boolean>>
   /** the industry's words for generic things: { location: 'store' } */
   terminology?: Record<string, string>
-  /** the workspace's name and plan, for the account menu */
-  workspace?: { name: string | null; plan: { code: string; name: string } | null }
+  /** the workspace's name and plan, for the account menu; environment: a Staging workspace shows a band and a tag (patch 0098) */
+  workspace?: { name: string | null; plan: { code: string; name: string } | null; environment?: 'PRODUCTION' | 'STAGING' }
   /** the suite components this workspace can open, in suite order; absent (an older API) = Engagement alone */
   components?: SuiteComponent[]
   /** components that exist but are not released yet, for the launcher's line */

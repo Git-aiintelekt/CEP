@@ -81,7 +81,8 @@ class TenantAdmin(BaseAdmin):
     actions_detail = ("push_platform_tags",)
     list_before_template = "admin/tenants/onboard_notice.html"
     fieldsets = (
-        ("Workspace", {"fields": ("name", "code", "status", "timezone")}),
+        ("Workspace", {"fields": ("name", "code", "status", "environment", "timezone"),
+                       "description": "Used For: a Staging workspace shows a Staging band and tag in the app, so nobody mistakes it for Production."}),
         ("Access", {"fields": ("subdomain", "custom_app_domain"), "description": "Users reach the app at <subdomain>.your-domain, or at the custom app domain (its DNS record, certificate, nginx server_name and ALLOWED_HOSTS set on the server); the sign-in page then knows the workspace. The API also accepts the code in the X-Tenant header."}),
         ("Hosting", {"fields": ("isolation_mode", "region", "data_residency", "onboarded_at"),
                      "description": "SHARED tenants live in the pool database in their own partitions. Moving to DEDICATED is a migration, not a field change."}),

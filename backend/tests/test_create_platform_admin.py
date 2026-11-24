@@ -50,7 +50,8 @@ def test_creates_the_platform_workspace_and_its_administrator(check):
 def test_an_email_of_another_workspace_is_refused(check, admin_email):
     with pytest.raises(CommandError) as refused:
         call_command("create_platform_admin", admin_email, "--no-password")
-    check("an email that belongs to another workspace is refused, naming it", "already belongs to the workspace" in str(refused.value), str(refused.value))
+    # back-office staff keep one address across the platform (patch 0098); the test's administrator is staff in NWA
+    check("a staff address of another workspace is refused, naming it", "already a back-office account in the workspace" in str(refused.value), str(refused.value))
     user = AppUser.objects.using(P).get(email=admin_email)
     check("and that user is left in its own workspace", Tenant.objects.using(P).get(pk=user.tenant_id).code != "PLATFORM")
     check.done()

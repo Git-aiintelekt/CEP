@@ -101,7 +101,8 @@ class LoginView(PublicAuthView):
                                                                "mfa_setup_required": serializers.BooleanField(required=False)}))
     def post(self, request, version=None):
         email, password = str(request.data.get("email") or "").strip().lower(), str(request.data.get("password") or "")
-        user = authenticate(request, email=email, password=password) if email and password else None
+        # the account in this workspace: the same address may have another, with another password, in another workspace
+        user = authenticate(request, email=email, password=password, tenant_id=request.tenant["id"]) if email and password else None
         if user is None or not user.is_active or str(user.tenant_id) != str(request.tenant["id"]):
             raise AuthenticationFailed("No active account found with the given credentials")
 

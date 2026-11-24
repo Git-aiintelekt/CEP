@@ -120,10 +120,10 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         roles = validated_data.pop("roles", [])
         try:
-            with transaction.atomic():                        # savepoint: the email may exist in a tenant RLS hides from us
+            with transaction.atomic():                        # savepoint: the address may already have an account in this workspace
                 user = AppUser.objects.create(**validated_data)
         except IntegrityError:
-            raise serializers.ValidationError({"email": "This email address is already in use."}) from None
+            raise serializers.ValidationError({"email": "This address already has an account in this workspace. Edit it to change the roles."}) from None
         self._set_roles(user, roles)
         return user
 

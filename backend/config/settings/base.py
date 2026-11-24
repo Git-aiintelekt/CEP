@@ -126,6 +126,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------- auth
 AUTH_USER_MODEL = "identity.AppUser"
+# an account is Workspace ID + email (patch 0098): the sign-in finds it in the workspace signed in to; the back-office finds staff only
+AUTHENTICATION_BACKENDS = ["apps.identity.backends.WorkspaceBackend"]
+SILENCED_SYSTEM_CHECKS = ["auth.W004"]                  # the email is unique per workspace, not across the platform: on purpose
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},

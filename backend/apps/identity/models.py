@@ -39,7 +39,7 @@ class AppUser(AbstractBaseUser):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
-    email = models.TextField(unique=True)  # case-insensitive (CITEXT) in the database
+    email = models.TextField()  # case-insensitive (CITEXT); unique within a workspace (patch 0098), and among staff across the platform
     display_name = models.CharField(max_length=200)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(db_default=Now())

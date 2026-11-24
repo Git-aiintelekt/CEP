@@ -18,13 +18,18 @@ class Command(BaseCommand):
         parser.add_argument("email")
         parser.add_argument("--staff-only", action="store_true", help="is_staff without is_platform_admin (no model permissions)")
         parser.add_argument("--revoke", action="store_true", help="remove both flags")
+        parser.add_argument("--workspace", help="the workspace code, when the address has accounts in several workspaces")
 
-    def handle(self, *args, email, staff_only, revoke, **options):
-        users = AppUser.objects.using(settings.PLATFORM_ALIAS)
-        try:
-            user = users.get(email__iexact=email)
-        except AppUser.DoesNotExist:
-            raise CommandError(f"No app_user with email {email}") from None
+    def handle(self, *args, email, staff_only, revoke, workspace=None, **options):
+        users = AppUser.objects.using(settings.PLATFORM_ALIAS).filter(email__iexact=email).select_related("tenant")
+        if workspace:
+            users = users.filter(tenant__code=workspace.upper())
+        found = list(users[:5])
+        if not found:
+            raise CommandError(f"No app_user with email {email}" + (f" in {workspace.upper()}" if workspace else ""))
+        if len(found) > 1:
+            raise CommandError(f"{email} has accounts in {', '.join(u.tenant.code for u in found)}: say which with --workspace.")
+        user = found[0]
         user.is_staff = not revoke
         user.is_platform_admin = not revoke and not staff_only
         user.save(using=settings.PLATFORM_ALIAS, update_fields=["is_staff", "is_platform_admin"])

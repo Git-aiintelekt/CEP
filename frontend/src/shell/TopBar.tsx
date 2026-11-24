@@ -4,9 +4,10 @@
  * the right.
  */
 import { ArrowLeftRight, Bell, ChevronDown, CircleHelp, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, ShieldCheck, Sun, X, type LucideIcon } from 'lucide-react'
-import { useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useState, type ReactNode, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { logInAddress, recentWorkspaces, rememberWorkspace } from '@/auth/recentWorkspaces'
 import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 import type { NavItem } from '@/components/navItems'
@@ -68,6 +69,18 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
   const canSwitch = Boolean(me?.principal.is_platform_admin && !me.platform_visit && !me.support_session)
   const name = me?.principal.display_name ?? me?.principal.email
   const role = me?.principal.roles?.[0] ?? me?.principal.email
+  const code = me?.tenant.code
+  const staging = me?.workspace?.environment === 'STAGING'
+  // this workspace, remembered on this computer for the log-in page's chips and Log In to Another Workspace (not while visiting)
+  const visiting = Boolean(me?.platform_visit || me?.support_session)
+  useEffect(() => {
+    if (code && !visiting) rememberWorkspace({ code, name: me?.workspace?.name ?? null, environment: staging ? 'STAGING' : 'PRODUCTION' })
+  }, [code, visiting, staging, me?.workspace?.name])
+  const others = recentWorkspaces().filter((item) => item.code !== code)
+  const goTo = (address: string) => {
+    if (address.startsWith('http')) window.location.assign(address)
+    else { onLogout(); window.location.assign(address) }             // the same address: this workspace's session ends first
+  }
   const ToggleIcon = toggle ? TOGGLE[toggle.kind].icon : null
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-1.5 bg-sidebar pr-3 pl-3 md:gap-2.5">
@@ -98,9 +111,10 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
         <GlobalSearch pages={pages} inputRef={searchRef} />
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <span className="hidden items-center gap-1.5 pr-1 text-sm whitespace-nowrap xl:flex">
-          <span className="text-sidebar-text">Workspace</span>
-          <span className="font-semibold text-on-brand">{me?.tenant.code}</span>
+        <span className="hidden items-center gap-1.5 pr-1 text-sm whitespace-nowrap md:flex" data-workspace-id>
+          <span className="hidden text-sidebar-text xl:inline">Workspace</span>
+          <span className="font-semibold text-on-brand">{code}</span>
+          {staging && <span data-staging className="rounded-sm bg-warning px-1.5 text-xs leading-5 font-semibold text-on-warning">Staging</span>}
         </span>
         {extra}
         <span className="hidden md:flex">
@@ -128,7 +142,7 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
             <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-sidebar-icon lg:block" />
           </button>
           {account.isOpen('account') && (
-            <Popover {...account.panelProps('account')} label="Account" placement="bottom-end" width={240}>
+            <Popover {...account.panelProps('account')} label="Account" placement="bottom-end" width={280}>
               <div className="border-b border-line-subtle px-3 py-2.5 leading-tight">
                 <p className="truncate text-sm font-semibold text-ink-900">{name}</p>
                 <p className="truncate text-xs text-ink-800">{me?.principal.email}</p>
@@ -138,6 +152,14 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
                     {me.workspace.plan && ` · ${me.workspace.plan.name} plan`}
                   </p>
                 )}
+                <dl data-account-facts className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-ink-800">Workspace ID</dt>
+                  <dd className="flex items-center gap-1.5 font-semibold text-ink-900">{code}
+                    <span className={`rounded-sm px-1.5 text-xs leading-5 font-semibold ${staging ? 'bg-warning-bg text-warning-text' : 'bg-fill-subtle text-ink-800'}`}>{staging ? 'Staging' : 'Production'}</span>
+                  </dd>
+                  {me?.principal.roles && <><dt className="text-ink-800">Roles</dt><dd className="text-ink-900">{me.principal.roles.join(', ') || 'No role'}</dd></>}
+                  {me?.principal.kind === 'user' && <><dt className="text-ink-800">Two-Factor</dt><dd className="text-ink-900">{me.principal.mfa_enabled ? 'On' : 'Off'}</dd></>}
+                </dl>
               </div>
               <div className="border-b border-line-subtle px-3 py-2.5">
                 <SegmentedControl label="Appearance" options={THEME_OPTIONS} value={themePreference} onChange={setThemePreference} stretch />
@@ -146,6 +168,11 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
                 <MenuRow title="Switch Workspace…" leading={<ArrowLeftRight size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
                   onClick={() => { account.close({ restoreFocus: false }); setSwitching(true) }} />
               )}
+              {!visiting && others.map((item) => (
+                <MenuRow key={item.code} title={`Log In to ${item.code}`} detail={`${item.environment === 'STAGING' ? 'Staging' : 'Production'}${item.name ? ` · ${item.name}` : ''}`}
+                  leading={<ArrowLeftRight size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
+                  onClick={() => { account.close({ restoreFocus: false }); goTo(logInAddress(item)) }} />
+              ))}
               <MenuRow title="Account Security" leading={<ShieldCheck size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
                 onClick={() => { account.close({ restoreFocus: false }); navigate(SECURITY) }} />
               <MenuRow title="Sign Out" leading={<LogOut size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />} onClick={() => { account.close({ restoreFocus: false }); onLogout() }} />

@@ -3630,6 +3630,26 @@ CREATE INDEX IF NOT EXISTS ix_mailer_execution_run_waiting ON mailer_execution(c
 ALTER TABLE error_group ADD COLUMN IF NOT EXISTS user_note VARCHAR(300);
 COMMENT ON COLUMN error_group.user_note IS 'Shown under the error message to everyone who meets this error (back-office Errors, Note for Users); cleared when resolved.';
 
+-- 0098 (2026-11-24): the same person in several workspaces (docs/mockups/same-user-workspaces.html, option A). An account is
+-- Workspace ID + email: the same address may have an account in Staging and in Production, each with its own password, roles and
+-- two-factor. Sign-in always names the workspace (its address, or the Workspace ID field). Back-office staff and platform
+-- administrators keep one address across the platform: their back-office sign-in has no workspace.
+DO $$
+DECLARE c RECORD;
+BEGIN
+    FOR c IN SELECT con.conname FROM pg_constraint con
+              WHERE con.conrelid = 'public.app_user'::regclass AND con.contype = 'u'
+                AND con.conkey = ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = 'public.app_user'::regclass AND attname = 'email')]::smallint[] LOOP
+        EXECUTE format('ALTER TABLE app_user DROP CONSTRAINT %I', c.conname);          -- the old rule: email unique across the platform
+    END LOOP;
+END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_app_user_tenant_email ON app_user (tenant_id, email);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_app_user_staff_email ON app_user (email) WHERE is_staff OR is_platform_admin;
+-- what a workspace is for: a Staging one shows an amber band and a Staging tag in the app (back-office -> Tenants)
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS environment VARCHAR(12) NOT NULL DEFAULT 'PRODUCTION';
+ALTER TABLE tenant DROP CONSTRAINT IF EXISTS ck_tenant_environment;
+ALTER TABLE tenant ADD CONSTRAINT ck_tenant_environment CHECK (environment IN ('PRODUCTION', 'STAGING'));
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

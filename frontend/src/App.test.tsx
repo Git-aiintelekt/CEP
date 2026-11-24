@@ -27,20 +27,20 @@ test('anonymous visitors are sent to the login form, and a wrong password is exp
   expect(await screen.findByText('Log In to C360')).toBeTruthy()
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
   await user.type(screen.getByLabelText('Password'), 'nope')
-  await user.click(screen.getByRole('button', { name: 'Log In' }))
+  await user.click(screen.getByRole('button', { name: /^Log In/ }))
 
-  expect((await screen.findByRole('alert')).textContent).toContain('Incorrect email or password')
+  expect((await screen.findByRole('alert')).textContent).toContain('The workspace, email and password do not match an account')
 })
 
 test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bearer headers on every call', async () => {
   const user = userEvent.setup()
   render(<App />)
 
-  await user.clear(await screen.findByLabelText('Workspace'))
-  await user.type(screen.getByLabelText('Workspace'), 'NWA')
+  await user.clear(await screen.findByLabelText('Workspace ID'))
+  await user.type(screen.getByLabelText('Workspace ID'), 'NWA')
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
   await user.type(screen.getByLabelText('Password'), 'correct-horse')
-  await user.click(screen.getByRole('button', { name: 'Log In' }))
+  await user.click(screen.getByRole('button', { name: /^Log In/ }))
 
   expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Aby$/ })).toBeTruthy()
   expect(screen.getByText('NWA')).toBeTruthy()

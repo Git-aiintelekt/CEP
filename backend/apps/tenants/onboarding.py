@@ -63,6 +63,9 @@ class WorkspaceForm(forms.Form):
                                  help_text="Schedules, quiet hours for texts and the reports read in this zone. Type a place to find it.")
     region = forms.CharField(label="Region", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. us-east. Optional.")
     data_residency = forms.CharField(label="Data Residency", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. US, EU. Optional.")
+    environment = forms.ChoiceField(label="Used For", choices=(("PRODUCTION", "Production: the real workspace"), ("STAGING", "Staging: for testing; an amber band on every page")),
+                                    initial="PRODUCTION", required=False, widget=UnfoldAdminSelectWidget,
+                                    help_text="A Staging workspace shows a Staging band and tag, so nobody mistakes it for Production. The same people may have accounts in both, with different passwords.")
     isolation_mode = forms.ChoiceField(label="Hosting", choices=(("SHARED", "Shared database: the pool, its own partitions and row-level security (the usual choice)"),
                                                                  ("DEDICATED", "Dedicated database: provisioned by a tenant operation after this flow (Enterprise plans)")),
                                        initial="SHARED", widget=UnfoldAdminSelectWidget)
@@ -98,6 +101,9 @@ class WorkspaceForm(forms.Form):
         if value and Tenant.objects.using(P).filter(custom_app_domain=value).exists():
             raise forms.ValidationError("This domain is taken.")
         return value
+
+    def clean_environment(self):
+        return self.cleaned_data.get("environment") or "PRODUCTION"
 
     def clean_timezone(self):
         value = self.cleaned_data["timezone"]
@@ -180,15 +186,12 @@ class ComponentsForm(forms.Form):
 
 class AdminForm(forms.Form):
     display_name = forms.CharField(label="Full Name", max_length=200, widget=UnfoldAdminTextInputWidget)
-    email = forms.EmailField(label="Email", widget=UnfoldAdminTextInputWidget, help_text="Their sign-in. Must not exist in another workspace.")
+    email = forms.EmailField(label="Email", widget=UnfoldAdminTextInputWidget, help_text="They log in with this address and the workspace's ID. The same address may have an account in another workspace, with its own password.")
     also_invite = forms.CharField(label="Also Invite", required=False, widget=UnfoldAdminTextareaWidget(attrs={"rows": 3}),
                                   help_text="More administrators, one email per line. Optional. Each gets the Workspace Admin role and a password link.")
 
     def clean_email(self):
-        value = self.cleaned_data["email"].strip().lower()
-        if AppUser.objects.using(P).filter(email=value).exists():
-            raise forms.ValidationError("A user with this email already exists.")
-        return value
+        return self.cleaned_data["email"].strip().lower()       # a new workspace: nobody has an account in it yet
 
     def clean_also_invite(self):
         emails = []
@@ -197,8 +200,6 @@ class AdminForm(forms.Form):
             if not value:
                 continue
             forms.EmailField().clean(value)
-            if AppUser.objects.using(P).filter(email=value).exists():
-                raise forms.ValidationError(f"{value} already exists.")
             if value not in emails:
                 emails.append(value)
         return emails
@@ -391,6 +392,7 @@ def finish(draft: dict, *, staff_user_id) -> dict:
             name=workspace["name"], code=workspace["code"], timezone=workspace["timezone"], status="ACTIVE",
             subdomain=workspace.get("subdomain") or None, custom_app_domain=workspace.get("custom_app_domain") or None,
             isolation_mode=workspace.get("isolation_mode") or "SHARED", region=workspace.get("region") or None, data_residency=workspace.get("data_residency") or None,
+            environment=workspace.get("environment") or "PRODUCTION",
             settings=tenant_settings, onboarded_at=now, created_by_id=staff_user_id)
         for key in chosen["off"]:
             TenantComponent.objects.using(P).create(tenant=tenant, component_id=key, access="OFF", updated_by_id=staff_user_id)
