@@ -14,10 +14,10 @@ Platform administrators.
 
 | Step | Asks | Checks and effects |
 |---|---|---|
-| 1 Workspace | Workspace name; Code; Subdomain; Custom app domain; Time zone; Region; Data residency; Hosting (shared, the usual choice, or dedicated). | Name and code unique; the code upper case, a letter then up to 19 letters, digits or underscores, fixed afterwards; the subdomain lower case; a known IANA zone. |
+| 1 Workspace | Workspace name; Code; Subdomain; Custom app domain; **Used For** (Production, the default, or Staging); Time zone; Region; Data residency; Hosting (shared, the usual choice, or dedicated). | Name and code unique; the code upper case, a letter then up to 19 letters, digits or underscores, fixed afterwards; the subdomain lower case; a known IANA zone. |
 | 2 Plan and features | Subscription plan; Trial days (0 with a billing reference starts the subscription active); Billing reference (the customer at the billing provider: no invoice without it); Industry profile; one switch per feature: follow, on, off. | The table under the form shows where every switch comes from: catalogue default → profile → this workspace → plan. A plan can only take a feature away. |
 | 3 Components and reports | **Components**: the suite components the workspace gets, the plan's ticked. **Base Reports**: the ready-made report packs, each naming the components it needs. | Untick a plan component to switch it off for this workspace; tick one outside the plan to add it as an add-on (both kept under the tenant's Components). A pack whose component is left out is refused. A pack reads a database the workspace connects, so it is not added here: it is remembered, and Insights → Reports → Add Base Reports shows it as **Chosen at Onboarding**. |
-| 4 First administrator | Full name; Email (must not exist in another workspace); Also invite (more administrators, one email per line). | Each gets the Workspace Admin role and a one-time password link. |
+| 4 First administrator | Full name; Email; Also invite (more administrators, one email per line). An address with an account in another workspace is fine: it gets its own account in the new one. | Each gets the Workspace Admin role and a one-time password link for the new workspace. |
 | 5 Policies (skippable) | The consent policy: People without consent (hold back or refuse), Texts need a consent date, Approval before first send, Consent lifetime. | Written into the workspace's settings; the administrator can change it under Settings → Consent Policy. The rest (quiet hours, security, tags, single sign-on) is shown, not asked. |
 | 6 Hand-off (skippable) | A line from you. | Goes into the password-link email under the set-up list. |
 | 7 Review and onboard | Everything in one place, and whether the platform's mail server can send the links. **Onboard CODE** does it. | |
@@ -27,6 +27,8 @@ Platform administrators.
 **Onboard a customer.** Tenants → Onboard a tenant → the seven steps → Onboard. The administrator's email carries the password link and the set-up list: choose a password, sign in, and the app's Set-Up page walks them through engines, senders, lists and the rest (User Guide: Setting Up a New Workspace).
 
 **The link could not be emailed.** The flow says so with the link to copy; send it by hand. The platform's mail server (Configuration → Mail server) is what carries it; without one, every link has to be copied.
+
+**A Staging and a Production workspace for one customer.** Onboard each, Used For set to Staging for the one used for testing. The same people can be the first administrators of both: each workspace gets its own accounts and password links. The Review step shows Staging or Production beside the hosting.
 
 **Something was missed.** The tenant's page: Industry and features, the plan under Subscriptions, more users under Users (each with Create password link), Repair onboarding if the provisioning looks incomplete.
 

@@ -28,7 +28,7 @@ Staff read; platform administrators change. Suspend, Reactivate, Request a data 
 
 | Section | Fields | What they change |
 |---|---|---|
-| Workspace | Name, Code (fixed), Status, Time zone. | The zone every schedule, quiet hour and report of the workspace reads. Any IANA zone can be typed here. |
+| Workspace | Name, Code (fixed), Status, Used For (Production or Staging), Time zone. | Used For: a Staging workspace shows an amber band and a Staging tag in the app on every page, so nobody mistakes it for Production; nothing else changes (its engines still send). The zone every schedule, quiet hour and report of the workspace reads; any IANA zone can be typed here. |
 | Access | Subdomain, Custom app domain. | Users reach the app at `<subdomain>.your-domain`; the API also accepts the code in the X-Tenant header. A custom domain needs the DNS record and a certificate; the subdomain works meanwhile. |
 | Hosting | Hosting (fixed), Region, Data residency, Onboarded at. | Shared tenants live in the pool database in their own partitions. Moving to dedicated is a migration (Move and offboard), not a field change. |
 | Industry and features | Industry profile, and one switch per feature: Default (follows the profile), On, Off. | What the workspace offers. The plan always has the last word: a feature the plan excludes stays off. |

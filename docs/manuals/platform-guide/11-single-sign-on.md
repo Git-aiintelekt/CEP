@@ -27,4 +27,6 @@ The feature **sso** must be on for the workspace; the sign-in page asks the API 
 
 ## Things to know
 
+- Single sign-on finds the account in the workspace being signed in to: an address with accounts in several workspaces signs in to the one whose provider it came through, and an account created on first sign-in belongs to that workspace only.
+
 - The client secret is stored encrypted and never shown anywhere; a new one is entered in the app.

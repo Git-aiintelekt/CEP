@@ -14,6 +14,8 @@ Your own second step when you sign in: a six-digit code from an authenticator ap
 | Single sign-on | Someone who signs in through the company's identity provider sees *You sign in through your company's single sign-on. The second step, if any, is managed there.* and nothing to set up. |
 | Visiting another workspace | A platform administrator who entered another workspace with Switch Workspace sees *Managed in Your Own Workspace*: their sign-in belongs to their own workspace. |
 
+Each account has its own second step: someone with an account in two workspaces (Staging and Production) sets it up in each, and can use the same authenticator app for both (it shows two entries).
+
 ## The fields and controls
 
 | Control | What it is | What it changes |

@@ -16,14 +16,15 @@ Staff read; platform administrators change. A support session is logged under th
 
 | Section | Fields | What they change |
 |---|---|---|
-| The list | Email, name, tenant, roles, active, staff, platform administrator, last sign-in; filters by tenant, active, staff, sign-in provider. | |
-| Person | Tenant, Email (fixed once created), Name. | |
+| The list | Email, name, tenant, Used For (the tenant's Production or Staging), roles, Two-Factor, active, staff, platform administrator, last sign-in; sorted by email, then tenant; search by email, name or tenant code; filters by tenant, Used For, active, staff, sign-in provider. | Searching an address lists every account it has, one row per workspace, side by side. |
+| Person | Tenant, Email (fixed once created), Name. An address is used once per tenant: a second account for it in the same tenant is refused (*This address already has an account in this workspace.*). | |
 | Sign-in | Provider (local or the identity provider), external subject, Active, MFA enabled, last sign-in. Passwords are never typed here. | |
 | Roles in the tenant | The workspace's roles. | What the user may do in the app. |
-| Platform staff | Staff; Platform administrator. | Who may open the back-office and who may change everything in it. |
+| Platform staff | Staff; Platform administrator. Staff keep one address across the platform: ticking Staff on an address that is already staff in another tenant is refused. | Who may open the back-office and who may change everything in it. |
 | Create password link | A one-time link, emailed when a mail server can, shown to copy otherwise. | |
 | Sign in as this user (support session) | Reason (ticket and what the customer asked, readable by the tenant's administrators), Access mode (read only unless the customer asked for a change). | A short session in the app as that user. |
-| Deactivate, Activate | | |
+| Deactivate, Activate | Actions on the selected rows. | |
+| Deactivate in Every Workspace | An action on the selected rows. | Every account of the selected addresses, in every tenant, is deactivated in one step, each change audited under your name (your own account is never included). For someone who leaves: no account stays active in a Staging workspace. |
 
 ### Roles
 
@@ -49,6 +50,10 @@ Every tenant's keys with their type, prefix, state, last use and expiry; Revoke 
 
 **A customer cannot sign in.** Find the user → check Active and the provider → Create password link → send it. A user of a workspace that requires single sign-on signs in through the provider, not with a link.
 
+**Someone leaves a customer that has Staging and Production.** Users → search their address → tick the rows → Deactivate in Every Workspace.
+
+**One person in Staging and Production.** Each workspace's administrator adds them in the app (Settings → Users), or here: a new user with the other tenant and the same address. Each account has its own password link, roles and two-factor; a Staging account's password never opens Production.
+
 **See a problem with the customer's own eyes.** The user → Sign in as this user → the reason and read-only → Open. The app opens as them with a banner; the session ends after `security.support_access_minutes`, or on End session. The tenant's Security page lists it.
 
 **Work in another workspace as yourself (Switch Workspace).** Platform administrators only, from the app:
@@ -69,4 +74,6 @@ A visit is different: nobody is impersonated. Its tokens carry your own account 
 ## Things to know
 
 - Deactivating keeps everything the user made; nothing is deleted.
-- A user belongs to one tenant; the same email cannot exist in two workspaces.
+- An account is the tenant and the email address together (database patch 0098): the same address can have an account in several tenants, each with its own password, roles and two-factor. The app's log-in always names the workspace (its address, or the Workspace ID field), so it finds that tenant's account; the back-office log-in, which names no workspace, finds staff only.
+- Staff and platform administrators keep one address across the platform (a partial unique index); the same address may still have ordinary accounts in workspaces.
+- Once two tenants hold the same address, patch 0098 cannot be undone.
