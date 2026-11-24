@@ -129,9 +129,12 @@ def status_report() -> list[dict]:
         seen = {row[0]: row[1:] for row in cursor.fetchall()}
     now = timezone.now()
     report = []
+    scheduled = getattr(settings, "CELERY_BEAT_SCHEDULE", {})
     for name, (purpose, max_gap) in JOBS.items():
         last_ok, last_run, last_status, last_error, duration, failures = seen.get(name, (None, None, None, None, None, 0))
-        if last_run is None:
+        if name not in scheduled:
+            state = "off"                                  # deliberately not scheduled (the outbox relay without CEP_OUTBOX_RELAY)
+        elif last_run is None:
             state = "never"
         elif last_status == "FAILED":
             state = "failed"
