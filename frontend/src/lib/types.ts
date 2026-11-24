@@ -941,7 +941,8 @@ export interface SenderProfile {
   delivery_provider?: string
 }
 
-export type ListSource = 'UPLOAD' | 'BI' | 'CLONE'
+/** how a list is made: a file of contacts, an audience, a copy, or a file of IDs looked up in C360 (an upload too) */
+export type ListSource = 'UPLOAD' | 'BI' | 'CLONE' | 'LOOKUP'
 
 export interface ContactList extends Audited {
   name: string
@@ -1141,7 +1142,9 @@ export interface ListImport {
   phase: string
   /** a worker is on it, or it is queued for one */
   working: boolean
-  progress: { done: number; total: number; percent: number; unit: 'bytes' | 'rows' }
+  progress: { done: number; total: number; percent: number; unit: 'bytes' | 'rows' | 'ids' }
+  /** Look Up in C360: a file of IDs read from the workspace's list-generation databases */
+  lookup?: ListLookup | null
   mapping_confirmed: boolean
   error: string | null
   created_at: string
@@ -1163,6 +1166,32 @@ export interface ListImport {
   consents_recorded?: number
   consent?: ListConsentDeclaration
   list?: ContactList
+}
+
+/** Look Up in C360 on an upload: what was asked and, once read, what came back (apps/contact_lists/lookup.py) */
+export interface ListLookup {
+  databases: string[]
+  role: string | null
+  role_label: string | null
+  /** what the file's IDs are called: Customer ID, Lead ID, Account ID, Contact ID, Party ID */
+  id_label: string
+  id_column: string | null
+  result: {
+    ids: number
+    found: number
+    usable: number
+    held: { reason: string; count: number }[]
+    warnings: { reason: string; count: number }[]
+    filled: Record<string, number>
+    seconds: number
+    finished_at: string
+  } | null
+}
+
+/** the databases a workspace offers for Look Up in C360, and the roles a list can check */
+export interface ListLookupSources {
+  sources: { id: string; name: string; last_tested_at: string | null }[]
+  roles: { key: string; label: string; id_label: string }[]
 }
 
 export interface ListMember {

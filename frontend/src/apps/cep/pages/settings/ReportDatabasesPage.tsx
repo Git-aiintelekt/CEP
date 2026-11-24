@@ -10,6 +10,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/Button'
+import { Checkbox } from '@/components/Checkbox'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -79,6 +80,7 @@ export function ReportDatabasesPage() {
                 </div>
               </div>
               <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
+                {db.use_for_lists && <><dt className="text-ink-800">Contact Lists</dt><dd className="text-ink-900">Used for list generation</dd></>}
                 <dt className="text-ink-800">Connects as</dt><dd className="text-ink-900"><span className="font-mono">{db.username}</span> <ReadOnlyMark db={db} /></dd>
                 <dt className="text-ink-800">Limits</dt><dd className="flex flex-wrap items-center gap-1.5 text-ink-900"><LimitsMark db={db} /></dd>
                 <dt className="text-ink-800">Datasets</dt><dd className="text-ink-900">{db.datasets?.length ? db.datasets.map((d) => d.label).join(', ') : 'None yet'}</dd>
@@ -166,7 +168,9 @@ function ConnectDialog({ database, workspace, limitsReady, onClose, onSaved }: {
   const [form, setForm] = useState<ConnectionForm>(() => connectionForm(database))
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   const [outcome, setOutcome] = useState<ReportDatabaseTest | null>(null)
-  const body = () => connectionBody(form, database)
+  const [useForLists, setUseForLists] = useState(Boolean(database?.use_for_lists))
+  const mysql = form.engine === 'mysql57' || form.engine === 'mysql80'
+  const body = () => ({ ...connectionBody(form, database), use_for_lists: mysql && useForLists })
   const test = useMutation({
     mutationFn: () => api.post<{ test: ReportDatabaseTest }>('/workspace/report-databases/test/', body()),
     onSuccess: ({ test: result }) => { setOutcome(result); setErrors({}) },
@@ -184,6 +188,13 @@ function ConnectDialog({ database, workspace, limitsReady, onClose, onSaved }: {
       <form id="db-form" className="flex flex-col gap-4" onSubmit={submit}>
         <ConnectionFields form={form} onChange={setForm} errors={errors} editing={Boolean(database)} database={database} />
         {limitsReady && <LimitFields form={form} onChange={setForm} errors={errors} workspace={workspace} />}
+        {mysql && (
+          <div className="rounded-lg border border-line p-3">
+            <Checkbox label="Use for List Generation" checked={useForLists} onChange={(event) => setUseForLists(event.target.checked)} />
+            <p className="mt-1 pl-6 text-xs text-ink-800">New Contact List → Look Up in C360 reads people from this database by their ID: name, mobile number, email, postal code, loyalty ID, time zone and whether they may be contacted. Read-only, 1,000 IDs a query.</p>
+            {errors.use_for_lists && <p role="alert" className="mt-1 pl-6 text-xs text-danger-text">{errors.use_for_lists}</p>}
+          </div>
+        )}
         {outcome && <TestChecks outcome={outcome} engine={form.engine} />}
         <p className="text-xs text-ink-800">The engine connects from CEP's server with this account, opens every session read-only with the time limit above, and runs only the SELECT statements it builds from a report. Give the account SELECT and nothing else.</p>
       </form>

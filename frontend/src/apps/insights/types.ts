@@ -676,6 +676,8 @@ export interface ReportDatabase {
   limits: { timeout_s: number; concurrent: number }
   /** the tables pinned to the top of Map a Dataset's list */
   pinned_tables?: string[]
+  /** offered by New Contact List → Look Up in C360 (MySQL only) */
+  use_for_lists?: boolean
   datasets?: ReportDataset[]
   /** the test run at save time */
   test?: ReportDatabaseTest | null

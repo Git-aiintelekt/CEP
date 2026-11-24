@@ -64,7 +64,9 @@ GRANT_EXAMPLES = {
 CONNECTION_COLUMNS = ("id::text, name, engine, host, port, database_name, schema_name, username, password_enc, ssl_mode, status, last_tested_at, last_test_ok, last_test_error, read_only, server_version, server_timezone, created_at, updated_at, row_version, "
                       # the limits (patch 0074) read through to_jsonb, so a database without the columns yet reads them as empty (Standard)
                       "to_jsonb(report_connection) ->> 'limit_profile' AS limit_profile, (to_jsonb(report_connection) ->> 'query_timeout_s')::int AS query_timeout_s, "
-                      "(to_jsonb(report_connection) ->> 'max_concurrent')::int AS max_concurrent, COALESCE(to_jsonb(report_connection) -> 'pinned_tables', '[]'::jsonb) AS pinned_tables")
+                      "(to_jsonb(report_connection) ->> 'max_concurrent')::int AS max_concurrent, COALESCE(to_jsonb(report_connection) -> 'pinned_tables', '[]'::jsonb) AS pinned_tables, "
+                      # patch 0097: offered by New Contact List → Look Up in C360
+                      "COALESCE((to_jsonb(report_connection) ->> 'use_for_lists')::boolean, FALSE) AS use_for_lists")
 
 
 # ---------------------------------------------------------------------------------------------------- rows
@@ -164,7 +166,7 @@ def serialize_connection(row: dict, with_datasets: list[dict] | None = None, cou
                                "server_version", "server_timezone", "created_at", "updated_at", "row_version")}
     limits = connection_limits.effective(row, workspace_limits or catalog.DEFAULT_LIMITS)
     out.update({"limit_profile": limits["profile"], "query_timeout_s": row.get("query_timeout_s"), "max_concurrent": row.get("max_concurrent"),
-                "limits": {"timeout_s": limits["timeout_s"], "concurrent": limits["concurrent"]}, "pinned_tables": _pins(row)})
+                "limits": {"timeout_s": limits["timeout_s"], "concurrent": limits["concurrent"]}, "pinned_tables": _pins(row), "use_for_lists": bool(row.get("use_for_lists"))})
     out["engine_name"] = external.ENGINES.get(row["engine"], row["engine"])
     out["usable"] = bool(row["status"] == "ACTIVE" and row["password_enc"] and (row["read_only"] is not False or not read_only_required()))
     if with_datasets is not None:
@@ -232,6 +234,31 @@ def _save_limits(tenant_id, connection_id, data: dict) -> None:
         return
     _q("UPDATE report_connection SET limit_profile = %s, query_timeout_s = %s, max_concurrent = %s WHERE tenant_id = %s AND id = %s",
        [data["limit_profile"], data["query_timeout_s"], data["max_concurrent"], str(tenant_id), str(connection_id)])
+
+
+def _lists_present() -> bool:
+    """patch 0097: a connection can be offered for list generation"""
+    key = "cep:insights:use-for-lists-present"
+    present = cache.get(key)
+    if present is None:
+        present = bool(_q("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'report_connection' AND column_name = 'use_for_lists') AS present")[0]["present"])
+        cache.set(key, present, 300)
+    return present
+
+
+def _save_use_for_lists(tenant_id, connection_id, body: dict) -> None:
+    """Use for List Generation: only MySQL (the CRM's party model is read with MySQL), and only where the column exists."""
+    if "use_for_lists" not in body:
+        return
+    wanted = bool(body.get("use_for_lists"))
+    if not _lists_present():
+        if wanted:
+            raise ValidationError({"use_for_lists": "This installation cannot offer a database for list generation yet (database patch 0097)."})
+        return
+    engine = _q("SELECT engine FROM report_connection WHERE tenant_id = %s AND id = %s", [str(tenant_id), str(connection_id)])
+    if wanted and engine and engine[0]["engine"] not in ("mysql57", "mysql80"):
+        raise ValidationError({"use_for_lists": "List generation reads a MySQL CRM database."})
+    _q("UPDATE report_connection SET use_for_lists = %s WHERE tenant_id = %s AND id = %s", [wanted, str(tenant_id), str(connection_id)])
 
 
 def read_only_required() -> bool:
@@ -472,6 +499,7 @@ class DatabasesView(APIView):
                [connection_id, str(tenant.pk), data["name"], data["engine"], data["host"], data["port"], data["database_name"], data["schema_name"], data["username"], data["password_enc"], data["ssl_mode"],
                 str(request.user.pk), str(request.user.pk)])
             _save_limits(tenant.pk, connection_id, data)
+            _save_use_for_lists(tenant.pk, connection_id, request.data if isinstance(request.data, dict) else {})
         row = connection(tenant.pk, connection_id)
         outcome = _tested(row)
         _record_test(tenant.pk, connection_id, outcome)
@@ -528,6 +556,7 @@ class DatabaseView(APIView):
                [data["name"], data["engine"], data["host"], data["port"], data["database_name"], data["schema_name"], data["username"], data["password_enc"], data["ssl_mode"], str(request.user.pk),
                 str(tenant.pk), str(connection_id)])
             _save_limits(tenant.pk, connection_id, data)
+            _save_use_for_lists(tenant.pk, connection_id, body)
         outcome = _tested(connection(tenant.pk, connection_id)) if changed else None
         if outcome:
             _record_test(tenant.pk, connection_id, outcome)

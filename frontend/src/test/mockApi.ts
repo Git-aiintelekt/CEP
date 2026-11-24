@@ -1043,6 +1043,8 @@ interface MockOptions {
   listUploadFails?: boolean
   /** uploads the workspace already has (GET /contact-lists/imports/) */
   listUploads?: ListImport[]
+  /** Look Up in C360: the databases ticked Use for List Generation (default: none, so the way in is not offered) */
+  listLookupSources?: { id: string; name: string; last_tested_at: string | null }[]
   /** a production run's subject line test, for the campaign page's runs */
   runVariants?: CampaignRunVariant[]
   /** reports schedule, suppressions, notifications and approvals as the backend would hold them */
@@ -2652,9 +2654,25 @@ export function installMockApi(options: MockOptions = {}) {
         }
       }
       if (path.endsWith('/contact-lists/imports/')) return json(jobsNow)
+      if (path.endsWith('/contact-lists/lookup-sources/')) {
+        return json({ sources: options.listLookupSources ?? [], roles: [{ key: 'CUSTOMER', label: 'Customer', id_label: 'Customer ID' }, { key: 'LEAD', label: 'Lead', id_label: 'Lead ID' },
+                                                                         { key: 'ACCOUNT', label: 'Account', id_label: 'Account ID' }, { key: 'CONTACT', label: 'Account Primary Contact', id_label: 'Contact ID' }] })
+      }
       if (path.endsWith('/imports/') && method === 'POST') {
         const custom = options.onListUpload?.(call)
         if (custom) return custom
+        const lookupFrom = call.form?.get('lookup_connections')
+        if (lookupFrom !== undefined && lookupFrom !== null) {
+          const role = String(call.form?.get('lookup_role') ?? '')
+          const names = String(lookupFrom).split(',').map((id) => (options.listLookupSources ?? []).find((item) => item.id === id)?.name ?? id)
+          const idLabel = { CUSTOMER: 'Customer ID', LEAD: 'Lead ID', ACCOUNT: 'Account ID', CONTACT: 'Contact ID' }[role] ?? 'Party ID'
+          const channel = find(one)?.channel ?? 'EMAIL'
+          const made: ListImport = { ...stagedImport, id: `imp-${jobsNow.length + 1}`, contact_list: String(one), list_name: find(one)?.name ?? '', list_channel: channel, properties: propertiesFor(channel),
+                                     file_name: (call.form?.get('file') as File).name, columns: [{ name: idLabel, samples: ['10023456'], guess: null }], mapping: {},
+                                     lookup: { databases: names, role: role || null, role_label: role ? role.charAt(0) + role.slice(1).toLowerCase() : null, id_label: idLabel, id_column: idLabel, result: null } }
+          jobsNow = [made, ...jobsNow]
+          return json(made, 201)
+        }
         const channel = find(one)?.channel ?? 'EMAIL'
         const made: ListImport = { ...stagedImport, id: `imp-${jobsNow.length + 1}`, contact_list: String(one), list_name: find(one)?.name ?? '', list_channel: channel, properties: propertiesFor(channel) }
         jobsNow = [made, ...jobsNow]
@@ -2684,9 +2702,15 @@ export function installMockApi(options: MockOptions = {}) {
         if (options.listUploadFails && job.status === 'UPLOADED') {
           return json(put({ ...job, status: 'FAILED', phase: 'Failed', working: false, error: 'The file has more than 250,000 rows. Split it and upload the parts as separate lists.' }))
         }
+        if (job.status === 'UPLOADED' && job.lookup) {
+          return json(put({ ...job, status: 'MATCHING', phase: 'Looking up in C360', working: true, row_count: 6, mapping_confirmed: true, progress: { done: 2, total: 6, percent: 33, unit: 'ids' } }))
+        }
         if (job.status === 'UPLOADED') return json(put({ ...job, status: 'STAGED', phase: 'Read. Match the columns to continue', working: false, row_count: 6, progress: { done: 6, total: 6, percent: 100, unit: 'rows' } }))
         if (job.status === 'MATCHING') {
-          return json(put({ ...job, status: 'REVIEW', phase: 'Checked. Review it to continue', working: false, review: REVIEW, summary: uploadSummary, progress: { done: 6, total: 6, percent: 100, unit: 'rows' },
+          const looked = job.lookup ? { lookup: { ...job.lookup, result: { ids: 6, found: 5, usable: 4, held: [{ reason: 'Customer ID not found', count: 1 }, { reason: 'No primary phone', count: 1 }],
+                                                                            warnings: [{ reason: 'Customer not open to solicitation: imported with no text consent', count: 1 }],
+                                                                            filled: { first_name: 4, mobile: 4, sms_consent_date: 3, email: 1 }, seconds: 2.4, finished_at: '2026-11-24T10:00:00Z' } } } : {}
+          return json(put({ ...job, ...looked, status: 'REVIEW', phase: 'Checked. Review it to continue', working: false, review: REVIEW, summary: uploadSummary, progress: { done: 6, total: 6, percent: 100, unit: 'rows' },
                             issues: [{ line: 5, kind: 'error', message: 'Same email address as line 3', value: 'A@x.example' }, { line: 4, kind: 'warning', message: 'Mobile number not recognised: left out', value: 'b@x.example' }] }))
         }
         return json(jobsNow.find((item) => item.id === job.id))

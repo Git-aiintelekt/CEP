@@ -1,6 +1,7 @@
 /**
- * New Contact List: one dialog, three ways in.
+ * New Contact List: one dialog, four ways in.
  *   Upload a file        name -> file -> match columns -> review -> done   (the list is a DRAFT until the import is added)
+ *   Look Up in C360      name, databases and role -> a file of IDs -> consent -> review -> done   (the people come from the CRM)
  *   BI / extraction      name -> choose an audience -> done
  *   Clone a list         name -> choose the list to copy -> done
  * A file is never processed while the operator waits on a request: the upload answers at once and a background worker
@@ -25,7 +26,7 @@ import { ChoiceCard as SetupCard, ChoiceGroup } from '@/apps/cep/features/campai
 import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Audience, ConsentBasis, ContactList, ListImport, ListSource, Page, ListChannel } from '@/lib/types'
+import type { Audience, ConsentBasis, ContactList, ListImport, ListLookupSources, ListSource, Page, ListChannel } from '@/lib/types'
 
 import { ProblemExtras } from '@/components/ProblemExtras'
 import { saveFailure, type SaveFailure } from '@/lib/saveFeedback'
@@ -34,13 +35,15 @@ import { problemText } from './problem'
 import { sourceLabel } from './sourceLabel'
 import { POLL_MS, watchedUploads } from './uploadJobs'
 import { ReportDownload, UploadReport } from './UploadReport'
-import { downloadTemplate, formatLine, uploadColumns } from './uploadTemplate'
+import { ProgressCount } from './ProgressCount'
+import { downloadLookupTemplate, downloadTemplate, formatLine, uploadColumns } from './uploadTemplate'
 import { ProgressBar } from './UploadsIndicator'
 
 type Step = 'source' | 'method' | 'file' | 'map' | 'consent' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
 
 const STEPS: Record<ListSource, Step[]> = {
   UPLOAD: ['method', 'file', 'map', 'consent', 'review', 'done'],                        // 'importing' is the tail of the review step
+  LOOKUP: ['method', 'file', 'consent', 'review', 'done'],                                // C360 fills every field: no columns to match
   BI: ['method', 'audience', 'done'],
   CLONE: ['method', 'clone', 'done'],
 }
@@ -66,6 +69,7 @@ const STEP_NAME: Record<Step, string> = {
 
 const SOURCES: { value: ListSource; title: string; text: string; icon: ReactNode; badge?: string }[] = [
   { value: 'UPLOAD', title: 'Upload a File', text: 'Import a CSV, map the columns, review before adding.', icon: <Upload size={20} strokeWidth={1.5} />, badge: 'Most Common' },
+  { value: 'LOOKUP', title: 'Look Up in C360', text: 'A file of IDs. Names, numbers and emails come from C360, checked for solicitation and DND.', icon: <Search size={20} strokeWidth={1.5} /> },
   { value: 'BI', title: 'BI or Extraction Tool', text: 'Choose an audience someone already defined.', icon: <Database size={20} strokeWidth={1.5} /> },
   { value: 'CLONE', title: 'Clone a List', text: 'Copy a list you have and adjust from there.', icon: <Copy size={20} strokeWidth={1.5} /> },
 ]
@@ -111,6 +115,82 @@ function TemplateNote({ channel }: { channel: ListChannel }) {
       </ul>
       <p className="mt-2 text-xs text-ink-800">Column names are matched by meaning, so “Email Address”, “Surname” or “Cell” work too; you confirm the matching on the next step.</p>
     </div>
+  )
+}
+
+const LOOKUP_FILLS = ['First Name', 'Last Name', 'Mobile Number', 'Email', 'Postal Code', 'Loyalty ID', 'Time Zone', 'Text Consent Date', 'Email Consent Date']
+const FILL_LABEL: Record<string, string> = { first_name: 'Name', mobile: 'Mobile Number', email: 'Email', loyalty_id: 'Loyalty ID', postal_code: 'Postal Code', timezone: 'Time Zone',
+  sms_consent_date: 'Text Consent', consent_date: 'Email Consent' }
+
+/** Look Up in C360, under the drop zone: one column of IDs, and what C360 brings back for each */
+function LookupTemplateNote({ idLabel }: { idLabel: string }) {
+  return (
+    <div className="mt-4 rounded-lg border border-line bg-surface p-4" data-lookup-template>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink-900">File Format</p>
+          <p className="mt-1 text-xs text-ink-800">A CSV with a header row and one {idLabel} per row. Other columns are ignored.</p>
+        </div>
+        <button type="button" className={buttonSecondary} onClick={() => downloadLookupTemplate(idLabel)}>
+          <Download size={16} strokeWidth={1.5} aria-hidden />Download Sample CSV
+        </button>
+      </div>
+      <p className="mt-3"><span className="rounded-sm border border-link bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">{idLabel} · required</span></p>
+      <p className="mt-2 text-xs text-ink-800">Filled from C360:</p>
+      <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Filled from C360">
+        {LOOKUP_FILLS.map((name) => <li key={name} className="rounded-sm border border-dashed border-line bg-surface-subtle px-2 py-0.5 text-xs text-ink-800">{name}</li>)}
+      </ul>
+    </div>
+  )
+}
+
+/** The review's first section for a file of IDs: what C360 found and why rows were left out, then how full each field is */
+function LookupSection({ job }: { job: ListImport }) {
+  const lookup = job.lookup
+  const result = lookup?.result
+  if (!lookup || !result) return null
+  const seconds = result.seconds < 60 ? `${Math.max(1, Math.round(result.seconds))} s` : `${Math.floor(result.seconds / 60)} min ${Math.round(result.seconds % 60)} s`
+  const of = Math.max(result.usable, 1)
+  return (
+    <section className="rounded-lg border border-line" aria-label="Looked Up in C360" data-lookup-section>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line-subtle px-4 py-2.5">
+        <p className="text-sm font-semibold text-ink-900">Looked Up in C360</p>
+        <p className="cep-num text-xs text-ink-800">{[lookup.databases.join(', '), lookup.role_label && `role ${lookup.role_label}`, `${formatNumber(result.ids)} ${lookup.id_label}s in ${seconds}`].filter(Boolean).join(' · ')}</p>
+      </div>
+      <ul className="divide-y divide-line-subtle text-sm">
+        <li className="flex justify-between gap-3 px-4 py-1.5"><span className="text-ink-800">Found in C360</span><span className="cep-num font-medium text-ink-900">{formatNumber(result.found)}</span></li>
+        {result.held.map((item) => (
+          <li key={item.reason} className="flex justify-between gap-3 px-4 py-1.5">
+            <span className="flex items-center gap-2 text-ink-800"><Tag tone="error">Held Back</Tag>{item.reason}</span>
+            <span className="cep-num font-medium text-ink-900">{formatNumber(item.count)}</span>
+          </li>
+        ))}
+        {result.warnings.map((item) => (
+          <li key={item.reason} className="flex justify-between gap-3 px-4 py-1.5">
+            <span className="flex items-center gap-2 text-ink-800"><Tag tone="warning">Warning</Tag>{item.reason}</span>
+            <span className="cep-num font-medium text-ink-900">{formatNumber(item.count)}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-y border-line-subtle px-4 py-2.5">
+        <p className="text-sm font-semibold text-ink-900">Filled From C360</p>
+        <p className="cep-num text-xs text-ink-800">of the {formatNumber(result.usable)} that can be used</p>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-6 px-4 py-2 sm:grid-cols-2">
+        {Object.entries(FILL_LABEL).map(([key, label]) => {
+          const percent = Math.round(((result.filled[key] ?? 0) * 100) / of)
+          return (
+            <div key={key} className="flex items-center gap-3 py-1 text-sm">
+              <dt className="w-32 shrink-0 text-ink-800">{label}</dt>
+              <dd className="flex grow items-center gap-3">
+                <span aria-hidden className="h-1.5 grow overflow-hidden rounded-full bg-fill-subtle"><span className="block h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, percent)}%` }} /></span>
+                <span className="cep-num w-10 text-right text-ink-900">{percent}%</span>
+              </dd>
+            </div>
+          )
+        })}
+      </dl>
+    </section>
   )
 }
 
@@ -255,6 +335,17 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const [problemFailure, setProblemFailure] = useState<SaveFailure | null>(null)
   const [dragging, setDragging] = useState(false)
   const picker = useRef<HTMLInputElement>(null)
+  /** Look Up in C360: the databases in the order ticked (the first that has the ID wins), and the role the people must hold */
+  const [lookupDbs, setLookupDbs] = useState<string[]>([])
+  const [role, setRole] = useState('CUSTOMER')
+  const lookupSources = useQuery({
+    queryKey: ['contact-lists', 'lookup-sources'],
+    queryFn: ({ signal }) => api.get<ListLookupSources>('/contact-lists/lookup-sources/', undefined, signal),
+    enabled: !embedded, retry: false, staleTime: 60_000,
+  })
+  const offered = lookupSources.data?.sources ?? []
+  const roleChoices = lookupSources.data?.roles ?? []
+  const lookingUp = source === 'LOOKUP'
 
   const audiences = useQuery({ queryKey: ['contact-lists', 'audiences'], queryFn: ({ signal }) => api.get<Audience[]>('/contact-lists/audiences/', undefined, signal), enabled: step === 'audience' || making })
   const lists = useQuery({
@@ -271,6 +362,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     refetchInterval: (query) => ((query.state.data ?? upload)?.working ? POLL_MS : false),
   })
   const job = polled.data && polled.data.id === upload?.id ? polled.data : upload
+  /** what the file's IDs are called: Customer ID for a list of customers, Party ID when no role is checked */
+  const idLabel = job?.lookup?.id_label ?? (role ? roleChoices.find((item) => item.key === role)?.id_label ?? 'Customer ID' : 'Party ID')
 
   // ---- while the wizard is open on an upload, the header does not raise alerts about it
   const watchedId = upload?.id
@@ -300,9 +393,10 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         setChannel((list.channel as ListChannel) || 'EMAIL')
         setUpload(staged)
         setMapping(staged.mapping)
+        if (staged.lookup) { setSource('LOOKUP'); setRole(staged.lookup.role ?? '') }
         if (staged.consent?.basis) { setBasis(staged.consent.basis); setCollectedAt(staged.consent.collected_at ?? ''); setAttested(Boolean(staged.consent.attested_at)) }
         const declared = !staged.consent?.required || Boolean(staged.consent?.attested_at)
-        setStep(staged.status === 'APPLYING' ? 'importing' : (staged.status === 'REVIEW' || staged.status === 'MATCHING' || staged.mapping_confirmed) ? (declared ? 'review' : 'consent') : 'map')
+        setStep(staged.status === 'APPLYING' ? 'importing' : (staged.lookup || staged.status === 'REVIEW' || staged.status === 'MATCHING' || staged.mapping_confirmed) ? (declared ? 'review' : 'consent') : 'map')
       } catch (problem) {
         if (alive) setError(problemText(problem))
       }
@@ -338,7 +432,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const nameLimit = name.length >= nameMax * 0.8 ? { used: name.length, max: nameMax } : undefined
   const steps = making ? MAKE_STEPS : STEPS[source]
   const index =step === 'importing' ? steps.indexOf('review') : steps.indexOf(step)
-  const [title, subtitle] = TITLES[step]
+  const [title, subtitle] = lookingUp && step === 'file' ? [`Add Your ${idLabel}s`, `Add your ${idLabel}s. C360 looks each one up and brings the rest of the person with it.`] : TITLES[step]
 
   /** `what`: what failed, in the message's first words ("The file was not uploaded") */
   const run = async (work: () => Promise<void>, what = '') => {
@@ -371,7 +465,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
   const fromMethod = () =>
     run(async () => {
-      if (source !== 'UPLOAD') {
+      if (source !== 'UPLOAD' && source !== 'LOOKUP') {
         setStep(source === 'BI' ? 'audience' : 'clone')
         return
       }
@@ -386,7 +480,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       if (upload && !['APPLIED', 'FAILED', 'CANCELLED'].includes(upload.status)) {
         await api.post(`/contact-lists/${draft.id}/imports/${upload.id}/cancel/`).catch(() => undefined)     // "Replace": the first file is dropped
       }
-      const staged = await api.upload<ListImport>(`/contact-lists/${draft.id}/imports/`, file)
+      const staged = await api.upload<ListImport>(`/contact-lists/${draft.id}/imports/`, file,
+        lookingUp ? { lookup_connections: (offered.length === 1 ? [offered[0].id] : lookupDbs).join(','), lookup_role: role } : {})
       setUpload(staged)
       setMapping(staged.mapping)
       void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
@@ -461,15 +556,15 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const consent = job?.consent ?? upload?.consent
   const basisAllowed = (consent?.bases ?? []).find((item) => item.key === basis)?.allowed ?? false
   const consentKey = channel === 'SMS' ? 'sms_consent_date' : 'consent_date'
-  const consentMapped = columnOf(consentKey) !== ''
+  const consentMapped = lookingUp || columnOf(consentKey) !== ''        // a lookup brings the consent dates from C360
   const refuses = consent?.policy.without_consent === 'REFUSE'
-  const textsNeedDate = Boolean(consent?.policy.texts_need_date) && channel !== 'EMAIL' && columnOf('sms_consent_date') === ''
+  const textsNeedDate = Boolean(consent?.policy.texts_need_date) && channel !== 'EMAIL' && !lookingUp && columnOf('sms_consent_date') === ''
 
   const primary: { label: string; action: () => void; disabled: boolean } | null =
     making && step === 'source' ? { label: 'Next', action: () => setStep('method'), disabled: audience === '' && parent === '' }
     : making && step === 'method' ? { label: 'Create List', action: source === 'BI' ? fromAudience : fromClone, disabled: name.trim() === '' }
-    : step === 'method' ? { label: 'Next', action: fromMethod, disabled: name.trim() === '' }
-    : step === 'file' ? { label: 'Next', action: () => setStep('map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
+    : step === 'method' ? { label: 'Next', action: fromMethod, disabled: name.trim() === '' || (lookingUp && (offered.length === 0 || (offered.length > 1 && lookupDbs.length === 0))) }
+    : step === 'file' ? { label: 'Next', action: () => setStep(lookingUp ? 'consent' : 'map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
     : step === 'map' ? { label: 'Next', action: review, disabled: !emailMapped }
     : step === 'consent' ? { label: 'Next', action: declare, disabled: basis === '' || !basisAllowed || !attested }
     : step === 'review' ? { label: 'Create List', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
@@ -534,6 +629,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     if (!nameEdited) setName(`Copy of ${row.name}`)
   }
   const review_ = job?.working ? null : job?.review
+  /** the ways in on step 1: Look Up in C360 only when the workspace offers a database for it */
+  const shownSources = SOURCES.filter((item) => (!sources || sources.includes(item.value))
+    && (item.value !== 'LOOKUP' || offered.length > 0))
   const failed = job?.status === 'FAILED'
 
   const close = step === 'done' ? onClose : step === 'importing' || (step === 'review' && job?.working) ? leaveRunning : abandon
@@ -571,7 +669,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-line-subtle pt-4">{footer}</div>
     </div>
   ) : (
-    <SetupDialog title="Create Contact List" steps={steps.map((item, at) => STEP_NAME[at === index ? step : item])} step={index + 1} onClose={close}
+    <SetupDialog title="Create Contact List" steps={steps.map((item, at) => (lookingUp && item === 'file' ? idLabel + 's' : STEP_NAME[at === index ? step : item]))} step={index + 1} onClose={close}
       onBack={index > 0 && step !== 'importing' && step !== 'done' && !(step === 'review' && job?.working) ? back : undefined}
       primary={framePrimary} hideCancel={step === 'done' || step === 'importing'} locked={busy}
       extraActions={running && step !== 'importing' ? <button type="button" className={buttonSecondary} onClick={leaveRunning}>Continue in the Background</button> : undefined}
@@ -662,12 +760,39 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lapsed buyers — West Q3" maxLength={rule('name')?.max ?? 200} data-autofocus />
             )}
           </Field>
-          <ChoiceGroup label="Where the Contacts Come From" required strong columns={`grid-cols-1 ${sources && sources.length < 3 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}
+          <ChoiceGroup label="Where the Contacts Come From" required strong columns={`grid-cols-1 ${shownSources.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}
             hint={draft ? 'The file upload has started for this list. Cancel to choose another source.' : undefined}>
-            {SOURCES.filter((item) => !sources || sources.includes(item.value)).map((item) => (
+            {shownSources.map((item) => (
               <SetupCard key={item.value} tile selected={source === item.value} disabled={Boolean(draft) && source !== item.value} onSelect={() => !draft && setSource(item.value)} title={item.title} text={item.text} icon={item.icon} badge={item.badge} />
             ))}
           </ChoiceGroup>
+          {lookingUp && (
+            <div className="flex flex-col gap-4 rounded-lg border border-line bg-surface-subtle p-4" data-lookup-options>
+              {offered.length > 1 && (
+                <fieldset disabled={Boolean(draft)}>
+                  <legend className="text-sm font-semibold text-ink-900">Look Up In <span aria-hidden className="text-danger-text">*</span></legend>
+                  <p className="mt-0.5 text-xs text-ink-800">Tick one or more. They are searched in the order ticked; the first that has the ID is used.</p>
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {offered.map((item) => {
+                      const at = lookupDbs.indexOf(item.id)
+                      return (
+                        <Checkbox key={item.id} label={at >= 0 && lookupDbs.length > 1 ? `${item.name} (${at + 1})` : item.name} checked={at >= 0}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) => setLookupDbs((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} />
+                      )
+                    })}
+                  </div>
+                </fieldset>
+              )}
+              <Field label="Role" strong hint="Only people who hold this role in C360 are imported. It also names the IDs in your file.">
+                {(ids) => (
+                  <Select {...ids} value={role} onChange={(event) => setRole(event.target.value)} disabled={Boolean(draft)}>
+                    {roleChoices.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+                    <option value="">Any Role (Party ID)</option>
+                  </Select>
+                )}
+              </Field>
+            </div>
+          )}
           <ChoiceGroup label="What the List Is For" required strong columns="grid-cols-1 sm:grid-cols-3">
             {CHANNELS.map((item) => (
               <SetupCard key={item.value} tile selected={channel === item.value} disabled={Boolean(draft) && channel !== item.value} onSelect={() => !draft && setChannel(item.value)} title={item.title} text={item.text} icon={item.icon} />
@@ -747,10 +872,12 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                 <div className="min-w-0 grow">
                   <p className="truncate text-sm font-semibold text-ink-900">{upload.file_name} <span className="ml-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-success-text">{job?.status === 'FAILED' ? 'Failed' : 'Received'}</span></p>
                   <p className="text-xs text-ink-800">
-                    {job && job.row_count > 0 ? `${formatNumber(job.row_count)} rows · ` : ''}{upload.columns.length} columns{upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}
+                    {lookingUp
+                      ? `${job && job.row_count > 0 ? `${formatNumber(job.row_count)} ${idLabel}s` : 'Reading the IDs'}${upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}`
+                      : <>{job && job.row_count > 0 ? `${formatNumber(job.row_count)} rows · ` : ''}{upload.columns.length} columns{upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}</>}
                   </p>
                   {job?.working && (
-                    <p className="mt-1 text-xs text-ink-800" aria-live="polite">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}. You can match the columns meanwhile.</p>
+                    <p className="mt-1 text-xs text-ink-800" aria-live="polite">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}. {lookingUp ? 'You can answer the consent questions meanwhile.' : 'You can match the columns meanwhile.'}</p>
                   )}
                   {job?.status === 'FAILED' && (
                     <p role="alert" className="mt-1 text-xs font-medium text-danger-plain">{job.error ?? 'This file could not be read.'} Choose Replace to upload another file.</p>
@@ -770,13 +897,13 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-surface text-ink-800"><Upload size={20} strokeWidth={1.5} aria-hidden /></span>
               <p className="text-sm font-semibold text-ink-900">Drag and drop your file here, or browse</p>
-              <p className="text-xs text-ink-800">CSV only · up to 50 MB · 250,000 rows</p>
+              <p className="text-xs text-ink-800">{lookingUp ? `CSV only · up to 50 MB · 2,000,000 ${idLabel}s` : 'CSV only · up to 50 MB · 250,000 rows'}</p>
               <button type="button" className={buttonSecondary} onClick={() => picker.current?.click()} disabled={busy}>
                 {busy ? 'Reading the file' : 'Choose File'}
               </button>
             </div>
           )}
-          {!upload && <TemplateNote channel={channel} />}
+          {!upload && (lookingUp ? <LookupTemplateNote idLabel={idLabel} /> : <TemplateNote channel={channel} />)}
         </div>
       )}
 
@@ -895,7 +1022,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <Checkbox label={consent.attestation} checked={attested} onChange={(event: ChangeEvent<HTMLInputElement>) => setAttested(event.target.checked)} />
             <p className="mt-1 pl-6 text-helper text-ink-800">
               Recorded with your name and the time.{' '}
-              {consentMapped
+              {lookingUp
+                ? 'Consent dates come from C360: Allow Solicitation Y becomes an opt-in, dated by the solicitation change date, for people C360 has no answer for.'
+                : consentMapped
                 ? `${upload.properties.find((item) => item.key === consentKey)?.label ?? 'Consent date'} is mapped: a valid date becomes an opt-in for people C360 has no answer for.`
                 : 'No consent date column is mapped.'}
             </p>
@@ -943,7 +1072,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <Checkbox label={consent.attestation} checked={attested} onChange={(event: ChangeEvent<HTMLInputElement>) => setAttested(event.target.checked)} />
             <p className="mt-1 pl-6 text-xs text-ink-800">
               Recorded with your name and the time.{' '}
-              {consentMapped
+              {lookingUp
+                ? 'Consent dates come from C360: Allow Solicitation Y becomes an opt-in, dated by the solicitation change date, for people C360 has no answer for.'
+                : consentMapped
                 ? `${upload.properties.find((item) => item.key === consentKey)?.label ?? 'Consent date'} is mapped: a valid date becomes an opt-in for people C360 has no answer for.`
                 : 'No consent date column is mapped.'}
             </p>
@@ -975,8 +1106,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <>
               <p className="text-sm font-semibold text-ink-900">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}</p>
               <ProgressBar job={job} />
+              <ProgressCount job={job} />
               <p className="text-sm text-ink-800">
-                {job.row_count > 0 ? `${formatNumber(job.row_count)} rows. ` : ''}Large files take a few minutes and are handled a chunk at a time, so the rest of C360 stays fast.
+                {job.row_count > 0 ? `${formatNumber(job.row_count)} ${lookingUp ? `${idLabel}s` : 'rows'}. ` : ''}Large files take a few minutes and are handled a chunk at a time, so the rest of C360 stays fast.
                 You can wait here, or continue in the background: the upload button at the top shows the progress and you get an alert when it is done.
               </p>
             </>
@@ -1040,6 +1172,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <p className="text-sm text-ink-800">Ready to Import <span className="cep-num ml-1 text-base font-semibold text-ink-900">{formatNumber(review_.ready)} contacts</span></p>
             <p className="cep-num text-sm text-ink-800">{formatNumber(review_.held_back)} rows held back</p>
           </div>
+          <LookupSection job={job} />
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {([['New', review_.new, 'not in C360 yet'], ['Existing', review_.existing, 'already known'], ['Warnings', review_.warnings, 'imported with a remark'], ['Errors', review_.errors, 'held back']] as const).map(
               ([label, value, hint]) => (
@@ -1130,7 +1263,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
           <span className="mt-0.5 text-success-text"><CheckCircle2 size={22} strokeWidth={1.5} aria-hidden /></span>
           <div className="space-y-2 text-sm text-ink-800">
             <p className="text-base font-semibold text-ink-900">{created.name} is ready</p>
-            {source === 'UPLOAD' && upload && (
+            {(source === 'UPLOAD' || source === 'LOOKUP') && upload && (
               <>
                 {job?.summary && <div className="mb-3"><UploadReport job={job} /></div>}
                 <p className="cep-num">{formatNumber(job?.applied_count ?? 0)} contacts imported · {formatNumber(job?.review?.held_back ?? 0)} rows skipped</p>
