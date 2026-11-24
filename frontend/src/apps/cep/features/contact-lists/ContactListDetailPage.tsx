@@ -1,10 +1,11 @@
 /** One contact list: who is in it, when and how each was added, where it is used, and the ways to fix it. */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Info, Plus, RefreshCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Info, Plus, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { IconButton } from '@/components/Button'
 import { ClearFiltersLink, SelectFilter } from '@/components/FilterChip'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
 import { SearchField } from '@/components/SearchField'
@@ -22,7 +23,14 @@ import { problemText } from './problem'
 import { GovernanceLines } from './UploadReport'
 import { PageHelp } from '@/apps/cep/help/HelpPanel'
 
-const PAGE_SIZE = 50
+const PAGE_SIZES = [25, 50, 100]
+
+/** a mobile number as people read it: (404) 555-0101 for a US or Canadian one, otherwise as stored (+44…) */
+function mobileText(number: string | null | undefined): string | null {
+  if (!number) return null
+  const us = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(number)
+  return us ? `(${us[1]}) ${us[2]}-${us[3]}` : number
+}
 const MEMBER_SOURCE: Record<string, string> = { UPLOAD: 'Upload', MANUAL: 'Manual', SEGMENT: 'Audience', CLONE: 'Cloned', RULE: 'Rule' }
 const DETAILS_FIELDS = ['name', 'description']
 const DETAILS_FAILED = 'The details were not saved'
@@ -239,6 +247,7 @@ export function ContactListDetailPage() {
   const [search, setSearch] = useState('')
   const [consent, setConsent] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[1])
   const [selected, setSelected] = useState<number[]>([])
   const [dialog, setDialog] = useState<'edit' | 'add' | 'clone' | 'remove' | null>(null)
   const [notice, setNoticeOnly] = useState('')
@@ -262,8 +271,8 @@ export function ContactListDetailPage() {
     },
   })
   const members = useQuery({
-    queryKey: ['contact-lists', id, 'members', search.trim(), consent, page],
-    queryFn: ({ signal }) => api.get<ListMembersPage>(`/contact-lists/${id}/members/`, { search: search.trim() || undefined, status: consent || undefined, page, page_size: PAGE_SIZE }, signal),
+    queryKey: ['contact-lists', id, 'members', search.trim(), consent, page, pageSize],
+    queryFn: ({ signal }) => api.get<ListMembersPage>(`/contact-lists/${id}/members/`, { search: search.trim() || undefined, status: consent || undefined, page, page_size: pageSize }, signal),
     placeholderData: keepPreviousData,
   })
   const refreshAll = () => {
@@ -307,7 +316,9 @@ export function ContactListDetailPage() {
   const data = list.data
   const rows = members.data?.results ?? []
   const total = members.data?.count ?? 0
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  const first = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const last = Math.min(page * pageSize, total)
   const allOnPage = rows.length > 0 && rows.every((row) => selected.includes(row.id))
   const live = usage.data?.live_campaigns ?? 0
   const attached = usage.data?.attached_campaigns ?? 0
@@ -419,7 +430,7 @@ export function ContactListDetailPage() {
         <ErrorState error={members.error} onRetry={() => void members.refetch()} />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-line bg-surface">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <caption className="sr-only">Contacts in {data.name}</caption>
             <thead className="text-sm font-semibold whitespace-nowrap text-ink-900">
               <tr className="h-12 border-b border-line">
@@ -431,6 +442,7 @@ export function ContactListDetailPage() {
                 <th scope="col" className="px-2">Email</th>
                 <th scope="col" className="px-2">First Name</th>
                 <th scope="col" className="px-2">Last Name</th>
+                <th scope="col" className="px-2">Mobile Number</th>
                 <th scope="col" className="px-2 text-right">Added On</th>
                 <th scope="col" className="px-2">Source</th>
                 <th scope="col" className="pr-6 pl-2">Marketing Email</th>
@@ -449,6 +461,7 @@ export function ContactListDetailPage() {
                   </td>
                   <td className="px-2 py-3 text-ink-800">{row.first_name ?? '—'}</td>
                   <td className="px-2 py-3 text-ink-800">{row.last_name ?? '—'}</td>
+                  <td className="cep-num px-2 py-3 whitespace-nowrap text-ink-800">{mobileText(row.mobile) ?? '—'}</td>
                   <td className="cep-num px-2 py-3 text-right text-ink-800">{formatDate(row.added_at)}</td>
                   <td className="px-2 py-3"><Tag>{MEMBER_SOURCE[row.source] ?? titleize(row.source)}</Tag></td>
                   <td className="py-3 pr-6 pl-2">
@@ -462,23 +475,34 @@ export function ContactListDetailPage() {
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-800">{members.isPending ? 'Loading contacts' : search.trim() || consent ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
+                <tr><td colSpan={8} className="px-3 py-8 text-center text-ink-800">{members.isPending ? 'Loading contacts' : search.trim() || consent ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
               )}
             </tbody>
           </table>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-3 py-2 text-sm text-ink-800">
-            <span className="cep-num">Showing {formatNumber(rows.length)} of {formatNumber(total)}</span>
-            <span className="flex flex-wrap items-center gap-2">
-              {pages > 1 && (
-                <>
-                  <button type="button" className={buttonSecondary} disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
-                  <span className="cep-num">Page {page} of {formatNumber(pages)}</span>
-                  <button type="button" className={buttonSecondary} disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</button>
-                </>
-              )}
-              <button type="button" className={buttonSecondary} onClick={() => void exportSelected()} disabled={total === 0}>{selected.length > 0 ? 'Export Selected' : 'Export All'}</button>
-              {editable && <button type="button" className={buttonDanger} disabled={selected.length === 0 || archived} onClick={() => { remove.reset(); setDialog('remove') }}>Remove from List</button>}
-            </span>
+          <div className="flex flex-col gap-3 border-t border-line px-6 py-3 lg:flex-row lg:items-center lg:justify-between" data-members-pager>
+            <p aria-live="polite" className="cep-num text-helper text-ink-800">
+              Showing {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)} contact{total === 1 ? '' : 's'}
+            </p>
+            <div className="flex flex-wrap items-center gap-4">
+              <div role="group" aria-label="Rows per Page" className="flex items-center gap-2 text-helper text-ink-800">
+                <span aria-hidden>Rows per Page</span>
+                {PAGE_SIZES.map((size) => (
+                  <button key={size} type="button" aria-pressed={size === pageSize} onClick={() => { setPageSize(size); setPage(1) }}
+                    className={`cep-num h-8 min-w-[38px] rounded-control-md border px-2 text-helper font-semibold transition-colors duration-fast ease-standard ${size === pageSize ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`}>
+                    {size}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1">
+                <IconButton label="Previous Page" icon={ChevronLeft} disabled={page <= 1} onClick={() => setPage(page - 1)} />
+                <span className="cep-num px-1 text-helper text-ink-800">Page {formatNumber(page)} of {formatNumber(pages)}</span>
+                <IconButton label="Next Page" icon={ChevronRight} disabled={page >= pages} onClick={() => setPage(page + 1)} />
+              </div>
+              <span className="flex flex-wrap items-center gap-2">
+                <button type="button" className={buttonSecondary} onClick={() => void exportSelected()} disabled={total === 0}>{selected.length > 0 ? 'Export Selected' : 'Export All'}</button>
+                {editable && <button type="button" className={buttonDanger} disabled={selected.length === 0 || archived} onClick={() => { remove.reset(); setDialog('remove') }}>Remove from List</button>}
+              </span>
+            </div>
           </div>
         </div>
       )}
