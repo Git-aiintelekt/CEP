@@ -2,12 +2,14 @@
 screen that failed in their browser) opens one alert for the platform administrators, a job's error does not; the back-office's Note for
 Users reaches the 500 answer, Resolve clears it, and saving the internal note no longer erases it. observe writes on its own autocommit
 connection, so every error row this test makes is deleted at the end."""
+import logging
 import uuid
 
 import pytest
 from django.conf import settings
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.signals import user_logged_in
+from django.core.exceptions import DisallowedHost, PermissionDenied
 from django.db import connections
 from django.test import Client, RequestFactory
 
@@ -115,3 +117,29 @@ def test_the_note_for_users_reaches_the_500_answer_until_the_error_is_resolved(e
     admin.post(page, {"do": "resolve", "note": internal, "user_note": note})
     assert _one("SELECT status, user_note FROM error_group WHERE id = %s", [gid]) == ("RESOLVED", None)
     assert "note" not in answer()
+
+
+def test_a_refused_request_is_recorded_with_its_400_and_opens_no_alert(errors):
+    """a bot's wrong Host header: Django answers 400 and logs it on django.security; that is not an error a person met"""
+    request = RequestFactory().get("/api/v1/campaigns/", HTTP_HOST="scanner.invalid")
+    try:
+        raise DisallowedHost(f"{errors} Invalid HTTP_HOST header: 'scanner.invalid'")
+    except DisallowedHost as exc:
+        logging.getLogger("django.security.DisallowedHost").error(str(exc), exc_info=exc, extra={"status_code": 400, "request": request})
+        refused = exc._cep_group_id
+    assert _one("SELECT e.status_code FROM error_event e WHERE e.group_id = %s ORDER BY e.id DESC LIMIT 1", [refused]) == (400,)
+
+    try:
+        raise PermissionDenied(f"{errors} not yours")
+    except PermissionDenied as exc:
+        logging.getLogger("django.request").error("Forbidden", exc_info=exc, extra={"request": request})
+        forbidden = exc._cep_group_id
+    assert _one("SELECT e.status_code FROM error_event e WHERE e.group_id = %s ORDER BY e.id DESC LIMIT 1", [forbidden]) == (403,)
+
+    # recorded before the status was kept: every request error said 500
+    older = observe.record_error(source="BACKEND", kind="django.core.exceptions.DisallowedHost", message=f"{errors} old refusal", place="django.http.request",
+                                 method="GET", path="/", status_code=500)
+    met = _met(errors)
+    names = set(alerts.people_errors())
+    assert f"Error ER-{met} · ProgrammingError" in names
+    assert not any(f"ER-{gid} " in name for gid in (refused, forbidden, older) for name in names)
