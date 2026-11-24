@@ -37,14 +37,15 @@ class Command(BaseCommand):
         parser.add_argument("--plan", default=PLAN, help="the Platform workspace's plan code, when it is created (default ENTERPRISE)")
 
     def handle(self, *args, email, name, no_password, **options):
-        elsewhere = AppUser.objects.using(P).filter(email__iexact=email).exclude(tenant__code=CODE).select_related("tenant").first()
+        # back-office staff keep one address across the platform (patch 0098); an ordinary account elsewhere does not matter
+        elsewhere = AppUser.objects.using(P).filter(email__iexact=email, is_staff=True).exclude(tenant__code=CODE).select_related("tenant").first()
         if elsewhere is not None:
-            raise CommandError(f"{email} already belongs to the workspace {elsewhere.tenant.code}; an email can be in one workspace only.")
+            raise CommandError(f"{email} is already a back-office account in the workspace {elsewhere.tenant.code}; staff keep one address across the platform.")
         password = None if no_password else self.ask_password(email)
 
         with transaction.atomic(using=P):
             tenant, created = self.platform_workspace(options["timezone"], options["plan"])
-            user = AppUser.objects.using(P).filter(email__iexact=email).first()
+            user = AppUser.objects.using(P).filter(tenant=tenant, email__iexact=email).first()
             if user is None:
                 user = AppUser.objects.db_manager(P).create_user(email, name, tenant, None, auth_provider="LOCAL")
             user.is_staff = user.is_platform_admin = user.is_active = True

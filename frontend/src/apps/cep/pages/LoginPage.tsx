@@ -21,12 +21,14 @@ import { LOADING_HOLD_MS, loadingOverlay } from '@/lib/loadingOverlay'
 import type { AuthOptions } from '@/lib/types'
 
 import { markFreshSignIn } from '@/apps/cep/features/setup/setup'
+import { recentWorkspaces } from '@/auth/recentWorkspaces'
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 401) return 'Incorrect email or password. Try again.'
+    // an account is Workspace ID + email: the same address may have an account in another workspace, with another password
+    if (error.status === 401) return 'The workspace, email and password do not match an account. Check the Workspace ID: Staging and Production have different passwords.'
     if (error.status === 403) return error.message || 'This workspace signs in with single sign-on.'
-    if (error.status === 404) return 'That workspace does not exist. Check the workspace code.'
+    if (error.status === 404) return 'That workspace does not exist. Check the Workspace ID.'
     if (error.status === 429) return 'Too many attempts. Wait a minute and try again.'
     if (error.status === 503) return 'This workspace is being migrated. Try again in a few minutes.'
     return error.message
@@ -75,7 +77,10 @@ export function LoginPage() {
       return null
     }
   })
-  const [tenant, setTenant] = useState(hostTenant ?? rememberedTenant)
+  // Log In to Another Workspace on the same address sends ?workspace=CODE
+  const [asked] = useState(() => new URLSearchParams(window.location.search).get('workspace')?.toUpperCase() ?? null)
+  const [tenant, setTenant] = useState(hostTenant ?? asked ?? rememberedTenant)
+  const [recent] = useState(recentWorkspaces)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -104,11 +109,11 @@ export function LoginPage() {
       }
       if (guess && !(await api.authOptions(guess, controller.signal)) && !controller.signal.aborted) {
         setHostTenant(null)
-        setTenant(rememberedTenant)
+        setTenant(asked ?? rememberedTenant)
       }
     })()
     return () => controller.abort()
-  }, [guess, rememberedTenant])
+  }, [guess, rememberedTenant, asked])
 
   // what this workspace offers (single sign-on); asked once the code stops changing
   useEffect(() => {
@@ -234,15 +239,33 @@ export function LoginPage() {
 
           <form onSubmit={onPassword} className="flex flex-col gap-5">
             {/* only asked for when the address bar cannot say which workspace this is */}
-            {!hostTenant && (
-              <AuthField
-                label="Workspace"
-                value={tenant}
-                onChange={(event) => setTenant(event.target.value)}
-                required
-                autoCapitalize="characters"
-                placeholder="Workspace code, e.g. NWA"
-              />
+            {hostTenant ? (
+              <p data-workspace-id className="flex items-center justify-between gap-3 rounded-control-lg border border-line bg-surface-subtle px-3 py-2 text-sm">
+                <span className="text-ink-800">Workspace ID</span>
+                <span className="font-mono font-semibold text-ink-900">{hostTenant}</span>
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <AuthField
+                  label="Workspace ID"
+                  value={tenant}
+                  onChange={(event) => setTenant(event.target.value)}
+                  required
+                  autoCapitalize="characters"
+                  placeholder="e.g. CITYST"
+                />
+                {recent.length > 0 && (
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-800" data-recent-workspaces>
+                    Recent:
+                    {recent.map((item) => (
+                      <button key={item.code} type="button" onClick={() => setTenant(item.code)} aria-pressed={tenant.trim().toUpperCase() === item.code}
+                        className={`rounded-full border px-2.5 py-0.5 font-mono text-xs ${tenant.trim().toUpperCase() === item.code ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>
+                        {item.code}{item.environment === 'STAGING' ? ' · Staging' : ''}
+                      </button>
+                    ))}
+                  </p>
+                )}
+              </div>
             )}
 
             {sso && (
@@ -282,7 +305,7 @@ export function LoginPage() {
                   action={<AuthLink onClick={() => goTo('reset')}>Forgot password?</AuthLink>}
                 />
                 <button type="submit" disabled={submitting} className={authButtonPrimary}>
-                  Log In
+                  {tenant.trim() ? `Log In to ${tenant.trim().toUpperCase()}` : 'Log In'}
                 </button>
               </>
             )}

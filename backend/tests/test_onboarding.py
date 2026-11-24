@@ -72,8 +72,9 @@ def test_onboarding(check):
             page = client.get(URL + "?step=components").content.decode()
             check("... and the step shows the choice again", not ticked("cep") and ticked("insights") and re.search(r'<input[^>]*name="pack_email-campaigns"[^>]*checked', page))
 
-            bad = client.post(URL, {"step": "admin", "continue": "1", "display_name": "Pat Lee", "email": staff.email})
-            check("an email that exists is refused", "already exists" in bad.content.decode())
+            elsewhere = client.post(URL, {"step": "admin", "continue": "1", "display_name": "Pat Lee", "email": staff.email})
+            # an account is Workspace ID + email (patch 0098): an address with an account elsewhere gets its own one in the new workspace
+            check("an address with an account in another workspace is taken", elsewhere.status_code == 302 and "already exists" not in elsewhere.content.decode(), str(elsewhere.status_code))
             ok = client.post(URL, {"step": "admin", "continue": "1", "display_name": "Pat Lee", "email": "pat.lee@zzonb.example", "also_invite": "sam@zzonb.example\n\nSAM@zzonb.example\n"})
             page = client.get(URL + "?step=admin").content.decode()
             check("the admin step saves with the extra invite once", ok.status_code == 302 and page.count("sam@zzonb.example") == 1, f"{ok.status_code} {page.count('sam@zzonb.example')}")

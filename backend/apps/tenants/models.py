@@ -49,6 +49,7 @@ class Tenant(models.Model):
     data_residency = models.CharField(max_length=40, null=True, blank=True)
     onboarded_at = models.DateTimeField(null=True, blank=True)
     settings = models.JSONField(default=dict)
+    environment = models.CharField(max_length=12, default='PRODUCTION', choices=(('PRODUCTION', 'Production'), ('STAGING', 'Staging')))  # patch 0098
     sso_config = models.JSONField(default=dict)  # OFBiz "Open CEP": {"is_active", "secret_enc"}, one iCRM system per workspace
 
     class Meta:

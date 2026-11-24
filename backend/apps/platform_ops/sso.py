@@ -161,9 +161,10 @@ def resolve_user(provider, identity: dict):
     from django.db import IntegrityError, transaction
 
     from apps.identity.models import AppUser, UserRole
-    user = AppUser.objects.filter(auth_provider="OIDC", external_subject_id=identity["sub"], deleted_at__isnull=True).first()
+    # the account in this workspace only: the same address may have another account in another workspace (patch 0098)
+    user = AppUser.objects.filter(tenant_id=provider.tenant_id, auth_provider="OIDC", external_subject_id=identity["sub"], deleted_at__isnull=True).first()
     if user is None:
-        user = AppUser.objects.filter(email__iexact=identity["email"], deleted_at__isnull=True).first()
+        user = AppUser.objects.filter(tenant_id=provider.tenant_id, email__iexact=identity["email"], deleted_at__isnull=True).first()
         if user is not None:                               # first SSO sign-in of an existing account: link it
             user.auth_provider, user.external_subject_id = "OIDC", identity["sub"]
             user.save(update_fields=["auth_provider", "external_subject_id"])
@@ -175,7 +176,7 @@ def resolve_user(provider, identity: dict):
                 user = AppUser.objects.create(tenant_id=provider.tenant_id, email=identity["email"], display_name=identity["name"],
                                               auth_provider="OIDC", external_subject_id=identity["sub"], is_active=True)
         except IntegrityError:
-            raise SsoError("This email address belongs to an account in another workspace.") from None
+            raise SsoError("This email address already has an account in this workspace that cannot be used. Ask your administrator.") from None
         if provider.default_role_id:
             UserRole.objects.create(user=user, role_id=provider.default_role_id)
     if not user.is_active:

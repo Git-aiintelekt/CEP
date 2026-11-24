@@ -38,20 +38,29 @@ class AppUserForm(forms.ModelForm):
         data = super().clean()
         if data.get("is_platform_admin") and not data.get("is_staff"):
             self.add_error("is_staff", "A platform administrator must also be staff, or they cannot sign in here.")
+        # an account is Workspace ID + email (patch 0098): once per workspace; staff once across the platform
+        email, tenant = data.get("email") or self.instance.email, data.get("tenant") or getattr(self.instance, "tenant", None)
+        others = AppUser.objects.using(P).filter(email__iexact=email).exclude(pk=self.instance.pk) if email else AppUser.objects.none()
+        if tenant is not None and others.filter(tenant=tenant).exists():
+            self.add_error("email", "This address already has an account in this workspace.")
+        if (data.get("is_staff") or data.get("is_platform_admin")) and others.filter(is_staff=True).exists():
+            self.add_error("is_staff", "This address is already a back-office account in another workspace; staff keep one address across the platform.")
         return data
 
 
 @admin.register(AppUser)
 class AppUserAdmin(BaseAdmin):
     form = AppUserForm
-    list_display = ("email", "display_name", "tenant", "show_roles", "show_active", "is_staff", "is_platform_admin", "last_login")
-    list_filter = ("tenant", "is_active", "is_staff", "is_platform_admin", "auth_provider")
-    search_fields = ("email", "display_name")
-    ordering = ("email",)
+    # search by an address: every account it has, one row per workspace (patch 0098), side by side
+    list_display = ("email", "display_name", "tenant", "show_environment", "show_roles", "show_two_factor", "show_active", "is_staff", "is_platform_admin", "last_login")
+    list_filter = ("tenant", "tenant__environment", "is_active", "is_staff", "is_platform_admin", "auth_provider")
+    search_fields = ("email", "display_name", "tenant__code")
+    ordering = ("email", "tenant__code")
+    list_select_related = ("tenant",)
     raw_id_fields = ()
     autocomplete_fields = ("tenant",)
     readonly_fields = ("last_login", "created_at", "updated_at")
-    actions = ("deactivate", "activate")
+    actions = ("deactivate", "deactivate_everywhere", "activate")
     actions_detail = ("password_link", "support_session")
     fieldsets = (
         ("Person", {"fields": ("tenant", "email", "display_name")}),
@@ -74,6 +83,14 @@ class AppUserAdmin(BaseAdmin):
     def show_active(self, obj):
         return obj.is_active
 
+    @display(description="Used For")
+    def show_environment(self, obj):
+        return "Staging" if getattr(obj.tenant, "environment", "PRODUCTION") == "STAGING" else "Production"
+
+    @display(description="Two-Factor", boolean=True)
+    def show_two_factor(self, obj):
+        return obj.mfa_enabled
+
     def save_model(self, request, obj, form, change):
         if not change:
             obj.created_by_id = request.user.pk
@@ -95,6 +112,16 @@ class AppUserAdmin(BaseAdmin):
         for user in queryset.exclude(pk=request.user.pk).filter(is_active=True):
             self.set_fields(request, user, is_active=False)
         messages.warning(request, "Deactivated (your own account is never included).")
+
+    @action(description="Deactivate in Every Workspace")
+    def deactivate_everywhere(self, request, queryset):
+        """Someone who leaves: every account of the chosen addresses, in every workspace, so none stays active in Staging."""
+        emails = {email.lower() for email in queryset.values_list("email", flat=True)}
+        closed = 0
+        for user in AppUser.objects.using(P).filter(email__in=emails, is_active=True).exclude(pk=request.user.pk).select_related("tenant"):
+            self.set_fields(request, user, is_active=False)
+            closed += 1
+        messages.warning(request, f"Deactivated {closed} account{'s' if closed != 1 else ''} of {', '.join(sorted(emails))} in every workspace (your own account is never included).")
 
     @action(description="Activate")
     def activate(self, request, queryset):

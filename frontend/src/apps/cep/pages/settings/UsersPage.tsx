@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 
+import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonPrimary, buttonSecondary, Field, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
@@ -18,6 +19,7 @@ const USER_FIELDS = ['email', 'display_name', 'roles']
 const USER_FAILED = 'The user was not saved'
 
 function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; roles: Role[]; onClose: () => void }) {
+  const { me } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
   const user = editing.mode === 'edit' ? editing.user : null
@@ -58,7 +60,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
       </>}>
       <form id="user-form" onSubmit={onSubmit} noValidate className="space-y-4">
         {save.isError && <ErrorState title={USER_FAILED} error={save.error} shownFields={USER_FIELDS} />}
-        <Field label="Email" required error={errors.email} help="The sign-in name, and where the password link goes. It cannot be changed once the user exists; deactivate and add a new user for a new address." hint={user ? 'The email address is the sign-in name and cannot be changed.' : 'They sign in with this address.'}>
+        <Field label="Email" required error={errors.email} help="The sign-in name, and where the password link goes. It cannot be changed once the user exists; deactivate and add a new user for a new address." hint={user ? 'The email address is the sign-in name and cannot be changed.' : `They log in with this address and the Workspace ID ${me?.tenant.code ?? ''}.`}>
           {(ids) => <TextInput {...ids} type="email" value={email} disabled={Boolean(user)} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />}
         </Field>
         <Field label="Name" required error={errors.display_name}>
@@ -127,6 +129,7 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
 }
 
 export function UsersPage() {
+  const { me } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
   const [editing, setEditing] = useState<Editing>(null)
@@ -151,6 +154,7 @@ export function UsersPage() {
       <div><p className="text-card-title font-semibold text-ink-900">{user.display_name}{user.is_self && <span className="ml-2 text-xs font-normal text-ink-800">you</span>}</p>
         <p className="text-helper text-ink-800">{user.email}</p></div>) },
     { key: 'roles', header: 'Roles', render: (user) => user.role_names.length ? <span className="flex flex-wrap gap-1">{user.role_names.map((role) => <Tag key={role}>{role}</Tag>)}</span> : <span className="text-ink-800">No role</span> },
+    { key: 'mfa', header: 'Two-Factor', render: (user) => user.auth_provider !== 'LOCAL' ? <span className="text-ink-800">Single sign-on</span> : user.mfa_enabled ? 'On' : <span className="text-ink-800">Not set up</span> },
     { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.is_active ? 'ACTIVE' : 'ARCHIVED'} label={user.is_active ? 'Active' : 'Deactivated'} /> },
     { key: 'signin', header: 'Sign-In', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-warning-text">No password yet</span> },
     { key: 'actions', header: '', align: 'right', render: (user) => (
@@ -166,7 +170,10 @@ export function UsersPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-ink-800">Users are deactivated, never deleted, so everything they created keeps its author.</p>
+        <p className="text-sm text-ink-800">
+          Accounts in the workspace <span className="font-semibold text-ink-900">{me?.tenant.code}</span>. The same address may have an account in another workspace, with its own password and roles.
+          Users are deactivated, never deleted, so everything they created keeps its author.
+        </p>
         <button type="button" className={buttonPrimary} onClick={() => setEditing({ mode: 'create' })}>Add User</button>
       </div>
       {toggle.isError && <div className="mb-4"><ErrorState title={toggle.variables?.is_active ? 'The user was not deactivated' : 'The user was not activated'} error={toggle.error} /></div>}
