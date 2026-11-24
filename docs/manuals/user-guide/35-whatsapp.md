@@ -18,6 +18,8 @@ WhatsApp lets a business start a conversation only with a template Meta has appr
 
 ### The WhatsApp editor
 
+Opened from a campaign's Content, it shows **Back to Campaign** and **Save & Return to Campaign** beside Save (Templates and Content: *Opened from a campaign*).
+
 | Field | What it is | What it changes |
 |---|---|---|
 | WhatsApp Number | The connected number (engine) the template is for. | The Meta business account that reviews and sends it. |
@@ -150,7 +152,7 @@ Run these in order on a new set-up; each says what to look for.
 
 ## What a WhatsApp message costs
 
-Meta charges a delivered template message by its category and the recipient's country; a message that is not delivered is free, and so are replies within 24 hours of the customer's own message. The template editor shows the price of the category in your home country, and a campaign's Estimated Cost is worked out country by country. Settings → Message Costs → WhatsApp Countries decides where WhatsApp goes: numbers in other countries are left out of WhatsApp campaigns.
+Meta charges a delivered template message by its category and the recipient's country; a message that is not delivered is free, and so are replies within 24 hours of the customer's own message. The template editor shows the price of the category in your home country, and a campaign's Estimated Cost is worked out country by country. Settings → Message Costs → WhatsApp Countries decides where WhatsApp goes: numbers in other countries are left out of WhatsApp campaigns, and the campaign's Recipients tab gives them as *Country Not Chosen for WhatsApp*.
 
 ## Things to know
 

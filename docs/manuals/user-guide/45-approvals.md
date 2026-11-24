@@ -35,5 +35,6 @@ Asking emails every approver; the decision goes back to the person who asked. An
 ## Things to know
 
 - Test publishing never needs approval.
+- A text campaign can need approval even with the switch off: when its estimated cost is above the approval limit under Settings → Message Costs, or would take the month over a budget set to Needs Approval. Its Review & Publish step then shows the Approval card, and the approvers listed here decide.
 - Switching approvals off leaves pending requests where they are; the campaigns can simply be published.
 - The switch cannot be turned on while nobody can approve; if the last approver later leaves, approvals stay on and campaigns wait until someone gets the permission.

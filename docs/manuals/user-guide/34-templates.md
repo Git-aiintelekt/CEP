@@ -1,6 +1,6 @@
 # Templates and Content
 
-**Where:** Templates in the main navigation; a template opens in its own editor: the email designer, the message editor for texts, or the receipt editor.
+**Where:** Templates in the main navigation; a template opens in its own editor: the email designer, the message editor for texts, or the receipt editor. A campaign's **Open in the …** opens the same editors in their own tab, with a way back to the campaign (see *Opened from a campaign* below).
 
 ## What this page is for
 
@@ -109,6 +109,17 @@ The Store Register's settings (select a part under Receipt Parts):
 
 A Custom HTML receipt has three parts: **Receipt** (the HTML around the lines, with `{{receipt_items}}` where the rows go), **Item Row** (one line, repeated per item, with `{{item.description}}`, `{{item.sku}}`, `{{item.upc}}`, `{{item.size}}`, `{{item.color}}`, `{{item.quantity}}`, `{{item.unit_price}}`, `{{item.discount}}`, `{{item.tax}}`, `{{item.amount}}`, `{{item.status}}`) and **CSS**. Without an Item Row, `{{receipt_body}}` still gives the built-in item table.
 
+### Opened from a campaign
+
+Every editor (email designer, receipt editor, message editor for SMS and MMS, WhatsApp editor) opened from a campaign's Content step or Content tab works the same way:
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Back to Campaign | Top left, in place of the link back to Templates. | Goes back to the campaign in this tab; unsaved changes ask first. |
+| Save & Return to Campaign | Bottom right in the email designer and the receipt editor; beside Save in the message editor and the WhatsApp editor. *Return to Campaign* when the template cannot be changed (a live drip uses it). | Saves your changes (when there are any; a text or a WhatsApp message must be valid first), then closes the editor's tab so the campaign is in front again. If the browser does not let the tab close, the campaign opens in this tab. A refused save keeps you here and says why. |
+
+Every save in an editor tells the campaign's tab, so its preview shows the new version without a reload.
+
 ### Receipt Layouts
 
 Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates can pick, with how many templates use each. **New Layout** starts one from Store Register, Standard, Itemized, Compact, Custom HTML, or a copy of another; each row's menu has Edit, Duplicate, Rename and Archive. Editing a layout used by templates names them before you save, because the change reaches all of them; a layout used by a template in a running drip cannot be changed until the drip ends. A layout a template still uses cannot be archived.
@@ -133,6 +144,10 @@ Templates → **Receipt Layouts** lists the receipt layouts E-Receipt templates 
 2. Every save is a new version in the template's history; Activate marks the template usable by campaigns.
 3. At send time the engine fills the tags from the workspace's tag catalogue, the recipient's list columns and the customer record, draws each barcode and QR code, puts the campaign's subject and preheader in when it has its own, and for a receipt lays out the transaction the point of sale sent into the receipt slot.
 4. Images are uploaded once per workspace and served from the media store, never embedded in the email.
+
+## The sender on a text preview
+
+The phone in a text template's editor and previews shows the sender at the top: the workspace's default SMS sender; for an MMS template its MMS sender first, then the SMS one. Opened from a campaign (Edit Template), it shows that campaign's own sender. A workspace with no text sender reads *No SMS Sender* (or *No MMS Sender*), and the editor adds an **Add a Sender** link that opens Settings → Sending Engines in a new tab, so the template you are working on stays open.
 
 ## What a text costs
 

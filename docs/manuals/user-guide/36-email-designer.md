@@ -1,6 +1,6 @@
 # The Email Designer
 
-**Where:** Templates → an email template, or New Template → Email. Full screen, with Back to Templates at the top left and the help icon beside the template's name.
+**Where:** Templates → an email template, or New Template → Email; or a campaign's **Open in the Designer**, which opens it in its own tab with **Back to Campaign** instead. Full screen, with Back to Templates at the top left and the help icon beside the template's name.
 
 ## What this page is for
 
@@ -19,7 +19,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 
 | Part | What it is | What it changes |
 |---|---|---|
-| The top bar | Back to Templates, the template's name and status, the three modes (Content, Preview, Deliverability) and History. | The mode you work in. |
+| The top bar | Back to Templates (**Back to Campaign** when a campaign opened the designer), the template's name and status, the three modes (Content, Preview, Deliverability) and History. | The mode you work in. |
 | Subject | The subject line, with a tag picker and an emoji picker beside it; the counter turns amber past 60 characters (inboxes cut it there) and the field stops at 300; a hint appears when a word is one spam filters dislike. | The subject every campaign on this template sends, unless the campaign writes its own. Empty, it blocks Activate. |
 | Preheader | The text an inbox shows after the subject, with the same pickers; amber past 90 characters. | Hidden text at the top of the email that inboxes show in the list. Optional. |
 | Blocks (left rail) | The palette: Structure, Content, Brand and Commerce blocks, with a search. Drag a tile onto the canvas, or focus a tile with the arrow keys and press Enter to add it below the selected block. | The design. |
@@ -29,7 +29,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 | The canvas | The email as it renders, desktop, tablet or phone width, with the selected block outlined and its breadcrumb (section → column → block) above. Click a block to select it, drag to move it, double-click text to edit it with the formatting toolbar. | |
 | The canvas toolbar | Undo, Redo, Zoom In, Zoom Out, Fit to Width, Desktop / Tablet / Mobile, Show Block Outlines, Preview, Fullscreen, View Code, Download HTML. | How you look at the design; View Code and Download HTML hand it to someone else. |
 | The settings panel (right) | The selected block's settings in three groups: Content, Layout, Appearance. Every field is listed under the block types below. | The block. |
-| The footer | The note: errors that must be fixed, warnings that are advisory, or No errors; **Save**; **Activate** (draft only, with the reason when it cannot). | |
+| The footer | The note: errors that must be fixed, warnings that are advisory, or No errors; **Save**; **Activate** (draft only, with the reason when it cannot); and, when a campaign opened the designer, **Save & Return to Campaign** (*Return to Campaign* when the template cannot be changed). | Save & Return saves the changes (when there are any), closes this tab and brings the campaign back in front, its preview refreshed. If the browser does not let the tab close, the campaign opens in this tab. A save that is refused keeps you here and says why. |
 | Errors and Links pills | The findings on the design, each leading to the field or block concerned; every link in the design with its address and what is wrong with it. | |
 
 ## Starting a template
@@ -93,6 +93,7 @@ Run Inbox Previews renders the last saved version in real email clients through 
 - **A conflict**: when someone else saved a newer version, the strip says so and offers Load Latest Version. Nothing is sent until you do.
 - **Activate** runs the blockers: a subject line, the design saved at least once, an unsubscribe link for marketing mail, images with an alt text and no placeholder images, the HTML under Gmail's 102 KB clip limit. A template with an error cannot be activated; warnings are advisory. Once active, campaigns can pick it on their Content step and journeys on a message step.
 - **Leaving** with unsaved changes asks first.
+- **Opened from a campaign**: Save & Return to Campaign saves and goes back to the campaign in one step. Every save, from either button, also tells the campaign's tab, which shows the new version without a reload.
 
 ## How to use the editor: worked examples
 
