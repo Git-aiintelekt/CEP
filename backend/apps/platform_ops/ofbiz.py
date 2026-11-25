@@ -28,9 +28,8 @@ CAMPAIGN_MANAGER or ANALYST) and display_name. iCRM owns the login and the role;
 
   back_to_icrm(...) -> "Back to iCRM": the iCRM page in sso_config.icrm_url (Settings -> Integrations) with a new
                        Multipass token sealed with the same two keys, as getCepSSOToken makes for "Open CEP": email,
-                       display_name, version, tenant_id, expires; iCRM finds the user by email. Also the user's externalLoginKey when "Open CEP" passed one (token field
-                       external_login_key, or externalLoginKey on the link), kept as the claim icrm_key. Only for a
-                       session opened from iCRM.
+                       display_name, version, tenant_id, expires, and an empty user_login_id; iCRM finds the user by email. Only for a session
+                       opened from iCRM.
 
 A session opened from OFBiz carries the claim `ofbiz` (the launch time), lives at most SESSION from the launch, and skips
 CEP's MFA: OFBiz has already signed the user in. The cache must be the shared Redis cache, so every worker sees a logout.
@@ -39,7 +38,6 @@ import json
 import logging
 import secrets
 import time
-import re
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
@@ -68,8 +66,6 @@ SEALED_PREFIX = "gAAAAA"                                    # every Fernet token
 INVALID_LINK = "This link is invalid or has expired. Open CEP again from OFBiz."
 USED_LINK = "This link was already used. Open CEP again from OFBiz."
 EXTERNAL_LOGIN_KEY = "externalLoginKey"
-EXTERNAL_LOGIN_KEY_FORMAT = re.compile(r"EL[0-9A-Za-z]{1,64}")
-ICRM_KEY_CLAIM = "icrm_key"
 ICRM_TOKEN_MINUTES = 5                                     # iCRM's own default (common.token.expiry.min)
 
 NO_ROLE = "You don't have a CEP role in iCRM. Ask your administrator to give you one, then open CEP again."
@@ -325,15 +321,6 @@ def clean_icrm_url(value) -> str | bool:
     return urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip("/"), query, ""))
 
 
-def external_login_key(data: dict, query_value=None) -> str | None:
-    """The user's iCRM externalLoginKey from "Open CEP": in the token (external_login_key) or on the link (externalLoginKey)."""
-    for value in (data.get("external_login_key"), query_value):
-        key = str(value or "").strip()
-        if EXTERNAL_LOGIN_KEY_FORMAT.fullmatch(key):
-            return key
-    return None
-
-
 def _icrm_url(tenant_id) -> str | None:
     """None when the workspace has no sign-on from iCRM; else its iCRM address ("" when not set). Nothing is decrypted."""
     from apps.tenants.models import Tenant
@@ -357,10 +344,11 @@ def icrm_state(tenant_id, token) -> dict | None:
 
 
 def icrm_token_data(user, tenant: dict, time_zone: str) -> dict:
-    """What Back to iCRM's token holds: getCepSSOToken's fields without user_login_id (CEP does not hold it), so iCRM
-    finds the user by email. expires is "yyyy-MM-dd HH:mm" in the workspace's time zone, which is the iCRM server's."""
+    """What Back to iCRM's token holds: getCepSSOToken's fields with user_login_id empty (CEP does not hold it, and iCRM's
+    LoginWorker reads the key with json-lib's getString, which throws when it is missing), so iCRM finds the user by email.
+    expires is "yyyy-MM-dd HH:mm" in the workspace's time zone, which is the iCRM server's."""
     expires_at = datetime.now(ZoneInfo(time_zone)) + timedelta(minutes=ICRM_TOKEN_MINUTES)
-    data = {"email": user.email, "version": "1.0", "tenant_id": tenant["code"],
+    data = {"user_login_id": "", "email": user.email, "version": "1.0", "tenant_id": tenant["code"],
             "expires": expires_at.strftime("%Y-%m-%d %H:%M")}
     name = " ".join(str(getattr(user, "display_name", "") or "").split())
     if name:
@@ -369,7 +357,7 @@ def icrm_token_data(user, tenant: dict, time_zone: str) -> dict:
 
 
 def back_to_icrm(user, tenant: dict, token) -> str:
-    """The iCRM address with a new token for this user (?token=), and their externalLoginKey when iCRM passed one.
+    """The iCRM address with a new token for this user (?token=).
     OfbizError says why there is none."""
     if not _from_icrm(token):
         raise OfbizError("Back to iCRM works only when you opened CEP from iCRM.")
@@ -382,7 +370,4 @@ def back_to_icrm(user, tenant: dict, token) -> str:
     icrm_token = encoded_string(link["site_key"], link["api_key"], icrm_token_data(user, tenant, link["time_zone"]))
     if not icrm_token:
         raise OfbizError("The iCRM link could not be made. Try again.")
-    params = {"token": icrm_token}
-    if token.get(ICRM_KEY_CLAIM):
-        params[EXTERNAL_LOGIN_KEY] = token[ICRM_KEY_CLAIM]
-    return f"{url}{'&' if urlsplit(url).query else '?'}{urlencode(params)}"
+    return f"{url}{'&' if urlsplit(url).query else '?'}{urlencode({'token': icrm_token})}"

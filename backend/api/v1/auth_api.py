@@ -261,11 +261,7 @@ class OfbizLaunchView(PublicAuthView):
         except ofbiz.OfbizError as exc:
             return _same_address("/login", sso_error=str(exc))
         # OFBiz owns the sign-in, second factor included: CEP does not ask for MFA here
-        session_claims = {"ofbiz": ofbiz.launch_time()}
-        icrm_key = ofbiz.external_login_key(claims, request.query_params.get(ofbiz.EXTERNAL_LOGIN_KEY))
-        if icrm_key:
-            session_claims[ofbiz.ICRM_KEY_CLAIM] = icrm_key            # Back to iCRM returns the user to this iCRM session
-        tokens = issue_tokens(user, claims=session_claims, refresh_lifetime=ofbiz.SESSION)
+        tokens = issue_tokens(user, claims={"ofbiz": ofbiz.launch_time()}, refresh_lifetime=ofbiz.SESSION)
         code = ofbiz.hand_off(tokens, tenant["code"], claims.get("next"))
         log.info("OFBiz sign-in: user %s, OFBiz login %s, party %s, role %s, workspace %s", user.pk, claims["sub"], claims["party_id"],
                  claims["cep_role"], tenant["code"])
@@ -304,7 +300,7 @@ class OfbizLogoutView(PublicAuthView):
 
 class OfbizBackView(APIView):
     """"Back to iCRM": only a session opened from iCRM (claim `ofbiz`) gets the iCRM address, with a new Multipass token
-    for the user (and their externalLoginKey when iCRM passed one)."""
+    for the user."""
     permission_classes = [IsAuthenticated]
 
     @extend_schema(request=None, responses=inline_serializer("OfbizBack", {"url": serializers.URLField()}))
@@ -316,7 +312,7 @@ class OfbizBackView(APIView):
         except ofbiz.OfbizError as exc:
             raise PermissionDenied(str(exc)) from None
         # the address carries the token: log who and where, never the address
-        log.info("Back to iCRM: user %s, workspace %s, with key %s", user.pk, request.tenant["code"], bool(token.get(ofbiz.ICRM_KEY_CLAIM)))
+        log.info("Back to iCRM: user %s, workspace %s", user.pk, request.tenant["code"])
         return Response({"url": url})
 
 

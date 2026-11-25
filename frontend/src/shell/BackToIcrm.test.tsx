@@ -57,7 +57,7 @@ test('from iCRM, Back to iCRM opens the iCRM page with a token in a new tab, and
   expect(back.hasAttribute('disabled')).toBe(false)
   await user.click(back)
   expect(open).toHaveBeenCalledWith('', '_blank')
-  await vi.waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith('https://icrm.example.com/customer-portal/control/findCustomer?token=sample-token&externalLoginKey=EL945c1f50'))
+  await vi.waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith('https://icrm.example.com/customer-portal/control/findCustomer?token=sample-token'))
   expect(tab.opener).toBeNull()
   expect(go).not.toHaveBeenCalled()
   expect(calls.some((call) => call.url.endsWith('/auth/sso/ofbiz/back/') && call.method === 'POST')).toBe(true)
@@ -69,7 +69,7 @@ test('when a popup blocker stops the new tab, Back to iCRM goes there in this ta
   const { go } = await renderAppAt('/', { me: { icrm: { from_icrm: true, address_set: true } } as never })
   vi.spyOn(window, 'open').mockReturnValue(null)
   await user.click(await screen.findByRole('button', { name: 'Back to iCRM' }))
-  await vi.waitFor(() => expect(go).toHaveBeenCalledWith('https://icrm.example.com/customer-portal/control/findCustomer?token=sample-token&externalLoginKey=EL945c1f50'))
+  await vi.waitFor(() => expect(go).toHaveBeenCalledWith('https://icrm.example.com/customer-portal/control/findCustomer?token=sample-token'))
 })
 
 test('when the API refuses, Back to iCRM closes the new tab and says so', async () => {

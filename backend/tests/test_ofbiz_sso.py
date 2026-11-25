@@ -299,8 +299,7 @@ def _back_query(url):
 
 def test_back_to_icrm(check, admin_email):
     """Back to iCRM: only a session opened from iCRM gets the iCRM page from Settings, with a new Multipass token sealed with
-    the workspace's keys (email, expiry in the workspace's time zone; no login, role or exp), and the externalLoginKey iCRM
-    passed in on "Open CEP" when it did."""
+    the workspace's keys (email, an empty login, expiry in the workspace's time zone; no role or exp), and nothing else."""
     cache.clear()
     admin = _admin(admin_email)
     _link(admin.tenant)
@@ -314,14 +313,11 @@ def test_back_to_icrm(check, admin_email):
         return client.post("/api/v1/auth/sso/ofbiz/back/", HTTP_X_TENANT=code, HTTP_AUTHORIZATION=f"Bearer {access}")
 
     def open_cep(**extra):
-        landed = _fragment(client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code, **extra.pop("token", {})), **extra}))
+        landed = _fragment(client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code), **extra}))
         return client.post("/api/v1/auth/sso/ofbiz/exchange/", json.dumps({"code": landed["code"][0]}), content_type="application/json",
                            HTTP_X_TENANT=code).json()["access"]
 
     on_link = open_cep(externalLoginKey="EL945c1f50afa4d531f7c3492760e59c41")
-    in_token = open_cep(token={"external_login_key": "EL123456789"})
-    no_key = open_cep()
-    forged = open_cep(externalLoginKey="not-a-key")
     password = auth_api.issue_tokens(admin)["access"]
 
     check("/me: a session from iCRM, no address yet", me(on_link).json().get("icrm") == {"from_icrm": True, "address_set": False}, me(on_link).json().get("icrm"))
@@ -334,19 +330,15 @@ def test_back_to_icrm(check, admin_email):
     check("a password session gets no address", back(password).status_code == 403)
     answer = back(on_link)
     url = answer.json().get("url", "") if answer.status_code == 200 else ""
-    check("the iCRM page, with a token and the key from the link", url.startswith(page + "?token=")
-          and _back_query(url).get("externalLoginKey") == ["EL945c1f50afa4d531f7c3492760e59c41"], answer.content[:300])
+    check("the iCRM page with the token alone, even when Open CEP's link had an externalLoginKey", url.startswith(page + "?token=")
+          and set(_back_query(url)) == {"token"}, answer.content[:300])
     if url:
         data = MultipassTokenDecode(KEYS["site_key"], KEYS["api_key"]).decode(_back_query(url)["token"][0])
-        check("the token holds the email, and no login, role or exp", data.get("email") == admin.email and data.get("tenant_id") == code
-              and data.get("version") == "1.0" and not {"user_login_id", "cep_role", "exp"} & set(data), data)
+        check("the token holds the email, an empty login, and no role or exp", data.get("email") == admin.email and data.get("tenant_id") == code
+              and data.get("version") == "1.0" and data.get("user_login_id") == "" and not {"cep_role", "exp"} & set(data), data)
         expires = datetime.strptime(data["expires"], "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo(ICRM_TIME_ZONE))
         check("it expires in about 5 minutes, in the workspace's time zone", 4 * 60 - 5 <= expires.timestamp() - time.time() <= 5 * 60 + 5, data)
         check("iCRM's own checks accept it", ofbiz.is_valid_token(data, time_zone=ICRM_TIME_ZONE))
-    check("the key from the token goes back to iCRM", _back_query(back(in_token).json().get("url", "")).get("externalLoginKey") == ["EL123456789"])
-    without = back(no_key).json().get("url", "")
-    check("no key: the token alone", without.startswith(page + "?token=") and "externalLoginKey" not in _back_query(without), without[:120])
-    check("something that is not a key is dropped", "externalLoginKey" not in _back_query(back(forged).json().get("url", "")))
     check("/me: the address is set", me(on_link).json().get("icrm") == {"from_icrm": True, "address_set": True})
     check.done()
 
@@ -367,8 +359,8 @@ def test_back_to_icrm_adds_the_token_after_a_query():
     user = mock.Mock(email="someone@example.com", display_name="Some One")
     link = {**KEYS, "time_zone": "UTC", "icrm_url": "https://icrm.example.com/x/control/y?tab=1"}
     with mock.patch.object(ofbiz, "link_for", return_value=link):
-        url = ofbiz.back_to_icrm(user, {"id": "t", "code": "NWA"}, {"ofbiz": 1, "icrm_key": "EL1"})
-    assert url.startswith("https://icrm.example.com/x/control/y?tab=1&token=") and url.endswith("&externalLoginKey=EL1")
+        url = ofbiz.back_to_icrm(user, {"id": "t", "code": "NWA"}, {"ofbiz": 1})
+    assert url.startswith("https://icrm.example.com/x/control/y?tab=1&token=") and "externalLoginKey" not in url
 
 def test_workspace_link_saves_the_icrm_address(check, admin_email):
     admin = _admin(admin_email)
