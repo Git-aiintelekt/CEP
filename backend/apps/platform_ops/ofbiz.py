@@ -26,6 +26,10 @@ CAMPAIGN_MANAGER or ANALYST) and display_name. iCRM owns the login and the role;
   sign_out(...)   -> the user signed out of OFBiz: every CEP session opened from OFBiz before now ends
   signed_out(...) -> is this token from an OFBiz launch the user has since signed out of?
 
+  back_to_icrm(...) -> "Back to iCRM": the iCRM page in sso_config.icrm_url (Settings -> Integrations) with the user's
+                       externalLoginKey, which "Open CEP" passed in (token field external_login_key, or externalLoginKey on
+                       the link) and the session keeps as the claim icrm_key. Only for a session opened from iCRM.
+
 A session opened from OFBiz carries the claim `ofbiz` (the launch time), lives at most SESSION from the launch, and skips
 CEP's MFA: OFBiz has already signed the user in. The cache must be the shared Redis cache, so every worker sees a logout.
 """
@@ -33,7 +37,9 @@ import json
 import logging
 import secrets
 import time
+import re
 from datetime import timedelta
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.db import connections, router
@@ -58,6 +64,10 @@ SEALED_PREFIX = "gAAAAA"                                    # every Fernet token
 
 INVALID_LINK = "This link is invalid or has expired. Open CEP again from OFBiz."
 USED_LINK = "This link was already used. Open CEP again from OFBiz."
+EXTERNAL_LOGIN_KEY = "externalLoginKey"
+EXTERNAL_LOGIN_KEY_FORMAT = re.compile(r"EL[0-9A-Za-z]{1,64}")
+ICRM_KEY_CLAIM = "icrm_key"
+
 NO_ROLE = "You don't have a CEP role in iCRM. Ask your administrator to give you one, then open CEP again."
 
 
@@ -101,7 +111,7 @@ def link_for(tenant_id) -> dict | None:
         return None
     if not (site_key and api_key):
         return None
-    return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone or "UTC"}
+    return {"site_key": site_key, "api_key": api_key, "time_zone": time_zone or "UTC", "icrm_url": str(config.get("icrm_url") or "")}
 
 
 def verify(token: str, audience: str, tenant: dict) -> dict:
@@ -231,13 +241,13 @@ def config_workspaces() -> list[dict]:
 
 def read_config(code: str) -> dict | None:
     """The workspace's sso_config with secret_enc opened:
-    {code, name, is_active, site_key, api_key, encrypted, problem}."""
+    {code, name, is_active, site_key, api_key, icrm_url, encrypted, problem}."""
     rows = _platform_rows(f"SELECT code, name, {COLUMN} AS config FROM tenant WHERE code = %s AND deleted_at IS NULL", [code])
     if not rows:
         return None
     config = rows[0]["config"] if isinstance(rows[0]["config"], dict) else json.loads(rows[0]["config"] or "{}")
     answer = {"code": rows[0]["code"], "name": rows[0]["name"], "is_active": config.get("is_active") is not False,
-              "site_key": "", "api_key": "", "encrypted": False, "problem": None}
+              "site_key": "", "api_key": "", "icrm_url": str(config.get("icrm_url") or ""), "encrypted": False, "problem": None}
     secret = str(config.get("secret_enc") or "")
     if not secret:
         return answer
@@ -251,14 +261,20 @@ def read_config(code: str) -> dict | None:
 
 
 def save_config(code: str, data: dict) -> dict:
-    """Validates and stores {is_active, site_key, api_key}, the keys encrypted; returns field errors or {}. Values left by
-    earlier versions (frontend_url, and time_zone and roles inside secret_enc) are dropped."""
+    """Validates and stores {is_active, site_key, api_key} and, when given, icrm_url; the keys encrypted. Returns field
+    errors or {}. Values left by earlier versions (frontend_url, and time_zone and roles inside secret_enc) are dropped."""
     values = {field: str(data.get(field) or "").strip() for field in ("site_key", "api_key")}
     errors = {field: "Required." for field, value in values.items() if not value}
+    icrm_url = clean_icrm_url(data.get("icrm_url")) if "icrm_url" in data else None
+    if icrm_url is False:
+        errors["icrm_url"] = "Enter the iCRM address, starting with https://."
     if errors:
         return errors
     sealed = crypto.encrypt(json.dumps(values))
-    config = json.dumps({"is_active": bool(data.get("is_active", True)), "secret_enc": sealed})
+    stored = {"is_active": bool(data.get("is_active", True)), "secret_enc": sealed}
+    if icrm_url is not None:
+        stored["icrm_url"] = icrm_url
+    config = json.dumps(stored)
     _platform_rows(f"UPDATE tenant SET {COLUMN} = (COALESCE({COLUMN}, '{{}}'::jsonb) - 'frontend_url') || %s::jsonb WHERE code = %s AND deleted_at IS NULL", [config, code])
     log.info("tenant.%s of %s changed by a platform administrator", COLUMN, code)
     return {}
@@ -273,18 +289,78 @@ def workspace_link(code: str) -> dict | None:
     config = read_config(code)
     if config is None:
         return None
-    return {"workspace": config["code"], "site_key": config["site_key"], "api_key": config["api_key"],
+    return {"workspace": config["code"], "site_key": config["site_key"], "api_key": config["api_key"], "icrm_url": config["icrm_url"],
             "has_api_key": bool(config["api_key"]), "configured": bool(config["site_key"] and config["api_key"]),
             "problem": config["problem"]}
 
 
 def save_workspace_link(code: str, data: dict) -> dict:
-    """{site_key, api_key}, both required. Returns field errors or {}."""
+    """{site_key, api_key}, both required, and icrm_url (optional). Returns field errors or {}."""
     stored = read_config(code) or {}
-    errors = save_config(code, {"is_active": stored.get("is_active", True),
-                                "site_key": data.get("site_key"), "api_key": data.get("api_key")})
+    errors = save_config(code, {"is_active": stored.get("is_active", True), "site_key": data.get("site_key"), "api_key": data.get("api_key"),
+                                "icrm_url": data.get("icrm_url", stored.get("icrm_url", ""))})
     if "api_key" in errors:
         errors["api_key"] = "Enter iCRM's API key (cep.api.key)."
     if "site_key" in errors:
         errors["site_key"] = "Enter iCRM's site key (common.site.key)."
     return errors
+
+
+# ------------------------------------------------------------------------------------------------------------ Back to iCRM
+def clean_icrm_url(value) -> str | bool:
+    """The iCRM page Back to iCRM opens, as entered (for example .../customer-portal/control/findCustomer), without a
+    trailing slash or an externalLoginKey (that belongs to one person's iCRM session); "" for none, False when it is not
+    an http(s) address."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    parts = urlsplit(text)
+    if parts.scheme not in ("http", "https") or not parts.netloc or parts.fragment or " " in text:
+        return False
+    query = urlencode([(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != EXTERNAL_LOGIN_KEY])
+    return urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip("/"), query, ""))
+
+
+def external_login_key(data: dict, query_value=None) -> str | None:
+    """The user's iCRM externalLoginKey from "Open CEP": in the token (external_login_key) or on the link (externalLoginKey)."""
+    for value in (data.get("external_login_key"), query_value):
+        key = str(value or "").strip()
+        if EXTERNAL_LOGIN_KEY_FORMAT.fullmatch(key):
+            return key
+    return None
+
+
+def _icrm_url(tenant_id) -> str | None:
+    """None when the workspace has no sign-on from iCRM; else its iCRM address ("" when not set). Nothing is decrypted."""
+    from apps.tenants.models import Tenant
+    config = Tenant.objects.filter(pk=tenant_id).values_list(COLUMN, flat=True).first()
+    if not isinstance(config, dict) or config.get("is_active") is False or not config.get("secret_enc"):
+        return None
+    return str(config.get("icrm_url") or "")
+
+
+def _from_icrm(token) -> bool:
+    return bool(token is not None and hasattr(token, "get") and token.get("ofbiz"))
+
+
+def icrm_state(tenant_id, token) -> dict | None:
+    """For /me: None when the workspace has no sign-on from iCRM, else whether this session came from iCRM and whether
+    the workspace has an iCRM address."""
+    url = _icrm_url(tenant_id)
+    if url is None:
+        return None
+    return {"from_icrm": _from_icrm(token), "address_set": bool(url)}
+
+
+def back_to_icrm(tenant_id, token) -> str:
+    """The iCRM address with the user's externalLoginKey, which puts them back in their own iCRM session; without a key
+    (iCRM did not send one) the address alone. OfbizError says why there is none."""
+    if not _from_icrm(token):
+        raise OfbizError("Back to iCRM works only when you opened CEP from iCRM.")
+    url = _icrm_url(tenant_id)
+    if not url:
+        raise OfbizError("The iCRM address is not set. Ask your administrator to add it in Settings, Integrations.")
+    key = token.get(ICRM_KEY_CLAIM)
+    if not key:
+        return url
+    return f"{url}{'&' if urlsplit(url).query else '?'}{urlencode({EXTERNAL_LOGIN_KEY: key})}"

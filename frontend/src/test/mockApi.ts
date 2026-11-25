@@ -903,6 +903,8 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** POST /auth/sso/ofbiz/back/ answers 403 */
+  icrmBackFails?: boolean
   /** GET /warmup/; default: no warm-up yet, a Growth plan of 25,000 contacts */
   warmup?: WarmUpOverview
   /** GET /workspace/utm/; default: both channels off, the recommended values */
@@ -1130,7 +1132,7 @@ export function installMockApi(options: MockOptions = {}) {
   const journeyStartersNow: JourneyStarter[] = options.journeyStarters ?? journeyStarters
   let savedTemplatesNow: JourneyTemplate[] = (options.savedTemplates ?? []).map((row) => structuredClone(row))
   let securityNow: SecuritySettings = { ...security }
-  let ofbizLinkNow = { workspace: 'NWA', site_key: '', api_key: '', has_api_key: false, configured: false, problem: null as string | null }
+  let ofbizLinkNow = { workspace: 'NWA', site_key: '', api_key: '', icrm_url: '', has_api_key: false, configured: false, problem: null as string | null }
   let governanceNow: GovernanceOverview = structuredClone(governance)
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
@@ -1237,6 +1239,10 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/auth/sso/ofbiz/exchange/')) {
       return body?.code === 'ofbiz-code-1' ? json({ access: 'access-1', refresh: 'refresh-1', next: '/campaigns' })
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'This link was already used or has expired.' }, 401)
+    }
+    if (path.endsWith('/auth/sso/ofbiz/back/') && method === 'POST') {
+      return options.icrmBackFails ? json({ type: 'about:blank', title: 'Permission Denied', status: 403, detail: 'The iCRM URL is not set. Ask your administrator to add it in Settings, Integrations.' }, 403)
+        : json({ url: 'https://icrm.example.com/customer-portal/control/findCustomer?externalLoginKey=EL945c1f50' })
     }
     if (path.endsWith('/auth/token/revoke/')) return json(null, 204)
     if (path.endsWith('/auth/token/') && method === 'POST') {
@@ -1514,10 +1520,11 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/workspace/support-access/')) return json(supportAccess)
     if (path.endsWith('/workspace/ofbiz-sso/')) {
       if (method === 'PUT') {
-        const sent = (body ?? {}) as { site_key?: string; api_key?: string }
+        const sent = (body ?? {}) as { site_key?: string; api_key?: string; icrm_url?: string }
         if (!sent.site_key) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { site_key: ["Enter iCRM's site key (common.site.key)."] } }, 400)
         if (!sent.api_key) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { api_key: ["Enter iCRM's API key (cep.api.key)."] } }, 400)
-        ofbizLinkNow = { ...ofbizLinkNow, site_key: sent.site_key, api_key: sent.api_key, has_api_key: true, configured: true }
+        if (sent.icrm_url && !/^https?:\/\/[^/?#]+/.test(sent.icrm_url)) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { icrm_url: ['Enter the iCRM address, starting with https://.'] } }, 400)
+        ofbizLinkNow = { ...ofbizLinkNow, site_key: sent.site_key, api_key: sent.api_key, icrm_url: (sent.icrm_url ?? '').replace(/\/+$/, ''), has_api_key: true, configured: true }
       }
       return json(ofbizLinkNow)
     }

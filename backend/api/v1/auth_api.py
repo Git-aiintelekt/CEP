@@ -261,7 +261,11 @@ class OfbizLaunchView(PublicAuthView):
         except ofbiz.OfbizError as exc:
             return _same_address("/login", sso_error=str(exc))
         # OFBiz owns the sign-in, second factor included: CEP does not ask for MFA here
-        tokens = issue_tokens(user, claims={"ofbiz": ofbiz.launch_time()}, refresh_lifetime=ofbiz.SESSION)
+        session_claims = {"ofbiz": ofbiz.launch_time()}
+        icrm_key = ofbiz.external_login_key(claims, request.query_params.get(ofbiz.EXTERNAL_LOGIN_KEY))
+        if icrm_key:
+            session_claims[ofbiz.ICRM_KEY_CLAIM] = icrm_key            # Back to iCRM returns the user to this iCRM session
+        tokens = issue_tokens(user, claims=session_claims, refresh_lifetime=ofbiz.SESSION)
         code = ofbiz.hand_off(tokens, tenant["code"], claims.get("next"))
         log.info("OFBiz sign-in: user %s, OFBiz login %s, party %s, role %s, workspace %s", user.pk, claims["sub"], claims["party_id"],
                  claims["cep_role"], tenant["code"])
@@ -296,6 +300,21 @@ class OfbizLogoutView(PublicAuthView):
             ofbiz.sign_out(user.pk)
             log.info("OFBiz sign-out: user %s, OFBiz login %s, workspace %s", user.pk, claims["sub"], tenant["code"])
         return Response(status=204)
+
+
+class OfbizBackView(APIView):
+    """"Back to iCRM": only a session opened from iCRM (claim `ofbiz`) gets the iCRM address, with its externalLoginKey."""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses=inline_serializer("OfbizBack", {"url": serializers.URLField()}))
+    def post(self, request, version=None):
+        token = getattr(request, "auth", None)
+        try:
+            url = ofbiz.back_to_icrm(request.tenant["id"], token)
+        except ofbiz.OfbizError as exc:
+            raise PermissionDenied(str(exc)) from None
+        log.info("Back to iCRM: user %s, workspace %s, with key %s", request.user.pk, request.tenant["code"], bool(token.get(ofbiz.ICRM_KEY_CLAIM)))
+        return Response({"url": url})
 
 
 # ------------------------------------------------------------------------------------------------------------ refresh tokens

@@ -135,10 +135,33 @@ test('sign-on from OFBiz iCRM saves the site key and API key for this workspace,
   await user.click(within(section).getByRole('button', { name: 'Save Sign-On' }))
   expect(await within(section).findByText('Set Up')).toBeTruthy()
   const put = calls.filter((call) => call.url.endsWith('/workspace/ofbiz-sso/') && call.method === 'PUT').at(-1)
-  expect(put?.body).toEqual({ site_key: 'site-key-123', api_key: 'api-key-456' })
+  expect(put?.body).toEqual({ site_key: 'site-key-123', api_key: 'api-key-456', icrm_url: '' })
   const apiKey = within(section).getByLabelText(/API Key/) as HTMLInputElement
   expect(apiKey.value).toBe('api-key-456')
   expect(apiKey.type).toBe('password')
   await user.click(within(section).getByRole('button', { name: 'Show' }))
   expect(apiKey.type).toBe('text')
+})
+
+test('sign-on from OFBiz iCRM saves the iCRM URL for Back to iCRM, and refuses one without https://', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/settings/integrations')
+
+  const section = await screen.findByRole('region', { name: 'Sign-On from OFBiz iCRM' })
+  await within(section).findByText('Not Set Up')
+  await user.type(within(section).getByLabelText(/Site Key/), 'site-key-123')
+  await user.type(within(section).getByLabelText(/API Key/), 'api-key-456')
+  const address = within(section).getByLabelText(/iCRM URL/) as HTMLInputElement
+  await user.type(address, 'icrm.example.com')
+  await user.click(within(section).getByRole('button', { name: 'Save Sign-On' }))
+  expect(await within(section).findByText('Enter the iCRM address, starting with https://.')).toBeTruthy()
+
+  await user.clear(address)
+  await user.type(address, 'https://icrm.example.com/customer-portal/control/findCustomer')
+  await user.click(within(section).getByRole('button', { name: 'Save Sign-On' }))
+  expect(await within(section).findByText('Set Up')).toBeTruthy()
+  const put = calls.filter((call) => call.url.endsWith('/workspace/ofbiz-sso/') && call.method === 'PUT').at(-1)
+  expect(put?.body).toEqual({ site_key: 'site-key-123', api_key: 'api-key-456', icrm_url: 'https://icrm.example.com/customer-portal/control/findCustomer' })
+  await vi.waitFor(() => expect(address.value).toBe('https://icrm.example.com/customer-portal/control/findCustomer'))
 })

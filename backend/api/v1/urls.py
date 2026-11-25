@@ -65,6 +65,7 @@ urlpatterns = [
     path("auth/sso/ofbiz/", auth_api.OfbizLaunchView.as_view(), name="ofbiz_launch"),
     path("auth/sso/ofbiz/exchange/", auth_api.OfbizExchangeView.as_view(), name="ofbiz_exchange"),
     path("auth/sso/ofbiz/logout/", auth_api.OfbizLogoutView.as_view(), name="ofbiz_logout"),
+    path("auth/sso/ofbiz/back/", auth_api.OfbizBackView.as_view(), name="ofbiz_back"),
     path("auth/support-session/end/", auth_api.SupportSessionEndView.as_view(), name="support_session_end"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("workspace/usage/", workspace_api.UsageView.as_view(), name="workspace_usage"),

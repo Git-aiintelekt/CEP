@@ -26,7 +26,7 @@ from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.models import SenderProfile
 from apps.identity import names
 from apps.media.models import MediaAsset
-from apps.platform_ops import billing, params
+from apps.platform_ops import billing, ofbiz, params
 from apps.templates import datapoints, design, starters
 from apps.templates.models import RenderedTemplateContent, TemplateDesignState
 from apps.campaigns import drip
@@ -594,6 +594,7 @@ class MeViewSet(viewsets.ViewSet):
                          "mfa_setup_required": bool(token is not None and hasattr(token, "get") and token.get("mfa_setup") and not getattr(user, "mfa_enabled", True)),
                          "support_session": {"by": session.staff_name or "Platform support", "mode": session.access_mode, "expires_at": session.expires_at,
                                              "reason": session.reason} if session else None,
+                         "icrm": ofbiz.icrm_state(request.tenant["id"], token) if principal["kind"] == "user" else None,
                          "platform_visit": {"home": visit["home_code"], "home_name": visit["home_name"], "started_at": visit["started_at"], "reason": visit["reason"]} if visit else None,
                          "session": {"idle_timeout_minutes": int(params.get("security.idle_timeout_minutes", 120)),
                                      "idle_warning_seconds": int(params.get("security.idle_warning_seconds", 60))}})
