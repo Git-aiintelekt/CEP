@@ -35,7 +35,7 @@ export function BackToIcrm({ icrm }: { icrm: Me['icrm'] }) {
       type="button"
       data-back-to-icrm
       disabled={reason !== null || busy}
-      title={reason ?? 'Back to iCRM, in a new tab'}
+      title={reason ?? 'Back to iCRM'}
       aria-label="Back to iCRM"
       onClick={open}
       className="flex h-8 shrink-0 items-center gap-1.5 rounded-control-md border border-sidebar-divider px-2 text-sm font-medium whitespace-nowrap text-on-brand transition-colors duration-fast ease-standard outline-none hover:bg-sidebar-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed disabled:cursor-not-allowed disabled:text-sidebar-icon disabled:hover:bg-transparent lg:px-2.5"
