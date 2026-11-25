@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom'
 import 'grapesjs/dist/css/grapes.min.css'
 import './designer.css'
 
+import { carryCopy, carryLabel, type DragGhost } from '@/lib/dragGhost'
 import type { CodeSample, CodeSampleRequest, PersonalizationTag } from '@/lib/types'
 import { EDITOR_BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
@@ -267,6 +268,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
   const dragMove = useRef<((event: PointerEvent) => void) | null>(null)
   // set when the reader pressed Escape: a cancelled drag is not a refused one, so it says nothing
   const dragCancelled = useRef(false)
+  // the picture under the pointer while a tile, a library image or a block on the canvas is carried
+  const ghost = useRef<DragGhost | null>(null)
+  const carryingTile = useRef(false)
   const [paletteMessage, setPaletteMessage] = useState<string | null>(null)
   const [layerNodes, setLayerNodes] = useState<LayerNode[]>([])
   const [inspector, setInspector] = useState<InspectorState>(NO_SELECTION)
@@ -658,8 +662,25 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     const cancelledRef = dragCancelled
     editor.on('block:custom', (props: BlocksResultProps) => {
       blockPayload.current = props
+    // A block moved on the canvas by its move handle is carried too: a chip with its name follows the pointer. (A tile
+    // out of the palette has its own picture, and raises block events instead.)
+    editor.on('component:drag:start', ({ target }: { target?: Component }) => {
+      if (carryingTile.current || !target || typeof target.get !== 'function') return
+      ghost.current?.stop()
+      ghost.current = carryLabel(layerNameFor(blockType(target), target.get('custom-name'), target.getAttributes()),
+        { frames: [editor.Canvas.getFrameEl()], scope: container.current?.closest('.editor-radii') })
+    })
+    editor.on('component:drag:end', () => {
+      if (carryingTile.current) return
+      ghost.current?.stop()
+      ghost.current = null
     })
 
+    })
+
+      carryingTile.current = false
+      ghost.current?.stop()
+      ghost.current = null
     // A refused drop leaves the canvas untouched and says nothing of its own, so the palette explains it.
     editor.on('block:drag:stop', (component: Component | undefined, block: Block) => {
       const blockId = String(block.getId())
@@ -767,6 +788,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       editorRef.current = null
       unsubscribeLayers()
       if (inspectorFrame !== 0) cancelAnimationFrame(inspectorFrame)
+      ghost.current?.stop()
       if (changeFrame !== 0) cancelAnimationFrame(changeFrame)
       for (const event of INSPECTOR_EVENTS) editor.off(event, scheduleInspector)
       resized.disconnect()
@@ -977,6 +999,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
 
   // The canvas is an iframe, so a pointerup over it never reaches the tile: the drag is followed on the
   // document and ended there instead.
+    carryingTile.current = false
+    ghost.current?.stop()
+    ghost.current = null
   const endBlockDrag = useCallback((cancel = false) => {
     dragCancelled.current = cancel
     if (dragMove.current) document.removeEventListener('pointermove', dragMove.current)
@@ -999,6 +1024,10 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       const payload = blockPayload.current
       const block = editor?.Blocks.get(blockId)
       const source = blocksFor(latest.current.channel ?? 'EMAIL', { dynamicCodes: Boolean(latest.current.sampleCode) }).find((item) => item.id === blockId)
+      // a copy of the tile (or of the library image) follows the pointer until it is dropped
+      carryingTile.current = true
+      ghost.current?.stop()
+      ghost.current = carryCopy(event.currentTarget as HTMLElement, { at: { x: event.clientX, y: event.clientY }, frames: [editor.Canvas.getFrameEl()] })
       if (!editor || !payload || !block || !source) return
       // an image carried out of the library rides on the same block, so every drag says what it carries
       setBlockImage(editor, picture)

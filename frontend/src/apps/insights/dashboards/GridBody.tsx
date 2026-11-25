@@ -107,7 +107,13 @@ export function GridBody({ cells, renderTile, onChange, onAdd, onEdit, newId, na
             <div role="toolbar" aria-label={`Arrange ${name(cell)}`}
               className={`absolute -top-3.5 right-3 z-10 flex items-center gap-0.5 rounded-full border border-line bg-surface p-0.5 shadow-menu ${chosen === cell.id ? '' : 'pointer-events-none opacity-0'} transition-opacity duration-fast group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100`}>
               <button type="button" draggable aria-label={`Drag ${name(cell)} to another place`} title="Drag to Move" className={`${tool} cursor-grab`}
-                onDragStart={(event) => { event.dataTransfer.setData('text/x-tile', cell.id); event.dataTransfer.effectAllowed = 'move'; setDragging(cell.id) }}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData('text/x-tile', cell.id); event.dataTransfer.effectAllowed = 'move'
+                  // the whole tile follows the pointer, not only this handle
+                  const tile = event.currentTarget.closest<HTMLElement>('[data-cell]')
+                  if (tile) { const box = tile.getBoundingClientRect(); event.dataTransfer.setDragImage?.(tile, event.clientX - box.left, event.clientY - box.top) }
+                  setDragging(cell.id)
+                }}
                 onDragEnd={() => { setDragging(null); setOver(null) }}>
                 <GripVertical {...ICON} />
               </button>
