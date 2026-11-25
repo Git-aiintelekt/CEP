@@ -41,7 +41,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.identity.models import AppUser, Role
+from apps.identity.models import AppUser
 from apps.platform_ops import mfa, ofbiz, params, sso
 from apps.platform_ops.models import SupportAccessLog, TenantIdentityProvider
 from apps.tenants.models import Tenant
@@ -311,9 +311,8 @@ class OfbizBackView(APIView):
     def post(self, request, version=None):
         token = getattr(request, "auth", None)
         user = request.user
-        roles = list(Role.objects.filter(deleted_at__isnull=True, user_roles__user=user).values_list("name", flat=True))
         try:
-            url = ofbiz.back_to_icrm(user, request.tenant, roles, token)
+            url = ofbiz.back_to_icrm(user, request.tenant, token)
         except ofbiz.OfbizError as exc:
             raise PermissionDenied(str(exc)) from None
         # the address carries the token: log who and where, never the address
