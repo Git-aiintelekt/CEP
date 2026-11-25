@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom'
 import 'grapesjs/dist/css/grapes.min.css'
 import './designer.css'
 
+import { carryCopy, carryLabel, type DragGhost } from '@/lib/dragGhost'
 import type { CodeSample, CodeSampleRequest, PersonalizationTag } from '@/lib/types'
 import { EDITOR_BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
@@ -54,8 +55,8 @@ import { keepChosenValues } from './blocks/keepChosenValues'
 import { RECEIPT_BODY_TYPES, registerReceiptBlockTypes } from './blocks/receiptBlocks'
 import { CODE_TYPE, codeConfigOf, dimensionsOf, isCodeBlock, placeholderSrc, registerCodeType, sampleFor, shownSample, shownSrc, writeCode } from './blocks/codes'
 import { registerCustomHtmlType } from './blocks/customHtml'
+import { SELECT_IMAGE_EVENT, registerImageSlot } from './blocks/imageSlot'
 import { registerReceiptSlotType } from './blocks/receiptSlot'
-import { needsImage } from './blocks/registry'
 import { applyFooterRules, blockContent, blocksFor, isHiddenOnDesktop, isHiddenOnPhones, registerBlocks, setBlockImage, syncHideDesktopStyle, syncHideMobileStyle, syncShadowStyle } from './blocks/register'
 import { SRC_KEY, blockType, fieldsFor, isGrouping, writeSetting } from './inspector/settings'
 import { expandSelfClosing, repairProject } from './mjml'
@@ -267,6 +268,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
   const dragMove = useRef<((event: PointerEvent) => void) | null>(null)
   // set when the reader pressed Escape: a cancelled drag is not a refused one, so it says nothing
   const dragCancelled = useRef(false)
+  // the picture under the pointer while a tile, a library image or a block on the canvas is carried
+  const ghost = useRef<DragGhost | null>(null)
+  const carryingTile = useRef(false)
   const [paletteMessage, setPaletteMessage] = useState<string | null>(null)
   const [layerNodes, setLayerNodes] = useState<LayerNode[]>([])
   const [inspector, setInspector] = useState<InspectorState>(NO_SELECTION)
@@ -330,9 +334,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
   const [uploading, setUploading] = useState<string[]>([])
   const rail = useRef<LeftRailHandle>(null)
   const uploadAssets = useRef<(files: File[]) => void>(() => {})
-  // the block whose picture is being chosen. `added` is the block a drop just made, which is taken away
-  // again if no picture is chosen for it: a block showing a stand-in is what this is all here to avoid.
-  const [picking, setPicking] = useState<{ image: Component; added: Component | null } | null>(null)
+  // the block whose picture is being chosen
+  const [picking, setPicking] = useState<{ image: Component } | null>(null)
   // the tag picker hung off the rich-text toolbar: the button GrapesJS drew, and the caret as it was when pressed
   const canvasPicker = useSingleDropdown<'canvas'>()
   // the toolbar button is wired once, when the editor is built, and reaches the current dropdown through this
@@ -355,8 +358,6 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
   // set while the dialog's own single upload is in flight, so the file that arrives goes straight into that block;
   // cleared when the dialog closes or the upload fails, so no later upload lands in a block nobody chose it for
   const applyNextUpload = useRef(false)
-  // set when a picture block was dragged out of the palette, so the drop it lands in asks for a picture
-  const askAfterDrop = useRef(false)
   const insertBlockRef = useRef<(blockId: string, picture?: string | null) => string | null>(() => null)
   // hidden is a canvas-only view state: it never reaches the component model, the MJML or the saved project
   const hidden = useRef<ReadonlySet<string>>(new Set<string>())
@@ -446,6 +447,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     keepChosenValues(editor)
     registerBlocks(editor, { channel, dynamicCodes: Boolean(latest.current.sampleCode) })
     registerCustomHtmlType(editor)
+    registerImageSlot(editor, { readOnly: () => Boolean(latest.current.readOnly) })
     registerCodeType(editor)
     registerReceiptSlotType(editor, { channel })
     registerReceiptBlockTypes(editor, { channel })
@@ -606,7 +608,11 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       if (!props.open) return
       editor.AssetManager.close()
       const selected = editor.getSelected()
-      if (selected && !latest.current.readOnly) setPicking({ image: imageIn(selected), added: null })
+      if (selected && !latest.current.readOnly) setPicking({ image: imageIn(selected) })
+    })
+    // An Image block dropped without a picture waits as a slot on the canvas; its Select Image button asks for one.
+    editor.on(SELECT_IMAGE_EVENT, (image: Component) => {
+      if (!latest.current.readOnly) setPicking({ image })
     })
 
     // Barcode and QR code blocks show the code of their source tag's sample value, drawn by the server that will draw
@@ -647,12 +653,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     }
     editor.on('cep:code-changed', drawCode)
 
-    // A picture block dragged out of the palette carries no picture: the drop is where the reader is asked for one.
     editor.on('component:add', (component: Component) => {
       if (isCodeBlock(component)) drawCode(component)
-      if (!askAfterDrop.current || loading.current) return
-      askAfterDrop.current = false
-      setPicking({ image: imageIn(component), added: component })
     })
 
     const cancelledRef = dragCancelled
@@ -660,8 +662,25 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       blockPayload.current = props
     })
 
+    // A block moved on the canvas by its move handle is carried too: a chip with its name follows the pointer. (A tile
+    // out of the palette has its own picture, and raises block events instead.)
+    editor.on('component:drag:start', ({ target }: { target?: Component }) => {
+      if (carryingTile.current || !target || typeof target.get !== 'function') return
+      ghost.current?.stop()
+      ghost.current = carryLabel(layerNameFor(blockType(target), target.get('custom-name'), target.getAttributes()),
+        { frames: [editor.Canvas.getFrameEl()], scope: container.current?.closest('.editor-radii') })
+    })
+    editor.on('component:drag:end', () => {
+      if (carryingTile.current) return
+      ghost.current?.stop()
+      ghost.current = null
+    })
+
     // A refused drop leaves the canvas untouched and says nothing of its own, so the palette explains it.
     editor.on('block:drag:stop', (component: Component | undefined, block: Block) => {
+      carryingTile.current = false
+      ghost.current?.stop()
+      ghost.current = null
       const blockId = String(block.getId())
       const placed = Boolean(component)
       latest.current.onBlockDrop?.({ blockId, placed })
@@ -769,6 +788,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       if (inspectorFrame !== 0) cancelAnimationFrame(inspectorFrame)
       if (changeFrame !== 0) cancelAnimationFrame(changeFrame)
       for (const event of INSPECTOR_EVENTS) editor.off(event, scheduleInspector)
+      ghost.current?.stop()
       resized.disconnect()
       frameObserver.current?.disconnect()
       if (refitFrame !== 0) cancelAnimationFrame(refitFrame)
@@ -799,7 +819,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
 
   /**
    * Puts a palette block in without a pointer. Returns the label placed, or null when nothing was.
-   * A picture block given no address asks for one; given an address it is built with it and asks nothing.
+   * A picture block given no address waits for one as a slot on the canvas; given an address it is built with it.
    */
   const insertBlock = useCallback(
     (blockId: string, picture: string | null = null): string | null => {
@@ -820,8 +840,6 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       if (placed) {
         editor.select(placed)
         editor.Canvas.scrollTo(placed, { behavior: 'smooth' })
-        // a block built around a picture has none yet: the reader is asked for one rather than shown a stand-in
-        if (needsImage(block) && picture === null) setPicking({ image: imageIn(placed), added: placed })
       }
       say(target.fellBack ? `${block.label} added to the last section.` : `${block.label} added.`)
       return block.label
@@ -841,7 +859,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
   const chooseImage = useCallback(() => {
     const selected = editorRef.current?.getSelected()
     if (latest.current.readOnly || !selected) return
-    setPicking({ image: imageIn(selected), added: null })
+    setPicking({ image: imageIn(selected) })
   }, [])
 
   /** A crumb selects its block on the canvas and in Layers, and brings it into view. */
@@ -873,7 +891,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
 
   // An upload started inside the dialog finishes long after the handler that began it, so the block being
   // given a picture is read from here rather than captured.
-  const pickingRef = useRef<{ image: Component; added: Component | null } | null>(null)
+  const pickingRef = useRef<{ image: Component } | null>(null)
   useEffect(() => {
     pickingRef.current = picking
   }, [picking])
@@ -915,10 +933,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     return caret !== null && insertAtCaret(caret, asToken(key))
   }, [])
 
-  /** Closing without a picture: a block the drop had just made goes with it, rather than standing in for one. */
+  /** Closing without a picture leaves the block as it was: one still waiting for its picture stays a slot on the canvas. */
   const cancelPicking = useCallback(() => {
     applyNextUpload.current = false
-    pickingRef.current?.added?.remove()
     setPicking(null)
   }, [])
 
@@ -982,6 +999,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     if (dragMove.current) document.removeEventListener('pointermove', dragMove.current)
     dragMove.current = null
     document.removeEventListener('keydown', dragKey.current)
+    carryingTile.current = false
+    ghost.current?.stop()
+    ghost.current = null
     blockPayload.current?.dragStop(cancel)
   }, [])
 
@@ -1002,9 +1022,12 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       if (!editor || !payload || !block || !source) return
       // an image carried out of the library rides on the same block, so every drag says what it carries
       setBlockImage(editor, picture)
-      askAfterDrop.current = needsImage(source) && picture === null
       say(null)
       dragCancelled.current = false
+      // a copy of the tile (or of the library image) follows the pointer until it is dropped
+      carryingTile.current = true
+      ghost.current?.stop()
+      ghost.current = carryCopy(event.currentTarget as HTMLElement, { at: { x: event.clientX, y: event.clientY }, frames: [editor.Canvas.getFrameEl()] })
       payload.dragStart(block, event.nativeEvent)
       const move = (pointer: PointerEvent) => blockPayload.current?.drag(pointer)
       dragMove.current = move

@@ -7,6 +7,7 @@
  *
  * Only the editing chrome is touched. The email's own styles are never changed.
  */
+import { IMAGE_SLOT_BODY, IMAGE_SLOT_BUTTON } from './blocks/imageSlot'
 import { HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS, SHADOW_CSS, SHADOW_LEVELS, shadowClass } from './blocks/register'
 import { GROUP_WIDTH_PROPERTY, paintGroupColumns } from './canvas/groupPreview'
 import { HIDDEN_ATTRIBUTE } from './layers/hidden'
@@ -76,6 +77,10 @@ export function canvasSkin(root: Element = document.documentElement, zoom = 1): 
   const action = token('--color-brand-600')
   const emphasis = token('--color-ink-300')
   const sunken = token('--color-surface-subtle')
+  const surface = token('--color-surface')
+  const control = token('--color-line-control')
+  const ink = token('--color-ink-900')
+  const quiet = token('--color-ink-800')
 
   // GrapesJS defines the same selectors, also with !important, in a <style> it puts in the frame BODY — which
   // beats the head on document order. Doubling the class raises specificity, so these win wherever they land.
@@ -125,6 +130,45 @@ html[${PHONE_ATTRIBUTE}]::-webkit-scrollbar {
   background: ${sunken};
   outline: ${line} dashed ${emphasis};
   outline-offset: 0;
+}
+/* An Image block still waiting for its picture (blocks/imageSlot.ts): a dashed slot with a picture mark and a Select
+   Image button, in place of an image that has nothing to show. Canvas only: the email carries none of it. */
+[${IMAGE_SLOT_BODY}] + img {
+  display: none !important;
+}
+[${IMAGE_SLOT_BODY}] {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 132px;
+  padding: 16px 8px;
+  border: ${line} dashed ${emphasis};
+  border-radius: 4px;
+  background: ${sunken};
+  color: ${quiet};
+  font: 500 13px/18px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  text-align: center;
+}
+[${IMAGE_SLOT_BODY}] svg {
+  display: block;
+  flex: none;
+}
+[${IMAGE_SLOT_BUTTON}] {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid ${control};
+  border-radius: 6px;
+  background: ${surface};
+  color: ${ink};
+  cursor: pointer;
+  user-select: none;
+}
+[${IMAGE_SLOT_BUTTON}]:hover {
+  border-color: ${action};
+  color: ${action};
 }
 /* Hidden on the canvas only: the attribute is painted onto the frame's DOM and never onto the component model,
    so the MJML, the compiled HTML and the saved project are identical whether a block is hidden or not. */

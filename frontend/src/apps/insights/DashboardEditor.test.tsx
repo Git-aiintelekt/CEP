@@ -138,8 +138,10 @@ test('dragging a tile\'s grip onto another puts it in that place; Move Earlier d
   const grip = screen.getByRole('button', { name: 'Drag Sends by campaign to another place' })
   const target = document.querySelector('[data-cell="t1"]') as HTMLElement
   const data = new Map<string, string>()
-  const dataTransfer = { setData: (k: string, v: string) => data.set(k, v), getData: (k: string) => data.get(k) ?? '', effectAllowed: 'move' }
+  const pictures: Element[] = []
+  const dataTransfer = { setData: (k: string, v: string) => data.set(k, v), getData: (k: string) => data.get(k) ?? '', effectAllowed: 'move', setDragImage: (element: Element) => pictures.push(element) }
   fireEvent.dragStart(grip, { dataTransfer })
+  expect(pictures).toEqual([document.querySelector('[data-cell="t2"]')])       // the whole tile follows the pointer, not only its grip
   fireEvent.dragOver(target, { dataTransfer })
   fireEvent.drop(target, { dataTransfer })
   expect(order()).toEqual(['Arrange Sends by campaign', 'Arrange Sends by Campaign'])
