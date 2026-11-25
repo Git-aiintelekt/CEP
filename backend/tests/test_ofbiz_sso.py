@@ -317,7 +317,7 @@ def test_back_to_icrm(check, admin_email):
         return client.post("/api/v1/auth/sso/ofbiz/exchange/", json.dumps({"code": landed["code"][0]}), content_type="application/json",
                            HTTP_X_TENANT=code).json()["access"]
 
-    on_link = open_cep(externalLoginKey="EL945c1f50afa4d531f7c3492760e59c41")
+    on_link = open_cep()
     password = auth_api.issue_tokens(admin)["access"]
 
     check("/me: a session from iCRM, no address yet", me(on_link).json().get("icrm") == {"from_icrm": True, "address_set": False}, me(on_link).json().get("icrm"))
@@ -330,7 +330,7 @@ def test_back_to_icrm(check, admin_email):
     check("a password session gets no address", back(password).status_code == 403)
     answer = back(on_link)
     url = answer.json().get("url", "") if answer.status_code == 200 else ""
-    check("the iCRM page with the token alone, even when Open CEP's link had an externalLoginKey", url.startswith(page + "?token=")
+    check("the iCRM page with the token alone", url.startswith(page + "?token=")
           and set(_back_query(url)) == {"token"}, answer.content[:300])
     if url:
         data = MultipassTokenDecode(KEYS["site_key"], KEYS["api_key"]).decode(_back_query(url)["token"][0])
@@ -347,8 +347,7 @@ def test_back_to_icrm(check, admin_email):
     ("", ""),
     ("https://icrm.example.com/customer-portal/control/findCustomer", "https://icrm.example.com/customer-portal/control/findCustomer"),
     ("https://icrm.example.com/crm/control/main/", "https://icrm.example.com/crm/control/main"),
-    ("https://icrm.example.com/client-portal/control/servicesHome?externalLoginKey=EL945c1f", "https://icrm.example.com/client-portal/control/servicesHome"),
-    ("https://icrm.example.com/x/control/y?tab=1&externalLoginKey=EL1", "https://icrm.example.com/x/control/y?tab=1"),
+    ("https://icrm.example.com/x/control/y?tab=1", "https://icrm.example.com/x/control/y?tab=1"),
     ("icrm.example.com/crm", False), ("https://icrm.example.com/x#top", False), ("javascript:alert(1)", False)])
 def test_icrm_address_is_cleaned(value, cleaned):
     assert ofbiz.clean_icrm_url(value) == cleaned
@@ -360,7 +359,7 @@ def test_back_to_icrm_adds_the_token_after_a_query():
     link = {**KEYS, "time_zone": "UTC", "icrm_url": "https://icrm.example.com/x/control/y?tab=1"}
     with mock.patch.object(ofbiz, "link_for", return_value=link):
         url = ofbiz.back_to_icrm(user, {"id": "t", "code": "NWA"}, {"ofbiz": 1})
-    assert url.startswith("https://icrm.example.com/x/control/y?tab=1&token=") and "externalLoginKey" not in url
+    assert url.startswith("https://icrm.example.com/x/control/y?tab=1&token=")
 
 def test_workspace_link_saves_the_icrm_address(check, admin_email):
     admin = _admin(admin_email)
@@ -369,8 +368,8 @@ def test_workspace_link_saves_the_icrm_address(check, admin_email):
     page = "https://icrmbasestaging.aiintelekt.com/customer-portal/control/findCustomer"
     errors = ofbiz.save_workspace_link(code, {**KEYS, "icrm_url": "icrm.example.com"})
     check("an address without https:// is refused", "icrm_url" in errors, errors)
-    errors = ofbiz.save_workspace_link(code, {**KEYS, "icrm_url": page + "?externalLoginKey=EL945c1f50afa4d531f7c3492760e59c41"})
-    check("the page is saved, without someone's externalLoginKey", not errors and (ofbiz.workspace_link(code) or {}).get("icrm_url") == page, errors)
+    errors = ofbiz.save_workspace_link(code, {**KEYS, "icrm_url": page + "/"})
+    check("the page is saved, without the trailing slash", not errors and (ofbiz.workspace_link(code) or {}).get("icrm_url") == page, errors)
     errors = ofbiz.save_workspace_link(code, KEYS)
     check("saving the keys alone keeps the address", not errors and _platform_stored_link(admin.tenant).get("icrm_url") == page, errors)
     check.done()

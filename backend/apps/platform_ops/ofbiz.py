@@ -39,7 +39,7 @@ import logging
 import secrets
 import time
 from datetime import datetime, timedelta
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import urlencode, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -65,7 +65,6 @@ SEALED_PREFIX = "gAAAAA"                                    # every Fernet token
 
 INVALID_LINK = "This link is invalid or has expired. Open CEP again from OFBiz."
 USED_LINK = "This link was already used. Open CEP again from OFBiz."
-EXTERNAL_LOGIN_KEY = "externalLoginKey"
 ICRM_TOKEN_MINUTES = 5                                     # iCRM's own default (common.token.expiry.min)
 
 NO_ROLE = "You don't have a CEP role in iCRM. Ask your administrator to give you one, then open CEP again."
@@ -281,7 +280,7 @@ def save_config(code: str, data: dict) -> dict:
 
 
 # The workspace's own administrators (Settings -> Integrations) edit the two keys iCRM seals "Open CEP" tokens with:
-# Site Key (security / common.site.key) and API Key (cep / cep.api.key); on/off stays as stored. Both keys are shown to
+# Site Key (security / common.site.key) and API Key (security / common.api.key); on/off stays as stored. Both keys are shown to
 # whoever may open the screen (provider.edit), as iCRM's own screen shows them.
 
 
@@ -300,7 +299,7 @@ def save_workspace_link(code: str, data: dict) -> dict:
     errors = save_config(code, {"is_active": stored.get("is_active", True), "site_key": data.get("site_key"), "api_key": data.get("api_key"),
                                 "icrm_url": data.get("icrm_url", stored.get("icrm_url", ""))})
     if "api_key" in errors:
-        errors["api_key"] = "Enter iCRM's API key (cep.api.key)."
+        errors["api_key"] = "Enter iCRM's API key (common.api.key)."
     if "site_key" in errors:
         errors["site_key"] = "Enter iCRM's site key (common.site.key)."
     return errors
@@ -309,16 +308,14 @@ def save_workspace_link(code: str, data: dict) -> dict:
 # ------------------------------------------------------------------------------------------------------------ Back to iCRM
 def clean_icrm_url(value) -> str | bool:
     """The iCRM page Back to iCRM opens, as entered (for example .../customer-portal/control/findCustomer), without a
-    trailing slash or an externalLoginKey (that belongs to one person's iCRM session); "" for none, False when it is not
-    an http(s) address."""
+    trailing slash; "" for none, False when it is not an http(s) address."""
     text = str(value or "").strip()
     if not text:
         return ""
     parts = urlsplit(text)
     if parts.scheme not in ("http", "https") or not parts.netloc or parts.fragment or " " in text:
         return False
-    query = urlencode([(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != EXTERNAL_LOGIN_KEY])
-    return urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip("/"), query, ""))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip("/"), parts.query, ""))
 
 
 def _icrm_url(tenant_id) -> str | None:

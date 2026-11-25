@@ -1522,7 +1522,7 @@ export function installMockApi(options: MockOptions = {}) {
       if (method === 'PUT') {
         const sent = (body ?? {}) as { site_key?: string; api_key?: string; icrm_url?: string }
         if (!sent.site_key) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { site_key: ["Enter iCRM's site key (common.site.key)."] } }, 400)
-        if (!sent.api_key) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { api_key: ["Enter iCRM's API key (cep.api.key)."] } }, 400)
+        if (!sent.api_key) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { api_key: ["Enter iCRM's API key (common.api.key)."] } }, 400)
         if (sent.icrm_url && !/^https?:\/\/[^/?#]+/.test(sent.icrm_url)) return json({ type: 'about:blank', title: 'Validation error', status: 400, errors: { icrm_url: ['Enter the iCRM address, starting with https://.'] } }, 400)
         ofbizLinkNow = { ...ofbizLinkNow, site_key: sent.site_key, api_key: sent.api_key, icrm_url: (sent.icrm_url ?? '').replace(/\/+$/, ''), has_api_key: true, configured: true }
       }

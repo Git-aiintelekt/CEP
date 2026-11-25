@@ -45,13 +45,12 @@ function SignOnForm({ link }: { link: OfbizLink }) {
         <Field label="Site Key" required error={errors.site_key} hint="iCRM security / common.site.key, character for character.">
           {(ids) => <TextInput {...ids} value={siteKey} onChange={(event) => setSiteKey(event.target.value)} autoComplete="off" />}
         </Field>
-        <Field label="API Key" required error={errors.api_key} hint="iCRM cep / cep.api.key, character for character. Stored encrypted."
+        <Field label="API Key" required error={errors.api_key} hint="iCRM security / common.api.key, character for character. Stored encrypted."
           labelEnd={<button type="button" className="text-label font-medium text-brand-800 hover:underline" aria-pressed={showKey} onClick={() => setShowKey((shown) => !shown)}>{showKey ? 'Hide' : 'Show'}</button>}>
           {(ids) => <TextInput {...ids} type={showKey ? 'text' : 'password'} value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="new-password" />}
         </Field>
         <div className="lg:col-span-2">
-          <Field label="iCRM URL" error={errors.icrm_url}
-            hint="The iCRM page Back to iCRM opens, for example https://icrm.example.com/customer-portal/control/findCustomer. CEP adds a sign-in token for each person, so leave out ?token= and externalLoginKey.">
+          <Field label="iCRM URL" error={errors.icrm_url}>
             {(ids) => <TextInput {...ids} type="url" value={icrmUrl} onChange={(event) => setIcrmUrl(event.target.value)} placeholder="https://" autoComplete="off" />}
           </Field>
         </div>
