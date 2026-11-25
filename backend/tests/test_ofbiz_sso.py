@@ -19,7 +19,7 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from api.v1 import auth_api
 from apps.identity.models import AppUser, Role, UserRole
 from apps.platform_ops import crypto, ofbiz
-from apps.platform_ops.multipass import MultipassTokenEncode
+from apps.platform_ops.multipass import MultipassTokenDecode, MultipassTokenEncode
 from apps.tenants import context
 from apps.tenants.models import Tenant
 
@@ -292,9 +292,15 @@ def test_workspace_link_saves_the_keys_and_keeps_the_rest(check, admin_email):
 
 
 
+
+def _back_query(url):
+    return parse_qs(urlparse(url).query)
+
+
 def test_back_to_icrm(check, admin_email):
-    """Back to iCRM: only a session opened from iCRM gets the iCRM page from Settings, with the externalLoginKey iCRM passed
-    in on "Open CEP", which puts the user back in their own iCRM session."""
+    """Back to iCRM: only a session opened from iCRM gets the iCRM page from Settings, with a new Multipass token sealed with
+    the workspace's keys (email, the iCRM group of the user's role, expiry in the workspace's time zone, no login), and the
+    externalLoginKey iCRM passed in on "Open CEP" when it did."""
     cache.clear()
     admin = _admin(admin_email)
     _link(admin.tenant)
@@ -327,14 +333,30 @@ def test_back_to_icrm(check, admin_email):
     _set_link(admin.tenant, {**_stored_link(admin.tenant), "icrm_url": page})
     check("a password session gets no address", back(password).status_code == 403)
     answer = back(on_link)
-    check("the key from the link goes back to iCRM", answer.status_code == 200
-          and answer.json()["url"] == page + "?externalLoginKey=EL945c1f50afa4d531f7c3492760e59c41", answer.content[:200])
-    check("the key from the token goes back to iCRM", back(in_token).json().get("url") == page + "?externalLoginKey=EL123456789")
-    check("no key: the page alone", back(no_key).json().get("url") == page)
-    check("something that is not a key is dropped", back(forged).json().get("url") == page)
+    url = answer.json().get("url", "") if answer.status_code == 200 else ""
+    check("the iCRM page, with a token and the key from the link", url.startswith(page + "?token=")
+          and _back_query(url).get("externalLoginKey") == ["EL945c1f50afa4d531f7c3492760e59c41"], answer.content[:300])
+    if url:
+        data = MultipassTokenDecode(KEYS["site_key"], KEYS["api_key"]).decode(_back_query(url)["token"][0])
+        check("the token holds the email, the iCRM group and no login", data.get("email") == admin.email and data.get("cep_role") == "CEP_ANALYST"
+              and "user_login_id" not in data and data.get("tenant_id") == code and data.get("version") == "1.0", data)
+        expires = datetime.strptime(data["expires"], "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo(ICRM_TIME_ZONE))
+        check("it expires in about 5 minutes, in the workspace's time zone", 4 * 60 - 5 <= expires.timestamp() - time.time() <= 5 * 60 + 5
+              and abs(data["exp"] - time.time() - 300) <= 5, data)
+        check("iCRM's own checks accept it", ofbiz.is_valid_token(data, time_zone=ICRM_TIME_ZONE))
+    check("the key from the token goes back to iCRM", _back_query(back(in_token).json().get("url", "")).get("externalLoginKey") == ["EL123456789"])
+    without = back(no_key).json().get("url", "")
+    check("no key: the token alone", without.startswith(page + "?token=") and "externalLoginKey" not in _back_query(without), without[:120])
+    check("something that is not a key is dropped", "externalLoginKey" not in _back_query(back(forged).json().get("url", "")))
     check("/me: the address is set", me(on_link).json().get("icrm") == {"from_icrm": True, "address_set": True})
     check.done()
 
+
+def test_icrm_group_is_the_highest_cep_role():
+    assert ofbiz.icrm_group(["Analyst", "Marketing Admin"]) == "CEP_MARKETING_ADMIN"
+    assert ofbiz.icrm_group(["analyst", "Campaign  Manager"]) == "CEP_CAMPAIGN_MANAGER"
+    assert ofbiz.icrm_group(["Analyst"]) == "CEP_ANALYST"
+    assert ofbiz.icrm_group(["Regional Lead"]) is None
 
 @pytest.mark.parametrize("value, cleaned", [
     ("", ""),
@@ -347,11 +369,13 @@ def test_icrm_address_is_cleaned(value, cleaned):
     assert ofbiz.clean_icrm_url(value) == cleaned
 
 
-def test_back_to_icrm_adds_the_key_after_a_query():
-    token = {"ofbiz": 1, "icrm_key": "EL1"}
-    with mock.patch.object(ofbiz, "_icrm_url", return_value="https://icrm.example.com/x/control/y?tab=1"):
-        assert ofbiz.back_to_icrm("t", token) == "https://icrm.example.com/x/control/y?tab=1&externalLoginKey=EL1"
 
+def test_back_to_icrm_adds_the_token_after_a_query():
+    user = mock.Mock(email="someone@example.com", display_name="Some One")
+    link = {**KEYS, "time_zone": "UTC", "icrm_url": "https://icrm.example.com/x/control/y?tab=1"}
+    with mock.patch.object(ofbiz, "link_for", return_value=link):
+        url = ofbiz.back_to_icrm(user, {"id": "t", "code": "NWA"}, ["Analyst"], {"ofbiz": 1, "icrm_key": "EL1"})
+    assert url.startswith("https://icrm.example.com/x/control/y?tab=1&token=") and url.endswith("&externalLoginKey=EL1")
 
 def test_workspace_link_saves_the_icrm_address(check, admin_email):
     admin = _admin(admin_email)

@@ -51,7 +51,7 @@ function SignOnForm({ link }: { link: OfbizLink }) {
         </Field>
         <div className="lg:col-span-2">
           <Field label="iCRM URL" error={errors.icrm_url}
-            hint="The iCRM page Back to iCRM opens, for example https://icrm.example.com/customer-portal/control/findCustomer. CEP adds each person's externalLoginKey, so leave it out.">
+            hint="The iCRM page Back to iCRM opens, for example https://icrm.example.com/customer-portal/control/findCustomer. CEP adds a sign-in token for each person, so leave out ?token= and externalLoginKey.">
             {(ids) => <TextInput {...ids} type="url" value={icrmUrl} onChange={(event) => setIcrmUrl(event.target.value)} placeholder="https://" autoComplete="off" />}
           </Field>
         </div>

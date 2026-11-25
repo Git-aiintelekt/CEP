@@ -1242,7 +1242,7 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.endsWith('/auth/sso/ofbiz/back/') && method === 'POST') {
       return options.icrmBackFails ? json({ type: 'about:blank', title: 'Permission Denied', status: 403, detail: 'The iCRM URL is not set. Ask your administrator to add it in Settings, Integrations.' }, 403)
-        : json({ url: 'https://icrm.example.com/customer-portal/control/findCustomer?externalLoginKey=EL945c1f50' })
+        : json({ url: 'https://icrm.example.com/customer-portal/control/findCustomer?token=sample-token&externalLoginKey=EL945c1f50' })
     }
     if (path.endsWith('/auth/token/revoke/')) return json(null, 204)
     if (path.endsWith('/auth/token/') && method === 'POST') {

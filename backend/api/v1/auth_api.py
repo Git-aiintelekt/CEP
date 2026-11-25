@@ -41,7 +41,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.identity.models import AppUser
+from apps.identity.models import AppUser, Role
 from apps.platform_ops import mfa, ofbiz, params, sso
 from apps.platform_ops.models import SupportAccessLog, TenantIdentityProvider
 from apps.tenants.models import Tenant
@@ -303,17 +303,21 @@ class OfbizLogoutView(PublicAuthView):
 
 
 class OfbizBackView(APIView):
-    """"Back to iCRM": only a session opened from iCRM (claim `ofbiz`) gets the iCRM address, with its externalLoginKey."""
+    """"Back to iCRM": only a session opened from iCRM (claim `ofbiz`) gets the iCRM address, with a new Multipass token
+    for the user (and their externalLoginKey when iCRM passed one)."""
     permission_classes = [IsAuthenticated]
 
     @extend_schema(request=None, responses=inline_serializer("OfbizBack", {"url": serializers.URLField()}))
     def post(self, request, version=None):
         token = getattr(request, "auth", None)
+        user = request.user
+        roles = list(Role.objects.filter(deleted_at__isnull=True, user_roles__user=user).values_list("name", flat=True))
         try:
-            url = ofbiz.back_to_icrm(request.tenant["id"], token)
+            url = ofbiz.back_to_icrm(user, request.tenant, roles, token)
         except ofbiz.OfbizError as exc:
             raise PermissionDenied(str(exc)) from None
-        log.info("Back to iCRM: user %s, workspace %s, with key %s", request.user.pk, request.tenant["code"], bool(token.get(ofbiz.ICRM_KEY_CLAIM)))
+        # the address carries the token: log who and where, never the address
+        log.info("Back to iCRM: user %s, workspace %s, with key %s", user.pk, request.tenant["code"], bool(token.get(ofbiz.ICRM_KEY_CLAIM)))
         return Response({"url": url})
 
 

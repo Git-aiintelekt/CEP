@@ -1,5 +1,5 @@
 /** Back to iCRM, beside the workspace in the top bar: shown only to a session opened from iCRM, disabled until the iCRM
- * URL is set; it goes to the address the API answers (the iCRM page with the person's externalLoginKey). */
+ * URL is set; it opens the address the API answers (the iCRM page with a token for the person) in a new tab. */
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -43,20 +43,42 @@ test('from iCRM but with no iCRM URL, Back to iCRM stays disabled and names the 
   expect(back.getAttribute('title')).toContain('iCRM URL')
 })
 
-test('from iCRM, Back to iCRM goes to the iCRM page with the externalLoginKey', async () => {
+function stubNewTab() {
+  const tab = { opener: {} as unknown, location: { replace: vi.fn() }, close: vi.fn() }
+  const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+  return { tab, open }
+}
+
+test('from iCRM, Back to iCRM opens the iCRM page with a token in a new tab, and CEP stays', async () => {
   const user = userEvent.setup()
   const { calls, go } = await renderAppAt('/', { me: { icrm: { from_icrm: true, address_set: true } } as never })
+  const { tab, open } = stubNewTab()
   const back = await screen.findByRole('button', { name: 'Back to iCRM' })
   expect(back.hasAttribute('disabled')).toBe(false)
   await user.click(back)
-  await vi.waitFor(() => expect(go).toHaveBeenCalledWith('https://icrm.example.com/customer-portal/control/findCustomer?externalLoginKey=EL945c1f50'))
+  expect(open).toHaveBeenCalledWith('', '_blank')
+  await vi.waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith('https://icrm.example.com/customer-portal/control/findCustomer?token=sample-token&externalLoginKey=EL945c1f50'))
+  expect(tab.opener).toBeNull()
+  expect(go).not.toHaveBeenCalled()
   expect(calls.some((call) => call.url.endsWith('/auth/sso/ofbiz/back/') && call.method === 'POST')).toBe(true)
+  await vi.waitFor(() => expect(back.hasAttribute('disabled')).toBe(false))
 })
 
-test('when the API refuses, Back to iCRM says so and stays on the page', async () => {
+test('when a popup blocker stops the new tab, Back to iCRM goes there in this tab', async () => {
+  const user = userEvent.setup()
+  const { go } = await renderAppAt('/', { me: { icrm: { from_icrm: true, address_set: true } } as never })
+  vi.spyOn(window, 'open').mockReturnValue(null)
+  await user.click(await screen.findByRole('button', { name: 'Back to iCRM' }))
+  await vi.waitFor(() => expect(go).toHaveBeenCalledWith('https://icrm.example.com/customer-portal/control/findCustomer?token=sample-token&externalLoginKey=EL945c1f50'))
+})
+
+test('when the API refuses, Back to iCRM closes the new tab and says so', async () => {
   const user = userEvent.setup()
   const { go } = await renderAppAt('/', { me: { icrm: { from_icrm: true, address_set: true } } as never, icrmBackFails: true })
+  const { tab } = stubNewTab()
   await user.click(await screen.findByRole('button', { name: 'Back to iCRM' }))
   expect(await screen.findByText('iCRM was not opened')).toBeTruthy()
+  expect(tab.close).toHaveBeenCalled()
+  expect(tab.location.replace).not.toHaveBeenCalled()
   expect(go).not.toHaveBeenCalled()
 })
