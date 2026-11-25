@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from 'vitest'
 
+import { IMAGE_SLOT_BODY, IMAGE_SLOT_BUTTON } from './blocks/imageSlot'
 import { HIDE_MOBILE_CLASS, SHADOW_LEVELS, shadowClass } from './blocks/register'
 import { HIDDEN_ATTRIBUTE } from './layers/hidden'
 import { CANVAS_SKIN_ID, DESIGN_RULES_ID, DESKTOP_ATTRIBUTE, PHONE_ATTRIBUTE, canvasSkin, designRules, injectCanvasSkin, paintPhoneWidth } from './canvasSkin'
@@ -74,10 +75,18 @@ test('it styles only the editing chrome, never the email', () => {
   // GrapesJS's own chrome classes, the attribute the layers panel paints on the frame's DOM, or the phone-width
   // preview — which does name a class of ours in the email, and so is only ever reached through that attribute.
   // The frame's root scroller and its scrollbar are the one exception: they are the page around the email.
+  // The slot of an image waiting for its picture is the canvas's own too: the view draws it, the email never holds it.
   // Nothing else: the email's own tags, classes and styles are never targeted.
   for (const selector of selectors.filter((s) => !/^html(\[data-cep-phone\])?(::-webkit-scrollbar(-thumb|-track)?)?$/.test(s))) {
-    expect(selector, selector).toMatch(new RegExp(`gjs-|\\[${HIDDEN_ATTRIBUTE}\\]|^\\[${PHONE_ATTRIBUTE}\\] |^\\[${DESKTOP_ATTRIBUTE}\\] `))
+    expect(selector, selector).toMatch(new RegExp(`gjs-|\\[${HIDDEN_ATTRIBUTE}\\]|^\\[${PHONE_ATTRIBUTE}\\] |^\\[${DESKTOP_ATTRIBUTE}\\] |^\\[${IMAGE_SLOT_BODY}\\]|^\\[${IMAGE_SLOT_BUTTON}\\]`))
   }
+})
+
+test('an image waiting for its picture is a dashed slot with a Select Image button, and its empty image is not shown', () => {
+  const css = canvasSkin(themed())
+  expect(css).toContain(`[${IMAGE_SLOT_BODY}] + img {\n  display: none !important;`)
+  expect(css).toMatch(new RegExp(`\\[${IMAGE_SLOT_BODY}\\] \\{[^}]*border: 1px dashed`))
+  expect(css).toMatch(new RegExp(`\\[${IMAGE_SLOT_BUTTON}\\] \\{[^}]*cursor: pointer`))
 })
 
 test('the frame shows a thin scrollbar beside the template, hidden at the phone width, and the frame still scrolls', () => {
