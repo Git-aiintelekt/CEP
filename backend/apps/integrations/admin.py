@@ -29,7 +29,8 @@ class IntegrationAdmin(BaseAdmin):
     fieldsets = (
         ("Integration", {"fields": ("tenant", "name", "kind", "direction", "system", "delivery_provider", "status", "environment")}),
         ("Throttle", {"fields": ("throttle_per_minute", "throttle_burst"),
-                      "description": "Calls per minute. Blank: the plan's default (integrations.inbound_per_minute) for POS receipts, the engine's own rate for a sending engine."}),
+                      "description": "Calls per minute. Blank: the plan's default (integrations.inbound_per_minute) for POS receipts, the engine's own rate for a sending engine. "
+                                     "A Results API endpoint is never unlimited: blank means 60 a minute."}),
         ("Retries and Circuit Breaker", {"fields": ("retry_max_attempts", "breaker_failures", "breaker_cooldown_seconds", "breaker_open_until"),
                                          "description": "After this many consecutive failures the engine is not called for the cooldown; sends are retried after it."}),
         ("Log", {"fields": ("log_level", "log_body_max_bytes", "log_retention_days"),

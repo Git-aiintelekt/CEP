@@ -1,23 +1,40 @@
 """The Results API against the local database, rolled back: another system reads campaign results with a key that has
-results:read. Sends go through the sandbox text engine."""
+results:read. Sends go through the sandbox text engine. Each endpoint is an integration of the workspace: limited, logged,
+and (once patch 0101 is on the database) a record that can be configured and paused."""
 import json
-from datetime import timedelta
+import time
+from datetime import date, timedelta
 from unittest import mock
 
 import pytest
 from django.core.cache import cache
-from django.db import connection, transaction
+from django.db import OperationalError, connection, transaction
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.delivery import engine
 from apps.delivery.engine import runs
 from apps.identity.models import AppUser
+from apps.integrations.bridge import logbook, throttle
 from apps.reporting import results
 from apps.tenants import context
 
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
+
+
+class context_of:
+    """The workspace's context, as a request has it, for a call made straight to the module."""
+
+    def __init__(self, tenant_id):
+        self.tenant_id = tenant_id
+
+    def __enter__(self):
+        self.token = context.set_current(self.tenant_id, "default")
+
+    def __exit__(self, *exc):
+        context.reset(self.token)
 
 
 def test_results_api(check, admin_email):
@@ -30,6 +47,8 @@ def test_results_api(check, admin_email):
     H = {"HTTP_X_TENANT": CODE, "HTTP_AUTHORIZATION": "Bearer " + str(AccessToken.for_user(admin))}
 
     def api(method, path, body=None, h=H):
+        if "cep_" in h.get("HTTP_AUTHORIZATION", ""):
+            time.sleep(0.12)                               # a key's calls keep under the endpoint's ten a second, as a real consumer does
         if method in ("get", "delete"):
             return getattr(c, method)(path, **h)
         return getattr(c, method)(path, json.dumps(body or {}), content_type="application/json", **h)
@@ -43,7 +62,8 @@ def test_results_api(check, admin_email):
     zone = results.zone_of(admin.tenant)
     today = timezone.now().astimezone(zone).date()
 
-    with transaction.atomic():
+    with transaction.atomic(), mock.patch.object(logbook, "P", "default"):
+        patched = "RESULTS_RUNS" in sql("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_integration_kind'", fetch=True)[0][0]
         for n in range(6):
             party = f"ZQ-P{n:02d}"
             sql("INSERT INTO customer_master (party_id, tenant_id, first_name, last_name, emails, phones) VALUES (%s, %s, %s, 'Zedquist', '[]'::jsonb, %s::jsonb)",
@@ -96,15 +116,27 @@ def test_results_api(check, admin_email):
         check("a key can be given results:read, and reads the campaigns with it", "results:read" in scopes and reader.status_code == 201 and listing.status_code == 200,
               f"{reader.status_code} {listing.status_code} {listing.content[:200]}")
         refused = [api("get", path, h=h).status_code for path in ("/api/v1/results/campaigns/", "/api/v1/results/runs/", f"/api/v1/results/campaigns/{first}/")
-                   for h in (K_OTHER, {"HTTP_X_TENANT": CODE, "HTTP_AUTHORIZATION": "Bearer " + str(AccessToken.for_user(analyst))}, {"HTTP_X_TENANT": CODE})]
-        check("a key without the scope, a signed-in person and no key at all are refused on every endpoint", all(code in (401, 403) for code in refused) and 403 in refused, str(refused))
+                   for h in (K_OTHER, {"HTTP_X_TENANT": CODE, "HTTP_AUTHORIZATION": "Bearer " + str(AccessToken.for_user(analyst))}, H, {"HTTP_X_TENANT": CODE})]
+        check("a key without the scope, a signed-in person, the administrator's own session and no key at all are refused on every endpoint",
+              all(code in (401, 403) for code in refused) and refused.count(403) == 9 and refused.count(401) == 3, str(refused))
+        elsewhere = type("Key", (), {"tenant_id": "b0000000-0000-4000-8000-00000000000b", "has_scope": lambda self, scope: True})()
+        here = type("Key", (), {"tenant_id": TENANT, "has_scope": lambda self, scope: scope == "results:read"})()
+        token = context.set_current(TENANT, "default")
+        from api.v1.results_api import ResultsKey
+        verdicts = [ResultsKey().has_permission(type("R", (), {"user": key})(), None) for key in (here, elsewhere)]
+        context.reset(token)
+        check("a key is checked against the workspace it was made in: one from another workspace is refused whatever its scopes", verdicts == [True, False], str(verdicts))
+        check("an answer says how much of the minute is left, and that it must not be kept by a proxy or a browser",
+              listing["X-RateLimit-Limit"] == "60" and int(listing["X-RateLimit-Remaining"]) < 60 and listing.has_header("X-RateLimit-Reset") and listing["Cache-Control"] == "no-store",
+              str(dict(listing.items())))
 
         # ---- 2. the campaigns in the window
         body = listing.json()
         rows = {row["name"]: row for row in body["results"]}
         fall = rows.get("ZQ Fall Launch") or {}
-        check("the window is the 30 days kept, in the workspace's zone, and both campaigns are in it",
-              body["window"] == {"sent_from": (today - timedelta(days=30)).isoformat(), "sent_to": today.isoformat(), "timezone": zone.key, "days_kept": 30}
+        check("with no dates the window is the 31 days up to today, in the workspace's zone, and both campaigns are in it; it says how far back and how wide a call may go",
+              body["window"] == {"sent_from": (today - timedelta(days=30)).isoformat(), "sent_to": today.isoformat(), "timezone": zone.key,
+                                 "earliest": results.earliest_day(today).isoformat(), "max_days": 31}
               and {"ZQ Fall Launch", "ZQ Loyalty Nudge"} <= set(rows) and body["count"] == len(body["results"]) and body["next"] is None and body["as_of"], str(body["window"]))
         check("a campaign's counts: five messages and one person held back for want of consent; four delivered, one of them replied, one unsubscribed",
               fall.get("counts") == {"audience": 6, "held_back": 1, "queued": 0, "not_sent": 0, "sent": 5, "failed": 0, "delivered": 4, "opened": 0, "clicked": 0, "bounced": 0,
@@ -155,15 +187,32 @@ def test_results_api(check, admin_email):
         check("a window that ends before the send has neither campaign, and the campaign itself answers 404",
               not {"ZQ Fall Launch", "ZQ Loyalty Nudge"} & {row["name"] for row in earlier["results"]} and earlier["window"]["sent_from"] == yesterday.isoformat() and gone.status_code == 404,
               f"{earlier['count']} {gone.status_code}")
-        too_old = api("get", f"/api/v1/results/campaigns/?sent_from={today - timedelta(days=31)}", h=K)
+        earliest = results.earliest_day(today)
+        last_year = api("get", f"/api/v1/results/campaigns/?sent_from={earliest}", h=K)
+        last_year_end = api("get", f"/api/v1/results/runs/?sent_to={earliest + timedelta(days=3)}", h=K)
+        check("thirteen months back can be read: a start alone runs 31 days from it, an end alone 31 days up to it, never before the earliest day",
+              last_year.status_code == 200 and last_year.json()["window"]["sent_from"] == earliest.isoformat() and last_year.json()["window"]["sent_to"] == (earliest + timedelta(days=30)).isoformat()
+              and last_year_end.status_code == 200 and last_year_end.json()["window"]["sent_from"] == earliest.isoformat()
+              and last_year_end.json()["window"]["sent_to"] == (earliest + timedelta(days=3)).isoformat()
+              and results.earliest_day(date(2026, 11, 26)) == date(2025, 10, 26) and results.earliest_day(date(2026, 3, 31)) == date(2025, 2, 28)
+              and results.earliest_day(date(2026, 1, 15)) == date(2024, 12, 15),
+              f"{last_year.content[:160]} {last_year_end.content[:160]}")
+        too_old = api("get", f"/api/v1/results/campaigns/?sent_from={earliest - timedelta(days=1)}", h=K)
+        too_wide = api("get", f"/api/v1/results/campaigns/?sent_from={today - timedelta(days=31)}&sent_to={today}", h=K)
+        widest = api("get", f"/api/v1/results/campaigns/?sent_from={today - timedelta(days=30)}&sent_to={today}", h=K)
+        ahead = api("get", f"/api/v1/results/campaigns/?sent_from={today + timedelta(days=2)}", h=K)
         backwards = api("get", f"/api/v1/results/runs/?sent_from={today}&sent_to={yesterday}", h=K)
         not_a_day = api("get", "/api/v1/results/campaigns/?sent_from=last-week", h=K)
         fax = api("get", "/api/v1/results/campaigns/?channel=FAX", h=K)
         huge = api("get", "/api/v1/results/campaigns/?page_size=many", h=K)
-        check("older than 30 days, a window back to front, a date that is none, an unknown channel and a page size in words are refused by field",
-              too_old.status_code == 400 and "30 days" in str(too_old.json()["errors"]["sent_from"]) and backwards.status_code == 400 and "sent_to" in backwards.json()["errors"]
+        check("older than 13 months is refused with the earliest day; more than 31 days in one call is refused with the latest end, and 31 days are served",
+              too_old.status_code == 400 and "13 months" in str(too_old.json()["errors"]["sent_from"]) and earliest.isoformat() in str(too_old.json()["errors"]["sent_from"])
+              and too_wide.status_code == 400 and "31 days" in str(too_wide.json()["errors"]["sent_to"]) and (today - timedelta(days=1)).isoformat() in str(too_wide.json()["errors"]["sent_to"])
+              and widest.status_code == 200, f"{too_old.content[:160]} {too_wide.content[:160]} {widest.status_code}")
+        check("a window back to front or in the future, a date that is none, an unknown channel and a page size in words are refused by field",
+              backwards.status_code == 400 and "sent_to" in backwards.json()["errors"] and ahead.status_code == 400 and "sent_from" in ahead.json()["errors"]
               and not_a_day.status_code == 400 and "sent_from" in not_a_day.json()["errors"] and fax.status_code == 400 and huge.status_code == 400,
-              f"{too_old.content[:160]} {backwards.content[:120]}")
+              f"{backwards.content[:120]} {ahead.content[:120]}")
 
         # ---- 6. a test send never counts
         sql("UPDATE campaign_run SET test_mode = TRUE WHERE tenant_id = %s AND id = %s", [TENANT, run2])
@@ -171,5 +220,77 @@ def test_results_api(check, admin_email):
         after = api("get", "/api/v1/results/campaigns/", h=K).json()
         check("a test send never counts", "ZQ Loyalty Nudge" not in {row["name"] for row in after["results"]} and "ZQ Fall Launch" in {row["name"] for row in after["results"]},
               str([row["name"] for row in after["results"]][:6]))
+
+        # ---- 7. each endpoint is limited on its own, and every call is in the log with the key that made it
+        key_id = reader.json()["id"]
+        if time.time() % 60 > 54:
+            time.sleep(7)                                  # the four calls below must fall in one minute of the limit's clock
+        sql("UPDATE integration SET throttle_per_minute = 3 WHERE tenant_id = %s AND kind = 'RESULTS_RUNS'", [TENANT])
+        logbook.invalidate(TENANT, "RESULTS_RUNS")
+        cache.delete_many([key for key in (f"{throttle.PREFIX}:inbound:{TENANT}:RESULTS_RUNS:m:{int(time.time() // 60) + n}" for n in (0, 1))])
+        with mock.patch.dict(logbook.RESULTS["RESULTS_RUNS"], {"per_minute": 3}):
+            sends3 = [api("get", "/api/v1/results/runs/", h=K) for _ in range(4)]
+            still = api("get", "/api/v1/results/campaigns/", h=K)
+        check("the sends endpoint at three a minute: the fourth call answers 429 with Retry-After and the limit, while the campaigns endpoint goes on",
+              [r.status_code for r in sends3] == [200, 200, 200, 429] and sends3[3].has_header("Retry-After") and sends3[3]["X-RateLimit-Limit"] == "3"
+              and sends3[0]["X-RateLimit-Limit"] == "3" and still.status_code == 200, f"{[r.status_code for r in sends3]} {dict(sends3[3].items())} {still.status_code}")
+        logged = sql("""SELECT kind, outcome, response_status, api_client_id::text, method, url, response_body IS NULL, related_ref FROM integration_log
+                         WHERE tenant_id = %s AND kind LIKE 'RESULTS%%' ORDER BY id""", [TENANT], True)
+        check("every call is in the integration log: its endpoint, the key that made it, the address asked and how it was answered, refusals and throttled calls too",
+              len(logged) >= 30 and {row[0] for row in logged} == {"RESULTS_CAMPAIGNS", "RESULTS_RUNS"} and {"OK", "REJECTED", "THROTTLED"} <= {row[1] for row in logged}
+              and all(row[3] == key_id for row in logged if row[1] == "OK") and all(row[4] == "GET" and "/api/v1/results/" in row[5] for row in logged)
+              and any(row[7] == f"campaign:{first}" for row in logged) and [row[1] for row in logged if row[0] == "RESULTS_RUNS"][-4:] == ["OK", "OK", "OK", "THROTTLED"],
+              str([(row[0], row[1], row[2]) for row in logged][-6:]))
+
+        # ---- 8. a read never weighs on the server
+        day = today - timedelta(days=40)
+        cache.add(f"cep:results_api:busy:{TENANT}", 1, 60)
+        waiting = api("get", f"/api/v1/results/campaigns/?sent_from={day}", h=K)
+        cache.delete(f"cep:results_api:busy:{TENANT}")
+        cancelled = OperationalError("canceling statement due to statement timeout")
+        cancelled.__cause__ = type("QueryCanceled", (Exception,), {})()
+        with mock.patch.object(results, "_work_out", side_effect=cancelled):
+            slow = api("get", f"/api/v1/results/campaigns/?sent_from={day}", h=K)
+        freed = api("get", f"/api/v1/results/campaigns/?sent_from={day}", h=K)
+        check("one read is worked out at a time: a second is asked to retry in two seconds; a query past its time is stopped and answered 504, and the next read goes through",
+              waiting.status_code == 429 and waiting["Retry-After"] == "2" and slow.status_code == 504 and slow["Retry-After"] == "60" and "too long" in slow.json().get("detail", "")
+              and freed.status_code == 200,
+              f"{waiting.status_code} {dict(waiting.items()).get('Retry-After')} {slow.status_code} {slow.content[:160]} {freed.status_code}")
+        with connection.cursor() as cur:
+            cur.execute("SELECT current_setting('statement_timeout')")
+            before = cur.fetchone()[0]
+        with context_of(TENANT), CaptureQueriesContext(connection) as queries:
+            results.collect(admin.tenant, today - timedelta(days=50), today - timedelta(days=45))       # a window nobody asked for yet: worked out, not remembered
+        limits = [query["sql"] for query in queries if "set_config('statement_timeout'" in query["sql"]]
+        with connection.cursor() as cur:
+            cur.execute("SELECT current_setting('statement_timeout')")
+            after_read = cur.fetchone()[0]
+        check("the queries of a read run under a 15-second limit, and the connection has its own setting back afterwards",
+              len(limits) == 2 and "'15s'" in limits[0] and f"'{before}'" in limits[1] and after_read == before, f"{before} {after_read} {limits}")
+
+        # ---- 9. the integration records (patch 0101)
+        page = api("get", "/api/v1/integrations/")
+        check("Settings -> Integrations answers whether or not the database knows the Results kinds yet", page.status_code == 200 and isinstance(page.json(), list), f"{page.status_code} {page.content[:200]}")
+        if patched:
+            records = {row[0]: row for row in sql("SELECT kind, name, system, direction, status, throttle_per_minute, log_level FROM integration WHERE tenant_id = %s AND kind LIKE 'RESULTS%%'", [TENANT], True)}
+            check("each endpoint has its own integration record, made at its first call: named, inbound, 60 a minute, bodies kept for failures only",
+                  records.get("RESULTS_CAMPAIGNS") == ("RESULTS_CAMPAIGNS", "Results: Campaigns", "Results API", "IN", "ACTIVE", 60, "ERRORS")
+                  and records.get("RESULTS_RUNS") == ("RESULTS_RUNS", "Results: Sends", "Results API", "IN", "ACTIVE", 3, "ERRORS"), str(records))
+            check("an answer that went well keeps no body in the log; a refusal keeps what was answered",
+                  all(row[6] for row in logged if row[1] == "OK") and any(not row[6] for row in logged if row[1] in ("REJECTED", "THROTTLED")), str([(row[1], row[6]) for row in logged][-6:]))
+            cards = {row["name"]: row for row in page.json() if row["kind"].startswith("RESULTS")}
+            check("Settings -> Integrations lists both, with their limits", set(cards) == {"Results: Campaigns", "Results: Sends"} and cards["Results: Sends"]["effective_limit_per_minute"] == 3
+                  and cards["Results: Campaigns"]["effective_limit_per_minute"] == 60, str(cards)[:300])
+            paused = api("post", f"/api/v1/integrations/{cards['Results: Campaigns']['id']}/pause/")
+            closed, open_still = api("get", "/api/v1/results/campaigns/", h=K), None
+            cache.delete_many([f"{throttle.PREFIX}:inbound:{TENANT}:RESULTS_RUNS:m:{int(time.time() // 60) + n}" for n in (0, 1)])
+            sql("UPDATE integration SET throttle_per_minute = 60 WHERE tenant_id = %s AND kind = 'RESULTS_RUNS'", [TENANT])
+            logbook.invalidate(TENANT, "RESULTS_RUNS")
+            open_still = api("get", "/api/v1/results/runs/", h=K)
+            resumed = api("post", f"/api/v1/integrations/{cards['Results: Campaigns']['id']}/resume/")
+            back = api("get", "/api/v1/results/campaigns/", h=K)
+            check("pausing one endpoint answers 503 there and nowhere else; resuming opens it again",
+                  paused.status_code == 200 and closed.status_code == 503 and open_still.status_code == 200 and resumed.status_code == 200 and back.status_code == 200,
+                  f"{paused.status_code} {closed.status_code} {open_still.status_code} {resumed.status_code} {back.status_code}")
         transaction.set_rollback(True)
     check.done()

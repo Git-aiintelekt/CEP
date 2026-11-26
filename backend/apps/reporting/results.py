@@ -1,8 +1,9 @@
 """Campaign results for other systems (the Results API, api/v1/results_api.py).
 
 What each campaign and each of its sends did, counted over the messages created in a window of days: whole days in the
-workspace's time zone, no further back than WINDOW_DAYS. The window bounds every scan by the partition key (created_at),
-so an e-receipt or journey campaign that never ends is read a month at most, never whole. Each execution table is read
+workspace's time zone, no further back than KEEP_MONTHS and no more than SPAN_DAYS of them a call. The window bounds every
+scan by the partition key (created_at), so a call costs the same however long the workspace has been sending, and an
+e-receipt or journey campaign that never ends is read a month at a time, never whole. Each execution table is read
 once, grouped by campaign and send; a campaign's figures are the sum of its sends'. Test sends never count, and nothing
 personal is read: no address, no number, no name.
 
@@ -10,18 +11,27 @@ The figures follow the campaign's own Results tab (apps/campaigns/service.metric
 a message CEP chose not to send is not_sent and never failed. Held back are the people the audience rules left out
 before any message was made (apps/delivery/engine/audience.py), by reason. Money is the campaign's latest attribution
 rollup (campaign_actual), for the campaign as a whole whatever the window.
+
+A read must never weigh on the app server, whoever calls and however often: an answer is kept for
+service.RESULTS_CACHE_TTL seconds, a workspace has one read worked out at a time (Busy: the caller retries in a moment),
+and a query that runs longer than QUERY_SECONDS is stopped (TooSlow) instead of holding a web worker.
 """
+import calendar
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
+from django.db import OperationalError
 from django.utils import timezone
 
 from apps.campaigns import service
 from apps.delivery.engine import session
 from apps.tenants.models import Tenant
 
-WINDOW_DAYS = 30
+KEEP_MONTHS = 13                                           # how far back results may be read: a year-on-year comparison, a reload after an outage
+SPAN_DAYS = 31                                             # the most days one call may cover
+QUERY_SECONDS = 15                                         # a query of a read that runs longer is stopped
+BUSY_SECONDS = 60                                          # the one-at-a-time mark clears itself, should a worker die holding it
 COUNT_KEYS = ("messages", "queued", "not_sent", "failed", "sent", "delivered", "opened", "clicked", "bounced", "complained", "replied", "opted_out")
 
 MESSAGES = {
@@ -63,6 +73,14 @@ class ResultsError(Exception):
         self.field = field
 
 
+class Busy(Exception):
+    """Another read of this workspace's results is being worked out."""
+
+
+class TooSlow(Exception):
+    """A query of the read ran past QUERY_SECONDS and was stopped."""
+
+
 def zone_of(tenant) -> ZoneInfo:
     try:
         return ZoneInfo(getattr(tenant, "timezone", None) or "UTC")
@@ -70,16 +88,28 @@ def zone_of(tenant) -> ZoneInfo:
         return ZoneInfo("UTC")
 
 
-def window(sent_from: date | None, sent_to: date | None, zone: ZoneInfo) -> tuple[datetime, datetime, date, date]:
-    """[sent_from 00:00, sent_to 24:00) in the zone. Left out: the whole of what may be read, WINDOW_DAYS back to today."""
+def earliest_day(today: date) -> date:
+    """The first day that may be read: the same day of the month, KEEP_MONTHS months before."""
+    year, month = divmod(today.year * 12 + today.month - 1 - KEEP_MONTHS, 12)
+    return date(year, month + 1, min(today.day, calendar.monthrange(year, month + 1)[1]))
+
+
+def window(sent_from: date | None, sent_to: date | None, zone: ZoneInfo) -> tuple[datetime, datetime, date, date, date]:
+    """[sent_from 00:00, sent_to 24:00) in the zone, and the earliest day that may be read. A side left out is SPAN_DAYS
+    from the other; both left out, the SPAN_DAYS up to today."""
     today = timezone.now().astimezone(zone).date()
-    earliest = today - timedelta(days=WINDOW_DAYS)
-    first, last = sent_from or earliest, min(sent_to or today, today)
+    earliest, reach = earliest_day(today), timedelta(days=SPAN_DAYS - 1)
+    if sent_from and sent_from > today:
+        raise ResultsError("sent_from", "The window starts in the future.")
+    last = min(sent_to or (sent_from + reach if sent_from else today), today)
+    first = sent_from or max(last - reach, earliest)
     if first < earliest:
-        raise ResultsError("sent_from", f"Results go back {WINDOW_DAYS} days: no earlier than {earliest.isoformat()}.")
+        raise ResultsError("sent_from" if sent_from else "sent_to", f"Results go back {KEEP_MONTHS} months: no earlier than {earliest.isoformat()}.")
     if last < first:
         raise ResultsError("sent_to", "The end of the window is before its start.")
-    return datetime.combine(first, time.min, tzinfo=zone), datetime.combine(last + timedelta(days=1), time.min, tzinfo=zone), first, last
+    if (last - first).days >= SPAN_DAYS:
+        raise ResultsError("sent_to", f"A call covers up to {SPAN_DAYS} days: with this start, no later than {(first + reach).isoformat()}.")
+    return datetime.combine(first, time.min, tzinfo=zone), datetime.combine(last + timedelta(days=1), time.min, tzinfo=zone), first, last, earliest
 
 
 def _blank() -> dict:
@@ -128,15 +158,35 @@ def collect(tenant, sent_from: date | None = None, sent_to: date | None = None) 
     in the window, the latest first. Kept for service.RESULTS_CACHE_TTL seconds, so the pages of one read agree."""
     tenant = tenant if isinstance(tenant, Tenant) else Tenant.objects.get(pk=tenant)
     zone = zone_of(tenant)
-    since, until, first_day, last_day = window(sent_from, sent_to, zone)
+    since, until, first_day, last_day, earliest = window(sent_from, sent_to, zone)
     cache_key = f"cep:results_api:{tenant.pk}:{first_day}:{last_day}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
+    busy = f"cep:results_api:busy:{tenant.pk}"
+    if not cache.add(busy, 1, BUSY_SECONDS):
+        raise Busy()
+    try:
+        result = _work_out(tenant, since, until)
+    except OperationalError as exc:
+        if type(exc.__cause__).__name__ == "QueryCanceled":
+            raise TooSlow() from None
+        raise
+    finally:
+        cache.delete(busy)
+    result["window"] = {"sent_from": first_day, "sent_to": last_day, "timezone": zone.key, "earliest": earliest, "max_days": SPAN_DAYS}
+    cache.set(cache_key, result, service.RESULTS_CACHE_TTL)
+    return result
+
+
+def _work_out(tenant, since: datetime, until: datetime) -> dict:
     as_of = timezone.now()
     args = {"tenant": str(tenant.pk), "since": since, "until": until}
     by_run: dict[tuple, dict] = {}                         # (campaign, run): a held-back list made before its run exists has run None
     with session.tx(), session.connection().cursor() as cursor:
+        cursor.execute("SELECT current_setting('statement_timeout')")
+        usual = cursor.fetchone()[0]
+        cursor.execute("SELECT set_config('statement_timeout', %s, true)", [f"{QUERY_SECONDS}s"])
         for statement in MESSAGES.values():
             cursor.execute(statement, args)
             for campaign_id, run_id, *numbers, first_sent, last_sent, activity in cursor.fetchall():
@@ -174,6 +224,7 @@ def collect(tenant, sent_from: date | None = None, sent_to: date | None = None) 
             cursor.execute("""SELECT id::text, run_number, run_type, status, sequence_label, scheduled_at, started_at, completed_at FROM campaign_run
                                WHERE tenant_id = %(tenant)s AND id::text = ANY(%(ids)s) AND NOT test_mode""", {**args, "ids": run_ids})
             about_run = {row[0]: dict(zip(("id", "run_number", "run_type", "status", "label", "scheduled_at", "started_at", "completed_at"), row)) for row in cursor.fetchall()}
+        cursor.execute("SELECT set_config('statement_timeout', %s, true)", [usual])        # the rest of the request keeps the server's own
     from apps.delivery import costs
     currency = costs.currency(tenant)
     campaigns = [{**about[campaign_id], **_figures(raw), "money": ({"currency": currency, **money[campaign_id]} if campaign_id in money else None)}
@@ -184,6 +235,4 @@ def collect(tenant, sent_from: date | None = None, sent_to: date | None = None) 
     floor = datetime.min.replace(tzinfo=ZoneInfo("UTC"))
     campaigns.sort(key=lambda row: (row["last_sent_at"] or row["last_activity_at"] or floor, row["code"]), reverse=True)
     runs.sort(key=lambda row: (row["started_at"] or row["scheduled_at"] or floor, row["campaign_code"], row["run_number"]), reverse=True)
-    result = {"as_of": as_of, "window": {"sent_from": first_day, "sent_to": last_day, "timezone": zone.key, "days_kept": WINDOW_DAYS}, "campaigns": campaigns, "runs": runs}
-    cache.set(cache_key, result, service.RESULTS_CACHE_TTL)
-    return result
+    return {"as_of": as_of, "campaigns": campaigns, "runs": runs}

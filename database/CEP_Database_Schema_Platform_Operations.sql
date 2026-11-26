@@ -766,7 +766,7 @@ CREATE TABLE IF NOT EXISTS integration (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     row_version         INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS')),
+    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES')),
     CONSTRAINT ck_integration_direction CHECK (direction IN ('IN', 'OUT')),
     CONSTRAINT ck_integration_status CHECK (status IN ('ACTIVE', 'PAUSED')),
     CONSTRAINT ck_integration_environment CHECK (environment IN ('SANDBOX', 'PRODUCTION')),
@@ -1418,7 +1418,7 @@ CREATE INDEX IF NOT EXISTS ix_sms_execution_phone ON sms_execution(tenant_id, ph
 
 -- the shop's order calls are logged like the point of sale's
 ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
-ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS'));
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES'));
 
 -- -------------------------------------------------------------------------------------
 -- 23. COUPON / LOYALTY TIER (patch 0033): cached references for Journey's Issue Coupon and
@@ -1639,7 +1639,7 @@ GRANT SELECT, INSERT, UPDATE ON coupon_issuance TO cep_app;
 GRANT ALL ON coupon_issuance TO cep_admin;
 
 ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
-ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS'));
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES'));
 
 -- an approved journey waiting for its go-live time (Approve, Schedule for Later) is APPROVED: the core layer's list lacked it
 ALTER TABLE journey DROP CONSTRAINT IF EXISTS ck_journey_status;
@@ -3957,6 +3957,16 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END IF;
 END $$;
+
+-- -------------------------------------------------------------------------------------
+-- RESULTS API (patch 0101): each endpoint another system reads campaign results from is an integration of its own, with its
+--     own calls-per-minute limit, pause switch and call log (Settings -> Integrations): RESULTS_CAMPAIGNS (campaign totals),
+--     RESULTS_RUNS (totals per send), RESULTS_MESSAGES (per-recipient rows, to come). The three checks on integration.kind
+--     above carry the full list, so re-running this layer never meets a row an older list refuses.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES'));
+COMMENT ON COLUMN integration.kind IS 'POS_RECEIPTS, ORDERS, EVENTS, COUPONS, RESULTS_CAMPAIGNS, RESULTS_RUNS, RESULTS_MESSAGES (inbound), PROVIDER (one per sending engine)';
 
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
