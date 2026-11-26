@@ -70,6 +70,10 @@ def build(name: str, columns: list[dict], rows: list[list], view: dict | None, t
                     sheet.write(r, c, value)
         if rows:
             sheet.autofilter(0, 0, len(rows), len(columns) - 1)
+        grand = shape.grid_total(columns, totals, view)
+        if grand is not None:
+            for c, value in enumerate(grand):
+                sheet.write(len(rows) + 1, c, value, total if value is None or isinstance(value, str) else total_formats.get(_format_key(columns[c]), total))
         return sheet
 
     if kind == "pivot":

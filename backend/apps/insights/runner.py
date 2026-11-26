@@ -21,7 +21,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 from apps.reporting import reports
-from . import access, catalog, clickhouse, compare, compiler, connection_limits, derived, external, fiscal, links, parameters, topn
+from . import access, catalog, clickhouse, compare, compiler, connection_limits, derived, external, fiscal, links, parameters, shape, topn
 from .catalog import engine_of
 from .definition import signature
 from apps.spreadsheet import safe_row
@@ -184,6 +184,27 @@ def _totals(tenant_id, dataset: dict, definition: dict, sets, zone: str, timeout
     return out
 
 
+def _grid_total_of_rows(view: dict | None, columns: list[dict], rows: list) -> list[dict] | None:
+    """A grid's Total row added up from its own lines, when the run holds every line and every column the row totals is a sum or a
+    count: the same figures as the engine's grand total, without running the report a second time. None otherwise (a calculated
+    column such as a margin, or a run cut at the page), and the engine is asked."""
+    view = view or {}
+    wanted = set(view.get("totals") or [])
+    if view.get("type", "grid") != "grid" or not wanted:
+        return None
+    measures = [(i, c) for i, c in enumerate(columns) if "aggregate" in c]
+    if any(c["key"] in wanted and c["aggregate"] not in ("sum", "count") for _, c in measures):
+        return None
+    values = []
+    for i, column in measures:
+        if column["key"] not in wanted:
+            values.append(None)
+            continue
+        cells = [row[i] for row in rows if row[i] is not None]
+        values.append(_json_safe(sum(cells, Decimal(0) if any(isinstance(v, Decimal) for v in cells) else 0)) if cells else None)
+    return [{"keys": {}, "values": values}]
+
+
 def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int | None = None, offset: int = 0, report_id=None, report_version=None,
         mask_pii: bool = False, totals_view: dict | None = None, params: dict | None = None, fresh: bool = False) -> dict:
     """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view. params: the answers to the
@@ -226,7 +247,9 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
             if compared:
                 out_columns, rows, more, over = _compared(tenant.pk, dataset, definition, compiled.columns, rows, zone, limits["statement_timeout_ms"], cap, dialect, user=user)
                 duration += more
-            totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii, dialect) if sets else None
+            totals = _grid_total_of_rows(totals_view or definition.get("view"), compiled.columns, rows) if sets == [()] and not compared and offset == 0 and len(rows) <= page else None
+            if totals is None and sets:
+                totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii, dialect)
             totals = compare.expand_totals(definition, totals) if compared and totals is not None else totals
         except compare.CompareError as exc:
             _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
@@ -477,6 +500,17 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
             if len(rows) < page:
                 break
             offset += page
+        sets = None if definition.get("blend") else compiler.totals_sets(definition, definition.get("view"))
+        if columns is not None and sets == [()] and (definition.get("view") or {}).get("type", "grid") == "grid":
+            try:
+                grand = shape.grid_total(columns, _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], 1, mask_pii, dialect),
+                                         definition.get("view"))
+            except Exception:                                       # noqa: BLE001 - the rows are out; a file without its Total row is still the rows
+                grand = None
+            if grand is not None:
+                buffer = io.StringIO()
+                csv.writer(buffer).writerow(safe_row(grand))
+                yield buffer.getvalue()
     finally:
         _release(slot)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "OK", report_id=report_id, report_version=report_version,

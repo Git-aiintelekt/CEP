@@ -276,7 +276,7 @@ export function ReportResult({ result, view, label = 'Report rows', minHeight = 
     case 'decomposition': return <DecompositionTree key={view.measure ?? ''} source={analysis} view={view} result={result} minHeight={Math.min(minHeight, 280)} />
     case 'hierarchy': return <Hierarchy key={fold?.count ?? 0} result={result} label={label} minHeight={minHeight} formats={view.formats} onPick={onPick} inCard={inCard} folded={fold ? (fold.open ? 'open' : 'closed') : null} />
     case 'pivot': return <Pivot result={result} view={view} label={label} minHeight={minHeight} onPick={onPick} inCard={inCard} />
-    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} onContext={onContext} />
+    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} totals={view.totals} onContext={onContext} />
   }
 }
 

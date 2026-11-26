@@ -128,3 +128,23 @@ def hierarchy(columns: list[dict], rows: list[list], totals: list[dict] | None =
     grand = [(lambda e: e if e is not None else _combine(_agg(c), [node["totals"][m] for node in roots]))(_exact(totals, {}, m)) for m, (_, c) in enumerate(meas)]
     return {"levels": [c for _, c in dims], "measures": [c for _, c in meas], "header": [" / ".join(c["label"] for _, c in dims), *(c["label"] for _, c in meas)],
             "rows": lines, "total": ["Total", *grand]}
+
+
+def grid_total(columns: list[dict], totals, view: dict | None) -> list | None:
+    """A grid's Total row, as the report's columns: the engine's grand total under each column the view totals, "Total" in the
+    first column that isn't one, nothing elsewhere. None when the grid has no Total row (or the engine sent no grand total)."""
+    wanted = set((view or {}).get("totals") or [])
+    if (view or {}).get("type", "grid") != "grid" or not wanted:
+        return None
+    whole = next((t for t in totals or [] if not t.get("keys")), None)
+    if whole is None:
+        return None
+    measures = [i for i, c in enumerate(columns) if c.get("aggregate")]
+    out = [None] * len(columns)
+    for k, i in enumerate(measures):
+        if columns[i]["key"] in wanted and not columns[i].get("masked") and k < len(whole["values"]):
+            out[i] = whole["values"][k]
+    label = next((i for i in range(len(columns)) if columns[i]["key"] not in wanted), None)
+    if label is not None:
+        out[label] = "Total"
+    return out

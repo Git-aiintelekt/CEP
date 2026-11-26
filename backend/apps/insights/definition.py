@@ -246,6 +246,16 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
         if not isinstance(signals, list) or any(s not in SIGNALS for s in signals) or len(set(signals)) != len(signals):
             raise DefinitionError("view.signals", "Use forecast, anomalies, or both.")
         out["signals"] = [s for s in SIGNALS if s in signals]
+    totals = raw.get("totals")                                         # a grid's Total row: the totalled columns it totals
+    if totals not in (None, []):
+        if out["type"] != "grid":
+            raise DefinitionError("view.totals", "A Total row is for a grid; a pivot and a hierarchy total themselves.")
+        if not isinstance(totals, list) or any(not isinstance(key, str) for key in totals) or len(set(totals)) != len(totals):
+            raise DefinitionError("view.totals", "Name the columns the Total row totals.")
+        for i, key in enumerate(totals):
+            if key not in measures:
+                raise DefinitionError(f"view.totals[{i}]", "Total one of the report's totalled columns.")
+        out["totals"] = [m for m in measures if m in totals]
     return out
 
 
