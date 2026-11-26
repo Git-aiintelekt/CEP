@@ -10,8 +10,10 @@ What a pack needs is a connection and the databases on it holding the pack's tab
     mapped       Settings -> Report Databases, or the mapping endpoint, records the connection a pack reads, kept
                  on the workspace as `base_pack_databases`. A mapping is the answer whenever there is one.
     worked out   otherwise the workspace's connections are looked at: the ones the pack's engine fits are asked
-                 which of their databases hold its tables, and the answer is used when exactly one connection has
-                 them. Two would be a guess, so it asks instead.
+                 which of their databases hold its tables, and the answer is used only when exactly one connection
+                 holds them in exactly one database. Two connections is a guess. So is one connection with the
+                 tables in several databases - on a shared server those are different clients, and reading them
+                 together would put another client's figures in this workspace's reports. Either way it asks.
 
 Nothing is added twice: a workspace that already has the pack is left alone. Nothing is added halfway either -
 `add` is one transaction, all or nothing - and a workspace that cannot be done is reported rather than skipped
@@ -108,10 +110,15 @@ def resolve(tenant, pack: dict) -> dict:
         return {"status": NO_DATABASE, "connection": None, "options": None, "why": ""}
     if len(found) > 1:
         return {"status": AMBIGUOUS, "connection": None, "options": None,
-                "why": "map it to one of " + ", ".join(sorted(r["name"] for r, _ in found))}
+                "why": "on " + ", ".join(sorted(r["name"] for r, _ in found)) + " - map it to one"}
     row, names = found[0]
+    if len(names) > 1:
+        # One server, several databases holding the same tables: on a shared server those are different clients,
+        # and taking them all would read another client's data into this workspace's reports. Never worked out.
+        return {"status": AMBIGUOUS, "connection": None, "options": None,
+                "why": f"{row['name']} holds them in {', '.join(names)} - map it to the right one"}
     return {"status": READY, "connection": row, "options": pack["checked"]({"databases": names}),
-            "why": f"worked out from {row['name']}: {', '.join(names)}"}
+            "why": f"worked out from {row['name']}: {names[0]}"}
 
 
 def plan(tenant, pack_keys: list[str] | None = None) -> list[dict]:
