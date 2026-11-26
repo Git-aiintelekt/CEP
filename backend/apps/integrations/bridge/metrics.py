@@ -115,7 +115,9 @@ def status(tenant_id, hours: int = 24) -> list[dict]:
         row["breaker_open_seconds"] = _breaker_open(row["id"])
         row["error_rate_24h"] = round((row["errors_24h"] + row["retried_24h"]) * 100 / row["calls_24h"], 1) if row["calls_24h"] else 0.0
         if row["direction"] == "IN":
-            row["effective_limit_per_minute"] = logbook.inbound_limit(tenant_id, {"throttle_per_minute": row["throttle_per_minute"]})
+            # a Results list with no figure of its own keeps the endpoint's, never the plan's
+            row["effective_limit_per_minute"] = logbook.inbound_limit(tenant_id, {"throttle_per_minute": row["throttle_per_minute"]},
+                                                                      logbook.RESULTS.get(row["kind"], {}).get("per_minute"))
         row["health"] = health_of(row)
         out.append(row)
     return out
