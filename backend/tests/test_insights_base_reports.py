@@ -1,8 +1,9 @@
-"""Base Reports (docs/mockups/base-reports.html, option 1): the Email Campaign Reports pack holds together (every field key as Report
-Databases makes it, every report and tile naming what the pack makes), its SQL keeps to its options, and adding it makes the folder,
-datasets, shared formulas, reports and dashboards through the app's own checks, all or nothing. No database server is contacted:
-the Postal connection is faked. Rolled back."""
+"""Base Reports (docs/mockups/base-reports.html, option 1): every pack holds together (every field key as Report Databases makes it,
+every report, formula, benchmark and tile naming what the pack makes), each one's SQL keeps to its options, and adding the Email
+Campaign Reports pack makes the folder, datasets, shared formulas, reports and dashboards through the app's own checks, all or
+nothing. No database server is contacted: the Postal connection is faked, and the other packs' SQL is read, not run. Rolled back."""
 import copy
+import re
 
 import pytest
 from django.conf import settings
@@ -11,6 +12,7 @@ from django.utils.text import slugify
 
 from apps.insights import base_reports, external
 from apps.insights.base_packs import PACKS
+from apps.insights.base_packs.common import OptionError, word
 from apps.insights.base_packs.email_campaigns import sql as email_sql
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -256,4 +258,166 @@ def test_a_percent_is_worked_out_in_percent(check):
     check("every percent formula multiplies by 100: the app shows a percent's value with a % sign, so 0.964 would read 1.0%",
           percent and all(f["expression"].replace(" ", "").endswith("*100") for f in percent), [f["label"] for f in percent if not f["expression"].replace(" ", "").endswith("*100")])
     check("a ratio that is not a percent is left alone", all(not f["expression"].replace(" ", "").endswith("*100") for f in PACK["formulas"] if f["format"] != "percent"))
+    check.done()
+
+
+# ------------------------------------------------------------------------------------------------- every pack, not only the first
+# The six packs added after Email Campaigns follow its shape, so the checks that hold it together hold all of them. Anything
+# registered in PACKS is covered: a pack added later is tested by being added, not by being remembered here.
+PACK_OPTIONS = {
+    "email-campaigns": OPTIONS,
+    "email-campaigns-warehouse": {"databases": ["citi_analysis_db"]},
+    "sms-marketing": {"databases": ["citi_analysis_db"]},
+    "sms-ereceipts": {"databases": ["citi_analysis_db"]},
+    "ereceipts": {"databases": ["citi_analysis_db"]},
+    "service-requests": {"databases": ["cititrends_icrm_prod"]},
+    "surveys": {"databases": ["cititrends_icrm_prod"]},
+}
+# Columns on the CRM's tables that are the customer, not a figure. None of them belongs in a report.
+PERSONAL = ("CUSTOMER_NAME", "CUSTOMER_MOBILE", "CUSTOMER_EMAIL", "CUSTOMER_PRIMARY_PHONE", "CUSTOMER_WORK_PHONE",
+            "CONTACT_EMAIL", "CONTACT_NAME", "EMAIL_ADDRESS", "GEO_LAT", "GEO_LNG", "ADDRESS_1", "ADDRESS_2")
+
+
+def test_every_pack_is_registered_with_its_options(check):
+    check("every pack in PACKS has options to test it with, and every option set names a pack",
+          set(PACKS) == set(PACK_OPTIONS), set(PACKS) ^ set(PACK_OPTIONS))
+    for key, pack in PACKS.items():
+        check(f"{key}: its key matches its registration", pack["key"] == key)
+        check(f"{key}: it says what it needs", bool(pack["needs"]["tables"]) and bool(pack["needs"]["label"]))
+    check.done()
+
+
+@pytest.mark.parametrize("pack_key", sorted(PACKS))
+def test_every_pack_holds_together(check, pack_key):
+    pack = PACKS[pack_key]
+    datasets = {d["id"]: d for d in pack["datasets"]}
+    keys = {d["id"]: {_key(f["label"]) for f in d["fields"]} for d in pack["datasets"]}
+    for formula in pack["formulas"]:
+        check(f"{formula['label']}: it belongs to a dataset of the pack", formula["dataset"] in datasets, formula["dataset"])
+        keys[formula["dataset"]].add("f_" + _key(formula["label"]))
+    for dataset in pack["datasets"]:
+        check(f"{dataset['label']}: its time field and row key are fields",
+              {dataset["time_field"], dataset["primary_key"]} <= keys[dataset["id"]],
+              {dataset["time_field"], dataset["primary_key"]} - keys[dataset["id"]])
+        # A field's key comes from its label, not its column, so the two have to agree or a report names nothing.
+        check(f"{dataset['label']}: every field but Link keeps its column's name as its key",
+              all(_key(f["label"]) == f["column"] for f in dataset["fields"] if f["column"] != "url"),
+              [(f["label"], f["column"]) for f in dataset["fields"] if _key(f["label"]) != f["column"] and f["column"] != "url"])
+    for formula in pack["formulas"]:
+        named = {_key(n) for n in re.findall(r"\[([^\]]+)\]", formula["expression"])}
+        check(f"{formula['label']}: every field it names is in {datasets[formula['dataset']]['label']}",
+              named <= keys[formula["dataset"]], named - keys[formula["dataset"]])
+    for report in pack["reports"]:
+        named = {c["field"] for c in report["definition"]["columns"]} | {o["field"] for o in report["definition"]["orderBy"]} | \
+                {r["field"] for r in report["definition"]["filters"]["rules"]} | {p["field"] for p in report["definition"]["parameters"]}
+        check(f"{report['name']}: every field it names is in {datasets[report['dataset']]['label']}",
+              named <= keys[report["dataset"]], named - keys[report["dataset"]])
+    for benchmark in pack["benchmarks"]:
+        fields = {benchmark["measure"], benchmark["count"], benchmark["base"]}
+        check(f"a benchmark on {datasets[benchmark['dataset']]['label']}: its measure, count and base are fields",
+              fields <= keys[benchmark["dataset"]], fields - keys[benchmark["dataset"]])
+        check(f"a benchmark on {benchmark['measure']}: its bands point the way it says",
+              (benchmark["act"] <= benchmark["good"]) if benchmark["higher"] else (benchmark["act"] >= benchmark["good"]))
+    ids = {r["id"]: r for r in pack["reports"]}
+    for board in pack["dashboards"]:
+        for row in board["layout"]["rows"]:
+            for tile in row["tiles"]:
+                report = ids.get(tile["report"])
+                check(f"{board['name']} - {tile['title']}: names a report of the pack", report is not None, tile)
+                if tile["show"] == "figure" and report:
+                    check(f"{board['name']} - {tile['title']}: its figure is one of the report's totals",
+                          any(c["field"] == tile["measure"] and c.get("aggregate") for c in report["definition"]["columns"]),
+                          tile["measure"])
+    percent = [f for f in pack["formulas"] if f["format"] == "percent"]
+    check("every percent formula multiplies by 100", all(f["expression"].replace(" ", "").endswith("*100") for f in percent),
+          [f["label"] for f in percent if not f["expression"].replace(" ", "").endswith("*100")])
+    check.done()
+
+
+@pytest.mark.parametrize("pack_key", sorted(PACKS))
+def test_every_pack_writes_sql_the_window_accepts(check, pack_key):
+    pack = PACKS[pack_key]
+    options = PACK_OPTIONS[pack_key]
+    for dataset in pack["datasets"]:
+        check(f"{dataset['label']}: passes the query window's check", bool(external.check_sql(dataset["sql"](options), "mysql80")))
+        check(f"{dataset['label']}: one branch per database it was given",
+              dataset["sql"](options).count("UNION ALL") == len(options["databases"]) - 1)
+    more = dict(options, databases=[*options["databases"], "another_database"])
+    for dataset in pack["datasets"]:
+        sql = dataset["sql"](more)
+        check(f"{dataset['label']}: a second database adds a second branch",
+              sql.count("UNION ALL") == len(options["databases"]) and "another_database" in sql)
+    check.done()
+
+
+@pytest.mark.parametrize("pack_key", sorted(PACKS))
+def test_every_pack_refuses_what_it_cannot_quote(check, pack_key):
+    options = PACK_OPTIONS[pack_key]
+    quoted = "shop" + chr(96) + "; DROP"
+    for label, bad in (("a database name with a quote", {**options, "databases": [quoted]}),
+                       ("no database at all", {**options, "databases": []}),
+                       ("the same database twice", {**options, "databases": [*options["databases"], *options["databases"]]})):
+        with pytest.raises(OptionError):
+            PACKS[pack_key]["checked"](bad)
+        check(f"refused: {label}", True)
+    check.done()
+
+
+def test_a_word_left_out_is_a_whole_word(check):
+    """The packs left campaigns out by substring, and "Hottest Designer Deals" contains "test": turning tests off would
+    have dropped the two biggest sends of the year, 400,761 messages, without saying so."""
+    for name, left_out, matches in (("Hottest Designer Deals Oct 17 Day 2", "test", False),
+                                    ("latest news", "test", False),
+                                    ("Important Update", "import", False),
+                                    ("Internal Test Template A", "test", True),
+                                    ("Test Campaign 29", "test", True),
+                                    ("Joy Video (Copy)", "copy", True),
+                                    ("Citi Listrak Subscribe list", "listrak", True)):
+        # what the SQL does, done here: everything but a letter or a digit becomes a space, then a padded word is looked for
+        normalised = " " + " ".join(re.sub(r"[^0-9a-zA-Z]+", " ", name).lower().split()) + " "
+        check(f"{name!r} contains {left_out!r} as a word: {matches}", ((" " + left_out + " ") in normalised) is matches)
+    condition = word("c.CAMPAIGN_NAME", "test")
+    check("the condition normalises the column the same way, and puts no pattern character in the statement",
+          "REGEXP_REPLACE" in condition and "' test '" in condition and "%" not in condition)
+    with pytest.raises(OptionError):
+        word("c.CAMPAIGN_NAME", "   ")
+    check("refused: a word with nothing in it", True)
+    check.done()
+
+
+def test_the_packs_keep_to_their_scope(check):
+    by_id = {d["id"]: d["sql"](PACK_OPTIONS["email-campaigns-warehouse"])
+             for d in PACKS["email-campaigns-warehouse"]["datasets"]}
+    check("the warehouse counts people, not rows: its reach is a distinct party count",
+          "COUNT(DISTINCT CASE WHEN m.SENT > 0 THEN m.PARTY_ID END) AS reached" in by_id["campaigns"])
+    check("and its message grain is one row per person per campaign",
+          "GROUP BY m.MARKETING_CAMPAIGN_ID, m.PARTY_ID" in by_id["messages"])
+    check("a list import is left out by name, always",
+          "listrak" in by_id["campaigns"] and "subscribe list" in by_id["campaigns"])
+    check("an event is named from a roster of campaigns, not from the recipient table, which would multiply it",
+          "GROUP BY MARKETING_CAMPAIGN_ID" in by_id["opens"])
+
+    marketing = {d["id"]: d["sql"](PACK_OPTIONS["sms-marketing"]) for d in PACKS["sms-marketing"]["datasets"]}
+    check("the SMS scope compares the campaign type as it is: wrapping it in LOWER() cost the optimiser the column",
+          "m.CAMPAIGN_TYPE IN ('sms', 'mms')" in marketing["messages"]
+          and "LOWER(COALESCE(m.CAMPAIGN_TYPE" not in marketing["messages"])
+    check("a click is kept apart from one that came back too fast to be a person",
+          "AS human_click" in marketing["messages"] and "TIME_TO_CLICK_MINUTES >= 2" in marketing["messages"])
+    slower = PACKS["sms-marketing"]["datasets"][0]["sql"]({**PACK_OPTIONS["sms-marketing"], "think_time": 7})
+    check("how long a person is given to think is an option", "TIME_TO_CLICK_MINUTES >= 7" in slower)
+
+    receipts = {d["id"]: d["sql"](PACK_OPTIONS["sms-ereceipts"]) for d in PACKS["sms-ereceipts"]["datasets"]}
+    check("the receipt flow is named, not typed: it is filed under two campaign types, and one of them carries verification too",
+          "m.CAMPAIGN_NAME = 'API SMS Receipt'" in receipts["receipts"])
+
+    surveys = {d["id"]: d["sql"](PACK_OPTIONS["surveys"]) for d in PACKS["surveys"]["datasets"]}
+    check("a survey's rates are built on one row per sitting", "GROUP BY a.RESPONSE_ID" in surveys["responses"])
+    check("and the answer grain is left as it is, one row per question", "GROUP BY" not in surveys["answers"])
+    check("the recommendation score is read the usual way, 9 and 10 against 6 and below",
+          "AS promoters" in surveys["responses"] and "AS detractors" in surveys["responses"])
+
+    for dataset in PACKS["service-requests"]["datasets"]:
+        sql = dataset["sql"](PACK_OPTIONS["service-requests"])
+        found = [column for column in PERSONAL if column in sql]
+        check(f"{dataset['label']}: reads nothing that identifies a customer", not found, found)
     check.done()
