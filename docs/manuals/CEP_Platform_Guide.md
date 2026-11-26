@@ -684,6 +684,10 @@ Platform administrators.
 | lists.import_chunk_rows | number | 5000 | Rows per chunk of an upload. |
 | lists.lookup_max_rows | number | 2000000 | The most IDs one Look Up in C360 file may hold (patch 0097). |
 | lists.lookup_batch_ids | number | 1000 | IDs read from the CRM database in one query during Look Up in C360. Smaller is gentler on that database and slower overall. |
+| attributes.sync_batch_ids | number | 1000 | IDs read from a customer attribute source's database in one query (nightly reads, Sync Now, Fill From Database, an upload's Tag Values). Smaller is gentler on that database and slower overall. |
+| attributes.nightly_hour_utc | number | 2 | The hour (UTC) the nightly customer attribute reads start. |
+| attributes.nightly_max_people | number | 2000000 | The most people one nightly read of a source covers; the run says where it stopped. |
+| attributes.source_timeout_ms | number | 60000 | How long one query to an attribute source's database may take before it is stopped. |
 | lists.notify_email_rows | number | 1000000 | An upload with at least this many rows emails the person who started it when it has been checked, imported or has failed. |
 | integrations.inbound_per_minute | object | 60 / 600 / unlimited per plan | The inbound pace limit per plan code for the point of sale and other callers. |
 | integrations.log_body_max_bytes | number | 65536 | How much of a request or answer body the call log keeps. |

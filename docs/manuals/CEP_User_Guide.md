@@ -48,6 +48,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How to
   - A Drip Campaign
   - What happens behind the scenes
+  - Tag Check
   - Estimated Cost
   - Things to know
 - Templates and Content
@@ -151,6 +152,13 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How a text is priced
   - The fields and controls
   - Where costs show
+  - Things to know
+- Customer Attributes
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How values arrive
+  - What happens at send
   - Things to know
 - Plan & Usage
   - What this page is for
@@ -520,16 +528,18 @@ Opened by a list's name. It shows who is in the list, how and when each was adde
 | | What the List Is For | Email, Texts, or Email and Texts. | Which column the file must have (an email address, a mobile number, or both), how a new person is recognised, and how each row is judged (email consent and address status, or text consent and the number's standing). Changed later on the list's Edit Details. |
 | | Type | Production or Test. | See Type above. |
 | | CSV File | The file: CSV only, up to 50 MB and 250,000 rows, comma, semicolon, tab or pipe separated, UTF-8 or Windows-1252. **Download Sample CSV** gives a file with the recognised columns in the right shape. | The file is stored privately, read in the background and deleted as soon as its rows are staged. |
-| Match Your Columns | One choice per column of the file | What each column means: Email, Mobile number, First name, Last name, Postal code, Loyalty ID, Loyalty tier, Last order date, Time zone, Email consent date, Text consent date, or *keep as a custom value*. C360 guesses from the headers; confirm or correct. | The required column must be matched. A consent date column becomes an opt-in for people C360 has no answer for. Any other column is kept on the person's list entry under its header and can be used as a tag in a template (coupon columns feed the barcode and QR code blocks). Time zone is the person's own, an IANA name such as America/Chicago; journeys that wait until a time of day use it, and a name that is not recognised is left out. |
+| Match Your Columns | One choice per column of the file | What each column means: Email, Mobile number, First name, Last name, Postal code, Loyalty ID, Loyalty tier, Last order date, Time zone, Email consent date, Text consent date, or *keep as a custom value*. C360 guesses from the headers; confirm or correct. | The required column must be matched. A consent date column becomes an opt-in for people C360 has no answer for. Any other column is kept on the person's list entry under its header in lower case, spaces as underscores (*Store Name* becomes `store_name`), up to 50 columns: a tag of that name finds it at send (coupon columns feed the barcode and QR code blocks). Time zone is the person's own, an IANA name such as America/Chicago; journeys that wait until a time of day use it, and a name that is not recognised is left out. |
+| Tag Values | Template (from a campaign) or Check Against a Template (optional) | The template whose tags the list is for. Opened from a campaign's Add Contact List it is the campaign's template; otherwise choose one, or **Skip**. | Without a template nothing changes: the file's other columns are kept as above. |
+| | Value From, for each tag | **File Column** (and which column), **Customer Attribute** (Settings → Customer Attributes), **Customer Record** (read at send, as today) or **Default Value** (the same words for everyone). C360 suggests one: a column of the tag's name, an attribute the tag reads, the customer record for names. | The values are kept with each list entry under the tag's key, where the send looks first: what you review is what is sent. An attribute whose source is a Report Database is read for the file's people while the file is checked, and kept with each customer too. |
 | Where Did These People Agree? | Consent Basis | Signed up on our website or app; Enrolled in store or in the loyalty programme; Asked us directly; Existing customers under implied consent. A bought or rented list is not allowed. | Recorded on every consent written from the file and on the list's compliance record. A Texts or Email-and-Texts list cannot use implied consent: marketing texts need an express opt-in. |
 | | Where the Consent Was Collected | Optional, up to 300 characters: a form name, a store, a campaign. | Kept as the evidence, so the proof can be found later. |
 | | The attestation | A sentence the uploader confirms in their own name, worded by the workspace (Settings → Consent Policy). | The import cannot be applied without it. Who confirmed it, and when, is kept. |
-| Review Before Importing | The report | How many rows will be imported and how many are held back (no address, not a valid address, the same address earlier in the file, and under a strict policy, no consent date); how many people are new to C360 and how many it already knows; and how the imported people would be judged by a marketing send today: can receive, unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent on record. | Nothing yet. **Import** starts the import; **Continue in the background** closes the wizard and leaves it running. |
+| Review Before Importing | The report | How many rows will be imported and how many are held back (no address, not a valid address, the same address earlier in the file, and under a strict policy, no consent date); how many people are new to C360 and how many it already knows; how the imported people would be judged by a marketing send today: can receive, unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent on record; and with a template, **Tag Values**: for each tag, how many of the people have a value and the first one. People without a value get the tag's default at send. | Nothing yet. **Import** starts the import; **Continue in the background** closes the wizard and leaves it running. |
 | List Created | Where the list is, and what to do next. | | |
 
 ### The wizard: Look Up in C360
 
-For a list you have as IDs only: the file holds one Customer ID (or Lead, Account or Contact ID) per row, and C360 reads each person from your CRM: name, mobile number, email, postal code, loyalty ID, time zone and whether they may be contacted. The CRM is one of the workspace's Report Databases ticked **Use for List Generation** (Settings → Report Databases); it is only ever read. Five steps: List Details, the IDs, Consent, Review, Done. There are no columns to match.
+For a list you have as IDs only: the file holds one Customer ID (or Lead, Account or Contact ID) per row, and C360 reads each person from your CRM: name, mobile number, email, postal code, loyalty ID, time zone and whether they may be contacted. The CRM is one of the workspace's Report Databases ticked **Use for List Generation** (Settings → Report Databases); it is only ever read. Six steps: List Details, the IDs, Tag Values, Consent, Review, Done. There are no columns to match.
 
 | Step | Field or control | What it is | What it changes |
 |---|---|---|---|
@@ -537,7 +547,8 @@ For a list you have as IDs only: the file holds one Customer ID (or Lead, Accoun
 | | Look Up In | Shown when more than one database is offered: tick one or more. They are searched in the order ticked (the number beside each says its turn); the first that has the ID supplies the person. With one database, it is used without asking. | Where each ID is read from. |
 | | Role | Customer, Lead, Account, Account Primary Contact, or Any Role (Party ID). | Only people who hold the role in the CRM are imported; the others are held back as *Not a Customer* (and so on). It also names the IDs everywhere in the wizard: Customer ID, Lead ID, Account ID, Contact ID, or Party ID for any role. |
 | | List Name, What the List Is For, List Type, Description | As for Upload a File. | What the List Is For decides the rules below: a texts list needs a usable mobile number, an email list a usable address, both lists both. |
-| Customer IDs (the step is named after the role) | *Add your Customer IDs. C360 looks each one up and brings the rest of the person with it.* | The file: CSV only, up to 50 MB and 2,000,000 IDs, a header row and one ID per row. The ID column is the only column, or one named Customer ID, Party ID, Account ID, Lead ID or Contact ID; other columns are ignored. **Download Sample CSV** gives a one-column file with the right header. | The file is stored privately and read in the background; the lookup starts as soon as it is read. |
+| Customer IDs (the step is named after the role) | *Add your Customer IDs. C360 looks each one up and brings the rest of the person with it.* | The file: CSV only, up to 50 MB and 2,000,000 IDs, a header row and one ID per row. The ID column is the only column, or one named Customer ID, Party ID, Account ID, Lead ID or Contact ID; other columns are kept with each list entry, as for Upload a File, and can fill a template's tags. **Download Sample CSV** gives a one-column file with the right header. | The file is stored privately and read in the background; the lookup starts as soon as it is read. |
+| Tag Values | As for Upload a File: a template (optional; **Skip** without one) and, for each of its tags, a column of the file, a customer attribute, the customer record or the default. | Answered while the lookup runs, and saved at once. A customer attribute that reads a Report Database is read for the people found, by their ID. Answered or changed after the rows were checked, the values are read on their own (*Reading the tag values*) without checking the file again; importing waits for it. The Review step shows how many people have a value for each tag. |
 | Consent | As for Upload a File. | The consent dates come from C360: *Allow Solicitation* Y on the number or address is an opt-in, dated by the solicitation change date (or the day it was linked), for people C360 has no answer for. | You can answer while the lookup runs. |
 | Review | **Looked Up in C360**, first | The databases and the role, how many IDs in how long; **Found in C360**; each reason rows were **Held Back**, with its count; each **Warning**. Then **Filled From C360**: how many of the usable people came with a name, mobile number, email, loyalty ID, postal code, time zone, text consent and email consent. | Nothing yet. The usual review follows (new, existing, warnings, errors, the governance check) and **Create List** imports. |
 
@@ -594,7 +605,7 @@ The upload button in the header shows the uploads running on every page, with th
 1. **The file is stored and queued**, never processed inside your request. Reading, checking and importing run in the background, in chunks, at most a few uploads at a time across the whole platform and never two of the same workspace at once, so one large file cannot slow everyone down. The page keeps showing progress; a hidden browser tab stops asking.
 2. **Reading** stages every row and guesses the columns from the headers.
 3. **Checking** holds back rows without a usable address, rows whose address appears earlier in the file, and, under a strict policy, rows without a consent date. Everyone else is matched to a person C360 knows (by loyalty ID first, then by address or number) or marked as new. Each importable row is judged exactly as a marketing send would judge that person today, with the send engine's own rules, so a word means the same at upload and in a campaign's results.
-4. **The declaration** is recorded: the basis, where it was collected, who attested and when.
+4. **The declaration** is recorded: the basis, where it was collected, who attested and when. With a template, the **Tag Values** are read for the rows that can be imported: a file column as it is, a database attribute from its source (by the person's ID there: the file's Party ID column, or the ID C360 keeps), and counted.
 For a file of IDs (Look Up in C360), a **lookup** comes between reading and checking: the IDs are read from the CRM 1,000 at a time, on a read-only connection, one upload at a time per workspace, so the CRM barely notices. A worker that stops carries on from the last batch it finished. The ID then becomes the person's key in C360: someone C360 already has under that ID is recognised by it first, a new person is created under it, and someone recognised by address or number gets the ID added, so the next file finds the same people.
 
 5. **Importing** creates the new people, adds everyone with a usable address to the list (whatever their status: people resubscribe, addresses get unblocked, and the send engine decides again for real at every run), writes an opt-in for a consent date only where C360 had no answer, and never overrides an unsubscribe. The list becomes active; under an approval policy it waits for approval first.
@@ -607,6 +618,7 @@ For a file of IDs (Look Up in C360), a **lookup** comes between reading and chec
 - Lists are never deleted while a campaign uses them; archive instead. People are never deleted from C360 by a list action.
 - A Test list cannot go to production. Make the real list a Production one from the start, or clone it.
 - Excel files are not accepted; save as CSV first.
+- A row whose Party ID cell is empty is recognised by its address (or number) instead, like a file without the column.
 - Look Up in C360 never writes to the CRM: it only reads, with the account the Report Database connects as.
 - A lookup takes about a second or two per 1,000 IDs, depending on the network to the CRM; 1.3 million IDs take a few tens of minutes. The Uploads page shows the time left.
 
@@ -955,6 +967,12 @@ Once published, the campaign page shows the Series Timeline: each message Sent w
 2. The set-up remembers how far it got: an unfinished draft opens at the next step and the steps ahead stay closed, so the publish cannot be reached early.
 3. The audience estimate runs the send engine's own governance order as of today; the frozen list at the run is the record of what a send used.
 4. Production Publish runs the checklist, records who published, waits for the approval when the workspace requires one, and creates the runs the dispatcher will start on time.
+
+## Tag Check
+
+On the Audience step and again on Review & Publish, the **Tag Check** card takes the template's tags one by one and says, for the people of the chosen lists (after the lists left out), how many have a value and where it comes from: a list column, a customer attribute, or the customer record, in the order the send looks. Its tag reads *2 Tags Short* or *All Tags Have Values*; when every tag has a value the card is one line, with **Details**. Under the table it says what the others get: the tag's default, or nothing. Before the template is chosen it says to choose it on the Content step.
+
+**Fill From Database** (with `list.edit`) reads the short tags from the Report Database behind a customer attribute (choose the field for each tag) for these people, by their ID, and stores the values with their list entries where the entry has none. It runs in the background; the card counts again when it ends. Lists used by other campaigns get the values too. An upload made from the campaign asks the same question on its **Tag Values** step (Contact Lists).
 
 ## Estimated Cost
 
@@ -2230,7 +2248,7 @@ Tags are the words a template fills in for each person: `{{first_name}}`, `{{sto
 |---|---|---|
 | Tag Key | The word inside the braces: lower-case letters, digits and underscores, starting with a letter, up to 100 characters. Must not be in use by another tag (*Another tag already uses this key.*). | How the tag is typed in a template: `{{loyalty_tier}}`. Fixed once created, because templates keep the token. |
 | Label | The name people see, at least two characters, up to 150. | What the tag picker lists, and what its search finds. Shown under the key in this table. |
-| Reads From | Where the value comes from when a message is sent: Customer, List upload, Campaign, Campaign run, System, Receipt (e-receipts), Store (e-receipts), Transaction (e-receipts from the point of sale), or Static value. Default Customer. | Which record each recipient's value is taken from. Changing it clears the Data Point. Receipt, Store and Transaction values exist only in e-receipts; anywhere else such a tag counts as empty. |
+| Reads From | Where the value comes from when a message is sent: Customer, List upload, Campaign, Campaign run, System, Receipt (e-receipts), Store (e-receipts), Transaction (e-receipts from the point of sale), Customer attribute (once the workspace has some: Settings → Customer Attributes), or Static value. Default Customer. | Which record each recipient's value is taken from. Changing it clears the Data Point. Receipt, Store and Transaction values exist only in e-receipts; anywhere else such a tag counts as empty. |
 | Data Point | For a source: the field to read, from the list the source offers. Required. Choosing one sets Type to match. | The value each recipient gets. |
 | Key | Shown when the data point is an open-ended one, such as a customer attribute or a list upload column: the attribute name or the column's header. Letters, digits and underscores. | Completes the path: the tag reads that one attribute or column. A key that does not match the upload's header leaves the tag to its default. |
 | Static Value | For Static value: the text itself. Required. | Every recipient gets this same text. Change it here and every later send carries the new text, for example a new offer's end date. |
@@ -2248,7 +2266,7 @@ Tags are the words a template fills in for each person: `{{first_name}}`, `{{sto
 
 ## What happens behind the scenes
 
-At send time each tag is filled for each recipient: from its source in the catalogue; if that is empty, from the list member's uploaded column of the same name; then from the customer's attribute of that name; then the tag's default. Test sends and previews use the sample values instead. A tag a template uses that is not in the catalogue is a finding on save. When the platform team changes a platform tag, every workspace's copy follows; a workspace tag with the same key is left alone.
+At send time each tag is filled for each recipient: from its source in the catalogue; if that is empty, from the list member's own value of the same name (an uploaded column, a Tag Values choice); then from the customer's attributes (Settings → Customer Attributes) of that name; then from the customer record; then the tag's default. Test sends and previews use the sample values instead. A tag a template uses that is not in the catalogue is a finding on save. When the platform team changes a platform tag, every workspace's copy follows; a workspace tag with the same key is left alone.
 
 ## Things to know
 
@@ -2431,6 +2449,95 @@ Carrier fees are the carriers' own charges (US 10DLC and the like). Depending on
 - The estimate counts people who can receive the campaign today; the real Campaign List is frozen when the send starts, so the actual can differ.
 - WhatsApp estimates assume every message is delivered, so the actual is usually lower.
 - Changing the limits does not touch campaigns already published.
+
+---
+
+# Customer Attributes
+
+**Where:** Settings → Engagement → Customer Attributes (under Audience).
+
+## What this page is for
+
+Your workspace's own customer fields: a points balance, a tier end date, a favourite store, a last online order. Each one says where its value comes from (a table of your CRM, a file, or another system that sends values), how fresh it is, and how many people have one. Templates use them through tags: `{{points_balance}}` is filled with each person's own balance.
+
+The values are kept per customer and per source system. iCRM today and another system tomorrow plug into the same place: a new system is a new source, never a change to C360.
+
+A workspace that has not added any sees *No customer attributes yet*: tags keep reading the customer record and the list, as before.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | Anyone can look. Adding, changing or removing attributes and sources, and **Sync Now**, need **Manage Customer Attributes** (`attribute.edit`); Workspace Admin has it. **Fill From Database** on a campaign needs `list.edit`. |
+
+## The fields and controls
+
+### Attributes
+
+| Column or control | What it is | What it changes |
+|---|---|---|
+| Attribute | The label, its key (what tags use), *Personal* when it is personal data, *Off* when it is switched off. | |
+| Type | Text, Number, Date or Yes or No; *List* when the value belongs to one list entry. | How values are kept: a number as a number, a date as a date. |
+| Comes From | The source, with its table and column (a database), the field name (the API), or *A file column, kept with each list entry*. *Nowhere yet* when it has no source. | |
+| Refresh | Nightly, On Import or On Change. | When the value is read again (see *How values arrive*). |
+| People With a Value | How many people have one, over every source. Counted again every five minutes. | |
+| Used By | The tags that read it. | An attribute a tag reads cannot be removed: change the tag first. |
+| Add Attribute | Opens the form below. | |
+| Edit / Remove | On each row. Remove asks first; the values already kept stay until a source writes them again. | |
+
+### Add Attribute
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Label | Up to 120 characters, e.g. *Points Balance*. | What people see. |
+| Key | Filled from the label (`points_balance`); lower-case letters, digits and underscores. A key C360 fills itself (first_name, email, party_id and the like) is refused. | What tags use. Fixed once saved. |
+| Type | Text, Number, Date, Yes or No. | How a value read is kept: *1,240* becomes the number 1240, a date time becomes the date. |
+| Belongs To | **The Customer** (one value a person, used by every campaign) or **One List Entry** (a value for one upload, such as an offer code: kept with each list entry). | |
+| Comes From | One of your sources, or *Nowhere Yet*. | |
+| Field | For a database source: the column to read, from the source's table (its first values are shown as a sample). For the API: the name the other system sends (empty: the key). For a file: the column, optional. | |
+| Refresh | For a database: **Nightly** (every customer, every night) or **On Import** (the people of each upload that uses it). For the API: On Change. For a file: On Import. | |
+| Default Value | Optional, up to 500 characters. | What a person without a value gets when the tag has no default of its own. |
+| Personal data | Left out of exports unless asked, removed with the person. | |
+| Make a tag that reads it | On a new attribute, ticked: adds the tag `{{key}}` (Settings → Tags, Reads From *Customer attribute*) unless a tag with that key exists. | Templates can use it at once. |
+
+### Sources
+
+| Column or control | What it is | What it changes |
+|---|---|---|
+| Source | Its name, the Report Database it reads (or its kind), and how many attributes read it. | |
+| Kind | Report Database, API or File. | |
+| Matches People By | A database: *TABLE · ID column → SYSTEM ID*. The API: the system's own ID, sent with each value. A file: the list's own matching. | |
+| Last Sync | What read it last (Nightly, Sync Now, an upload, Fill From Database, an API push), when, and how many people were read and matched; the reason when it failed; *Waiting to be read* or the progress while it runs. | |
+| Sync Now | On a database source with at least one attribute. | Reads every customer C360 can match, in the background. |
+| Add Source | Name; **System**, its short name (ICRM, SHOPIFY); **How Values Arrive**: Report Database, API or File. For a Report Database: the database (MySQL or PostgreSQL, from Settings → Report Databases), the table or view, and the **ID Column** that holds the person's ID in that system. | A source's kind is fixed once saved. |
+| Remove | Asks first. | The values it brought go with it. Its attributes keep their definitions and read nothing until they get another source. |
+
+## How values arrive
+
+**A Report Database, nightly.** Every night (the hour is the platform's: 02:00 UTC unless changed) C360 reads the source's table for every customer it can match, a batch of 1,000 IDs per query, on a read-only connection. The values read replace that source's values for each person; other sources' values are not touched.
+
+**A Report Database, when a list comes in.** The upload's Tag Values step, and Fill From Database on a campaign, read the attributes for just those people. What is read is also kept with each customer, so the next campaign has it too.
+
+**The API.** The other system sends `POST /api/v1/customer-attributes/values/` with an API key that has the scope `attributes:write` (Settings → API Keys): `{"system": "SHOPIFY", "people": [{"id": "the person's ID in that system", "values": {"last_order": "2026-11-20"}}]}`, up to 1,000 people a call. The workspace needs an API source for that system; each field needs an attribute that reads it. The answer says how many people were matched, how many C360 did not know, and which fields no attribute reads.
+
+**How people are matched.** By their ID in the source's system, which C360 remembers once it has seen it. For the CRM (system ICRM) C360 also uses the IDs it already keeps: the Party ID an upload or Look Up in C360 brought, or the C360 ID itself for people synced from C360.
+
+## What happens at send
+
+A tag gets each person's value in this order:
+
+1. **The list entry**: a value kept with the person on the list (a column of the uploaded file, a Tag Values choice, Fill From Database).
+2. **Customer attributes**: the attribute the tag reads, or the attribute with the tag's own key. When two sources have it, the one read most recently wins.
+3. **The customer record**: names, and the customer's own extra fields.
+4. **The default**: the tag's default value, else nothing.
+
+## Things to know
+
+- An attribute never stops a send: a value that cannot be read leaves the tag to its default.
+- A Report Database is only ever read, with the account it connects as.
+- Values that belong to one upload (an offer code for this campaign) stay on the list entry, not with the customer.
+- *Read live at send* (a value of the minute, read while the campaign sends) is not built: values are as of the last read.
+- Insights and segments do not use attributes yet.
 
 ---
 
