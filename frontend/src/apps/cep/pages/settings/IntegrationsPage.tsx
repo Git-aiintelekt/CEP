@@ -29,7 +29,8 @@ function readRows(): number {
   }
 }
 
-const HEALTH: Record<IntegrationHealth, { status: string; label: string }> = {
+// eslint-disable-next-line react-refresh/only-export-components
+export const HEALTH: Record<IntegrationHealth, { status: string; label: string }> = {
   healthy: { status: 'ACTIVE', label: 'Healthy' },
   degraded: { status: 'PAUSED', label: 'Degraded' },
   circuit_open: { status: 'FAILED', label: 'Circuit Open' },

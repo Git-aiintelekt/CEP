@@ -2,7 +2,7 @@
  * The Settings menu: General, then a group per suite component the workspace has (docs/mockups/settings-by-component.html,
  * option A), who sees which page, and the three things the panel remembers per viewer.
  */
-import { Bell, BookUser, Braces, CalendarRange, ChartColumn, CheckCircle2, CircleDollarSign, ClipboardCheck, Coins, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Megaphone, Plug, Receipt, Send, SlidersHorizontal, ShieldCheck, Sparkles, Target, Thermometer, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
+import { Bell, BookUser, Braces, CalendarRange, ChartColumn, CheckCircle2, CircleDollarSign, ClipboardCheck, Coins, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Megaphone, Plug, Receipt, Send, Share2, SlidersHorizontal, ShieldCheck, Sparkles, Target, Thermometer, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
 
 import type { Feature, Me } from '@/lib/types'
 
@@ -52,6 +52,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { to: '/settings/pos', label: 'POS Receipts', icon: Receipt, feature: 'ereceipt', section: 'Connections' },
     { to: '/settings/attribution', label: 'Attribution', icon: Target, section: 'Connections' },
     { to: '/settings/events', label: 'Events', icon: Zap, feature: 'journeys', section: 'Connections' },
+    { to: '/settings/results-api', label: 'Results API', icon: Share2, feature: 'api_access', section: 'Connections' },
   ] },
   { key: 'insights', label: 'Insights', icon: ChartColumn, component: 'insights', pages: [
     { to: '/settings/report-databases', label: 'Report Databases', icon: Database },

@@ -2212,10 +2212,44 @@ export type PermissionCode =
 export type IntegrationHealth = 'healthy' | 'degraded' | 'circuit_open' | 'paused' | 'idle'
 export type IntegrationOutcome = 'OK' | 'REJECTED' | 'RETRY' | 'ERROR' | 'THROTTLED' | 'BREAKER' | 'PAUSED'
 
+/** a key that may read results (Settings → Results API); the key itself is never sent, only its visible prefix */
+export interface ResultsApiKey {
+  id: string
+  name: string
+  key_prefix: string
+  allowed_ip_cidrs: string[]
+  last_used_at: string | null
+  expires_at: string | null
+}
+
+/** one list of the Results API with its integration record's last 24 hours; no record yet = nothing has read it and no key may */
+export interface ResultsApiList {
+  kind: 'RESULTS_CAMPAIGNS' | 'RESULTS_RUNS' | 'RESULTS_MESSAGES' | 'RESULTS_SUPPRESSIONS'
+  name: string
+  path: string
+  limit_per_minute: number
+  integration_id: string | null
+  status: 'ACTIVE' | 'PAUSED' | null
+  health: IntegrationHealth
+  calls_24h: number
+  throttled_24h: number
+  last_call_at: string | null
+  last_read_by: string | null
+}
+
+/** GET /workspace/results-api/ */
+export interface ResultsApiSettings {
+  endpoint: string
+  description_url: string
+  scope: string
+  keys: ResultsApiKey[]
+  lists: ResultsApiList[]
+}
+
 /** GET /integrations/: one line per integration with the last day's figures */
 export interface Integration {
   id: string
-  kind: 'POS_RECEIPTS' | 'PROVIDER' | 'ORDERS' | 'EVENTS' | 'COUPONS'
+  kind: 'POS_RECEIPTS' | 'PROVIDER' | 'ORDERS' | 'EVENTS' | 'COUPONS' | ResultsApiList['kind']
   name: string
   direction: 'IN' | 'OUT'
   system: string

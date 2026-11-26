@@ -766,7 +766,7 @@ CREATE TABLE IF NOT EXISTS integration (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     row_version         INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS')),
+    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES', 'RESULTS_SUPPRESSIONS')),
     CONSTRAINT ck_integration_direction CHECK (direction IN ('IN', 'OUT')),
     CONSTRAINT ck_integration_status CHECK (status IN ('ACTIVE', 'PAUSED')),
     CONSTRAINT ck_integration_environment CHECK (environment IN ('SANDBOX', 'PRODUCTION')),
@@ -1418,7 +1418,7 @@ CREATE INDEX IF NOT EXISTS ix_sms_execution_phone ON sms_execution(tenant_id, ph
 
 -- the shop's order calls are logged like the point of sale's
 ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
-ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS'));
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES', 'RESULTS_SUPPRESSIONS'));
 
 -- -------------------------------------------------------------------------------------
 -- 23. COUPON / LOYALTY TIER (patch 0033): cached references for Journey's Issue Coupon and
@@ -1639,7 +1639,7 @@ GRANT SELECT, INSERT, UPDATE ON coupon_issuance TO cep_app;
 GRANT ALL ON coupon_issuance TO cep_admin;
 
 ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
-ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS'));
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES', 'RESULTS_SUPPRESSIONS'));
 
 -- an approved journey waiting for its go-live time (Approve, Schedule for Later) is APPROVED: the core layer's list lacked it
 ALTER TABLE journey DROP CONSTRAINT IF EXISTS ck_journey_status;
@@ -3957,6 +3957,105 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END IF;
 END $$;
+
+-- -------------------------------------------------------------------------------------
+-- RESULTS API (patch 0101): each endpoint another system reads campaign results from is an integration of its own, with its
+--     own calls-per-minute limit, pause switch and call log (Settings -> Integrations): RESULTS_CAMPAIGNS (campaign totals),
+--     RESULTS_RUNS (totals per send), RESULTS_MESSAGES (per-recipient rows), and with patch 0102 RESULTS_SUPPRESSIONS (who must
+--     not be contacted). The three checks on integration.kind
+--     above carry the full list, so re-running this layer never meets a row an older list refuses.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS', 'RESULTS_CAMPAIGNS', 'RESULTS_RUNS', 'RESULTS_MESSAGES', 'RESULTS_SUPPRESSIONS'));
+COMMENT ON COLUMN integration.kind IS 'POS_RECEIPTS, ORDERS, EVENTS, COUPONS, RESULTS_CAMPAIGNS, RESULTS_RUNS, RESULTS_MESSAGES, RESULTS_SUPPRESSIONS (inbound), PROVIDER (one per sending engine)';
+
+-- -------------------------------------------------------------------------------------
+-- RESULTS API, RECIPIENTS (patch 0102): "what changed since my last read" for the per-recipient rows another system collects.
+--     mailer_execution.changed_at / sms_execution.changed_at: when a message's result last moved (its status, a delivery,
+--     an open, a click, a bounce, a reply, an unsubscribe), stamped by the database so no code path can forget it. A new
+--     message gets it when it is made. A message that was there before this patch has none until it next moves: the column
+--     is added without touching a row, and the index holds stamped rows only, so applying this is quick whatever the size
+--     of the tables. results.changes_tracked_from records the moment stamping began: a read of changes cannot go back
+--     before it (the rows are still read by send day).
+--     An unsubscribe is kept in consent_record, not on the message: recording one stamps the message it came from.
+--     The held-back index serves the people a send left out (campaign_list_member rows with a reason), a small part of
+--     that table.
+--     The list of who must not be contacted (GET /results/suppressions/) is read in the order its rows last changed:
+--     consent_suppression and contact_point_status are indexed by workspace and updated_at for that. integration.kind
+--     accepts RESULTS_SUPPRESSIONS (the checks above carry it).
+-- -------------------------------------------------------------------------------------
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS changed_at TIMESTAMPTZ;
+ALTER TABLE mailer_execution ALTER COLUMN changed_at SET DEFAULT clock_timestamp();
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS changed_at TIMESTAMPTZ;
+ALTER TABLE sms_execution ALTER COLUMN changed_at SET DEFAULT clock_timestamp();
+COMMENT ON COLUMN mailer_execution.changed_at IS 'When this message''s result last moved (trg_mailer_execution_changed); NULL = not since patch 0102';
+COMMENT ON COLUMN sms_execution.changed_at IS 'When this message''s result last moved (trg_sms_execution_changed); NULL = not since patch 0102';
+
+-- clock_timestamp(), not now(): the stamp is the moment of the change, not the start of a long transaction, so a read that
+-- stops a minute behind the clock does not miss it
+CREATE OR REPLACE FUNCTION fn_mailer_execution_changed() RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.changed_at IS DISTINCT FROM OLD.changed_at THEN
+        RETURN NEW;                                       -- stamped on purpose (an unsubscribe)
+    END IF;
+    IF (NEW.status, NEW.status_reason, NEW.not_sent_reason, NEW.bounce_type, NEW.submitted_at, NEW.delivered_at, NEW.opened_at, NEW.clicked_at, NEW.bounced_at, NEW.complained_at)
+       IS DISTINCT FROM
+       (OLD.status, OLD.status_reason, OLD.not_sent_reason, OLD.bounce_type, OLD.submitted_at, OLD.delivered_at, OLD.opened_at, OLD.clicked_at, OLD.bounced_at, OLD.complained_at) THEN
+        NEW.changed_at := clock_timestamp();
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_mailer_execution_changed ON mailer_execution;
+CREATE TRIGGER trg_mailer_execution_changed BEFORE UPDATE ON mailer_execution FOR EACH ROW EXECUTE FUNCTION fn_mailer_execution_changed();
+
+CREATE OR REPLACE FUNCTION fn_sms_execution_changed() RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.changed_at IS DISTINCT FROM OLD.changed_at THEN
+        RETURN NEW;
+    END IF;
+    IF (NEW.status, NEW.status_reason, NEW.not_sent_reason, NEW.submitted_at, NEW.delivered_at, NEW.responded_at, NEW.read_at, NEW.failed_at)
+       IS DISTINCT FROM
+       (OLD.status, OLD.status_reason, OLD.not_sent_reason, OLD.submitted_at, OLD.delivered_at, OLD.responded_at, OLD.read_at, OLD.failed_at) THEN
+        NEW.changed_at := clock_timestamp();
+    END IF;
+    RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_sms_execution_changed ON sms_execution;
+CREATE TRIGGER trg_sms_execution_changed BEFORE UPDATE ON sms_execution FOR EACH ROW EXECUTE FUNCTION fn_sms_execution_changed();
+
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_changed ON mailer_execution(tenant_id, changed_at, id) WHERE changed_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_sms_execution_changed ON sms_execution(tenant_id, changed_at, id) WHERE changed_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_campaign_list_member_held_back ON campaign_list_member(tenant_id, created_at, id) WHERE suppression_reason IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS ix_consent_suppression_changed ON consent_suppression(tenant_id, updated_at, id);
+CREATE INDEX IF NOT EXISTS ix_contact_point_status_changed ON contact_point_status(tenant_id, updated_at, id) WHERE party_id IS NOT NULL;
+
+-- an unsubscribe names the message whose link or reply carried it: stamp that message, and find the unsubscribes of a page of messages
+CREATE INDEX IF NOT EXISTS ix_consent_record_mailer_execution ON consent_record(tenant_id, mailer_execution_id) WHERE mailer_execution_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_consent_record_sms_execution ON consent_record(tenant_id, sms_execution_id) WHERE sms_execution_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION fn_consent_opt_out_stamps_message() RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    BEGIN                                                 -- whatever happens here, the unsubscribe itself is kept
+        IF NEW.mailer_execution_id IS NOT NULL THEN
+            UPDATE mailer_execution SET changed_at = clock_timestamp() WHERE tenant_id = NEW.tenant_id AND id = NEW.mailer_execution_id;
+        ELSIF NEW.sms_execution_id IS NOT NULL THEN
+            UPDATE sms_execution SET changed_at = clock_timestamp() WHERE tenant_id = NEW.tenant_id AND id = NEW.sms_execution_id;
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        NULL;
+    END;
+    RETURN NULL;
+END $$;
+DROP TRIGGER IF EXISTS trg_consent_record_stamps_message ON consent_record;
+CREATE TRIGGER trg_consent_record_stamps_message AFTER INSERT ON consent_record FOR EACH ROW
+    WHEN (NEW.action = 'OPT_OUT' AND (NEW.mailer_execution_id IS NOT NULL OR NEW.sms_execution_id IS NOT NULL))
+    EXECUTE FUNCTION fn_consent_opt_out_stamps_message();
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('results.changes_tracked_from', to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')), 'STRING', 'Results API',
+     'Set once by patch 0102: the moment the database began stamping when a message''s result changes. The Results API serves changes from this moment on. Do not change it')
+ON CONFLICT (key) DO NOTHING;
 
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample

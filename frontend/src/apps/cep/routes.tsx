@@ -38,6 +38,7 @@ import { DeliveryPage } from './pages/settings/DeliveryPage'
 import { DeliveryWarmUpPage } from './pages/settings/DeliveryWarmUpPage'
 import { UtmTrackingPage } from './pages/settings/UtmTrackingPage'
 import { EventsPage } from './pages/settings/EventsPage'
+import { ResultsApiPage } from './pages/settings/ResultsApiPage'
 import { IntegrationsPage } from './pages/settings/IntegrationsPage'
 import { MailServerPage } from './pages/settings/MailServerPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
@@ -128,6 +129,7 @@ export default function CepRoutes() {
           <Route path="pos" element={<PosReceiptsPage />} />
           <Route path="attribution" element={<AttributionPage />} />
           <Route path="events" element={<EventsPage />} />
+          <Route path="results-api" element={<ResultsApiPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="message-costs" element={<MessageCostsPage />} />

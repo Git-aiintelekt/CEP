@@ -13,7 +13,8 @@ import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
 import type { GovernanceBlackout, GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceUnengaged, GovernanceUnengagedRule, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
-import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
+import { SAMPLE_RESULTS_API } from '@/apps/cep/pages/settings/sampleResultsApi'
+import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, ResultsApiSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               AttributeRun, AttributeSource, CustomerAttribute, TagCheck, RunInterrupted, RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -904,6 +905,8 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** Settings → Results API: the first visit instead of two systems reading */
+  resultsApi?: ResultsApiSettings
   /** POST /auth/sso/ofbiz/back/ answers 403 */
   icrmBackFails?: boolean
   /** GET /warmup/; default: no warm-up yet, a Growth plan of 25,000 contacts */
@@ -1444,6 +1447,7 @@ export function installMockApi(options: MockOptions = {}) {
       return json({ results: journeyEvents.filter((row) => (!type || row.event_type === type) && (!q || JSON.stringify(row).toLowerCase().includes(q))) })
     }
     if (path.endsWith('/workspace/events/')) return json(eventsSettings)
+    if (path.endsWith('/workspace/results-api/')) return json(options.resultsApi ?? SAMPLE_RESULTS_API)
     if (path.endsWith('/attribution/settings/')) {
       if (method === 'PUT') {
         if (body && 'click_days' in body && !attributionNow.choices.click_days.includes(Number(body.click_days))) return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { click_days: 'Choose one of the offered windows.' } }, 400)

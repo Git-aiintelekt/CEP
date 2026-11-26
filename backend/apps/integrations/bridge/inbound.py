@@ -58,20 +58,28 @@ class ApiKeyRateThrottle(throttling.BaseThrottle):
         return getattr(self, "retry_after", None) or 1
 
 
+def _integration(view, tenant_id) -> dict | None:
+    """The view's integration record. A view that builds its own (`integration_record`) has its own name and limits."""
+    own = getattr(view, "integration_record", None)
+    if own is not None:
+        return own(tenant_id)
+    return logbook.integration_for(tenant_id, kind=getattr(view, "integration_kind", logbook.KIND_POS), system=getattr(view, "integration_system", "POS"))
+
+
 class WorkspaceInboundThrottle(throttling.BaseThrottle):
-    """The workspace's inbound calls per minute for an integration kind (the view names it in `integration_kind`)."""
+    """The workspace's inbound calls per minute for an integration kind (the view names it in `integration_kind`). A view
+    with `integration_per_minute` is limited to that figure even when its record carries none: never by the plan, never unlimited."""
 
     def allow_request(self, request, view):
         ctx = context.current()
         if ctx is None:
             return True
         kind = getattr(view, "integration_kind", logbook.KIND_POS)
-        system = getattr(view, "integration_system", "POS")
-        integration = logbook.integration_for(ctx.tenant_id, kind=kind, system=system)
+        integration = _integration(view, ctx.tenant_id)
         _raw(request)._cep_integration = integration
         if integration and integration.get("status") == "PAUSED":
             raise IntegrationPaused()
-        limit = logbook.inbound_limit(ctx.tenant_id, integration)
+        limit = logbook.inbound_limit(ctx.tenant_id, integration, getattr(view, "integration_per_minute", None))
         if not limit:
             return True
         decision = throttle.take(f"inbound:{ctx.tenant_id}:{kind}", limit, (integration or {}).get("throttle_burst"))
@@ -120,7 +128,7 @@ class InboundLogMixin:
             parsed = json.loads(raw or b"null")
         except ValueError:
             parsed = None
-        integration = getattr(request, "_cep_integration", None) or logbook.integration_for(ctx.tenant_id, kind=self.integration_kind, system=self.integration_system)
+        integration = getattr(request, "_cep_integration", None) or _integration(self, ctx.tenant_id)
         client = _api_client(request)
         status = int(response.status_code)
         answer = getattr(response, "data", None)
