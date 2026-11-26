@@ -31,6 +31,7 @@ import { TemplatesPage } from './pages/TemplatesPage'
 import { ApiKeysPage } from './pages/settings/ApiKeysPage'
 import { ApprovalsPage } from './pages/settings/ApprovalsPage'
 import { MessageCostsPage } from './pages/settings/MessageCostsPage'
+import { CustomerAttributesPage } from './pages/settings/CustomerAttributesPage'
 import { AttributionPage } from './pages/settings/AttributionPage'
 import { ConsentPolicyPage } from './pages/settings/ConsentPolicyPage'
 import { DeliveryPage } from './pages/settings/DeliveryPage'
@@ -130,6 +131,7 @@ export default function CepRoutes() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="message-costs" element={<MessageCostsPage />} />
+          <Route path="customer-attributes" element={<CustomerAttributesPage />} />
           <Route path="ai-assistant" element={<AiAssistantPage />} />
           <Route path="fiscal-year" element={<FiscalYearPage />} />
           <Route path="report-databases" element={<ReportDatabasesPage />} />

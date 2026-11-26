@@ -32,6 +32,7 @@ JOBS = {
     "plan-recurring-runs": ("Plans the next send of recurring campaigns", 30 * 60),
     "refresh-audience-lists": ("Brings contact lists that follow an audience in line with it", 3 * 3600),
     "process-list-imports": ("Reads, checks and imports uploaded contact list files", 10 * 60),
+    "sync-customer-attributes": ("Reads customer attribute sources: nightly, Sync Now and Fill From Database (Settings → Customer Attributes)", 10 * 60),
     "rollup-integration-metrics": ("Rolls the integration log up into per-minute figures and prunes both", 20 * 60),
     "check-engine-health": ("Checks every sending engine's callbacks, refused calls, speed, bounces and receipts (Engine Health)", 30 * 60),
     "check-engines-daily": ("Runs every active sending engine's Check: key and address, nothing sent", 26 * 3600),
@@ -51,7 +52,7 @@ JOBS = {
     "check-report-alerts": ("Checks the Insights alerts that are due and emails the ones that cross their threshold", 20 * 60),
     "refresh-clickhouse-reporting": ("Loads the recent rows into the ClickHouse reporting tables for workspaces on ClickHouse", 2 * 3600),
 }
-QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded
+QUIET = {"outbox-relay", "process-list-imports", "sync-customer-attributes"}                                   # runs every second: only failures and one success a minute are recorded
 _last_recorded: dict[str, float] = {}
 
 

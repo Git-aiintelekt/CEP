@@ -12,6 +12,8 @@
     apply()           worker: a range of lines per transaction. New people become customer_master rows owned by C360
                       (source_system CEP_UPLOAD, not a C360 copy), the list gets its members, and a consent date in the
                       file becomes an email opt-in for people C360 has no consent answer for (never over an unsubscribe).
+                      Each list entry keeps the file's columns no property uses, under their own names, and the values of the
+                      Tag Values step (tag_values.py): a template tag of the same name finds them at send.
 
 The queue, the limits on how much runs at once and the workers are in jobs.py. Every transaction is short and runs under
 the tenant's row-level security. COPY FROM is not available on tables with row-level security, so rows are staged with
@@ -30,7 +32,7 @@ from django.utils import timezone
 from apps.delivery.engine import session
 from apps.tenants import context
 
-from . import consent, governance
+from . import consent, governance, tag_values
 from .models import ContactList, ContactListImport
 
 MAX_BYTES = 50 * 1024 * 1024
@@ -251,8 +253,9 @@ def clean_mapping(record: ContactListImport, mapping: dict) -> dict:
     return cleaned
 
 
-def confirm_mapping(record: ContactListImport, mapping: dict) -> ContactListImport:
-    """In the request. The check itself is a job: queued now when the file has been read, otherwise right after the reading."""
+def confirm_mapping(record: ContactListImport, mapping: dict, tags: dict | None = None, *, with_tags: bool = False) -> ContactListImport:
+    """In the request. The check itself is a job: queued now when the file has been read, otherwise right after the reading.
+    `with_tags`: the Tag Values step answered too (`tags` None: skipped)."""
     from . import jobs
     if record.status in ("APPLYING", "APPLIED"):
         raise ImportError_("This import was already added to the list.")
@@ -262,7 +265,14 @@ def confirm_mapping(record: ContactListImport, mapping: dict) -> ContactListImpo
         raise ImportError_("The file is being checked right now. Wait for it to finish, then change the mapping.")
     record.column_mapping = clean_mapping(record, mapping)
     record.mapping_confirmed = True
-    record.save(update_fields=["column_mapping", "mapping_confirmed"])
+    fields = ["column_mapping", "mapping_confirmed"]
+    if with_tags:
+        try:
+            record.tag_values = tag_values.clean(record, tags)
+        except tag_values.TagValuesError as exc:
+            raise ImportError_(str(exc)) from None
+        fields.append("tag_values")
+    record.save(update_fields=fields)
     if record.status in ("STAGED", "REVIEW"):
         jobs.enqueue(record, "REVIEW")
     return record
@@ -384,8 +394,9 @@ def _expressions(mapping: dict, channel: str = "EMAIL") -> tuple[dict, dict]:
     value["email_ok"] = f"({value['email']} IS NOT NULL AND length({value['email']}) <= 254 AND lower({value['email']}) ~ %(email_re)s)"
     value["email_use"] = f"CASE WHEN {value['email_ok']} THEN lower({value['email']}) END"
     value["identity"] = f"COALESCE({value['email_use']}, {value['mobile_e164']})" if channel == "SMS" else f"lower({value['email']})"
-    if "party_id" in mapping:                             # a file with the CRM's ID: the ID is who the person is
-        value["identity"] = f"upper({value['party_id']})"
+    value["contact_identity"] = value["identity"]
+    if "party_id" in mapping:                             # a file with the CRM's ID: the ID is who the person is; a row without one, the address
+        value["identity"] = f"COALESCE(upper({value['party_id']}), {value['contact_identity']})"
     return value, params
 
 
@@ -506,9 +517,10 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                 if channel == "SMS":                           # a text list: the number recognises someone C360 knows when the row has no usable address
                     cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'MATCHED', match_method = 'PHONE', matched_party_id = k.party_id
                                          FROM cep_known_phone k WHERE {span} AND r.match_status = 'PENDING' AND ({v['email_use']}) IS NULL AND ({v['mobile_e164']}) = k.number""", params)
-                new_key = SOURCE_PARTY_ID.format(party=v["party_id"]) if "party_id" in mapping else PARTY_ID.format(email=v["identity"])
+                new_key = (f"COALESCE({SOURCE_PARTY_ID.format(party=v['party_id'])}, {PARTY_ID.format(email=v['contact_identity'])})" if "party_id" in mapping
+                           else PARTY_ID.format(email=v["identity"]))
                 cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'UNMATCHED',
-                                          match_method = CASE WHEN {"TRUE" if "party_id" in mapping else "FALSE"} THEN 'PARTY_ID' WHEN ({v['email_use']}) IS NULL THEN 'PHONE' ELSE 'EMAIL' END,
+                                          match_method = CASE WHEN {f"{v['party_id']} IS NOT NULL" if "party_id" in mapping else "FALSE"} THEN 'PARTY_ID' WHEN ({v['email_use']}) IS NULL THEN 'PHONE' ELSE 'EMAIL' END,
                                           matched_party_id = {new_key}
                                     WHERE {span} AND r.match_status = 'PENDING'""", params)
                 cursor.execute(f"""UPDATE contact_list_import_row r
@@ -594,7 +606,62 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                       "governance": {code: int(by_status.get(code, 0)) for code in governance.STATUSES},
                       "mobile": mobile, "checked_at": timezone.now().isoformat()}
     with session.tx():
-        record.save(update_fields=["column_mapping", "matched_count", "unmatched_count", "duplicate_count", "rejected_count", "warning_count", "progress_done", "progress_total", "summary"])
+        record.save(update_fields=["column_mapping", "matched_count", "unmatched_count", "duplicate_count", "rejected_count", "warning_count", "progress_done",
+                                   "progress_total", "summary"])
+    check_tags(record, mapping=mapping, v=v, base=base, mine=mine)
+
+
+def _tag_config(values) -> tuple:
+    values = values or {}
+    return values.get("template_id"), values.get("tags") or {}
+
+
+def check_tags(record: ContactListImport, beat=None, *, mapping=None, v=None, base=None, mine=None) -> None:
+    """The Tag Values step's figures for the rows that can be imported: database values read, then who has a value. Run at the end of
+    the check, and on its own (the TAGS job) when the step is answered after the check: a file of IDs is looked up and checked while
+    its uploader is still on the steps. The figures are kept only for the choices they were made from; choices changed meanwhile wait
+    for the next TAGS job (jobs._run queues it)."""
+    used = _tag_config(record.tag_values)
+    if not used[1]:
+        return
+    if mapping is None:
+        mapping = clean_mapping(record, record.column_mapping)
+        v, base = _expressions(mapping, channel_of(record.contact_list))
+        base.update({"imp": str(record.pk), "tenant": str(record.tenant_id), "email_re": EMAIL_RE})
+        mine = "r.tenant_id = %(tenant)s AND r.import_id = %(imp)s"
+    from apps.customers.attributes import AttributeError_
+    try:
+        result = tag_values.check(record, mapping, v, base, mine)
+    except AttributeError_ as exc:
+        result = {"error": str(exc)}
+    with session.tx():
+        now = ContactListImport.objects.filter(pk=record.pk, tenant_id=record.tenant_id).values_list("tag_values", flat=True).first()
+        if _tag_config(now) == used:
+            ContactListImport.objects.filter(pk=record.pk, tenant_id=record.tenant_id).update(tag_values={**(now or {}), "result": result})
+
+
+def tags_waiting(record_id, tenant_id) -> bool:
+    """The step has choices that no figures were made from yet."""
+    now = ContactListImport.objects.filter(pk=record_id, tenant_id=tenant_id).values_list("tag_values", flat=True).first() or {}
+    return bool(now.get("tags")) and not now.get("result")
+
+
+def save_tag_values(record: ContactListImport, body: dict | None) -> ContactListImport:
+    """In the request: the Tag Values step answered on its own (Look Up in C360, whose check starts without waiting for the uploader).
+    Before the check, it is simply kept; after it, the TAGS job reads the values; while a job runs, jobs._run queues TAGS when it ends."""
+    from . import jobs
+    if record.status in ("APPLYING", "APPLIED"):
+        raise ImportError_("This import was already added to the list.")
+    if record.status in ("FAILED", "CANCELLED"):
+        raise ImportError_("This upload did not finish. Upload the file again.")
+    try:
+        record.tag_values = tag_values.clean(record, body)
+    except tag_values.TagValuesError as exc:
+        raise ImportError_(str(exc)) from None
+    record.save(update_fields=["tag_values"])
+    if record.status == "REVIEW" and not record.next_action and record.tag_values:
+        jobs.enqueue(record, "TAGS")
+    return record
 
 
 def issues(record: ContactListImport, limit: int = 50) -> list[dict]:
@@ -622,6 +689,8 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
     v, base = _expressions(record.column_mapping, channel_of(contact_list))
     base.update({"imp": str(record.pk), "tenant": str(record.tenant_id), "list": str(contact_list.pk), "file": record.file_name,
                  "basis": record.consent_basis, "collected": record.consent_collected_at})
+    kept, kept_params = tag_values.member_sql(record)       # the file's other columns and the Tag Values step's values
+    base.update(kept_params)
     span = "r.tenant_id = %(tenant)s AND r.import_id = %(imp)s AND r.row_number BETWEEN %(a)s AND %(b)s"
     created = added = consents = 0
     applied_through = int((record.summary or {}).get("applied_through") or 0)
@@ -659,7 +728,7 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                SELECT DISTINCT ON (r.matched_party_id) %(list)s, r.tenant_id, r.matched_party_id,
                                       jsonb_strip_nulls(jsonb_build_object('first_name', {v['first_name']}, 'last_name', {v['last_name']}, 'postal_code', {v['postal_code']},
                                             'loyalty_tier', {v['loyalty_tier']}, 'timezone', CASE WHEN {v['timezone_ok']} THEN {v['timezone']} END,
-                                            'last_order_date', CASE WHEN {v['last_order_date_ok']} THEN ({v['last_order_date']})::date END)),
+                                            'last_order_date', CASE WHEN {v['last_order_date_ok']} THEN ({v['last_order_date']})::date END)) || {kept},
                                       'UPLOAD', r.match_method, r.import_id
                                  FROM contact_list_import_row r WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')
                                 ORDER BY r.matched_party_id, r.row_number
@@ -713,6 +782,11 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
     with session.tx():
         record.save(update_fields=["applied_count", "completed_at", "summary"])           # the counts were added range by range
         record.refresh_from_db(fields=["new_customer_count", "consent_count"])
+    try:
+        tag_values.remember(record)                       # database values read for these people: kept with each customer too
+    except Exception:                                     # noqa: BLE001  (the list is imported; the next sync fills them in)
+        import logging
+        logging.getLogger("cep.lists").exception("attribute values of import %s not kept", record.pk)
 
 
 # ---------------------------------------------------------------- the row-by-row report

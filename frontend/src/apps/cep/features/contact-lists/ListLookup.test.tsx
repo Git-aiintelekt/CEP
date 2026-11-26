@@ -38,7 +38,7 @@ test('Look Up in C360: the databases and the role on step 1, a file of Customer 
   let dialog = await wizard('List Details')
   await user.type(within(dialog).getByLabelText(/^List Name/), 'Fall Clearance Text List')
   await user.click(within(dialog).getByRole('radio', { name: /Look Up in C360/ }))
-  expect(within(dialog).getByText(/^Step 1 of 5/)).toBeTruthy()
+  expect(within(dialog).getByText(/^Step 1 of 6/)).toBeTruthy()
   await user.click(within(dialog).getByRole('radio', { name: /^Texts/ }))
   // two databases offered: at least one has to be ticked, and the order they are ticked in is the order they are searched
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
@@ -62,7 +62,21 @@ test('Look Up in C360: the databases and the role on step 1, a file of Customer 
   expect([upload?.form?.get('lookup_connections'), upload?.form?.get('lookup_role')]).toEqual(['db-2,db-1', 'CUSTOMER'])
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
 
-  // no columns to match: straight to consent, while C360 looks the IDs up
+  // no columns to match; the Tag Values step is answered while C360 looks the IDs up, and saved on its own
+  dialog = await wizard('Tag Values')
+  expect(within(dialog).getByRole('button', { name: 'Skip' })).toBeTruthy()
+  const template = within(dialog).getByLabelText(/^Check Against a Template/) as HTMLSelectElement
+  await vi.waitFor(() => expect(within(template).queryByRole('option', { name: 'Fall SMS' })).not.toBeNull())
+  await user.selectOptions(template, 'tpl-sms')
+  await within(dialog).findByRole('table', { name: /Where each tag of/ })
+  expect((within(dialog).getByLabelText('Value from, for {{points_balance}}') as HTMLSelectElement).value).toBe('ATTRIBUTE')
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.url.endsWith('/tag-values/'))).toBe(true))
+  const saved = calls.find((call) => call.url.endsWith('/tag-values/'))?.body as { tag_values: { template_id: string; tags: Record<string, { from: string }> } }
+  expect(saved.tag_values.template_id).toBe('tpl-sms')
+  expect(saved.tag_values.tags.points_balance).toEqual({ from: 'ATTRIBUTE', attribute: 'points_balance' })
+  expect(calls.some((call) => call.url.endsWith('/review/'))).toBe(false)                            // the lookup queues its own check
+
   dialog = await wizard('Consent')
   await user.click(within(dialog).getByRole('radio', { name: /Signed up on our website or app/ }))
   await user.click(within(dialog).getByLabelText(/I confirm these people agreed/))
@@ -76,6 +90,8 @@ test('Look Up in C360: the databases and the role on step 1, a file of Customer 
   expect(within(found).getByText('Mobile Number').nextElementSibling?.textContent).toContain('100%')
   expect(within(found).getByText('Text Consent').nextElementSibling?.textContent).toContain('75%')
   expect(found.textContent).not.toMatch(/iCRM Database|Check the iCRM Role/)
+  const tagged = within(dialog).getByRole('region', { name: 'Tag Values' })
+  expect(within(tagged).getByText('3 of 4')).toBeTruthy()                                             // points_balance, read from the database
 })
 
 test('without a database ticked for list generation, the way in is not offered; time left reads in plain words', async () => {

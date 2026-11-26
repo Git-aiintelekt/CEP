@@ -182,7 +182,7 @@ function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; poi
 
 const SOURCE_WORD: Record<string, string> = {
   CUSTOMER_MASTER: 'Customer', CAMPAIGN_LIST_MEMBER: 'List upload', CAMPAIGN: 'Campaign', CAMPAIGN_RUN: 'Campaign run', SYSTEM: 'System', RECEIPT: 'Receipt',
-  STORE: 'Store', TRANSACTION: 'Transaction', STATIC: 'Static', INNER_TEMPLATE: 'Content block',
+  STORE: 'Store', TRANSACTION: 'Transaction', STATIC: 'Static', INNER_TEMPLATE: 'Content block', CUSTOMER_ATTRIBUTE: 'Customer attribute',
 }
 
 export function TagsPage() {

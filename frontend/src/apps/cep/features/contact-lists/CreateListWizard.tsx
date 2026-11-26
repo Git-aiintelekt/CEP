@@ -1,7 +1,7 @@
 /**
  * New Contact List: one dialog, four ways in.
- *   Upload a file        name -> file -> match columns -> review -> done   (the list is a DRAFT until the import is added)
- *   Look Up in C360      name, databases and role -> a file of IDs -> consent -> review -> done   (the people come from the CRM)
+ *   Upload a file        name -> file -> match columns -> tag values -> consent -> review -> done   (the list is a DRAFT until the import is added)
+ *   Look Up in C360      name, databases and role -> a file of IDs -> tag values -> consent -> review -> done   (the people come from the CRM)
  *   BI / extraction      name -> choose an audience -> done
  *   Clone a list         name -> choose the list to copy -> done
  * A file is never processed while the operator waits on a request: the upload answers at once and a background worker
@@ -26,7 +26,7 @@ import { ChoiceCard as SetupCard, ChoiceGroup } from '@/apps/cep/features/campai
 import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Audience, ConsentBasis, ContactList, ListImport, ListLookupSources, ListSource, Page, ListChannel } from '@/lib/types'
+import type { Audience, ConsentBasis, ContactList, ListImport, ListLookupSources, ListSource, Page, ListChannel, TagValueChoice } from '@/lib/types'
 
 import { ProblemExtras } from '@/components/ProblemExtras'
 import { saveFailure, type SaveFailure } from '@/lib/saveFeedback'
@@ -38,12 +38,13 @@ import { ReportDownload, UploadReport } from './UploadReport'
 import { ProgressCount } from './ProgressCount'
 import { downloadLookupTemplate, downloadTemplate, formatLine, uploadColumns } from './uploadTemplate'
 import { ProgressBar } from './UploadsIndicator'
+import { TagValuesReview, TagValuesStep } from './TagValuesStep'
 
-type Step = 'source' | 'method' | 'file' | 'map' | 'consent' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
+type Step = 'source' | 'method' | 'file' | 'map' | 'tags' | 'consent' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
 
 const STEPS: Record<ListSource, Step[]> = {
-  UPLOAD: ['method', 'file', 'map', 'consent', 'review', 'done'],                        // 'importing' is the tail of the review step
-  LOOKUP: ['method', 'file', 'consent', 'review', 'done'],                                // C360 fills every field: no columns to match
+  UPLOAD: ['method', 'file', 'map', 'tags', 'consent', 'review', 'done'],                // 'importing' is the tail of the review step
+  LOOKUP: ['method', 'file', 'tags', 'consent', 'review', 'done'],                        // C360 fills every field: no columns to match
   BI: ['method', 'audience', 'done'],
   CLONE: ['method', 'clone', 'done'],
 }
@@ -53,6 +54,7 @@ const TITLES: Record<Step, [string, string]> = {
   method: ['New Contact List', ''],
   file: ['Add Your File', 'Upload the CSV that holds your contacts.'],
   map: ['Match Your Columns', 'Tell C360 what each column in your file means.'],
+  tags: ['Tag Values', 'Where each of the template’s tags gets its value.'],
   consent: ['Where Did These People Agree?', 'Every upload records its consent basis. It is kept with the list and shown on its compliance record.'],
   review: ['Review Before Importing', 'Check what comes in and what gets held back.'],
   importing: ['Importing Your Contacts', 'This runs in the background. You can keep working.'],
@@ -63,7 +65,7 @@ const TITLES: Record<Step, [string, string]> = {
 
 /** each step's name on the set-up frame's step line ("Step 3 of 6 · Match Columns") */
 const STEP_NAME: Record<Step, string> = {
-  source: 'Source', method: 'List Details', file: 'Upload File', map: 'Match Columns', consent: 'Consent', review: 'Review', importing: 'Importing',
+  source: 'Source', method: 'List Details', file: 'Upload File', map: 'Match Columns', tags: 'Tag Values', consent: 'Consent', review: 'Review', importing: 'Importing',
   audience: 'Choose an Audience', clone: 'Choose a List to Copy', done: 'Done',
 }
 
@@ -129,7 +131,7 @@ function LookupTemplateNote({ idLabel }: { idLabel: string }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink-900">File Format</p>
-          <p className="mt-1 text-xs text-ink-800">A CSV with a header row and one {idLabel} per row. Other columns are ignored.</p>
+          <p className="mt-1 text-xs text-ink-800">A CSV with a header row and one {idLabel} per row. Other columns are kept with each list entry, ready for a template’s tags.</p>
         </div>
         <button type="button" className={buttonSecondary} onClick={() => downloadLookupTemplate(idLabel)}>
           <Download size={16} strokeWidth={1.5} aria-hidden />Download Sample CSV
@@ -294,16 +296,18 @@ interface WizardProps {
   onDone?: (done: boolean) => void
   /** embedded: "Review List" on the last screen: the pop-up closes and the page brings the list into view */
   onReview?: (list: ContactList) => void
+  /** opened from a campaign: its template, whose tags the Tag Values step asks about */
+  templateId?: string
 }
 
-const UPLOAD_STEP_NAMES = ['Details', 'File', 'Columns', 'Consent', 'Review']
+const UPLOAD_STEP_NAMES = ['Details', 'File', 'Columns', 'Tags', 'Consent', 'Review']
 /** Audience or Clone in the campaign's pop-up: pick the source, then the details */
 const MAKE_STEPS: Step[] = ['source', 'method', 'done']
 const MAKE_STEP_NAMES = ['Source', 'Details']
 const CHANNEL_OPTIONS: { value: ListChannel; label: string }[] = [{ value: 'EMAIL', label: 'Email' }, { value: 'SMS', label: 'Texts' }, { value: 'BOTH', label: 'Email and Texts' }]
 const TYPE_OPTIONS = [{ value: 'PRODUCTION', label: 'Production' }, { value: 'TEST', label: 'Test' }]
 
-export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD', sources, embedded = false, defaultChannel, onAtStart, onDone, onReview }: WizardProps) {
+export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD', sources, embedded = false, defaultChannel, onAtStart, onDone, onReview, templateId }: WizardProps) {
   const queryClient = useQueryClient()
   /** Audience or Clone, inside the pop-up: one Source list of audiences and lists, then the details */
   const making = embedded && initialSource !== 'UPLOAD'
@@ -322,6 +326,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const [draft, setDraft] = useState<ContactList | null>(null)
   const [upload, setUpload] = useState<ListImport | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
+  /** the Tag Values step: the template checked against ('' = skipped) and where each of its tags gets its value */
+  const [tagTemplate, setTagTemplate] = useState(templateId ?? '')
+  const [tagChoices, setTagChoices] = useState<Record<string, TagValueChoice>>({})
   const [basis, setBasis] = useState<ConsentBasis | ''>('')
   const [collectedAt, setCollectedAt] = useState('')
   const [attested, setAttested] = useState(false)
@@ -393,6 +400,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         setChannel((list.channel as ListChannel) || 'EMAIL')
         setUpload(staged)
         setMapping(staged.mapping)
+        if (staged.tag_values) { setTagTemplate(staged.tag_values.template_id); setTagChoices(staged.tag_values.tags) }
         if (staged.lookup) { setSource('LOOKUP'); setRole(staged.lookup.role ?? '') }
         if (staged.consent?.basis) { setBasis(staged.consent.basis); setCollectedAt(staged.consent.collected_at ?? ''); setAttested(Boolean(staged.consent.attested_at)) }
         const declared = !staged.consent?.required || Boolean(staged.consent?.attested_at)
@@ -497,13 +505,25 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const review = () =>
     run(async () => {
       if (!draft || !upload) return
-      const queued = await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/review/`, { mapping })
+      const tag_values = lookingUp ? undefined : tagTemplate ? { template_id: tagTemplate, tags: tagChoices } : null
+      const queued = await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/review/`, tag_values === undefined ? { mapping } : { mapping, tag_values })
       setUpload(queued)
       queryClient.setQueryData(['contact-lists', 'import', queued.contact_list, queued.id], queued)
       void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
       // the check runs in the background while the consent questions are answered
       setStep(queued.consent?.required === false ? 'review' : 'consent')
     }, 'The columns were not checked')
+
+  /** Look Up in C360: the lookup and the check run on their own, so the Tag Values step is saved by itself and read when the rows are ready */
+  const saveTags = () =>
+    run(async () => {
+      if (!draft || !upload) return
+      const saved = await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/tag-values/`,
+        { tag_values: tagTemplate ? { template_id: tagTemplate, tags: tagChoices } : null })
+      setUpload(saved)
+      queryClient.setQueryData(['contact-lists', 'import', saved.contact_list, saved.id], saved)
+      setStep(saved.consent?.required === false ? 'review' : 'consent')
+    }, 'The tag values were not saved')
 
   /** where the file's people agreed, and the uploader's word that they did: kept on the import and the list's compliance record */
   const declare = () =>
@@ -564,8 +584,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     making && step === 'source' ? { label: 'Next', action: () => setStep('method'), disabled: audience === '' && parent === '' }
     : making && step === 'method' ? { label: 'Create List', action: source === 'BI' ? fromAudience : fromClone, disabled: name.trim() === '' }
     : step === 'method' ? { label: 'Next', action: fromMethod, disabled: name.trim() === '' || (lookingUp && (offered.length === 0 || (offered.length > 1 && lookupDbs.length === 0))) }
-    : step === 'file' ? { label: 'Next', action: () => setStep(lookingUp ? 'consent' : 'map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
-    : step === 'map' ? { label: 'Next', action: review, disabled: !emailMapped }
+    : step === 'file' ? { label: 'Next', action: () => setStep(lookingUp ? 'tags' : 'map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
+    : step === 'map' ? { label: 'Next', action: () => setStep('tags'), disabled: !emailMapped }
+    : step === 'tags' ? { label: tagTemplate ? 'Next' : 'Skip', action: lookingUp ? saveTags : review, disabled: !lookingUp && !emailMapped }
     : step === 'consent' ? { label: 'Next', action: declare, disabled: basis === '' || !basisAllowed || !attested }
     : step === 'review' ? { label: 'Create List', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
     : step === 'audience' ? { label: 'Create List', action: fromAudience, disabled: audience === '' }
@@ -1000,6 +1021,11 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         </div>
       )}
 
+      {step === 'tags' && upload && (
+        <TagValuesStep upload={upload} mapping={lookingUp ? job?.mapping ?? {} : mapping} channel={channel} campaignTemplate={templateId} template={tagTemplate} onTemplate={setTagTemplate}
+          choices={tagChoices} onChoices={setTagChoices} />
+      )}
+
       {step === 'consent' && upload && consent && fresh && (
         <div className="flex flex-col gap-5">
           <h3 id={basisId} className="font-display text-card-heading font-semibold text-ink-900">How did these people opt in?</h3>
@@ -1143,6 +1169,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
           {job.summary && !job.summary.balanced && (
             <p role="alert" className="text-helper font-medium text-danger-plain">These numbers do not add up. Download the row-by-row report and tell support.</p>
           )}
+          <TagValuesReview job={job} />
           {(job.issues ?? []).length > 0 && (
             <div>
               <p className="mb-1 text-xs font-semibold text-ink-800">Rows to Look At{(job.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
@@ -1173,6 +1200,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <p className="cep-num text-sm text-ink-800">{formatNumber(review_.held_back)} rows held back</p>
           </div>
           <LookupSection job={job} />
+          <TagValuesReview job={job} />
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {([['New', review_.new, 'not in C360 yet'], ['Existing', review_.existing, 'already known'], ['Warnings', review_.warnings, 'imported with a remark'], ['Errors', review_.errors, 'held back']] as const).map(
               ([label, value, hint]) => (

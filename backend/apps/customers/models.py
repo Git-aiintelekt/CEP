@@ -115,3 +115,104 @@ class CustomerSegmentMembership(models.Model):
 
     def __str__(self):
         return str(self.party_id)
+
+
+class CustomerAttributeSource(models.Model):
+    """A system customer attribute values come from: a Report Database table read by an ID column, a file, or the API (patch 0100)."""
+    class Kind(models.TextChoices):
+        DATABASE = 'DATABASE', 'Report Database'
+        FILE = 'FILE', 'File'
+        API = 'API', 'API'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    name = models.CharField(max_length=120)
+    system = models.CharField(max_length=40)  # ICRM, SHOPIFY ...: the namespace of its IDs in customer_external_id
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    report_connection_id = models.UUIDField(null=True, blank=True)
+    table_name = models.CharField(max_length=128, null=True, blank=True)
+    id_column = models.CharField(max_length=128, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    last_sync_run_id = models.UUIDField(null=True, blank=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'customer_attribute_source'
+
+    def __str__(self):
+        return str(self.name)
+
+
+class CustomerAttributeDefinition(models.Model):
+    """A workspace's own customer field: the key a tag names, its type, and where it is read (patch 0100)."""
+    class DataType(models.TextChoices):
+        TEXT = 'TEXT', 'Text'
+        NUMBER = 'NUMBER', 'Number'
+        DATE = 'DATE', 'Date'
+        BOOLEAN = 'BOOLEAN', 'Yes or No'
+
+    class Scope(models.TextChoices):
+        CUSTOMER = 'CUSTOMER', 'The Customer'
+        LIST = 'LIST', 'One List Entry'
+
+    class Refresh(models.TextChoices):
+        NIGHTLY = 'NIGHTLY', 'Nightly'
+        ON_IMPORT = 'ON_IMPORT', 'On Import'
+        ON_CHANGE = 'ON_CHANGE', 'On Change'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    key = models.CharField(max_length=60)
+    label = models.CharField(max_length=120)
+    data_type = models.CharField(max_length=10, default='TEXT', choices=DataType.choices)
+    scope = models.CharField(max_length=10, default='CUSTOMER', choices=Scope.choices)
+    source = models.ForeignKey('customers.CustomerAttributeSource', on_delete=models.SET_NULL, db_column='source_id', related_name='attributes', null=True, blank=True)
+    source_field = models.CharField(max_length=128, null=True, blank=True)
+    refresh = models.CharField(max_length=12, default='ON_IMPORT', choices=Refresh.choices)
+    is_pii = models.BooleanField(default=False)
+    default_value = models.CharField(max_length=500, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'customer_attribute_definition'
+
+    def __str__(self):
+        return str(self.label)
+
+
+class CustomerAttributeSyncRun(models.Model):
+    """One read of an attribute source: nightly, Sync Now, an import, Fill From Database or an API push (patch 0100)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    source = models.ForeignKey('customers.CustomerAttributeSource', on_delete=models.CASCADE, db_column='source_id', related_name='runs', null=True, blank=True)
+    trigger = models.CharField(max_length=10)  # NIGHTLY, MANUAL, IMPORT, FILL, API
+    status = models.CharField(max_length=10, default='QUEUED')  # QUEUED, RUNNING, DONE, FAILED
+    params = models.JSONField(default=dict)
+    people_read = models.IntegerField(default=0)
+    people_matched = models.IntegerField(default=0)
+    values_changed = models.IntegerField(default=0)
+    error = models.CharField(max_length=500, null=True, blank=True)
+    queued_at = models.DateTimeField(db_default=Now())
+    started_at = models.DateTimeField(null=True, blank=True)
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'customer_attribute_sync_run'
+
+    def __str__(self):
+        return f"{self.trigger} {self.status}"

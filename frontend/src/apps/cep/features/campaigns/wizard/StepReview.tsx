@@ -17,6 +17,7 @@ import { api } from '@/lib/api'
 import { formatMoney, formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, CampaignChecklist, CampaignRun } from '@/lib/types'
 
+import { TagCheckCard } from '../../attributes/TagCheckCard'
 import { CostEstimateCard } from '../../costs/CostEstimateCard'
 import { useCostEstimate } from '../../costs/data'
 import { costMoney } from '../../costs/money'
@@ -183,6 +184,8 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
         {audience.data && <Panel title="Audience Estimate"><AudiencePicture audience={audience.data} /></Panel>}
 
         {texts && <CostEstimateCard campaignId={campaign.id} enabled={campaign.contact_lists.length > 0} />}
+
+        {!isReceipt && campaign.campaign_type !== 'DRIP' && <TagCheckCard template={campaign.template} include={campaign.contact_lists} exclude={campaign.excluded_lists} campaignId={campaign.id} />}
 
         {campaign.approval_required && <ApprovalCard campaign={campaign} />}
 

@@ -25,7 +25,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .platform_status_api import PlatformStatusView
-from . import (receipt_layouts_api, costs_api, attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
+from . import (attributes_api, receipt_layouts_api, costs_api, attribution_api, utm_api, auth_api, campaigns_api, client_errors, customers_api, events_api, legal_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, warmup_api, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api, governance_api)
 
@@ -83,6 +83,17 @@ urlpatterns = [
     path("message-costs/", costs_api.MessageCostsView.as_view(), name="message_costs"),
     path("message-prices/", costs_api.MessagePricesView.as_view(), name="message_prices"),
     path("campaigns/<uuid:pk>/cost/", costs_api.CampaignCostView.as_view(), name="campaign_cost"),
+    path("customer-attributes/", attributes_api.AttributesView.as_view(), name="customer_attributes"),
+    path("customer-attributes/sources/", attributes_api.SourcesView.as_view(), name="customer_attribute_sources"),
+    path("customer-attributes/sources/<uuid:pk>/", attributes_api.SourceView.as_view(), name="customer_attribute_source"),
+    path("customer-attributes/sources/<uuid:pk>/sync/", attributes_api.SourceSyncView.as_view(), name="customer_attribute_source_sync"),
+    path("customer-attributes/sources/<uuid:pk>/runs/", attributes_api.SourceRunsView.as_view(), name="customer_attribute_source_runs"),
+    path("customer-attributes/databases/", attributes_api.DatabasesView.as_view(), name="customer_attribute_databases"),
+    path("customer-attributes/runs/<uuid:pk>/", attributes_api.RunView.as_view(), name="customer_attribute_run"),
+    path("customer-attributes/tag-check/", attributes_api.TagCheckView.as_view(), name="customer_attribute_tag_check"),
+    path("customer-attributes/fill/", attributes_api.FillView.as_view(), name="customer_attribute_fill"),
+    path("customer-attributes/values/", attributes_api.PushView.as_view(), name="customer_attribute_values"),
+    path("customer-attributes/<uuid:pk>/", attributes_api.AttributeView.as_view(), name="customer_attribute"),
     path("workspace/notifications/", workspace_api.NotificationsView.as_view(), name="workspace_notifications"),
     path("workspace/notifications/test/", workspace_api.NotificationsTestView.as_view(), name="workspace_notifications_test"),
     path("workspace/mail-server/", workspace_api.MailServerView.as_view(), name="workspace-mail-server"),

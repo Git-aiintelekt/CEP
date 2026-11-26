@@ -13,3 +13,13 @@ def process_imports() -> dict:
     """Runs what is claimable, within the platform's limits. Sent by the API when something is queued, and by beat as a net."""
     from apps.contact_lists import jobs
     return jobs.run_pending()
+
+
+@shared_task(name="workers.lists.sync_attributes", acks_late=True, time_limit=4 * 3600)
+@job_monitor.monitored("sync-customer-attributes")
+def sync_attributes() -> dict:
+    """Customer attribute runs (apps/customers/attributes.py): queues each source's nightly read once its hour has come, then runs what is
+    waiting (nightly reads, Sync Now, Fill From Database), one run per workspace at a time. Sent by the API when a run is queued, and by beat."""
+    from apps.customers import attributes
+    queued = attributes.queue_nightly()
+    return {"queued_nightly": queued, **attributes.run_pending()}

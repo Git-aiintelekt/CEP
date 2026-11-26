@@ -155,6 +155,12 @@ Once published, the campaign page shows the Series Timeline: each message Sent w
 3. The audience estimate runs the send engine's own governance order as of today; the frozen list at the run is the record of what a send used.
 4. Production Publish runs the checklist, records who published, waits for the approval when the workspace requires one, and creates the runs the dispatcher will start on time.
 
+## Tag Check
+
+On the Audience step and again on Review & Publish, the **Tag Check** card takes the template's tags one by one and says, for the people of the chosen lists (after the lists left out), how many have a value and where it comes from: a list column, a customer attribute, or the customer record, in the order the send looks. Its tag reads *2 Tags Short* or *All Tags Have Values*; when every tag has a value the card is one line, with **Details**. Under the table it says what the others get: the tag's default, or nothing. Before the template is chosen it says to choose it on the Content step.
+
+**Fill From Database** (with `list.edit`) reads the short tags from the Report Database behind a customer attribute (choose the field for each tag) for these people, by their ID, and stores the values with their list entries where the entry has none. It runs in the background; the card counts again when it ends. Lists used by other campaigns get the values too. An upload made from the campaign asks the same question on its **Tag Values** step (Contact Lists).
+
 ## Estimated Cost
 
 For an SMS, MMS or WhatsApp campaign, people with View Message Costs see an **Estimated Cost** card beside the audience on the Audience step, and again on Review & Publish (Settings → Message Costs, once the platform team has set prices). Only people who can receive the campaign are counted. Once the template is picked, each person's own text is filled in and its parts counted, so a long name or an emoji shows up as extra parts; before that the figure is a *From* price, one part each. Above 50,000 people a sample is counted, and the card says so. A WhatsApp estimate is by country and assumes every message is delivered.

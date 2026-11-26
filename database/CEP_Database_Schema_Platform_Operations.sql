@@ -3792,6 +3792,172 @@ BEGIN
     END IF;
 END $$;
 
+-- -------------------------------------------------------------------------------------
+-- 0100 (2026-11-25): Customer Attributes (docs/mockups/customer-attributes.html, option 1) and template tags from the list
+-- (docs/mockups/list-tag-values.html, option A with B's Tag Check). A workspace defines its own customer fields once (Settings ->
+-- Customer Attributes): what each is, the source system it comes from and how to read it there. The values are kept one row per
+-- customer per source system (the profile-traits model): iCRM today, another system tomorrow, with no change of schema. A tag names
+-- an attribute (resolution source CUSTOMER_ATTRIBUTE) and the send reads it after the list entry's own values and before the
+-- customer record. Values that belong to one upload (an offer code) stay on contact_list_member.custom_attributes.
+--   customer_attribute_source       a system the values come from: a Report Database table read by an ID column, a file, or the API
+--   customer_attribute_definition   a field: key, label, type, whether it belongs to the customer or to one list entry, where it is read
+--   customer_attribute_values       the values: {key: value} per customer per source, with the sync that wrote them
+--   customer_external_id            who a person is in another system (iCRM's PARTY_ID, a Shopify customer id)
+--   customer_attribute_sync_run     each read of a source (nightly, on import, Sync Now, Fill From Database, an API push)
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS customer_attribute_source (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    name                VARCHAR(120) NOT NULL,
+    system              VARCHAR(40) NOT NULL,                            -- ICRM, SHOPIFY, ...: also the namespace of its IDs in customer_external_id
+    kind                VARCHAR(10) NOT NULL,                            -- DATABASE, FILE, API
+    report_connection_id UUID,                                           -- DATABASE: the Report Database read (no foreign key: a database can be removed; the source then reads as broken)
+    table_name          VARCHAR(128),                                    -- DATABASE: the table or view
+    id_column           VARCHAR(128),                                    -- DATABASE: the column holding the person's ID in that system
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    last_sync_at        TIMESTAMPTZ,
+    last_sync_run_id    UUID,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_customer_attribute_source_kind CHECK (kind IN ('DATABASE', 'FILE', 'API')),
+    CONSTRAINT ck_customer_attribute_source_system CHECK (system ~ '^[A-Z][A-Z0-9_]{0,39}$'),
+    CONSTRAINT ck_customer_attribute_source_database CHECK (kind <> 'DATABASE' OR (report_connection_id IS NOT NULL AND table_name IS NOT NULL AND id_column IS NOT NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_customer_attribute_source_name ON customer_attribute_source(tenant_id, lower(name));
+COMMENT ON TABLE customer_attribute_source IS 'A system customer attribute values come from: a Report Database table read by an ID column, a file, or the API (Settings -> Customer Attributes -> Sources).';
+
+CREATE TABLE IF NOT EXISTS customer_attribute_definition (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    key                 VARCHAR(60) NOT NULL,                            -- what tags use: {{points_balance}}; fixed once saved
+    label               VARCHAR(120) NOT NULL,
+    data_type           VARCHAR(10) NOT NULL DEFAULT 'TEXT',             -- TEXT, NUMBER, DATE, BOOLEAN
+    scope               VARCHAR(10) NOT NULL DEFAULT 'CUSTOMER',         -- CUSTOMER (one value a person), LIST (one value a list entry: an offer code)
+    source_id           UUID REFERENCES customer_attribute_source(id) ON DELETE SET NULL,
+    source_field        VARCHAR(128),                                    -- the column of the source's table, the file's column, or the API's field
+    refresh             VARCHAR(12) NOT NULL DEFAULT 'ON_IMPORT',        -- NIGHTLY, ON_IMPORT, ON_CHANGE (the API pushes it)
+    is_pii              BOOLEAN NOT NULL DEFAULT FALSE,                  -- personal data: left out of exports unless asked, removed with the person
+    default_value       VARCHAR(500),
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_customer_attribute_definition_key CHECK (key ~ '^[a-z][a-z0-9_]{0,59}$'),
+    CONSTRAINT ck_customer_attribute_definition_type CHECK (data_type IN ('TEXT', 'NUMBER', 'DATE', 'BOOLEAN')),
+    CONSTRAINT ck_customer_attribute_definition_scope CHECK (scope IN ('CUSTOMER', 'LIST')),
+    CONSTRAINT ck_customer_attribute_definition_refresh CHECK (refresh IN ('NIGHTLY', 'ON_IMPORT', 'ON_CHANGE'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_customer_attribute_definition_key ON customer_attribute_definition(tenant_id, key);
+COMMENT ON TABLE customer_attribute_definition IS 'A workspace''s own customer field: its key (what a tag names), type, whether it belongs to the customer or to one list entry, and where it is read.';
+
+CREATE TABLE IF NOT EXISTS customer_attribute_values (
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    party_id            VARCHAR(60) NOT NULL REFERENCES customer_master(party_id) ON DELETE CASCADE,
+    source_id           UUID NOT NULL REFERENCES customer_attribute_source(id) ON DELETE CASCADE,
+    data                JSONB NOT NULL DEFAULT '{}',                     -- {"points_balance": 1240, "tier_end": "2026-12-31"}
+    refreshed_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    sync_run_id         UUID,
+    PRIMARY KEY (tenant_id, party_id, source_id),
+    CONSTRAINT ck_customer_attribute_values_object CHECK (jsonb_typeof(data) = 'object')
+);
+COMMENT ON TABLE customer_attribute_values IS 'Customer attribute values, one row per customer per source system; a sync replaces its own source''s row and leaves the others alone.';
+
+CREATE TABLE IF NOT EXISTS customer_external_id (
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    system              VARCHAR(40) NOT NULL,
+    external_id         VARCHAR(200) NOT NULL,
+    party_id            VARCHAR(60) NOT NULL REFERENCES customer_master(party_id) ON DELETE CASCADE,
+    first_seen_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, system, external_id)
+);
+CREATE INDEX IF NOT EXISTS ix_customer_external_id_party ON customer_external_id(tenant_id, party_id);
+COMMENT ON TABLE customer_external_id IS 'Who a C360 person is in another system: iCRM''s PARTY_ID, a Shopify customer id. Attribute sources match people through it.';
+
+CREATE TABLE IF NOT EXISTS customer_attribute_sync_run (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    source_id           UUID REFERENCES customer_attribute_source(id) ON DELETE CASCADE,   -- NULL: Fill From Database over several sources
+    trigger             VARCHAR(10) NOT NULL,                            -- NIGHTLY, MANUAL, IMPORT, FILL, API
+    status              VARCHAR(10) NOT NULL DEFAULT 'QUEUED',           -- QUEUED, RUNNING, DONE, FAILED
+    params              JSONB NOT NULL DEFAULT '{}',                     -- FILL: {include, exclude, tags: [{tag, attribute}], campaign_id}
+    people_read         INTEGER NOT NULL DEFAULT 0,
+    people_matched      INTEGER NOT NULL DEFAULT 0,
+    values_changed      INTEGER NOT NULL DEFAULT 0,
+    error               VARCHAR(500),
+    queued_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    started_at          TIMESTAMPTZ,
+    heartbeat_at        TIMESTAMPTZ,
+    finished_at         TIMESTAMPTZ,
+    created_by          UUID REFERENCES app_user(id),
+    CONSTRAINT ck_customer_attribute_sync_run_trigger CHECK (trigger IN ('NIGHTLY', 'MANUAL', 'IMPORT', 'FILL', 'API')),
+    CONSTRAINT ck_customer_attribute_sync_run_status CHECK (status IN ('QUEUED', 'RUNNING', 'DONE', 'FAILED'))
+);
+CREATE INDEX IF NOT EXISTS ix_customer_attribute_sync_run_recent ON customer_attribute_sync_run(tenant_id, queued_at DESC);
+CREATE INDEX IF NOT EXISTS ix_customer_attribute_sync_run_queue ON customer_attribute_sync_run(queued_at) WHERE status IN ('QUEUED', 'RUNNING');
+COMMENT ON TABLE customer_attribute_sync_run IS 'Each read of an attribute source: what Settings shows as last synced, people read and matched, values changed.';
+
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['customer_attribute_source', 'customer_attribute_definition', 'customer_attribute_values', 'customer_external_id', 'customer_attribute_sync_run'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+DROP TRIGGER IF EXISTS trg_customer_attribute_source_touch ON customer_attribute_source;
+CREATE TRIGGER trg_customer_attribute_source_touch BEFORE UPDATE ON customer_attribute_source FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+DROP TRIGGER IF EXISTS trg_customer_attribute_definition_touch ON customer_attribute_definition;
+CREATE TRIGGER trg_customer_attribute_definition_touch BEFORE UPDATE ON customer_attribute_definition FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+GRANT SELECT, INSERT, UPDATE, DELETE ON customer_attribute_source, customer_attribute_definition, customer_attribute_values, customer_external_id,
+      customer_attribute_sync_run TO cep_app;
+GRANT ALL ON customer_attribute_source, customer_attribute_definition, customer_attribute_values, customer_external_id, customer_attribute_sync_run TO cep_admin;
+
+-- a tag that reads a customer attribute: source_path is the attribute's key
+ALTER TABLE personalization_tag DROP CONSTRAINT IF EXISTS ck_personalization_tag_resolution_source;
+ALTER TABLE personalization_tag ADD CONSTRAINT ck_personalization_tag_resolution_source
+    CHECK (resolution_source IN ('CUSTOMER_MASTER', 'CAMPAIGN_LIST_MEMBER', 'CAMPAIGN', 'CAMPAIGN_RUN', 'STORE', 'SYSTEM', 'STATIC', 'INNER_TEMPLATE', 'RECEIPT', 'TRANSACTION',
+                                 'CUSTOMER_ATTRIBUTE'));
+
+-- an upload's Tag Values step: the template checked against, where each tag's value comes from, and once checked how many people have one
+-- {template_id, template_name, tags: {key: {from: FILE|ATTRIBUTE|CUSTOMER|DEFAULT, column, attribute}}, result: {key: {with_value, sample}}}
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS tag_values JSONB;
+-- TAGS: the queue step that reads the tag values alone, when the step is answered after the rows were checked (Look Up in C360)
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_next_action;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_next_action CHECK (next_action IN ('STAGE', 'LOOKUP', 'REVIEW', 'TAGS', 'APPLY'));
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_tag_values_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_tag_values_object CHECK (tag_values IS NULL OR jsonb_typeof(tag_values) = 'object');
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('attributes.sync_batch_ids', '1000', 'INTEGER', 'Customer attributes',
+     'IDs read from an attribute source''s database in one query. Smaller = gentler on that database, slower overall'),
+    ('attributes.nightly_hour_utc', '2', 'INTEGER', 'Customer attributes',
+     'The hour (UTC) nightly attribute sources are read'),
+    ('attributes.nightly_max_people', '2000000', 'INTEGER', 'Customer attributes',
+     'The most people one nightly read of a source covers; a workspace with more is read in part and the run says so'),
+    ('attributes.source_timeout_ms', '60000', 'INTEGER', 'Customer attributes',
+     'How long one query to an attribute source''s database may take before it is stopped')
+ON CONFLICT (key) DO NOTHING;
+
+-- who manages them: Manage Customer Attributes, given to the roles that hold user.admin when it is first added
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM permission WHERE code = 'attribute.edit') THEN
+        INSERT INTO permission (id, code, description) VALUES ('a3000000-0000-4000-8000-00000000001d', 'attribute.edit', 'Manage customer attributes');
+        INSERT INTO role_permission (role_id, permission_id)
+        SELECT rp.role_id, p.id FROM role_permission rp JOIN permission a ON a.id = rp.permission_id AND a.code = 'user.admin'
+          CROSS JOIN permission p WHERE p.code = 'attribute.edit'
+        ON CONFLICT DO NOTHING;
+    END IF;
+END $$;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

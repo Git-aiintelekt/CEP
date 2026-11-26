@@ -1,8 +1,9 @@
 """Turns the saved template content into one recipient's message.
 
 `{{tag}}` values come from the workspace's personalization tag catalogue (resolution_source + source_path), with the
-catalogue's default when the source is empty. A tag that is not in the catalogue is looked up in the list member's own
-columns (what the upload carried), then in the customer's attributes. Values are HTML-escaped in the HTML body and left
+catalogue's default when the source is empty. A tag that is not in the catalogue, or whose source is empty for the person, is
+looked up in the list member's own columns (what the upload carried), then in the customer's attributes (Settings -> Customer
+Attributes: apps/customers/attributes.py, newest source first), then in the customer record. Values are HTML-escaped in the HTML body and left
 as they are in the subject and the text part. Inner-template tags are expanded once, before personalization.
 
 Barcode and QR code blocks (apps/templates/codes.py) are replaced first: each becomes the recipient's own code, or
@@ -111,6 +112,7 @@ class Renderer:
         self.text = content.text_content or ""
         self.subject = subject_of(campaign, content, step)
         self.codes_on: bool | None = None                   # read once, and only for a design that has a code block
+        self.attributes = None                              # the workspace's customer attributes, read when a tag needs one
 
     def _expand_inner(self, html: str, inner: dict[str, str]) -> str:
         if not inner:
@@ -136,10 +138,16 @@ class Renderer:
                 value = _dig(self.run, path)
             elif source == "STATIC":
                 value = tag.static_value
+            elif source == "CUSTOMER_ATTRIBUTE":            # a LIST attribute is on the list entry; a CUSTOMER one in the attribute values
+                value = (member.get("custom_value_pairs") or {}).get(path)
+                if value in (None, ""):
+                    value = self._attribute(customer, path)
             elif source in self.sources:                    # RECEIPT, STORE: data that arrives with a transactional send
                 value = _dig(self.sources[source], path)
         if value in (None, ""):                             # not in the catalogue, or its source is empty for this person
             value = (member.get("custom_value_pairs") or {}).get(key)
+        if value in (None, ""):
+            value = self._attribute(customer, key)
         if value in (None, ""):
             value = customer.get(key) if key in ("first_name", "last_name", "party_id", "email") else (customer.get("custom_attributes") or {}).get(key)
         if value in (None, ""):
@@ -147,6 +155,24 @@ class Renderer:
         shown = "" if value is None else _format(value, tag)
         self.used[key] = shown
         return shown
+
+    def _attribute(self, customer: dict, key: str):
+        """The person's customer attribute `key`: from `customer["attributes"]` when the caller brought them (a preview), else read."""
+        given = customer.get("attributes")
+        if isinstance(given, dict):
+            return given.get(key)
+        if not customer.get("party_id"):
+            return None
+        from apps.customers.attributes import RESERVED
+        if key in RESERVED:                                 # first_name and the like: the customer record's, never an attribute's
+            return None
+        if self.attributes is None:
+            from apps.customers.attributes import Lookup
+            self.attributes = Lookup()
+        try:
+            return self.attributes.get(customer.get("party_id"), key)
+        except Exception:                                   # noqa: BLE001  (an attribute must never stop a send: the default stands)
+            return None
 
     def _codes(self, customer: dict, member: dict, system: dict, blocks: dict, left_out: list[str]) -> str:
         """The HTML with each code block swapped for a ready-made block of this recipient's own code, or for nothing."""

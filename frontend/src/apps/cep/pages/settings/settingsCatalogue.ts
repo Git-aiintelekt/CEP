@@ -2,7 +2,7 @@
  * The Settings menu: General, then a group per suite component the workspace has (docs/mockups/settings-by-component.html,
  * option A), who sees which page, and the three things the panel remembers per viewer.
  */
-import { Bell, Braces, CalendarRange, ChartColumn, CheckCircle2, CircleDollarSign, ClipboardCheck, Coins, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Megaphone, Plug, Receipt, Send, SlidersHorizontal, ShieldCheck, Sparkles, Target, Thermometer, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
+import { Bell, BookUser, Braces, CalendarRange, ChartColumn, CheckCircle2, CircleDollarSign, ClipboardCheck, Coins, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Megaphone, Plug, Receipt, Send, SlidersHorizontal, ShieldCheck, Sparkles, Target, Thermometer, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
 
 import type { Feature, Me } from '@/lib/types'
 
@@ -43,6 +43,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { to: '/settings/message-costs', label: 'Message Costs', icon: Coins, section: 'Sending' },
     { to: '/settings/tags', label: 'Tags', icon: Braces, section: 'Sending' },
     { to: '/settings/notifications', label: 'Notifications', icon: Bell, section: 'Sending' },
+    { to: '/settings/customer-attributes', label: 'Customer Attributes', icon: BookUser, section: 'Audience' },
     { to: '/settings/governance', label: 'Governance', icon: ShieldCheck, section: 'Audience' },
     { to: '/settings/suppressions', label: 'Suppressions', icon: UserX, section: 'Audience' },
     { to: '/settings/preference-center', label: 'Preference Centre', icon: SlidersHorizontal, section: 'Audience' },

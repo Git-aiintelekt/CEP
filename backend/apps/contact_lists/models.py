@@ -167,6 +167,7 @@ class ContactListImport(models.Model):
     file_delimiter = models.CharField(max_length=4, null=True, blank=True)
     summary = models.JSONField(default=dict)  # the reconciliation: rows = held back + ready; ready = governance buckets = added + already in the list
     lookup = models.JSONField(null=True, blank=True)  # Look Up in C360 (patch 0097): {connections, databases, role, id_label, id_column, result}
+    tag_values = models.JSONField(null=True, blank=True)  # the Tag Values step (patch 0100): {template_id, template_name, tags: {key: {from, column, attribute}}, result}
     consent_basis = models.CharField(max_length=30, null=True, blank=True)  # WEB_FORM, IN_STORE, CUSTOMER_REQUEST, IMPLIED: where these people agreed, declared by the uploader
     consent_collected_at = models.CharField(max_length=300, null=True, blank=True)  # a form, a store, a campaign: where to find the proof
     attested_by = models.UUIDField(null=True, blank=True)  # the user who confirmed these people agreed to marketing
