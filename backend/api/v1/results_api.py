@@ -29,6 +29,7 @@ from datetime import date, datetime
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
 from rest_framework.exceptions import APIException, NotFound, Throttled, ValidationError
+from rest_framework.negotiation import DefaultContentNegotiation
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
@@ -258,8 +259,21 @@ class ResultsView(InboundLogMixin, APIView):
         return response
 
 
+class FormatDecides(DefaultContentNegotiation):
+    """?format= names the answer's form whatever the Accept header says: a client that sends `Accept: application/json`
+    with every call still gets the CSV it asked for, instead of a 406. Without ?format=, Accept decides as usual."""
+
+    def select_renderer(self, request, renderers, format_suffix=None):
+        asked = (request.query_params.get(self.settings.URL_FORMAT_OVERRIDE) or "").strip().lower() if self.settings.URL_FORMAT_OVERRIDE else ""
+        named = next((renderer for renderer in renderers if asked and renderer.format == asked), None)
+        if named is not None:
+            return named, named.media_type
+        return super().select_renderer(request, renderers, format_suffix)
+
+
 class ResultsListView(ResultsView):
     renderer_classes = [JSONRenderer, ResultsCSV]
+    content_negotiation_class = FormatDecides
 
 
 def _guarded(read):
