@@ -298,6 +298,24 @@ class OfbizLogoutView(PublicAuthView):
         return Response(status=204)
 
 
+class OfbizBackView(APIView):
+    """"Back to iCRM": only a session opened from iCRM (claim `ofbiz`) gets the iCRM address, with a new Multipass token
+    for the user."""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses=inline_serializer("OfbizBack", {"url": serializers.URLField()}))
+    def post(self, request, version=None):
+        token = getattr(request, "auth", None)
+        user = request.user
+        try:
+            url = ofbiz.back_to_icrm(user, request.tenant, token)
+        except ofbiz.OfbizError as exc:
+            raise PermissionDenied(str(exc)) from None
+        # the address carries the token: log who and where, never the address
+        log.info("Back to iCRM: user %s, workspace %s", user.pk, request.tenant["code"])
+        return Response({"url": url})
+
+
 # ------------------------------------------------------------------------------------------------------------ refresh tokens
 REUSE_GRACE = 30
 

@@ -4,8 +4,8 @@ from unittest import mock
 
 import pytest
 
-from apps.platform_ops.multipass import (MultipassTokenDecode, MultipassTokenEncode, MultipassTokenInvalidException, decoded_json,
-                                         is_valid_token)
+from apps.platform_ops.multipass import (MultipassTokenDecode, MultipassTokenEncode, MultipassTokenInvalidException, TokenEncoder,
+                                         decoded_json, encoded_string, is_valid_token)
 
 SITE_KEY = "SITE-KEY-123"
 API_KEY = "API-KEY-456"
@@ -32,6 +32,20 @@ def test_decodes_a_token_from_icrm():
 
 def test_encodes_exactly_as_icrm():
     assert MultipassTokenEncode(SITE_KEY, API_KEY).encode(CEP_DATA) == CEP_TOKEN
+
+
+def test_encoded_string_matches_icrm_util_encoder():
+    assert encoded_string(SITE_KEY, API_KEY, CEP_DATA) == CEP_TOKEN
+    assert isinstance(MultipassTokenEncode(SITE_KEY, API_KEY), TokenEncoder)
+
+
+@pytest.mark.parametrize("site_key, api_key, data", [("", API_KEY, CEP_DATA), (SITE_KEY, None, CEP_DATA), (SITE_KEY, API_KEY, None)])
+def test_encoded_string_is_none_without_keys_or_data(site_key, api_key, data):
+    assert encoded_string(site_key, api_key, data) is None
+
+
+def test_encoded_string_is_none_when_encoding_fails():
+    assert encoded_string(SITE_KEY, API_KEY, {"not json": object()}) is None
 
 
 def test_wrong_keys_are_refused():

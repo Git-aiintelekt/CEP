@@ -17,6 +17,7 @@ import { useThemePreference, type ThemePreference } from '@/lib/theme'
 import type { Me } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { AppLauncher } from './AppLauncher'
+import { BackToIcrm } from './BackToIcrm'
 import { GlobalSearch } from './GlobalSearch'
 import { SwitchWorkspaceDialog } from './SwitchWorkspaceDialog'
 import type { EntitledComponent } from './manifests'
@@ -116,6 +117,7 @@ export function TopBar({ me, components, current, pages, searchRef, toggle, onHe
           <span className="font-semibold text-on-brand">{code}</span>
           {staging && <span data-staging className="rounded-sm bg-warning px-1.5 text-xs leading-5 font-semibold text-on-warning">Staging</span>}
         </span>
+        <BackToIcrm icrm={me?.icrm ?? null} />
         {extra}
         <span className="hidden md:flex">
           <button type="button" onClick={onHelp} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" className={`${iconButtonClass({ variant: 'onNavy' })} ${ON_NAVY_FOCUS}`}>

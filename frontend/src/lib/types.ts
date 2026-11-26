@@ -65,6 +65,8 @@ export interface Me {
   support_session?: { by: string; mode: 'READ' | 'WRITE'; expires_at: string; reason?: string } | null
   /** set while a platform administrator is in this workspace as themselves (Switch Workspace); home is where Back to Platform returns */
   platform_visit?: { home: string; home_name: string | null; started_at: string; reason: string } | null
+  /** sign-on with iCRM: null when the workspace has none. Back to iCRM shows only when this session was opened from iCRM, and works once the address is set */
+  icrm?: { from_icrm: boolean; address_set: boolean } | null
   /** how long the browser waits before warning of inactivity, and how long the warning stays up before signing out (global parameters) */
   session?: { idle_timeout_minutes: number; idle_warning_seconds: number }
 }

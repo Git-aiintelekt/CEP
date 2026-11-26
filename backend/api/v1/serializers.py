@@ -563,6 +563,7 @@ class MeSerializer(serializers.Serializer):
     insights = serializers.DictField(help_text="how Insights is offered: {mode: integrated | standalone | both, standalone_path}")
     mfa_setup_required = serializers.BooleanField()
     support_session = serializers.DictField(allow_null=True)
+    icrm = serializers.DictField(allow_null=True, help_text="sign-on with iCRM: {from_icrm, address_set}; null when the workspace has none")
     session = MeSessionSerializer()
 
 

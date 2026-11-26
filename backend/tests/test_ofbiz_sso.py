@@ -19,7 +19,7 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from api.v1 import auth_api
 from apps.identity.models import AppUser, Role, UserRole
 from apps.platform_ops import crypto, ofbiz
-from apps.platform_ops.multipass import MultipassTokenEncode
+from apps.platform_ops.multipass import MultipassTokenDecode, MultipassTokenEncode
 from apps.tenants import context
 from apps.tenants.models import Tenant
 
@@ -288,4 +288,88 @@ def test_workspace_link_saves_the_keys_and_keeps_the_rest(check, admin_email):
     check("the screen shows the new API key", link.get("api_key") == "new-api-key-111" and link.get("configured"), link)
     errors = ofbiz.save_workspace_link(code, {"site_key": "", "api_key": ""})
     check("both keys are required", "site_key" in errors and "api_key" in errors, errors)
+    check.done()
+
+
+
+
+def _back_query(url):
+    return parse_qs(urlparse(url).query)
+
+
+def test_back_to_icrm(check, admin_email):
+    """Back to iCRM: only a session opened from iCRM gets the iCRM page from Settings, with a new Multipass token sealed with
+    the workspace's keys (email, an empty login, expiry in the workspace's time zone; no role or exp), and nothing else."""
+    cache.clear()
+    admin = _admin(admin_email)
+    _link(admin.tenant)
+    code = admin.tenant.code
+    client = Client()
+
+    def me(access):
+        return client.get("/api/v1/me/", HTTP_X_TENANT=code, HTTP_AUTHORIZATION=f"Bearer {access}")
+
+    def back(access):
+        return client.post("/api/v1/auth/sso/ofbiz/back/", HTTP_X_TENANT=code, HTTP_AUTHORIZATION=f"Bearer {access}")
+
+    def open_cep(**extra):
+        landed = _fragment(client.get("/api/v1/auth/sso/ofbiz/", {"tenant": code, "token": _ofbiz_token(admin.email, code), **extra}))
+        return client.post("/api/v1/auth/sso/ofbiz/exchange/", json.dumps({"code": landed["code"][0]}), content_type="application/json",
+                           HTTP_X_TENANT=code).json()["access"]
+
+    on_link = open_cep()
+    password = auth_api.issue_tokens(admin)["access"]
+
+    check("/me: a session from iCRM, no address yet", me(on_link).json().get("icrm") == {"from_icrm": True, "address_set": False}, me(on_link).json().get("icrm"))
+    check("/me: a password session is not from iCRM", (me(password).json().get("icrm") or {}).get("from_icrm") is False)
+    refused = back(on_link)
+    check("no iCRM address: refused with a sentence", refused.status_code == 403 and "address" in str(refused.json()), refused.content[:200])
+
+    page = "https://icrm.example.com/customer-portal/control/findCustomer"
+    _set_link(admin.tenant, {**_stored_link(admin.tenant), "icrm_url": page})
+    check("a password session gets no address", back(password).status_code == 403)
+    answer = back(on_link)
+    url = answer.json().get("url", "") if answer.status_code == 200 else ""
+    check("the iCRM page with the token alone", url.startswith(page + "?token=")
+          and set(_back_query(url)) == {"token"}, answer.content[:300])
+    if url:
+        data = MultipassTokenDecode(KEYS["site_key"], KEYS["api_key"]).decode(_back_query(url)["token"][0])
+        check("the token holds the email, an empty login, and no role or exp", data.get("email") == admin.email and data.get("tenant_id") == code
+              and data.get("version") == "1.0" and data.get("user_login_id") == "" and not {"cep_role", "exp"} & set(data), data)
+        expires = datetime.strptime(data["expires"], "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo(ICRM_TIME_ZONE))
+        check("it expires in about 5 minutes, in the workspace's time zone", 4 * 60 - 5 <= expires.timestamp() - time.time() <= 5 * 60 + 5, data)
+        check("iCRM's own checks accept it", ofbiz.is_valid_token(data, time_zone=ICRM_TIME_ZONE))
+    check("/me: the address is set", me(on_link).json().get("icrm") == {"from_icrm": True, "address_set": True})
+    check.done()
+
+
+@pytest.mark.parametrize("value, cleaned", [
+    ("", ""),
+    ("https://icrm.example.com/customer-portal/control/findCustomer", "https://icrm.example.com/customer-portal/control/findCustomer"),
+    ("https://icrm.example.com/crm/control/main/", "https://icrm.example.com/crm/control/main"),
+    ("https://icrm.example.com/x/control/y?tab=1", "https://icrm.example.com/x/control/y?tab=1"),
+    ("icrm.example.com/crm", False), ("https://icrm.example.com/x#top", False), ("javascript:alert(1)", False)])
+def test_icrm_address_is_cleaned(value, cleaned):
+    assert ofbiz.clean_icrm_url(value) == cleaned
+
+
+
+def test_back_to_icrm_adds_the_token_after_a_query():
+    user = mock.Mock(email="someone@example.com", display_name="Some One")
+    link = {**KEYS, "time_zone": "UTC", "icrm_url": "https://icrm.example.com/x/control/y?tab=1"}
+    with mock.patch.object(ofbiz, "link_for", return_value=link):
+        url = ofbiz.back_to_icrm(user, {"id": "t", "code": "NWA"}, {"ofbiz": 1})
+    assert url.startswith("https://icrm.example.com/x/control/y?tab=1&token=")
+
+def test_workspace_link_saves_the_icrm_address(check, admin_email):
+    admin = _admin(admin_email)
+    _platform_link(admin.tenant)
+    code = admin.tenant.code
+    page = "https://icrmbasestaging.aiintelekt.com/customer-portal/control/findCustomer"
+    errors = ofbiz.save_workspace_link(code, {**KEYS, "icrm_url": "icrm.example.com"})
+    check("an address without https:// is refused", "icrm_url" in errors, errors)
+    errors = ofbiz.save_workspace_link(code, {**KEYS, "icrm_url": page + "/"})
+    check("the page is saved, without the trailing slash", not errors and (ofbiz.workspace_link(code) or {}).get("icrm_url") == page, errors)
+    errors = ofbiz.save_workspace_link(code, KEYS)
+    check("saving the keys alone keeps the address", not errors and _platform_stored_link(admin.tenant).get("icrm_url") == page, errors)
     check.done()

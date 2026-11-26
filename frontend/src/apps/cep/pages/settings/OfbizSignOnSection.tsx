@@ -11,6 +11,8 @@ interface OfbizLink {
   workspace: string
   site_key: string
   api_key: string
+  /** the iCRM page Back to iCRM opens, e.g. https://icrm.example.com/customer-portal/control/findCustomer; "" when not set */
+  icrm_url: string
   has_api_key: boolean
   configured: boolean
   problem: string | null
@@ -22,14 +24,15 @@ function SignOnForm({ link }: { link: OfbizLink }) {
   const queryClient = useQueryClient()
   const [siteKey, setSiteKey] = useState(link.site_key)
   const [apiKey, setApiKey] = useState(link.api_key)
+  const [icrmUrl, setIcrmUrl] = useState(link.icrm_url ?? '')
   const [showKey, setShowKey] = useState(false)
 
   const save = useMutation({
-    mutationFn: () => api.put<OfbizLink>('/workspace/ofbiz-sso/', { site_key: siteKey.trim(), api_key: apiKey.trim() }),
-    onSuccess: (data) => { queryClient.setQueryData(KEY, data); setSiteKey(data.site_key); setApiKey(data.api_key) },
+    mutationFn: () => api.put<OfbizLink>('/workspace/ofbiz-sso/', { site_key: siteKey.trim(), api_key: apiKey.trim(), icrm_url: icrmUrl.trim() }),
+    onSuccess: (data) => { queryClient.setQueryData(KEY, data); setSiteKey(data.site_key); setApiKey(data.api_key); setIcrmUrl(data.icrm_url ?? '') },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
-  const other = save.isError && !errors.site_key && !errors.api_key ? save.error : null
+  const other = save.isError && !errors.site_key && !errors.api_key && !errors.icrm_url ? save.error : null
 
   return (
     <form className="space-y-4" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
@@ -42,10 +45,15 @@ function SignOnForm({ link }: { link: OfbizLink }) {
         <Field label="Site Key" required error={errors.site_key} hint="iCRM security / common.site.key, character for character.">
           {(ids) => <TextInput {...ids} value={siteKey} onChange={(event) => setSiteKey(event.target.value)} autoComplete="off" />}
         </Field>
-        <Field label="API Key" required error={errors.api_key} hint="iCRM cep / cep.api.key, character for character. Stored encrypted."
+        <Field label="API Key" required error={errors.api_key} hint="iCRM security / common.api.key, character for character. Stored encrypted."
           labelEnd={<button type="button" className="text-label font-medium text-brand-800 hover:underline" aria-pressed={showKey} onClick={() => setShowKey((shown) => !shown)}>{showKey ? 'Hide' : 'Show'}</button>}>
           {(ids) => <TextInput {...ids} type={showKey ? 'text' : 'password'} value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="new-password" />}
         </Field>
+        <div className="lg:col-span-2">
+          <Field label="iCRM URL" error={errors.icrm_url}>
+            {(ids) => <TextInput {...ids} type="url" value={icrmUrl} onChange={(event) => setIcrmUrl(event.target.value)} placeholder="https://" autoComplete="off" />}
+          </Field>
+        </div>
       </div>
       {other !== null && <ErrorState title="The sign-on settings were not saved" error={other} />}
       <div className="flex flex-wrap gap-2">

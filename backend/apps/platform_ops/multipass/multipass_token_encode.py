@@ -1,22 +1,33 @@
-"""Port of org.groupfio.token.app.encode.MultipassTokenEncode: the tokens iCRM makes, byte for byte. CEP only decodes;
-the tests use this to make iCRM's tokens."""
+"""Port of org.groupfio.token.app.encode.MultipassTokenEncode: the tokens iCRM makes, byte for byte.
+
+iCRM's encoder fails on payloads of more than 2038 bytes (it writes 10 bytes past a 2048-byte buffer); this one does not.
+"""
 import base64
 import json
 
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from .multipass_token_decode import IV, MultipassTokenDecode
+from .multipass_token_decode import IV, MultipassTokenDecode, MultipassTokenInvalidException
+from .token_encoder import TokenEncoder
 
 TRAILING_ZEROS = bytes(10)                      # iCRM writes 10 bytes past the JSON, see multipass_token_decode
 
 
-class MultipassTokenEncode:
+class MultipassTokenEncode(TokenEncoder):
 
     def __init__(self, site_key: str, api_key: str):
+        self.site_key = site_key
+        self.api_key = api_key
         self._key = MultipassTokenDecode(site_key, api_key)._key
 
     def encode(self, data: dict) -> str:
+        try:
+            return self._encode(data)
+        except Exception as exc:
+            raise MultipassTokenInvalidException(exc) from exc
+
+    def _encode(self, data: dict) -> str:
         plain = json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8") + TRAILING_ZEROS
         padder = padding.PKCS7(algorithms.AES.block_size).padder()
         encryptor = Cipher(algorithms.AES(self._key), modes.CBC(IV)).encryptor()

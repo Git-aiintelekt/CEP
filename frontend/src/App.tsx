@@ -34,6 +34,7 @@ const WhatsAppPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/p
 const ReceiptPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ReceiptPlayground')) : null
 const DevFields = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/DevFields')) : null
 const ToastPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ToastPlayground')) : null
+const IcrmPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/IcrmPlayground')) : null
 const HomePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/HomePlayground')) : null
 const SettingsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/SettingsPlayground')) : null
 const CalendarPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/CalendarPlayground')) : null
@@ -96,6 +97,9 @@ export default function App() {
             {ListLookupPlayground && <Route path="/dev/list-lookup" element={<Suspense fallback={<FullPageSpinner label="Loading the playground" />}><ListLookupPlayground /></Suspense>} />}
             {ToastPlayground && (
               <Route path="/dev/toasts" element={<Suspense fallback={<FullPageSpinner label="Loading the toasts" />}><ToastPlayground /></Suspense>} />
+            )}
+            {IcrmPlayground && (
+              <Route path="/dev/icrm" element={<Suspense fallback={<FullPageSpinner label="Loading the playground" />}><IcrmPlayground /></Suspense>} />
             )}
             {HomePlayground && (
               // inside the app shell, like the real Home; outside RequireAuth, so it works with no backend
