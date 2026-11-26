@@ -266,12 +266,12 @@ def test_a_percent_is_worked_out_in_percent(check):
 # registered in PACKS is covered: a pack added later is tested by being added, not by being remembered here.
 PACK_OPTIONS = {
     "email-campaigns": OPTIONS,
-    "email-campaigns-warehouse": {"databases": ["citi_analysis_db"]},
-    "sms-marketing": {"databases": ["citi_analysis_db"]},
-    "sms-ereceipts": {"databases": ["citi_analysis_db"]},
-    "ereceipts": {"databases": ["citi_analysis_db"]},
-    "service-requests": {"databases": ["cititrends_icrm_prod"]},
-    "surveys": {"databases": ["cititrends_icrm_prod"]},
+    "email-campaigns-warehouse": {"databases": ["analysis_db"]},
+    "sms-marketing": {"databases": ["analysis_db"]},
+    "sms-ereceipts": {"databases": ["analysis_db"]},
+    "ereceipts": {"databases": ["analysis_db"]},
+    "service-requests": {"databases": ["crm_db"]},
+    "surveys": {"databases": ["crm_db"]},
 }
 # Columns on the CRM's tables that are the customer, not a figure. None of them belongs in a report.
 PERSONAL = ("CUSTOMER_NAME", "CUSTOMER_MOBILE", "CUSTOMER_EMAIL", "CUSTOMER_PRIMARY_PHONE", "CUSTOMER_WORK_PHONE",
@@ -364,15 +364,15 @@ def test_every_pack_refuses_what_it_cannot_quote(check, pack_key):
 
 
 def test_a_word_left_out_is_a_whole_word(check):
-    """The packs left campaigns out by substring, and "Hottest Designer Deals" contains "test": turning tests off would
+    """The packs left campaigns out by substring, and "Hottest Deals" contains "test": turning tests off would
     have dropped the two biggest sends of the year, 400,761 messages, without saying so."""
-    for name, left_out, matches in (("Hottest Designer Deals Oct 17 Day 2", "test", False),
+    for name, left_out, matches in (("Hottest Deals Week 2", "test", False),
                                     ("latest news", "test", False),
                                     ("Important Update", "import", False),
                                     ("Internal Test Template A", "test", True),
                                     ("Test Campaign 29", "test", True),
                                     ("Joy Video (Copy)", "copy", True),
-                                    ("Citi Listrak Subscribe list", "listrak", True)):
+                                    ("Listrak Subscribe list", "listrak", True)):
         # what the SQL does, done here: everything but a letter or a digit becomes a space, then a padded word is looked for
         normalised = " " + " ".join(re.sub(r"[^0-9a-zA-Z]+", " ", name).lower().split()) + " "
         check(f"{name!r} contains {left_out!r} as a word: {matches}", ((" " + left_out + " ") in normalised) is matches)
@@ -436,8 +436,8 @@ class _Tenant:
         self.saved = self.settings
 
 
-def _connection(name="Citi", engine="mysql80", id_="c-1"):
-    return {"id": id_, "name": name, "engine": engine, "status": "ACTIVE", "read_only": True, "database_name": "citi_analysis_db"}
+def _connection(name="Analysis", engine="mysql80", id_="c-1"):
+    return {"id": id_, "name": name, "engine": engine, "status": "ACTIVE", "read_only": True, "database_name": "analysis_db"}
 
 
 def test_a_mapping_is_read_back_as_it_was_saved(check):
@@ -462,17 +462,17 @@ def test_the_loader_works_out_which_database_a_pack_reads(check, monkeypatch):
 
     # one connection whose databases hold the pack's tables: that is the answer, and it says how it got there
     connections([_connection()])
-    monkeypatch.setattr(loader.base_reports, "sources", lambda tenant, pack, row: {"databases": [{"name": "cititrends_icrm_prod"}], "names": []})
+    monkeypatch.setattr(loader.base_reports, "sources", lambda tenant, pack, row: {"databases": [{"name": "crm_db"}], "names": []})
     found = loader.resolve(_Tenant(), pack)
     check("one connection holding its tables is the answer", found["status"] == loader.READY, found)
-    check("and the databases it found become the options", found["options"]["databases"] == ["cititrends_icrm_prod"])
+    check("and the databases it found become the options", found["options"]["databases"] == ["crm_db"])
     check("with a note saying it was worked out, not mapped", "worked out" in found["why"])
 
     # two of them is a guess, so it asks instead of picking
     connections([_connection(), _connection("Other", id_="c-2")])
     found = loader.resolve(_Tenant(), pack)
     check("two connections holding its tables is asked about, never guessed", found["status"] == loader.AMBIGUOUS, found)
-    check("and it names them, so the answer is one click away", "Citi" in found["why"] and "Other" in found["why"])
+    check("and it names them, so the answer is one click away", "Analysis" in found["why"] and "Other" in found["why"])
 
     # none of them holds the tables
     connections([_connection()])
