@@ -35,6 +35,8 @@ export interface ReportView {
   matrix?: boolean
   /** a pivot with a trend line per row */
   sparklines?: boolean
+  /** a grid's Total row: the totalled columns it totals, from the engine's grand total over every row */
+  totals?: string[]
   /** the value Key Influencers or the Decomposition Tree analyses */
   measure?: string
   /** a report shown on hover over a chart's value, filtered to it */
@@ -554,7 +556,7 @@ export interface TotalEntry {
 export interface RunResult {
   columns: ResultColumn[]
   rows: unknown[][]
-  /** the engine's totals for a hierarchy (every prefix of the dimensions, and the whole) or a pivot (its rows, its columns, the whole) */
+  /** the engine's totals for a hierarchy (every prefix of the dimensions, and the whole), a pivot (its rows, its columns, the whole) or a grid with a Total row (the whole) */
   totals?: TotalEntry[]
   row_count: number
   duration_ms: number

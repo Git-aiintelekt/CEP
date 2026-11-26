@@ -156,11 +156,12 @@ def _bold(cells: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------------------------------- the views
-def _grid_flowables(columns: list[dict], rows: list[list]) -> list:
+def _grid_flowables(columns: list[dict], rows: list[list], grand: list | None = None) -> list:
     header = [c["label"] + (" (masked)" if c.get("masked") else "") for c in columns]
     numeric = [_is_numeric(c) for c in columns]
     body = [[cell_text(c, row[i]) for i, c in enumerate(columns)] for row in rows[:MAX_ROWS]]
-    out = [_table(header, body, numeric)]
+    total = None if grand is None else _bold([v if isinstance(v, str) else ("" if v is None else _number(columns[i], v)) for i, v in enumerate(grand)])
+    out = [_table(header, body, numeric, total=total)]
     if len(rows) > MAX_ROWS:
         out.append(Paragraph(f"The first {MAX_ROWS:,} of {len(rows):,} rows. The Excel and CSV exports carry them all.", SMALL))
     return out
@@ -424,7 +425,7 @@ def _view_flowables(columns, rows, view: dict | None, totals, width: float) -> l
         return [Paragraph(f"Shown on screen as {ON_SCREEN.get(kind) or ON_SCREEN[chart]}; here as its rows.", SMALL), Spacer(1, 3), *_grid_flowables(columns, rows)]
     if kind == "chart":
         return _chart_flowables(columns, rows, None if chart in ("pie", "funnel", "combo") else across, width, chart)   # a pie, a funnel or a combo: the measures by one dimension
-    return _grid_flowables(columns, rows)
+    return _grid_flowables(columns, rows, shape.grid_total(columns, totals, view))
 
 
 VIEW_WORDS = {"grid": "Grid", "chart": "Chart", "hierarchy": "Hierarchy", "pivot": "Pivot", "influencers": "Key Influencers", "decomposition": "Decomposition Tree"}

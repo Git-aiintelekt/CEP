@@ -307,10 +307,13 @@ def _where(dataset: dict, definition: dict, tenant_id: str, zone: str, params: P
 
 def totals_sets(definition: dict, view: dict | None) -> list[tuple[str, ...]] | None:
     """What the engine totals for a view: a hierarchy needs every prefix of its dimensions and the grand total; a pivot
-    needs its rows' total, its columns' total and the grand total. None when the view has nothing to total."""
+    needs its rows' total, its columns' total and the grand total; a grid with a Total row, the grand total. None when the
+    view has nothing to total."""
     dims = [c["field"] for c in definition["columns"] if "aggregate" not in c]
     if not view or not dims or not any("aggregate" in c for c in definition["columns"]):
         return None
+    if view.get("type") == "grid" and view.get("totals"):
+        return [()]
     if view.get("type") == "hierarchy" and len(dims) >= 2:
         return [tuple(dims[:n]) for n in range(len(dims))]
     if view.get("type") == "chart" and view.get("chart") in ("kpi", "gauge"):      # one figure: the whole period's total, worked out by the engine

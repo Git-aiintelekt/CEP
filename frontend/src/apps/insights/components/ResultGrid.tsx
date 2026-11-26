@@ -3,6 +3,8 @@
  * both editors share it. A column masked for this reader is named above the grid and its cells are muted. More than 20 rows
  * are paged under the grid (docs/mockups/grid-paging-and-speed.html, option A): 20, 50 or 100 a page, remembered per browser;
  * the rows already fetched are paged, so a page turns without running the report again, and a sort sorts every row.
+ * A grid whose view totals some columns pins a bold Total row under the rows: the engine's grand total over every row of the
+ * report, not only the ones fetched, so it stays put through paging and sorting.
  */
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type GridApi } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
@@ -39,7 +41,26 @@ const theme = themeQuartz.withParams({
   cellHorizontalPadding: 12,
 })
 
-export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onPick, formats, onContext }: { result: RunResult; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; formats?: ColumnFormat[]; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void }) {
+const TOTAL = 'Total'
+
+/** the Total row as grid cells: the grand total under each totalled column, "Total" in the first column that isn't one */
+export function gridTotalRow(result: RunResult, totals?: string[]): Record<string, unknown> | null {
+  const wanted = new Set(totals ?? [])
+  const whole = result.totals?.find((entry) => Object.keys(entry.keys).length === 0)
+  if (!wanted.size || !whole) return null
+  const row: Record<string, unknown> = {}
+  let measure = 0
+  result.columns.forEach((column, index) => {
+    if (!column.aggregate) return
+    if (wanted.has(column.key) && !column.masked) row[`c${index}`] = whole.values[measure] ?? null
+    measure += 1
+  })
+  const label = result.columns.findIndex((column) => !wanted.has(column.key))
+  if (label >= 0) row[`c${label}`] = TOTAL
+  return row
+}
+
+export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onPick, formats, totals, onContext }: { result: RunResult; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; formats?: ColumnFormat[]; totals?: string[]; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void }) {
   const columnDefs = useMemo<ColDef[]>(() => result.columns.map((column, index) => {
     const rule = column.masked ? undefined : formatOf(formats, column.key)
     const range = rule ? rangeOf(result.rows.map((row) => row[index])) : null
@@ -50,13 +71,14 @@ export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onP
     type: column.type === 'number' && !column.masked ? 'numericColumn' : undefined,
     cellClass: rule ? (p: { value: unknown }) => [base, toneClass(rule, p.value)].filter(Boolean).join(' ') || undefined : base || undefined,
     cellStyle: rule && rule.style !== 'rules' ? (p: { value: unknown }) => (fillOf(rule, p.value, range) ?? null) as never : undefined,
-    valueFormatter: (p) => formatCell(column, p.value),
+    valueFormatter: (p) => (p.node?.rowPinned ? (p.value === TOTAL ? TOTAL : p.value == null ? '' : formatCell(column, p.value)) : formatCell(column, p.value)),
     sortable: true,
     resizable: true,
     minWidth: 120,
     flex: 1,
   } }), [result.columns, result.rows, onPick, formats])
   const rowData = useMemo(() => result.rows.map((row) => Object.fromEntries(row.map((value, index) => [`c${index}`, value]))), [result.rows])
+  const pinned = useMemo(() => { const row = gridTotalRow(result, totals); return row ? [row] : undefined }, [result, totals])
   const masked = maskedWords(result)
   const grid = useRef<GridApi | null>(null)
   const [size, setSize] = useState(() => rememberedSize(SIZE_KEY))
@@ -76,12 +98,14 @@ export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onP
         </p>
       )}
       <div className="overflow-hidden rounded-md border border-line" style={{ minHeight }} role="region" aria-label={label}>
-        <AgGridReact theme={theme} columnDefs={columnDefs} rowData={rowData} domLayout="autoHeight" suppressCellFocus animateRows={false} overlayNoRowsTemplate="<span>No rows match this report.</span>"
+        <AgGridReact theme={theme} columnDefs={columnDefs} rowData={rowData} pinnedBottomRowData={pinned} getRowClass={(p) => (p.node.rowPinned ? 'font-semibold' : undefined)}
+          domLayout="autoHeight" suppressCellFocus animateRows={false} overlayNoRowsTemplate="<span>No rows match this report.</span>"
           pagination={paged} paginationPageSize={size} suppressPaginationPanel suppressRowVirtualisation={paged} onGridReady={(event) => { grid.current = event.api }}
           onPaginationChanged={(event) => setPage(event.api.paginationGetCurrentPage())} onRowDataUpdated={(event) => event.api.paginationGoToFirstPage()}
-          onCellClicked={onPick ? (event) => { const column = result.columns[Number(String(event.colDef.field).slice(1))]; if (column && !column.aggregate && !column.masked) onPick(column, event.value) } : undefined}
+          onCellClicked={onPick ? (event) => { if (event.node.rowPinned) return; const column = result.columns[Number(String(event.colDef.field).slice(1))]; if (column && !column.aggregate && !column.masked) onPick(column, event.value) } : undefined}
           preventDefaultOnContextMenu={Boolean(onContext)}
           onCellContextMenu={onContext ? (event) => {
+            if (event.node.rowPinned) return
             const column = result.columns[Number(String(event.colDef.field).slice(1))]
             const mouse = event.event as MouseEvent | null | undefined
             if (column && mouse) onContext(column, event.value, { x: mouse.clientX, y: mouse.clientY })
