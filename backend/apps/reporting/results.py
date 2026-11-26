@@ -17,6 +17,7 @@ service.RESULTS_CACHE_TTL seconds, a workspace has one read worked out at a time
 and a query that runs longer than QUERY_SECONDS is stopped (TooSlow) instead of holding a web worker.
 """
 import calendar
+from contextlib import contextmanager
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -94,22 +95,40 @@ def earliest_day(today: date) -> date:
     return date(year, month + 1, min(today.day, calendar.monthrange(year, month + 1)[1]))
 
 
-def window(sent_from: date | None, sent_to: date | None, zone: ZoneInfo) -> tuple[datetime, datetime, date, date, date]:
-    """[sent_from 00:00, sent_to 24:00) in the zone, and the earliest day that may be read. A side left out is SPAN_DAYS
-    from the other; both left out, the SPAN_DAYS up to today."""
+def window(sent_from: date | None, sent_to: date | None, zone: ZoneInfo, keep_days: int | None = None) -> tuple[datetime, datetime, date, date, date]:
+    """[sent_from 00:00, sent_to 24:00) in the zone, and the earliest day that may be read: KEEP_MONTHS back, or keep_days
+    when given (the per-recipient rows). A side left out is SPAN_DAYS from the other; both left out, the SPAN_DAYS up to today."""
     today = timezone.now().astimezone(zone).date()
-    earliest, reach = earliest_day(today), timedelta(days=SPAN_DAYS - 1)
+    earliest, reach = today - timedelta(days=keep_days) if keep_days else earliest_day(today), timedelta(days=SPAN_DAYS - 1)
+    kept = f"{keep_days} days" if keep_days else f"{KEEP_MONTHS} months"
     if sent_from and sent_from > today:
         raise ResultsError("sent_from", "The window starts in the future.")
     last = min(sent_to or (sent_from + reach if sent_from else today), today)
     first = sent_from or max(last - reach, earliest)
     if first < earliest:
-        raise ResultsError("sent_from" if sent_from else "sent_to", f"Results go back {KEEP_MONTHS} months: no earlier than {earliest.isoformat()}.")
+        raise ResultsError("sent_from" if sent_from else "sent_to", f"Results go back {kept}: no earlier than {earliest.isoformat()}.")
     if last < first:
         raise ResultsError("sent_to", "The end of the window is before its start.")
     if (last - first).days >= SPAN_DAYS:
         raise ResultsError("sent_to", f"A call covers up to {SPAN_DAYS} days: with this start, no later than {(first + reach).isoformat()}.")
     return datetime.combine(first, time.min, tzinfo=zone), datetime.combine(last + timedelta(days=1), time.min, tzinfo=zone), first, last, earliest
+
+
+@contextmanager
+def time_limited():
+    """A cursor under the tenant's row-level security whose queries are stopped after QUERY_SECONDS (TooSlow when one was);
+    the connection has the server's own limit back afterwards, for the rest of the request."""
+    try:
+        with session.tx(), session.connection().cursor() as cursor:
+            cursor.execute("SELECT current_setting('statement_timeout')")
+            usual = cursor.fetchone()[0]
+            cursor.execute("SELECT set_config('statement_timeout', %s, true)", [f"{QUERY_SECONDS}s"])
+            yield cursor
+            cursor.execute("SELECT set_config('statement_timeout', %s, true)", [usual])
+    except OperationalError as exc:
+        if type(exc.__cause__).__name__ == "QueryCanceled":
+            raise TooSlow() from None
+        raise
 
 
 def _blank() -> dict:
@@ -183,10 +202,7 @@ def _work_out(tenant, since: datetime, until: datetime) -> dict:
     as_of = timezone.now()
     args = {"tenant": str(tenant.pk), "since": since, "until": until}
     by_run: dict[tuple, dict] = {}                         # (campaign, run): a held-back list made before its run exists has run None
-    with session.tx(), session.connection().cursor() as cursor:
-        cursor.execute("SELECT current_setting('statement_timeout')")
-        usual = cursor.fetchone()[0]
-        cursor.execute("SELECT set_config('statement_timeout', %s, true)", [f"{QUERY_SECONDS}s"])
+    with time_limited() as cursor:
         for statement in MESSAGES.values():
             cursor.execute(statement, args)
             for campaign_id, run_id, *numbers, first_sent, last_sent, activity in cursor.fetchall():
@@ -224,7 +240,6 @@ def _work_out(tenant, since: datetime, until: datetime) -> dict:
             cursor.execute("""SELECT id::text, run_number, run_type, status, sequence_label, scheduled_at, started_at, completed_at FROM campaign_run
                                WHERE tenant_id = %(tenant)s AND id::text = ANY(%(ids)s) AND NOT test_mode""", {**args, "ids": run_ids})
             about_run = {row[0]: dict(zip(("id", "run_number", "run_type", "status", "label", "scheduled_at", "started_at", "completed_at"), row)) for row in cursor.fetchall()}
-        cursor.execute("SELECT set_config('statement_timeout', %s, true)", [usual])        # the rest of the request keeps the server's own
     from apps.delivery import costs
     currency = costs.currency(tenant)
     campaigns = [{**about[campaign_id], **_figures(raw), "money": ({"currency": currency, **money[campaign_id]} if campaign_id in money else None)}
