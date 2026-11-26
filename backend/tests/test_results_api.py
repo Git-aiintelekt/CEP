@@ -279,8 +279,9 @@ def test_results_api(check, admin_email):
             check("an answer that went well keeps no body in the log; a refusal keeps what was answered",
                   all(row[6] for row in logged if row[1] == "OK") and any(not row[6] for row in logged if row[1] in ("REJECTED", "THROTTLED")), str([(row[1], row[6]) for row in logged][-6:]))
             cards = {row["name"]: row for row in page.json() if row["kind"].startswith("RESULTS")}
-            check("Settings -> Integrations lists both, with their limits", set(cards) == {"Results: Campaigns", "Results: Sends"} and cards["Results: Sends"]["effective_limit_per_minute"] == 3
-                  and cards["Results: Campaigns"]["effective_limit_per_minute"] == 60, str(cards)[:300])
+            check("Settings -> Integrations lists each endpoint, with its limit", set(cards) == {"Results: Campaigns", "Results: Sends", "Results: Recipients", "Results: Suppressions"} and cards["Results: Sends"]["effective_limit_per_minute"] == 3
+                  and cards["Results: Campaigns"]["effective_limit_per_minute"] == 60 and cards["Results: Recipients"]["effective_limit_per_minute"] == 120 and cards["Results: Suppressions"]["effective_limit_per_minute"] == 60,
+                  str({name: card["effective_limit_per_minute"] for name, card in cards.items()}))
             paused = api("post", f"/api/v1/integrations/{cards['Results: Campaigns']['id']}/pause/")
             closed, open_still = api("get", "/api/v1/results/campaigns/", h=K), None
             cache.delete_many([f"{throttle.PREFIX}:inbound:{TENANT}:RESULTS_RUNS:m:{int(time.time() // 60) + n}" for n in (0, 1)])

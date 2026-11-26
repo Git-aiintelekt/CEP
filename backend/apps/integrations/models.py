@@ -129,6 +129,7 @@ class Integration(models.Model):
         RESULTS_CAMPAIGNS = 'RESULTS_CAMPAIGNS', 'Results API: campaigns (read by other systems)'
         RESULTS_RUNS = 'RESULTS_RUNS', 'Results API: sends (read by other systems)'
         RESULTS_MESSAGES = 'RESULTS_MESSAGES', 'Results API: recipients (read by other systems)'
+        RESULTS_SUPPRESSIONS = 'RESULTS_SUPPRESSIONS', 'Results API: suppressions (read by other systems)'
         PROVIDER = 'PROVIDER', 'Sending engine (outbound)'
 
     class Status(models.TextChoices):
