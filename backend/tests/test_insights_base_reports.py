@@ -505,14 +505,18 @@ def test_the_loader_works_out_which_database_a_pack_reads(check, monkeypatch):
 
 def test_the_loader_says_why_a_pack_is_left_out(check, monkeypatch):
     from apps.insights import base_packs_loader as loader
-    monkeypatch.setattr(loader.base_reports, "_added", lambda tenant_id: [{"pack_key": "surveys"}])
+    monkeypatch.setattr(loader.base_reports, "_added", lambda tenant_id: [{"pack_key": "surveys", "folder_name": "Survey Reports"}])
     monkeypatch.setattr(loader.catalog, "components_of", lambda tenant_id: ["insights"])
+    monkeypatch.setattr(loader.base_reports, "_folder_name", lambda pack: pack["name"])
     monkeypatch.setattr(loader, "resolve", lambda tenant, pack: {"status": loader.READY, "connection": _connection(),
                                                                  "options": {"databases": ["db"]}, "why": ""})
     steps = {s["pack"]: s for s in loader.plan(_Tenant(), ["surveys", "ereceipts", "no-such-pack"])}
     check("a pack the workspace already has is left alone", steps["surveys"]["status"] == loader.ALREADY)
+    check("and the plan says the folder it is already in", steps["surveys"]["folder"] == "Survey Reports")
     check("one it does not have is ready, with the database it would read", steps["ereceipts"]["status"] == loader.READY
           and steps["ereceipts"]["databases"] == ["db"])
+    check("and the folder it would go into, named after the pack",
+          steps["ereceipts"]["folder"] == PACKS["ereceipts"]["name"])
     check("a pack that does not exist is said so rather than passed over", steps["no-such-pack"]["status"] == "no such pack")
 
     monkeypatch.setattr(loader.catalog, "components_of", lambda tenant_id: [])

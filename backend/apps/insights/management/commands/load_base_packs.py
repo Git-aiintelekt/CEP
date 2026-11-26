@@ -76,6 +76,8 @@ class Command(BaseCommand):
             for step in steps:
                 counts[step["status"]] = counts.get(step["status"], 0) + 1
                 line = f"  {step['name']}: {step['status']}"
+                if step.get("folder"):
+                    line += f" -> folder {step['folder']!r}"
                 if step.get("connection"):
                     line += f" ({step['connection']}: {', '.join(step.get('databases') or [])})"
                 if step.get("made"):

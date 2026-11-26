@@ -123,7 +123,9 @@ def resolve(tenant, pack: dict) -> dict:
 
 def plan(tenant, pack_keys: list[str] | None = None) -> list[dict]:
     """what a load would do to this workspace, pack by pack, without doing any of it"""
-    have = {a["pack_key"] for a in base_reports._added(tenant.pk)}
+    # A pack's reports go into a folder of their own named after it, which _folder_name settles: the pack's name,
+    # or that name and a number where a workspace already has one. Said here so a plan shows where things land.
+    have = {a["pack_key"]: a.get("folder_name") for a in base_reports._added(tenant.pk)}
     components = {p["key"] for p in fitting(catalog.components_of(tenant.pk))}
     out = []
     for key in pack_keys or base_reports.chosen(tenant) or list(PACKS):
@@ -132,14 +134,15 @@ def plan(tenant, pack_keys: list[str] | None = None) -> list[dict]:
             out.append({"pack": key, "status": "no such pack", "why": "", "name": key})
             continue
         if key in have:
-            out.append({"pack": key, "name": pack["name"], "status": ALREADY, "why": ""})
+            out.append({"pack": key, "name": pack["name"], "status": ALREADY, "why": "", "folder": have[key]})
         elif key not in components:
             out.append({"pack": key, "name": pack["name"], "status": NOT_FITTING, "why": ", ".join(needs(pack))})
         else:
             found = resolve(tenant, pack)
             out.append({"pack": key, "name": pack["name"], "status": found["status"], "why": found["why"],
                         "connection": (found["connection"] or {}).get("name"),
-                        "databases": (found["options"] or {}).get("databases")})
+                        "databases": (found["options"] or {}).get("databases"),
+                        "folder": base_reports._folder_name(pack) if found["status"] == READY else None})
     return out
 
 
