@@ -159,9 +159,12 @@ def _alias(tenant) -> str:
 
 
 def load(tenant, user, pack_keys: list[str] | None = None, apply: bool = False) -> list[dict]:
-    """Add the packs this workspace is missing. Without `apply` nothing is written: the same answer, as a plan."""
+    """Add the packs this workspace is missing. Without `apply` nothing is written: the same answer, as a plan.
+
+    A dry run has nobody to add them as, so `user` is None then; only the adding needs one.
+    """
     alias = _alias(tenant)
-    token = context.set_current(str(tenant.pk), alias, str(user.pk))
+    token = context.set_current(str(tenant.pk), alias, str(user.pk) if user else None)
     try:
         with connections[alias].cursor() as cursor:
             cursor.execute("SELECT set_config('app.current_tenant', %s, false)", [str(tenant.pk)])
