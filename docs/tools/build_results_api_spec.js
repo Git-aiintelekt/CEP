@@ -18,7 +18,7 @@ const FONT = 'Calibri'
 const INK = '1F2440'
 const MUTED = '555B6E'
 const CONTENT_WIDTH = 9360
-const VERSION = '1.0'
+const VERSION = '1.1'
 
 function runs(text, base = {}) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean)
@@ -94,12 +94,12 @@ add(
   new Paragraph({ children: [new TextRun({ text: 'CEP Results API', bold: true, size: 64, font: FONT, color: INK })], spacing: { before: 2800, after: 120 } }),
   new Paragraph({ children: [new TextRun({ text: 'Integration Specification', size: 32, font: FONT, color: INK })], spacing: { after: 240 } }),
   new Paragraph({ children: [new TextRun({ text: 'How another system (iCRM, a BI tool, a data warehouse) reads campaign results from CEP: access and security, the endpoints and their fields, limits and throttling, errors, and the load patterns CEP recommends.', size: 22, font: FONT, color: MUTED })], spacing: { after: 480, line: 300 } }),
-  new Paragraph({ children: [new TextRun({ text: `Specification ${VERSION} for API version v1. Built ${new Date().toISOString().slice(0, 10)}. Covers campaign and send totals. Per-recipient rows are planned and are not part of this version.`, size: 20, font: FONT, color: MUTED })], spacing: { after: 120 } }),
+  new Paragraph({ children: [new TextRun({ text: `Specification ${VERSION} for API version v1. Built ${new Date().toISOString().slice(0, 10)}. Covers campaign and send totals, one row per recipient by party ID, and the list of who must not be contacted. Version 1.1 adds the recipient rows, the suppression list, reading only what changed, and CSV; nothing of 1.0 changed.`, size: 20, font: FONT, color: MUTED })], spacing: { after: 120 } }),
   pageBreak(),
 )
 
 const CONTENTS = ['1. Purpose and Scope', '2. At a Glance', '3. Getting Access', '4. Security', '5. Making a Call', '6. The Window: Which Days a Call Reads', '7. Endpoints',
-  '8. Field Reference', '9. Paging', '10. Limits and Throttling', '11. Errors', '12. Recommended Load Patterns', '13. What the CEP Side Operates', '14. Versioning',
+  '8. Field Reference (campaign, counts, rates, held-back reasons, send, money, recipient row)', '9. Paging', '10. Limits and Throttling', '11. Errors', '12. Recommended Load Patterns', '13. What the CEP Side Operates', '14. Versioning',
   '15. Acceptance Checklist', 'Appendix A. Machine-Readable Description', 'Appendix B. Sample Answers']
 add(h1('Contents'), ...CONTENTS.map((line) => new Paragraph({ children: [new TextRun({ text: line, font: FONT, size: 22 })], spacing: { after: 80 } })), pageBreak())
 
@@ -108,10 +108,13 @@ add(h1('1. Purpose and Scope'),
   p('The Results API lets a system outside CEP collect what each campaign did: how many messages were sent, delivered, opened and clicked, who was held back and why, and the revenue and cost attributed to the campaign. The consuming system calls CEP; CEP never calls the consumer.'),
   p('It is written for the integration team that builds and runs the consumer, and for the CEP administrator who gives that team access.'),
   ...table(['In this version', 'Not in this version'], [
-    ['Totals per campaign and per send, for email, SMS, MMS and WhatsApp.', 'One row per recipient (party ID with delivered, opened, clicked, bounced). Planned as the next version; it will be added to v1 without changing what is described here.'],
-    ['Every kind of campaign: regular, drip, journey, e-receipt and warm-up.', 'Names, email addresses, phone numbers and message content. These are never answered. CEP identifies a customer by party ID only, and the consuming system holds the customer record.'],
-    ['People held back by the audience rules, counted by reason.', 'Webhooks or files pushed by CEP. The consumer always pulls.'],
-    ['Attributed revenue, orders, conversions, message cost, contribution and ROI.', 'Test sends. They are never counted.'],
+    ['Totals per campaign and per send, for email, SMS, MMS and WhatsApp.', 'Names, email addresses, phone numbers and message content. These are never answered. CEP identifies a customer by party ID only, and the consuming system holds the customer record.'],
+    ['One row per recipient per send: the party ID, the status, and a time for each event (sent, delivered, opened, clicked, bounced, complained, unsubscribed, replied, failed).', 'Webhooks or files pushed by CEP. The consumer always pulls.'],
+    ['People held back by the audience rules: counted by reason in the totals, and one row each, by party ID, in the recipient rows.', 'Test sends. They are never counted.'],
+    ['Every kind of campaign: regular, drip, journey, e-receipt and warm-up.', 'Which link was clicked. A click is recorded once per message, with its time.'],
+    ['Attributed revenue, orders, conversions, message cost, contribution and ROI, per campaign.', 'Money per recipient.'],
+    ['The list of who must not be contacted: everyone who unsubscribed or replied STOP, and every customer whose address or number is blocked, by party ID.', 'Blocked addresses that belong to no customer. They have no party ID, so they are left out and counted.'],
+    ['Reading only what changed since the last read, and CSV as well as JSON.', ''],
   ], [1, 1]),
 )
 
@@ -119,14 +122,14 @@ add(h1('1. Purpose and Scope'),
 add(h1('2. At a Glance'),
   ...table(['Item', 'Value'], [
     ['Style', 'REST over HTTPS. Read-only: every endpoint is `GET`.'],
-    ['Format', 'JSON, UTF-8. Timestamps are ISO 8601 in UTC (`2026-11-21T02:00:00Z`). Days are `YYYY-MM-DD` in the workspace\'s time zone.'],
+    ['Format', 'JSON, UTF-8, or CSV with `?format=csv` on the lists. Timestamps are ISO 8601 in UTC (`2026-11-21T02:00:00Z`). Days are `YYYY-MM-DD` in the workspace\'s time zone.'],
     ['Base address', '`https://<cep-host>/api/v1/`. The CEP platform team gives the host for each environment (test and production).'],
     ['Authentication', 'An API key in the `Authorization` header, with the scope `results:read`.'],
     ['Workspace', 'Named in the `X-Tenant` header. A key works in the workspace it was made in and nowhere else.'],
-    ['How far back', '13 months.'],
-    ['How much a call', 'At most 31 days.'],
-    ['Paging', '200 rows a page unless asked otherwise, at most 500. Follow `next`.'],
-    ['Rate limit', '60 calls a minute for each endpoint and workspace, at most 10 in any one second. One read is worked out at a time for a workspace.'],
+    ['How far back', 'Totals: 13 months. Recipient rows: 90 days.'],
+    ['How much a call', 'At most 31 days when reading by send day.'],
+    ['Paging', 'Totals: 200 rows a page unless asked otherwise, at most 500. Recipient rows: 500, at most 1,000. Follow `next`.'],
+    ['Rate limit', 'For each endpoint and workspace: 60 calls a minute for the totals and the suppression list, 120 for the recipient rows, at most 10 in any one second. One read of totals is worked out at a time for a workspace.'],
     ['Freshness', 'Figures are live. An answer is kept for 30 seconds, so the pages of one read agree.'],
   ], [1, 3]),
 )
@@ -190,6 +193,8 @@ add(h1('5. Making a Call'),
     ['`X-RateLimit-Remaining`', 'Calls left in the current minute.'],
     ['`X-RateLimit-Reset`', 'Seconds until the minute starts again.'],
     ['`Retry-After`', 'On `429` and `504` only: seconds to wait before calling again.'],
+    ['`Link`', 'On a list with a further page: the next page\'s address, as `<address>; rel="next"`. The same address as `next` in a JSON answer, and the only place it is given for CSV.'],
+    ['`X-As-Of`', 'On a list: when the answer was read. The same as `as_of` in a JSON answer.'],
     ['`X-Correlation-Id`', 'The caller\'s reference, or one CEP made.'],
     ['`Cache-Control`', '`no-store`.'],
   ], [2, 5]),
@@ -197,9 +202,9 @@ add(h1('5. Making a Call'),
 
 // ---------------------------------------------------------------------------------------------------- 6
 add(h1('6. The Window: Which Days a Call Reads'),
-  p('A call reads the messages made in a window of days. `sent_from` and `sent_to` are whole days in the workspace\'s time zone, both included.'),
+  p('A call reads the messages made in a window of days. `sent_from` and `sent_to` are whole days in the workspace\'s time zone, both included. The recipient rows can also be read by change instead of by day (section 7.4).'),
   ...table(['Rule', 'Value'], [
-    ['How far back', '13 months before today. An older `sent_from` is answered `400` with the earliest day allowed.'],
+    ['How far back', 'Totals: 13 months before today. Recipient rows: 90 days. An older `sent_from` is answered `400` with the earliest day allowed.'],
     ['How much a call', '31 days. A wider window is answered `400` with the latest `sent_to` allowed.'],
     ['Both left out', 'The 31 days up to today.'],
     ['Only `sent_from`', '31 days from it, or up to today if that is sooner.'],
@@ -259,6 +264,74 @@ add(h1('7. Endpoints'),
     ['`sent_from`, `sent_to`, `channel`, `campaign_type`, `page_size`, `offset`', '', 'As for campaigns.'],
   ], [3, 1, 4]),
   p('The answer has the same envelope as the campaigns list, with sends in `results`.'),
+  h2('7.4 Recipients'),
+  p('`GET /api/v1/results/messages/`'),
+  p('One row for each recipient of each send, and one row for each person a send held back. Every row names the customer by `party_id`. There are two ways to read, chosen by the parameters; they cannot be mixed in one call.'),
+  ...table(['Way', 'Parameters', 'Answers', 'Use it for'], [
+    ['By send day', '`sent_from`, `sent_to` (31 days at most, 90 days back). Left out: the 31 days up to today.', 'The rows of the messages made in those days, in the order they were made, then the people held back.', 'The first load, a reload, one campaign or one send.'],
+    ['By change', '`changed_since`: a moment with its zone, for example `2026-11-26T08:00:00Z`.', 'The rows whose result moved since that moment, among the messages of the last 90 days, oldest change first.', 'Every later read: hourly or daily.'],
+  ], [2, 4, 4, 3]),
+  ...table(['Parameter', 'Type', 'Meaning'], [
+    ['`sent_from`, `sent_to`', 'Day', 'Read by send day.'],
+    ['`changed_since`', 'Timestamp', 'Read by change. Pass the `as_of` of the previous read.'],
+    ['`campaign`', 'ID', 'Only this campaign\'s rows.'],
+    ['`run`', 'ID', 'Only this send\'s rows.'],
+    ['`channel`', 'Text', '`EMAIL`, `SMS`, `MMS` or `WHATSAPP`.'],
+    ['`status`', 'Text', 'Only rows with this status (section 8.8).'],
+    ['`page_size`', 'Number', 'Rows a page: 500 unless given, at most 1,000.'],
+    ['`cursor`', 'Text', 'Set by the `next` address. Do not build it by hand.'],
+  ], [3, 2, 5]),
+  p('Answer `200`. A read by send day carries `window`; a read by change carries `changed_since` instead. There is no `count`: follow `next` until it is null.'),
+  ...code(`{
+  "as_of": "2026-11-26T09:00:00.000Z",
+  "changed_since": "2026-11-26T08:00:00Z",
+  "next": "https://<cep-host>/api/v1/results/messages/?changed_since=...&cursor=eyJzIjoiRSIs...",
+  "results": [ { ...a row, see section 8.8... } ]
+}`),
+  h2('7.5 Reading Only What Changed'),
+  ...numbered([
+    'First load: read by send day, a window at a time, and store every row by its `id`.',
+    'Keep the `as_of` of the first call of that load.',
+    'Next read: `changed_since=<that as_of>`. Follow `next` to the end; every page of one read has the same `as_of`. Store the rows by `id`, replacing what was there, and keep the new `as_of`.',
+  ]),
+  ...bullets([
+    'A row comes back when its status moved, when a delivery, open, click, bounce, complaint or reply was recorded, or when its person unsubscribed from that message. A person held back comes back once, when the send left them out.',
+    '`as_of` stops one minute behind the clock, so a change being written while the read runs is picked up by the next read instead of being missed. A row at the boundary can come back twice; storing by `id` makes that harmless.',
+    'CEP records changes from the moment change tracking was switched on in the installation. A `changed_since` before that moment, or more than 90 days back, is answered `400` with the earliest moment allowed; read anything earlier by send day.',
+  ]),
+  h2('7.6 Suppressions'),
+  p('`GET /api/v1/results/suppressions/`'),
+  p('Who must not be contacted, by `party_id`: everyone who unsubscribed or replied STOP, and every customer whose address or number is blocked after a hard bounce, a spam complaint, or a block made by a person, an import or a registry. It is the list a CEP administrator sees under **Settings → Suppressions**, without the addresses and numbers.'),
+  ...table(['Way', 'Parameters', 'Answers'], [
+    ['The whole list', 'No `changed_since`.', 'Every row that holds now.'],
+    ['By change', '`changed_since`: a moment with its zone. Pass the `as_of` of the previous read.', 'The rows that changed since that moment. A row that was lifted (the person asked for messages again, a block was removed) comes back with `active` false, so the consumer can clear its flag.'],
+  ], [2, 4, 6]),
+  ...table(['Parameter', 'Type', 'Meaning'], [
+    ['`changed_since`', 'Timestamp', 'Read by change.'],
+    ['`channel`', 'Text', '`EMAIL`, `SMS`, `MMS`, `WHATSAPP`, or `PHONE` for blocked numbers alone.'],
+    ['`origin`', 'Text', '`cep` unless given: what CEP learned first. `all`: also what the customer system itself sent CEP (see below).'],
+    ['`page_size`', 'Number', 'Rows a page: 500 unless given, at most 1,000.'],
+    ['`cursor`', 'Text', 'Set by the `next` address.'],
+  ], [3, 2, 5]),
+  ...code(`{
+  "as_of": "2026-11-26T08:55:00.000Z",
+  "left_out": { "without_party_id": 12 },
+  "next": null,
+  "results": [ { ...a row, see section 8.9... } ]
+}`),
+  ...bullets([
+    '**One fact, one row.** A spam complaint is answered once, as the block it caused. A STOP reply is answered once, as the opt-out it caused.',
+    '**What CEP learned first.** By default the list holds what happened in CEP: an unsubscribe link, a STOP reply, the preference centre, a spam report, a bounce, a block made in CEP by a person or an import. An opt-out that arrived with the customer record, and a block marked as coming from the customer system, are left out, because that system is where they came from. `origin=all` answers those too.',
+    '**Left out.** A blocked address with no customer behind it (an imported or registry address) has no party ID and cannot be answered. `left_out.without_party_id`, on the first page, says how many there are.',
+    '**`as_of` stops five minutes behind the clock** on this endpoint, because one import can block thousands of addresses in a single long step. The list is small: read it whole once a week as well, as a safety net.',
+  ]),
+  h2('7.7 CSV'),
+  p('The four lists answer CSV when the address carries `format=csv`: one header line, then a line a row, UTF-8. A value that is null is an empty cell. The next page is in the `Link` header and stays CSV. One campaign (7.2) has no CSV form. A refusal is still answered as a problem document (section 11).'),
+  ...table(['List', 'Columns'], [
+    ['Campaigns, sends', 'The row\'s own fields, then `counts_audience` ... `counts_replied`, `rates_delivery` ... `rates_unsubscribe`, `held_back_reasons` (as `NO_CONSENT=97;UNSUBSCRIBED=48`), the three times, and for campaigns `money_currency` ... `money_computed_at`.'],
+    ['Recipients', 'The fields of section 8.8, in that order.'],
+    ['Suppressions', 'The fields of section 8.9, in that order.'],
+  ], [2, 6]),
 )
 
 // ---------------------------------------------------------------------------------------------------- 8
@@ -358,6 +431,72 @@ add(h1('8. Field Reference'),
   ], [2, 2, 5]),
 )
 
+add(
+  h2('8.8 Recipient Row'),
+  ...table(['Field', 'Type', 'Meaning'], [
+    ['`id`', 'Text', 'The row\'s own identifier, stable; store by it. `E-...` is an email, `T-...` a text or WhatsApp message, `H-...` a person held back.'],
+    ['`campaign_id`, `campaign_code`', 'UUID, text', 'The campaign.'],
+    ['`run_id`', 'UUID or null', 'The send.'],
+    ['`channel`', 'Text', '`EMAIL`, `SMS`, `MMS` or `WHATSAPP`.'],
+    ['`party_id`', 'Text', 'The customer, as iCRM knows them. The only thing that identifies the person.'],
+    ['`status`', 'Text', 'The latest thing that happened (the list below).'],
+    ['`reason`', 'Text or null', '`HELD_BACK`: the reason of section 8.5. `NOT_SENT`: why CEP did not send it, for example `STOPPED_EARLY`. `FAILED` and `BOUNCED`: the sending engine\'s words, with any address or number in them replaced by `[address]` and `[number]`. Otherwise null.'],
+    ['`sent_at`', 'Timestamp or null', 'Handed to the sending engine.'],
+    ['`delivered_at`', 'Timestamp or null', 'Reported delivered.'],
+    ['`opened_at`', 'Timestamp or null', 'Email: the first open. WhatsApp: read.'],
+    ['`clicked_at`', 'Timestamp or null', 'Email: the first click.'],
+    ['`bounced_at`, `bounce_type`', 'Timestamp, text, or null', 'Email: when it bounced, and `HARD` or `SOFT`.'],
+    ['`complained_at`', 'Timestamp or null', 'Email: marked as spam.'],
+    ['`unsubscribed_at`', 'Timestamp or null', 'The person unsubscribed through this message: its link, or a STOP reply to it.'],
+    ['`replied_at`', 'Timestamp or null', 'SMS, MMS, WhatsApp: the person answered.'],
+    ['`failed_at`', 'Timestamp or null', 'SMS, MMS, WhatsApp: when it failed.'],
+    ['`variant`', 'Text or null', 'Email in a subject-line test: `A` or `B`.'],
+    ['`changed_at`', 'Timestamp', 'When the row\'s result last moved.'],
+  ], [3, 2, 5]),
+  p('A message keeps every time it earned: one that was delivered, opened and clicked has all three, and its `status` is `CLICKED`.'),
+  ...table(['`status`', 'Meaning', 'Channels'], [
+    ['`QUEUED`', 'Waiting to be sent.', 'All'],
+    ['`SENT`', 'Handed to the sending engine.', 'All'],
+    ['`DELIVERED`', 'Reported delivered.', 'All'],
+    ['`OPENED`', 'Opened (email) or read (WhatsApp).', 'Email, WhatsApp'],
+    ['`CLICKED`', 'A link was clicked.', 'Email'],
+    ['`BOUNCED`', 'Could not be delivered.', 'Email'],
+    ['`COMPLAINED`', 'Marked as spam.', 'Email'],
+    ['`REPLIED`', 'The person answered.', 'SMS, MMS, WhatsApp'],
+    ['`OPTED_OUT`', 'The person replied STOP.', 'SMS, MMS, WhatsApp'],
+    ['`FAILED`', 'The sending engine refused it.', 'All'],
+    ['`NOT_SENT`', 'Made and then not sent, by CEP\'s own choice.', 'All'],
+    ['`HELD_BACK`', 'Left out by the audience rules; no message was made.', 'All'],
+  ], [2, 5, 3]),
+)
+
+add(
+  h2('8.9 Suppression Row'),
+  ...table(['Field', 'Type', 'Meaning'], [
+    ['`id`', 'Text', 'The row\'s own identifier, stable; store by it. `C-...` is what the person decided, `B-...` a blocked address or number.'],
+    ['`party_id`', 'Text', 'The customer. A customer can have more than one row: one a channel they opted out of, one an address or number that is blocked.'],
+    ['`channel`', 'Text', '`C` rows: `EMAIL`, `SMS`, `MMS` or `WHATSAPP`. `B` rows: `EMAIL`, or `PHONE` (a blocked number stops every message to it).'],
+    ['`reason`', 'Text', 'The list below.'],
+    ['`source`', 'Text or null', 'How it came about: `UNSUBSCRIBE_LINK`, `SMS_STOP`, `PREFERENCE_CENTER`, `CSR` (a person in CEP), `IMPORT`, or the sending engine (`POSTAL`, `DIGIVIZE` ...). Null when it arrived with the customer record.'],
+    ['`campaign_id`', 'UUID or null', 'The campaign whose message the person unsubscribed through, where one is known.'],
+    ['`since`', 'Timestamp', 'When the opt-out or the block began.'],
+    ['`active`', 'True or false', 'False: it was lifted. Only a read by change answers lifted rows.'],
+    ['`changed_at`', 'Timestamp', 'When the row last changed.'],
+  ], [3, 2, 5]),
+  ...table(['`reason`', 'Meaning'], [
+    ['`UNSUBSCRIBED`', 'The person opted out of the channel: an unsubscribe link, the preference centre, or recorded by a person.'],
+    ['`OPTED_OUT`', 'The person replied STOP to a text.'],
+    ['`COMPLAINT`', 'The person marked an email as spam. The address is blocked.'],
+    ['`HARD_BOUNCE`', 'The address or number does not exist.'],
+    ['`SOFT_BOUNCE_THRESHOLD`', 'The address bounced repeatedly.'],
+    ['`INVALID`', 'The address or number is not valid.'],
+    ['`MANUAL`', 'Blocked by a person, or by an import of blocked addresses.'],
+    ['`GLOBAL_SUPPRESSION_LIST`', 'On a suppression list loaded into CEP.'],
+    ['`DND_REGISTRY`', 'On a do-not-disturb registry.'],
+    ['`SUPPRESSED`', 'Marked as not to be contacted by the customer system (answered with `origin=all` only).'],
+  ], [3, 7]),
+)
+
 // ---------------------------------------------------------------------------------------------------- 9
 add(h1('9. Paging'),
   ...numbered([
@@ -365,20 +504,21 @@ add(h1('9. Paging'),
     'Store the rows in `results`.',
     'If `next` is not null, call that address exactly as given, with the same headers. Repeat until `next` is null.',
   ]),
-  p('The pages of one read agree with each other when they are fetched within 30 seconds. A consumer that pauses longer between pages should start the read again from the first page. `count` says how many rows the whole read has.'),
+  p('Totals: the pages of one read agree with each other when they are fetched within 30 seconds. A consumer that pauses longer between pages should start the read again from the first page. `count` says how many rows the whole read has.'),
+  p('Recipient rows and the suppression list: `next` carries a cursor that marks where the page ended, so a page costs the same however deep the read is, and a read can be resumed from any `next` address. There is no `count`.'),
 )
 
 // ---------------------------------------------------------------------------------------------------- 10
 add(h1('10. Limits and Throttling'),
   p('The limits protect the CEP application server: no consumer, however it is written, can slow CEP down for the people using it.'),
   ...table(['Limit', 'Value', 'When it is reached'], [
-    ['Calls a minute, for each endpoint and workspace', '60 for campaigns (list and single together), 60 for sends. The CEP platform team can set a different figure for a workspace.', '`429` with `Retry-After`: the seconds until the minute starts again.'],
+    ['Calls a minute, for each endpoint and workspace', '60 for campaigns (list and single together), 60 for sends, 120 for recipients, 60 for suppressions. The CEP platform team can set a different figure for a workspace.', '`429` with `Retry-After`: the seconds until the minute starts again.'],
     ['Calls in one second', '10.', '`429` with `Retry-After: 1`.'],
     ['Calls a minute for one key', 'None unless the CEP platform team set one on the key.', '`429` with `Retry-After`.'],
-    ['Reads worked out at the same time, for one workspace', '1. A second read that needs working out waits its turn.', '`429` with `Retry-After: 2`.'],
+    ['Reads of totals worked out at the same time, for one workspace', '1. A second read that needs working out waits its turn.', '`429` with `Retry-After: 2`.'],
     ['Time one read may take', '15 seconds a query.', '`504` with `Retry-After: 60`. Ask for fewer days.'],
     ['Days a call', '31.', '`400`.'],
-    ['Rows a page', '500.', 'A larger `page_size` is served as 500.'],
+    ['Rows a page', '500 for the totals, 1,000 for the recipient rows and the suppression list.', 'A larger `page_size` is served as the most allowed.'],
   ], [3, 4, 3]),
   h2('10.1 What the Consumer Must Do'),
   ...bullets([
@@ -401,7 +541,7 @@ add(h1('11. Errors'),
   "errors": { "sent_from": "Results go back 13 months: no earlier than 2025-10-26." }
 }`),
   ...table(['Status', 'Meaning', 'What to do'], [
-    ['`400`', 'A parameter is wrong: a day that is not `YYYY-MM-DD`, a window older than 13 months, wider than 31 days or back to front, an unknown channel or type.', 'Fix the call. `errors` names the field. Do not retry unchanged.'],
+    ['`400`', 'A parameter is wrong: a day that is not `YYYY-MM-DD`, a window older than allowed, wider than 31 days or back to front, an unknown channel, type or status, a `changed_since` without its zone, too old, or given together with a day, a cursor that was altered.', 'Fix the call. `errors` names the field. Do not retry unchanged.'],
     ['`401`', 'The key is missing, wrong, revoked or expired, or the call came from an address that is not allowed.', 'Do not retry. Check the key and the source address with the CEP administrator.'],
     ['`403`', 'The key lacks `results:read`, or the caller is not an API key.', 'Do not retry. Ask the administrator for a key with the scope.'],
     ['`404`', '`Unknown tenant`: the `X-Tenant` value is not a workspace. On one campaign: it made no message in the window.', 'Check the workspace ID, or widen or move the window.'],
@@ -414,25 +554,37 @@ add(h1('11. Errors'),
 
 // ---------------------------------------------------------------------------------------------------- 12
 add(h1('12. Recommended Load Patterns'),
-  h2('12.1 Daily Load Into a Warehouse'),
+  h2('12.1 Recipient Rows Into a Warehouse or iCRM'),
+  ...numbered([
+    'First load: read `/results/messages/` by send day, walking back in windows of 31 days to `window.earliest` (three calls, plus pages). Store every row by `id`. Keep the `as_of` of the first call of the load: everything that moves after that moment comes with the reads by change.',
+    'Every hour (or every day): read with `changed_since` set to the stored `as_of`, follow `next` to the end, store the rows by `id`, keep the new `as_of`.',
+    'If a read fails part-way, repeat it with the same `changed_since`. Nothing is lost and nothing is doubled.',
+  ]),
+  h2('12.2 Daily Totals Into a Warehouse'),
   ...numbered([
     'Once a day, after midnight in the workspace\'s time zone, read `/results/runs/` and `/results/campaigns/` for a window of the last 7 days ending yesterday.',
     'Upsert by `id`. Opens, clicks and unsubscribes keep arriving for days after a send, so re-reading the last 7 days brings each row up to date.',
     'Once a week, re-read the last 35 days for `/results/campaigns/` only, so that late `money` figures are picked up.',
   ]),
-  h2('12.2 Daily Figures for Campaigns That Never End'),
-  p('For e-receipt and journey campaigns, call with `sent_from` and `sent_to` set to the same day, one call a day, and store one row per campaign per day. Re-read the last 7 days each night for the late opens.'),
-  h2('12.3 Hourly Refresh for a Dashboard'),
+  h2('12.3 Daily Figures for Campaigns That Never End'),
+  p('For e-receipt and journey campaigns, call the totals with `sent_from` and `sent_to` set to the same day, one call a day, and store one row per campaign per day. Re-read the last 7 days each night for the late opens.'),
+  h2('12.4 Hourly Refresh for a Dashboard'),
   p('Once an hour, read `/results/campaigns/` with no dates (the 31 days up to today). Use `last_activity_at` to skip rows that have not moved.'),
-  h2('12.4 First Load or Reload After an Outage'),
+  h2('12.5 First Load of Totals, or Reload After an Outage'),
   p('Walk back in steps of 31 days from today to `window.earliest`: 14 calls for each endpoint, plus pages. Run it outside business hours.'),
-  h2('12.5 Linking to the Customer Record'),
-  p('This version answers no customer-level data. When per-recipient rows are added, each will carry the customer\'s party ID, the same ID iCRM holds, and no name or contact detail.'),
+  h2('12.6 Keeping the Do-Not-Contact Flags in Step'),
+  ...numbered([
+    'First load: read `/results/suppressions/` whole, following `next` to the end. For each row, set the do-not-contact flag for that `party_id` and channel, keyed by the row\'s `id`. Keep the `as_of`.',
+    'Every hour: read with `changed_since` set to the stored `as_of`. Set the flag for a row with `active` true; clear it for a row with `active` false. Keep the new `as_of`.',
+    'Once a week: read the whole list again and compare, as a safety net.',
+  ]),
+  h2('12.7 Linking to the Customer Record'),
+  p('Join a recipient row to the customer by `party_id`, the same ID iCRM holds. CEP answers no name and no contact detail; the consuming system adds them from its own records.'),
 )
 
 // ---------------------------------------------------------------------------------------------------- 13
 add(h1('13. What the CEP Side Operates'),
-  p('Each endpoint is an integration of the workspace, shown under **Settings → Integrations** as **Results: Campaigns** and **Results: Sends**. The records appear once a key has the scope `results:read`.'),
+  p('Each endpoint is an integration of the workspace, shown under **Settings → Integrations** as **Results: Campaigns**, **Results: Sends**, **Results: Recipients** and **Results: Suppressions**. The records appear once a key has the scope `results:read`.'),
   ...table(['The workspace administrator can', 'The CEP platform team can'], [
     ['See each endpoint\'s calls, error rate, slowest answers and throttled calls for the last 24 hours.', 'Set the calls-a-minute limit and the extra burst for a workspace\'s endpoint.'],
     ['Open any call in the log: when, which key, what was asked, how it was answered.', 'Set how long call records are kept (90 days unless changed) and whether answers are stored (for a call that went well only the size is kept; for a failure the answer is kept too).'],
@@ -467,6 +619,13 @@ add(h1('15. Acceptance Checklist'),
     ['11', 'The administrator pauses **Results: Campaigns**; call again; resume.', '`503` while paused; `200` after.'],
     ['12', 'The administrator opens **Settings → Integrations** and finds a call by its `X-Correlation-Id`.', 'The call is there, with the key that made it.'],
     ['13', 'The administrator revokes the key; call again.', '`401`.'],
+    ['14', 'Call `/results/messages/` for one campaign (`campaign=<id>`).', 'One row for each recipient and each person held back, each with a `party_id`; no name, address or number anywhere in the answer.'],
+    ['15', 'Compare the rows of that campaign with its Recipients tab in CEP.', 'The same people, with the same statuses.'],
+    ['16', 'The same call with `page_size=2`, following `next` to the end.', 'Every row once.'],
+    ['17', 'Read with `changed_since` set to an hour ago; open or click one of the test emails; read again with the first answer\'s `as_of`.', 'The second read has that message and nothing that did not move.'],
+    ['18', 'The same list with `format=csv`.', 'A header line and a line a row; the next page in the `Link` header.'],
+    ['19', 'Call `/results/suppressions/`. Unsubscribe with a test email\'s link, then read with `changed_since` set to the first answer\'s `as_of` (allow five minutes).', 'The test customer\'s `party_id` with reason `UNSUBSCRIBED`, source `UNSUBSCRIBE_LINK`, the campaign, and `active` true. No address anywhere in the answer.'],
+    ['20', 'In CEP, remove a block under **Settings → Suppressions**; read by change again.', 'That row with `active` false.'],
   ], [1, 6, 5]),
 )
 
@@ -501,7 +660,44 @@ add(h1('Appendix A. Machine-Readable Description'),
   "last_sent_at": "2026-11-21T02:14:09Z",
   "last_activity_at": "2026-11-26T08:41:55Z"
 }`),
-  h2('B.3 A Throttled Call'),
+  h2('B.3 A Recipient Row'),
+  ...code(`{
+  "id": "E-88213407",
+  "campaign_id": "0b6f6c5e-3d0a-4c58-9a51-6f0c1d2e7a10",
+  "campaign_code": "CMP-2026-0142",
+  "run_id": "5a1d1e1c-77b2-4f0e-8d39-2b6a4c9f1e03",
+  "channel": "EMAIL",
+  "party_id": "P-100482",
+  "status": "CLICKED",
+  "reason": null,
+  "sent_at": "2026-11-21T02:03:11Z",
+  "delivered_at": "2026-11-21T02:03:14Z",
+  "opened_at": "2026-11-21T07:52:40Z",
+  "clicked_at": "2026-11-21T07:53:02Z",
+  "bounced_at": null,
+  "bounce_type": null,
+  "complained_at": null,
+  "unsubscribed_at": null,
+  "replied_at": null,
+  "failed_at": null,
+  "variant": null,
+  "changed_at": "2026-11-21T07:53:02.418Z"
+}`),
+  h2('B.4 A Person Held Back'),
+  ...code(`{
+  "id": "H-5120077",
+  "campaign_id": "0b6f6c5e-3d0a-4c58-9a51-6f0c1d2e7a10",
+  "campaign_code": "CMP-2026-0142",
+  "run_id": "5a1d1e1c-77b2-4f0e-8d39-2b6a4c9f1e03",
+  "channel": "EMAIL",
+  "party_id": "P-100977",
+  "status": "HELD_BACK",
+  "reason": "FREQUENCY_CAP",
+  "sent_at": null,
+  ...every other time null...,
+  "changed_at": "2026-11-21T02:00:01Z"
+}`),
+  h2('B.5 A Throttled Call'),
   ...code(`HTTP/1.1 429 Too Many Requests
 Retry-After: 23
 X-RateLimit-Limit: 60
