@@ -31,7 +31,7 @@ from apps.delivery.engine import session
 from apps.insights import catalog, connection_limits, dataset_formulas, databases, external
 from apps.insights.api import VIEW, HasInsights, _has, _q, _tenant
 from apps.insights.base_packs import PACKS, fitting, needs
-from apps.insights.base_packs.email_sql import OptionError
+from apps.insights.base_packs.common import OptionError
 from apps.reporting import reports
 
 ADD = [IsAuthenticated, HasInsights, HasPermissionCode.for_("report.admin") | HasPermissionCode.for_("user.admin")]
@@ -103,13 +103,18 @@ def _run(tenant, row: dict, sql: str, limit: int = 50) -> dict:
 def sources(tenant, pack: dict, row: dict) -> dict:
     """the databases on the connection holding every table the pack reads, largest first, with their marketing emails; and the
     tables that look like campaign names (a campaign id column beside a campaign name column)"""
-    from apps.insights.base_packs.email_sql import IDENT, MARKETING
+    from apps.insights.base_packs.common import IDENT
     tables = pack["needs"]["tables"]
+    # How this pack judges a candidate database's size: its busiest table, and what counts as a campaign row in it.
+    # A pack without one is still listed, only without the figures to sort it by.
+    volume = pack.get("volume") or {}
+    busiest = volume.get("table") if IDENT.match(str(volume.get("table") or "")) else None
     listed = ", ".join(f"'{t}'" for t in tables)
     skip = ", ".join(f"'{s}'" for s in SKIP_SCHEMAS)
+    rows_of = f"MAX(CASE WHEN TABLE_NAME = '{busiest}' THEN TABLE_ROWS END)" if busiest else "NULL"
     try:
         found = _run(tenant, row, f"""SELECT TABLE_SCHEMA AS name, COUNT(DISTINCT TABLE_NAME) AS tables_found,
-                                             MAX(CASE WHEN TABLE_NAME = 'messages' THEN TABLE_ROWS END) AS messages
+                                             {rows_of} AS messages
                                         FROM information_schema.TABLES WHERE TABLE_NAME IN ({listed}) AND TABLE_SCHEMA NOT IN ({skip})
                                        GROUP BY TABLE_SCHEMA HAVING COUNT(DISTINCT TABLE_NAME) = {len(tables)} ORDER BY messages DESC""", limit=100)
         names = _run(tenant, row, f"""SELECT CONCAT(a.TABLE_SCHEMA, '.', a.TABLE_NAME) AS table_name, a.COLUMN_NAME AS id_column, b.COLUMN_NAME AS name_column
@@ -122,10 +127,13 @@ def sources(tenant, pack: dict, row: dict) -> dict:
     for name, _count, messages in found["rows"]:
         if not IDENT.match(str(name)):
             continue
-        try:
-            marketing = _run(tenant, row, f"SELECT COUNT(*) FROM `{name}`.messages m WHERE {MARKETING}", limit=1)["rows"][0][0]
-        except external.ExternalError:
-            marketing = None
+        marketing = None
+        if busiest and volume.get("where"):
+            try:
+                marketing = _run(tenant, row, f"SELECT COUNT(*) FROM `{name}`.`{busiest}` {volume.get('alias', 'm')} "
+                                              f"WHERE {volume['where']}", limit=1)["rows"][0][0]
+            except external.ExternalError:
+                marketing = None
         out.append({"name": name, "messages": int(messages or 0), "marketing": None if marketing is None else int(marketing)})
     return {"databases": out, "names": name_tables(names["rows"])}
 

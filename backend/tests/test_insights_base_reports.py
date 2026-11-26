@@ -10,7 +10,8 @@ from django.db import connections
 from django.utils.text import slugify
 
 from apps.insights import base_reports, external
-from apps.insights.base_packs import PACKS, email_sql
+from apps.insights.base_packs import PACKS
+from apps.insights.base_packs.email_campaigns import sql as email_sql
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
 PACK = PACKS["email-campaigns"]

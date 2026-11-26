@@ -2,7 +2,7 @@
 Four datasets (email_sql), their shared formulas, the reports and two dashboards. Field keys follow from the labels as Report
 Databases makes them (Delivered First Attempt -> delivered_first_attempt); tests/test_insights_base_reports.py holds them to it.
 A report or a tile names a dataset or a report by its id here; adding the pack swaps in what this workspace made."""
-from . import email_sql
+from . import sql as email_sql
 
 
 def _dim(column, label, type_="string", sensitivity="NORMAL", format_=None):
@@ -212,6 +212,8 @@ PACK = {
     "source": "CmpReport",
     "components": ["insights"],
     "needs": {"engine": "mysql", "label": "a Postal database", "tables": ["messages", "deliveries", "loads", "clicks", "links"]},
+    # How the database picker sizes a candidate: its busiest table, and what a campaign email looks like in it.
+    "volume": {"table": "messages", "alias": "m", "where": email_sql.MARKETING},
     "datasets": DATASETS,
     "formulas": FORMULAS,
     "reports": REPORTS,

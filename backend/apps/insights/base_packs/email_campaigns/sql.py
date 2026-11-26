@@ -12,29 +12,13 @@ messages in it instead of whole tables. Options, all checked before they reach t
     leave_out       words: a campaign whose name contains one (any case) is left out
     unsubscribe     what an unsubscribe link's URL contains; clicks on it count as unsubscribes, not clicks
 """
-import re
+from ..common import IDENT, WORD, OptionError  # noqa: F401  (kept importable from here: the tests and base_reports name them)
+from ..common import lit as _lit
+from ..common import q as _q
 
-IDENT = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_$-]{0,63}$")              # MySQL names as Postal makes them (txpostalprod-server-7)
-WORD = re.compile(r"^[^'\"\\%_`;]{1,40}$")
 MARKETING = ("m.scope = 'outgoing' AND JSON_VALID(m.tag) AND JSON_EXTRACT(m.tag, '$.mkt_id') IS NOT NULL "
              "AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(m.tag, '$.ept_id')), 'MKT_CAMP') = 'MKT_CAMP'")   # receipts carry an mkt_id too
 DELIVERY_STATES = "('Sent', 'SoftFail', 'HardFail', 'Error', 'Bounced')"
-
-
-class OptionError(ValueError):
-    """An option that cannot go into the SQL; the message is for the person."""
-
-
-def _q(name: str) -> str:
-    if not IDENT.match(name or ""):
-        raise OptionError(f"{name!r} is not a database, table or column name C360 can use.")
-    return f"`{name}`"
-
-
-def _lit(text: str) -> str:
-    if not WORD.match(text or ""):
-        raise OptionError(f"{text!r} cannot be used: up to 40 characters, without quotes, %, _ or backslashes.")
-    return "'" + text + "'"
 
 
 def checked(options: dict) -> dict:
