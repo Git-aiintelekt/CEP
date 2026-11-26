@@ -3,8 +3,9 @@ adds as its own copies (apps/insights/base_reports.py). A pack ships with the re
 A pack names the suite components it needs ("components"): a workspace is offered only the packs whose components it has, and the
 back-office's Onboard a Tenant lists them for the components chosen there."""
 from .email_campaigns import PACK as EMAIL_CAMPAIGNS
+from .email_campaigns_warehouse import PACK as EMAIL_CAMPAIGNS_WAREHOUSE
 
-PACKS = {p["key"]: p for p in (EMAIL_CAMPAIGNS,)}
+PACKS = {p["key"]: p for p in (EMAIL_CAMPAIGNS, EMAIL_CAMPAIGNS_WAREHOUSE)}
 
 
 def needs(pack: dict) -> list[str]:
