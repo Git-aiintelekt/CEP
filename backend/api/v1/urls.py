@@ -251,6 +251,7 @@ urlpatterns = [
     path("insights/base-reports/<slug:pack>/sources/", insights_base_reports.SourcesView.as_view(), name="insights-base-report-sources"),
     path("insights/base-reports/<slug:pack>/check/", insights_base_reports.CheckView.as_view(), name="insights-base-report-check"),
     path("insights/base-reports/<slug:pack>/add/", insights_base_reports.AddView.as_view(), name="insights-base-report-add"),
+    path("insights/base-reports/<slug:pack>/mapping/", insights_base_reports.MappingView.as_view(), name="insights-base-report-mapping"),
     path("insights/benchmarks/", insights_meaning.BenchmarksView.as_view(), name="insights-benchmarks"),
     path("insights/benchmarks/defaults/", insights_meaning.BenchmarkDefaultsView.as_view(), name="insights-benchmark-defaults"),
     path("insights/benchmarks/<uuid:benchmark_id>/", insights_meaning.BenchmarkView.as_view(), name="insights-benchmark"),

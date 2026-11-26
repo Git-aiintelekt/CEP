@@ -9,6 +9,8 @@ versions of a pack never change what a workspace has; adding it again makes new 
     POST  /insights/base-reports/<pack>/sources/         {connection_id}: the databases on it holding the pack's tables; campaign-name tables
     POST  /insights/base-reports/<pack>/check/           {connection_id, options}: the options checked and each dataset test-run
     POST  /insights/base-reports/<pack>/add/             {connection_id, options}: everything made; what was made
+    POST, DELETE /insights/base-reports/<pack>/mapping/  {connection_id, options}: the database this pack reads, kept
+                                                         without adding it, for manage.py load_base_packs
 
 Adding needs report.admin or user.admin. Table report_base_install (patch 0079, row-level security) records each addition; without
 it a pack is still added, only not remembered.
@@ -284,7 +286,10 @@ class BaseReportsView(APIView):
         may_add = _has(request, "report.admin") or _has(request, "user.admin")
         picked = chosen(tenant)
         packs = sorted(fitting(catalog.components_of(tenant.pk)), key=lambda p: p["key"] not in picked)       # the chosen ones first
-        return Response({"packs": [describe(p, added, picked) for p in packs], "can_add": may_add, "recorded": present(),
+        from apps.insights import base_packs_loader as loader
+        mappings = loader.mapped(tenant) if may_add else {}
+        return Response({"packs": [{**describe(p, added, picked), "mapping": mappings.get(p["key"])} for p in packs],
+                         "can_add": may_add, "recorded": present(),
                          "connections": [{"id": r["id"], "name": r["name"], "engine": r["engine"], "database": r["database_name"],
                                           "usable": r["status"] == "ACTIVE" and r["read_only"] is not None and (r["read_only"] is not False or not databases.read_only_required())}
                                          for r in rows] if may_add else []})
@@ -321,3 +326,25 @@ class AddView(_PackView):
     def post(self, request, version=None, pack=None):
         tenant, found, row, body = self._given(request, pack)
         return Response(add(request, tenant, found, row, _options(found, body)), status=status.HTTP_201_CREATED)
+
+
+class MappingView(_PackView):
+    """Which database this pack reads, remembered without adding it. A pack mapped here is what
+    `manage.py load_base_packs` adds, so a workspace can be made ready now and loaded later with every other one."""
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None, pack=None):
+        from apps.insights import base_packs_loader as loader
+        tenant, found, row, body = self._given(request, pack)
+        try:
+            kept = loader.map_to(tenant, found["key"], row["id"], _options(found, body))
+        except OptionError as exc:
+            raise ValidationError({"detail": str(exc)}) from None
+        return Response({"pack": found["key"], **kept})
+
+    @extend_schema(request=None, responses={204: None})
+    def delete(self, request, version=None, pack=None):
+        from apps.insights import base_packs_loader as loader
+        tenant = _tenant()
+        loader.unmap(tenant, _pack(pack, tenant)["key"])
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -421,3 +421,120 @@ def test_the_packs_keep_to_their_scope(check):
         found = [column for column in PERSONAL if column in sql]
         check(f"{dataset['label']}: reads nothing that identifies a customer", not found, found)
     check.done()
+
+
+# ------------------------------------------------------------------------------------------------- loading them in bulk
+# manage.py load_base_packs adds a pack without anyone at the screen, so what it decides has to be visible: which
+# database a pack reads, and why a workspace was left out. The database is never touched here - the connections and
+# what their databases hold are stood in for, which is what the command itself would be reading.
+class _Tenant:
+    def __init__(self, settings=None, code="NWA"):
+        self.settings, self.code, self.pk, self.name = settings or {}, code, "t-1", "Workspace"
+        self.saved = None
+
+    def save(self, **kwargs):
+        self.saved = self.settings
+
+
+def _connection(name="Citi", engine="mysql80", id_="c-1"):
+    return {"id": id_, "name": name, "engine": engine, "status": "ACTIVE", "read_only": True, "database_name": "citi_analysis_db"}
+
+
+def test_a_mapping_is_read_back_as_it_was_saved(check):
+    from apps.insights import base_packs_loader as loader
+    tenant = _Tenant({loader.KEY: {"surveys": {"connection_id": "c-1", "options": {"databases": ["crm"]}},
+                                   "ereceipts": {"options": {}},          # no connection: not a mapping
+                                   "nonsense": "not a dict"}})
+    found = loader.mapped(tenant)
+    check("a mapping with a connection is kept", found.get("surveys") == {"connection_id": "c-1", "options": {"databases": ["crm"]}})
+    check("one without a connection is not a mapping", "ereceipts" not in found)
+    check("and neither is something that is not a mapping at all", "nonsense" not in found)
+    check("a workspace with nothing mapped has nothing", loader.mapped(_Tenant()) == {})
+    check.done()
+
+
+def test_the_loader_works_out_which_database_a_pack_reads(check, monkeypatch):
+    from apps.insights import base_packs_loader as loader
+    pack = PACKS["surveys"]
+
+    def connections(rows):
+        monkeypatch.setattr(loader, "_connections", lambda tenant, pack: rows)
+
+    # one connection whose databases hold the pack's tables: that is the answer, and it says how it got there
+    connections([_connection()])
+    monkeypatch.setattr(loader.base_reports, "sources", lambda tenant, pack, row: {"databases": [{"name": "cititrends_icrm_prod"}], "names": []})
+    found = loader.resolve(_Tenant(), pack)
+    check("one connection holding its tables is the answer", found["status"] == loader.READY, found)
+    check("and the databases it found become the options", found["options"]["databases"] == ["cititrends_icrm_prod"])
+    check("with a note saying it was worked out, not mapped", "worked out" in found["why"])
+
+    # two of them is a guess, so it asks instead of picking
+    connections([_connection(), _connection("Other", id_="c-2")])
+    found = loader.resolve(_Tenant(), pack)
+    check("two connections holding its tables is asked about, never guessed", found["status"] == loader.AMBIGUOUS, found)
+    check("and it names them, so the answer is one click away", "Citi" in found["why"] and "Other" in found["why"])
+
+    # none of them holds the tables
+    connections([_connection()])
+    monkeypatch.setattr(loader.base_reports, "sources", lambda tenant, pack, row: {"databases": [], "names": []})
+    check("no database holding its tables is said plainly", loader.resolve(_Tenant(), pack)["status"] == loader.NO_DATABASE)
+
+    # the connection cannot be read at all
+    def refuse(tenant, pack, row):
+        raise RuntimeError("Access denied for user")
+    monkeypatch.setattr(loader.base_reports, "sources", refuse)
+    found = loader.resolve(_Tenant(), pack)
+    check("a database that cannot be read is reported, not treated as empty", found["status"] == loader.UNREACHABLE, found)
+    check("and the reason is kept", "Access denied" in found["why"])
+
+    # a mapping beats working it out, and is not second-guessed
+    monkeypatch.setattr(loader.databases, "connection", lambda tenant_id, connection_id: _connection(id_=connection_id))
+    tenant = _Tenant({loader.KEY: {"surveys": {"connection_id": "c-9", "options": {"databases": ["crm_one"]}}}})
+    found = loader.resolve(tenant, pack)
+    check("a mapping is used as it stands", found["status"] == loader.READY and found["options"]["databases"] == ["crm_one"], found)
+    check("and says so", found["why"] == "mapped")
+
+    # a mapping to a connection that has since gone
+    def gone(tenant_id, connection_id):
+        raise RuntimeError("No such connection")
+    monkeypatch.setattr(loader.databases, "connection", gone)
+    check("a mapping to a connection since removed does not stop the load",
+          loader.resolve(tenant, pack)["status"] == loader.NO_DATABASE)
+    check.done()
+
+
+def test_the_loader_says_why_a_pack_is_left_out(check, monkeypatch):
+    from apps.insights import base_packs_loader as loader
+    monkeypatch.setattr(loader.base_reports, "_added", lambda tenant_id: [{"pack_key": "surveys"}])
+    monkeypatch.setattr(loader.catalog, "components_of", lambda tenant_id: ["insights"])
+    monkeypatch.setattr(loader, "resolve", lambda tenant, pack: {"status": loader.READY, "connection": _connection(),
+                                                                 "options": {"databases": ["db"]}, "why": ""})
+    steps = {s["pack"]: s for s in loader.plan(_Tenant(), ["surveys", "ereceipts", "no-such-pack"])}
+    check("a pack the workspace already has is left alone", steps["surveys"]["status"] == loader.ALREADY)
+    check("one it does not have is ready, with the database it would read", steps["ereceipts"]["status"] == loader.READY
+          and steps["ereceipts"]["databases"] == ["db"])
+    check("a pack that does not exist is said so rather than passed over", steps["no-such-pack"]["status"] == "no such pack")
+
+    monkeypatch.setattr(loader.catalog, "components_of", lambda tenant_id: [])
+    without = {s["pack"]: s for s in loader.plan(_Tenant(), ["ereceipts"])}
+    check("a workspace without the components is told which it needs", without["ereceipts"]["status"] == loader.NOT_FITTING
+          and "insights" in without["ereceipts"]["why"])
+
+    chosen = _Tenant({"base_packs": ["ereceipts"]})
+    monkeypatch.setattr(loader.catalog, "components_of", lambda tenant_id: ["insights"])
+    check("with no packs named, it takes the ones the workspace was onboarded with",
+          [s["pack"] for s in loader.plan(chosen)] == ["ereceipts"])
+    check.done()
+
+
+def test_the_command_refuses_what_it_cannot_do(check):
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+    for label, kwargs in (("neither a workspace nor all of them", {}),
+                          ("both a workspace and all of them", {"tenants": ["NWA"], "all_tenants": True}),
+                          ("a pack that does not exist", {"tenants": ["NWA"], "packs": "no-such-pack"}),
+                          ("adding without saying who is adding", {"tenants": ["NWA"], "apply": True})):
+        with pytest.raises(CommandError):
+            call_command("load_base_packs", **kwargs)
+        check(f"refused: {label}", True)
+    check.done()
