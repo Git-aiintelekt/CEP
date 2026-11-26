@@ -11,6 +11,7 @@ it. A person's session is never enough, whatever their role: only a key of this 
     GET /results/runs/               every send in the window (a drip message, an occurrence, a journey's or e-receipt's run)
     GET /results/messages/           one row a recipient a send, and one a person held back: by send day, or what changed since
     GET /results/suppressions/       who must not be contacted (unsubscribed, replied STOP, a blocked address), by party ID: whole, or what changed since
+    GET /workspace/results-api/      Settings -> Results API: what to hand the other system's team, the keys that may read, each list's last day (user.admin)
 
 The totals' window is sent_from .. sent_to (whole days in the workspace's time zone): no further back than
 results.KEEP_MONTHS, at most results.SPAN_DAYS days a call; left out, the latest of them. Recipient rows go back
@@ -35,9 +36,11 @@ from rest_framework.utils.encoders import JSONEncoder
 from rest_framework.utils.urls import replace_query_param
 from rest_framework.views import APIView
 
+from api.permissions import HasPermissionCode, SameTenant
 from apps.campaigns.models import Campaign
-from apps.integrations.bridge import logbook
+from apps.integrations.bridge import logbook, metrics
 from apps.integrations.bridge.inbound import InboundLogMixin
+from apps.platform_ops import params
 from apps.reporting import result_rows, result_suppressions, results
 from apps.tenants import context
 
@@ -420,3 +423,38 @@ class ResultsSuppressionsView(ResultsListView):
             cursor=(asked.get("cursor") or "").strip() or None))
         cursor, rows = found.pop("next_cursor"), found.pop("results")
         return Response({**found, "next": replace_query_param(request.build_absolute_uri(), "cursor", cursor) if cursor else None, "results": rows})
+
+
+class ResultsSettingsView(APIView):
+    """Settings -> Results API, for a workspace administrator: the address and scope to hand over, the keys that hold the
+    scope, and each list's integration record with its last 24 hours and the key that read it last. Nothing here is new
+    data: the keys are API Keys', the figures Integrations'."""
+    permission_classes = [IsAuthenticated, SameTenant, HasPermissionCode.for_("user.admin")]
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        from django.db.models import Q
+        from django.utils import timezone
+
+        from apps.identity.models import ApiClient
+        from apps.integrations.models import IntegrationLog
+        tenant_id = context.require().tenant_id
+        keys = list(ApiClient.objects.filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()), tenant_id=tenant_id, revoked_at__isnull=True,
+                                             scopes__contains=[SCOPE]).order_by("name"))
+        logbook.ensure_defaults(tenant_id)                   # the four records exist once a key may read
+        records = {row["kind"]: row for row in metrics.status(tenant_id) if row["kind"] in logbook.RESULTS}
+        last_keys = {kind: IntegrationLog.objects.filter(tenant_id=tenant_id, integration_id=row["id"], api_client_id__isnull=False).order_by("-started_at")
+                     .values_list("api_client_id", flat=True).first() for kind, row in records.items()}
+        names = {str(pk): name for pk, name in ApiClient.objects.filter(tenant_id=tenant_id, pk__in=[pk for pk in last_keys.values() if pk]).values_list("pk", "name")}
+        lists = []
+        for kind, about in logbook.RESULTS.items():
+            row = records.get(kind)
+            lists.append({"kind": kind, "name": about["name"].split(": ", 1)[1], "path": about["path"],
+                          "limit_per_minute": (row or {}).get("effective_limit_per_minute") or about["per_minute"],
+                          "integration_id": row and row["id"], "status": row and row["status"], "health": row["health"] if row else "idle",
+                          "calls_24h": row["calls_24h"] if row else 0, "throttled_24h": row["throttled_24h"] if row else 0,
+                          "last_call_at": row and row["last_call_at"], "last_read_by": names.get(str(last_keys.get(kind))) if row else None})
+        return Response({"endpoint": f"{params.public_api_url()}/api/v1/results/", "description_url": f"{params.public_api_url()}/api/v1/docs/", "scope": SCOPE,
+                         "keys": [{"id": str(key.pk), "name": key.name, "key_prefix": key.key_prefix, "allowed_ip_cidrs": key.allowed_ip_cidrs or [],
+                                   "last_used_at": key.last_used_at, "expires_at": key.expires_at} for key in keys],
+                         "lists": lists})

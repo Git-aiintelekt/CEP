@@ -45,7 +45,7 @@ Everyone the workspace must not send to, in one list: people who unsubscribed or
 
 **An address bounced wrongly.** Reason: Bounced → search → Unblock → Unblock. The next run includes the person again.
 
-**Hand the list to another system.** Set the filters you need → Export CSV. For a system that should keep itself up to date, give it an API key with the scope `results:read` instead: the Results API answers this list by party ID, without the addresses and numbers, and tells it when a block is removed or a person asks for messages again (the User Guide's *Results API* chapter).
+**Hand the list to another system.** Set the filters you need → Export CSV. For a system that should keep itself up to date, give it an API key with the scope `results:read` instead: the Results API answers this list by party ID, without the addresses and numbers, and tells it when a block is removed or a person asks for messages again (Settings → Engagement → Results API).
 
 ## What happens behind the scenes
 

@@ -9,6 +9,9 @@ import { AttributionPage } from '@/apps/cep/pages/settings/AttributionPage'
 import { DeliveryPage } from '@/apps/cep/pages/settings/DeliveryPage'
 import { GovernancePage } from '@/apps/cep/pages/settings/GovernancePage'
 import { CustomerAttributesPage } from '@/apps/cep/pages/settings/CustomerAttributesPage'
+import { ResultsApiPage } from '@/apps/cep/pages/settings/ResultsApiPage'
+import { RESULTS_API_KEY } from '@/apps/cep/pages/settings/resultsApi'
+import { SAMPLE_RESULTS_API, SAMPLE_RESULTS_API_FIRST_VISIT } from '@/apps/cep/pages/settings/sampleResultsApi'
 import { TagCheckCard } from '@/apps/cep/features/attributes/TagCheckCard'
 import { TagValuesReview, TagValuesStep } from '@/apps/cep/features/contact-lists/TagValuesStep'
 import { ATTRIBUTE_SOURCES, CUSTOMER_ATTRIBUTES, TAG_CHECK } from '@/apps/cep/features/attributes/sampleAttributes'
@@ -355,6 +358,17 @@ function SampleGovernance() {
   return <QueryClientProvider client={client}><GovernancePage canEdit /></QueryClientProvider>
 }
 
+/** Results API with two systems reading; ?empty=1 is the first visit, before any key holds the scope */
+function SampleResultsApi() {
+  const [params] = useSearchParams()
+  const [client] = useState(() => {
+    const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchInterval: false } } })
+    seeded.setQueryData(RESULTS_API_KEY, params.get('empty') === '1' ? SAMPLE_RESULTS_API_FIRST_VISIT : SAMPLE_RESULTS_API)
+    return seeded
+  })
+  return <QueryClientProvider client={client}><ResultsApiPage canPause apiKeysTo="/dev/settings/api-keys" integrationsTo="/dev/settings/integrations" /></QueryClientProvider>
+}
+
 export default function SettingsPlayground() {
   const [params] = useSearchParams()
   const components = params.get('components')?.split(',')                                          // ?components=insights: a workspace sold Insights alone
@@ -372,9 +386,10 @@ export default function SettingsPlayground() {
               <Route path="utm-tracking" element={<SampleUtm />} />
               <Route path="governance" element={<SampleGovernance />} />
               <Route path="customer-attributes" element={<SampleCustomerAttributes />} />
+              <Route path="results-api" element={<SampleResultsApi />} />
               <Route path="report-databases" element={<SampleReportDatabases />} />
               <Route path="report-databases/*" element={<SampleReportDatabases map />} />
-              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking', '/settings/report-databases', '/settings/governance', '/settings/customer-attributes'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
+              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking', '/settings/report-databases', '/settings/governance', '/settings/customer-attributes', '/settings/results-api'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
               <Route index element={<StandIn path="/settings/users" />} />
             </Route>
           </Routes>

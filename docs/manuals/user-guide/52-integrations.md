@@ -45,7 +45,7 @@ Every exchange with an outside system goes through one gate: the point of sale p
 
 **Pause the point of sale during maintenance.** Pause on POS Receipts. Registers get a paused answer and nothing is lost; Resume afterwards.
 
-**See what another system reads from C360, or stop it.** The Results cards show how often it calls and how many calls were held by the pace limit. View Log lists each call with the key that made it and the address asked; an answer that went well keeps only its size, a refusal keeps what was answered. Pause stops one list; to stop the system altogether, revoke its key under Settings → API Keys.
+**See what another system reads from C360, or stop it.** The Results cards show how often it calls and how many calls were held by the pace limit. View Log lists each call with the key that made it and the address asked; an answer that went well keeps only its size, a refusal keeps what was answered. Pause stops one list; to stop the system altogether, revoke its key under Settings → API Keys. Settings → Engagement → Results API shows the four lists together, with the key that read each one last.
 
 ## What happens behind the scenes
 

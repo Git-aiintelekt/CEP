@@ -220,6 +220,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - What this is for
   - What it never gives
   - Who can use it
+  - The fields and controls
   - The limits
   - How to
   - What happens behind the scenes
@@ -2782,7 +2783,7 @@ Everyone the workspace must not send to, in one list: people who unsubscribed or
 
 **An address bounced wrongly.** Reason: Bounced → search → Unblock → Unblock. The next run includes the person again.
 
-**Hand the list to another system.** Set the filters you need → Export CSV. For a system that should keep itself up to date, give it an API key with the scope `results:read` instead: the Results API answers this list by party ID, without the addresses and numbers, and tells it when a block is removed or a person asks for messages again (the User Guide's *Results API* chapter).
+**Hand the list to another system.** Set the filters you need → Export CSV. For a system that should keep itself up to date, give it an API key with the scope `results:read` instead: the Results API answers this list by party ID, without the addresses and numbers, and tells it when a block is removed or a person asks for messages again (Settings → Engagement → Results API).
 
 ## What happens behind the scenes
 
@@ -2925,7 +2926,7 @@ Every exchange with an outside system goes through one gate: the point of sale p
 
 **Pause the point of sale during maintenance.** Pause on POS Receipts. Registers get a paused answer and nothing is lost; Resume afterwards.
 
-**See what another system reads from C360, or stop it.** The Results cards show how often it calls and how many calls were held by the pace limit. View Log lists each call with the key that made it and the address asked; an answer that went well keeps only its size, a refusal keeps what was answered. Pause stops one list; to stop the system altogether, revoke its key under Settings → API Keys.
+**See what another system reads from C360, or stop it.** The Results cards show how often it calls and how many calls were held by the pace limit. View Log lists each call with the key that made it and the address asked; an answer that went well keeps only its size, a refusal keeps what was answered. Pause stops one list; to stop the system altogether, revoke its key under Settings → API Keys. Settings → Engagement → Results API shows the four lists together, with the key that read each one last.
 
 ## What happens behind the scenes
 
@@ -2983,7 +2984,7 @@ Shown once, right after Create Key.
 
 **A key for the point of sale.** New API Key → *POS integration* → tick `receipts:send` → the stores' outbound address under Allowed IP Addresses → Create Key → Copy the key into the register software → I Have Stored It. The POS Receipts page says which headers to send it in.
 
-**A key for a system that reads campaign results.** New API Key → name it after the system, for example *Data Warehouse* → tick `results:read` and nothing else → the system's outbound addresses under Allowed IP Addresses → an expiry → Create Key → pass the key on over a channel approved for secrets → I Have Stored It. The system then reads the campaigns, the sends, the recipients by party ID and the suppression list, and nothing else; it never gets a name, an address or a number. Its calls show under Settings → Integrations as Results: Campaigns, Results: Sends, Results: Recipients and Results: Suppressions. The User Guide's *Results API* chapter says what it can read and how to pause it.
+**A key for a system that reads campaign results.** New API Key → name it after the system, for example *Data Warehouse* → tick `results:read` and nothing else → the system's outbound addresses under Allowed IP Addresses → an expiry → Create Key → pass the key on over a channel approved for secrets → I Have Stored It. The system then reads the campaigns, the sends, the recipients by party ID and the suppression list, and nothing else; it never gets a name, an address or a number. Settings → Engagement → Results API then names the key, shows what to hand the system's team and each list's last day, and lets you pause a list; its help says what the system can read.
 
 **Rotate a key.** Create the new one, switch the caller over, check that the old key's Last Used stops moving, then Revoke the old one. The call log shows which key each call used.
 
@@ -3001,7 +3002,7 @@ Only a hash of the key is stored; the prefix identifies it in the log. Each call
 
 # Results API
 
-**Where:** it has no page of its own. Its keys are under Settings → General → API Keys, and its activity under Settings → Engagement → Integrations.
+**Where:** Settings → Engagement → Results API. Its keys are made under Settings → General → API Keys, and its full call log is under Settings → Engagement → Integrations; the page links to both.
 
 ## What this is for
 
@@ -3027,9 +3028,36 @@ It answers four lists:
 
 | | |
 |---|---|
-| To give a system access | `user.admin`, on the API Keys page. The workspace needs the **api_access** feature. |
-| To watch or pause it | `provider.edit`, on the Integrations page. |
+| To open the page and give a system access | `user.admin`. The workspace needs the **api_access** feature; without it the page is not in the Settings menu. |
+| To pause or resume a list | `provider.edit` as well. Without it the lists show, the Pause and Resume buttons do not. |
 | The other system | An API key of this workspace with the scope `results:read`. A person's sign-in is never accepted, whatever their role. |
+
+## The fields and controls
+
+### Connect a System
+
+What to give the team that builds the other system.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Base Address | The address the four lists sit under, with **Copy** (it reads *Copied*). The lists answer JSON, or CSV when asked. | Copy puts the address on the clipboard. Nothing in the workspace changes. |
+| Headers | The two headers every call carries: the key, and your workspace ID. | Nothing; a reading. |
+| API Key | The scope a key needs, `results:read`, and the active keys that hold it, by name. A key that expires within 30 days says in how many days. When no key holds the scope: *No key has it yet, so nothing can be read*, with **Go to API Keys**. | Nothing here. Keys are made and revoked on the API Keys page, which the link and the button open. |
+| Specification | **Open API Description** opens the description C360 publishes of every address and field, in a new tab. The Word copy, with the test checklist, comes from the platform team. | Nothing; a reading. |
+
+### The Four Lists
+
+One row a list. Until something has read, the table shows what there is to read: the list, its address, its limit a minute and *No Calls Yet*. Once a system reads, it shows the last 24 hours.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| List, Address | The list, what it holds, and its address under the base address. | Nothing; a reading. |
+| Calls | Calls to the list in the last 24 hours. | Nothing; a reading. |
+| Throttled | Calls the pace limit held, in amber when there are any. Hover for the limit. | Nothing; a reading. Held calls are slowed, not lost: the other system waits and asks again. A count that keeps growing means it is calling faster than the limit. |
+| Last Read | How long ago the list was last called, and the name of the key that called. *Not Yet* when it never was. | Nothing; it tells you which system is still reading. |
+| Status | Healthy, Degraded (5% or more of the day's calls failed), Circuit Open, Paused, or No Calls Yet: the same words as on the Integrations page. | Nothing; a reading. |
+| Pause / Resume | Pause asks first: *Pause {list}? The system reading this list is answered "paused" until it is resumed. The other lists go on.* Resume needs no confirmation. | Pause: every call to that list is answered *paused* (HTTP 503) until it is resumed; nothing is lost, the other system reads what it missed afterwards. The other three lists are not affected. It is the same switch as the list's card on the Integrations page. |
+| View Log in Integrations | A link, shown once something has read. | Opens the Integrations page, where each call is listed with the key that made it. |
 
 ## The limits
 
@@ -3048,11 +3076,11 @@ The platform team can set a different calls-a-minute figure for your workspace. 
 1. Ask its team for the public addresses it will call from.
 2. Settings → API Keys → New API Key. Name it after the system (for example *Data Warehouse*), tick `results:read` and nothing else, enter the addresses under Allowed IP Addresses, set an expiry, and Create Key.
 3. Copy the key and pass it on over a channel approved for secrets. It is shown once.
-4. Give the team your workspace ID and the integration specification (*CEP Results API: Integration Specification*, from the platform team): the addresses to call, every field, the limits and a test checklist.
+4. Give the team what Connect a System shows on the Results API page (the base address, the headers, your workspace ID) and the integration specification (*CEP Results API: Integration Specification*, from the platform team): every field, the limits and a test checklist.
 
-**See what it reads.** Settings → Integrations. Once a key has `results:read`, four cards appear: Results: Campaigns, Results: Sends, Results: Recipients and Results: Suppressions. Each shows the last day's calls, failures and throttled calls. View Log lists every call: when, which key, what was asked and how it was answered.
+**See what it reads.** The Four Lists on this page: each list's calls in the last 24 hours, how many the limit held, and which key read it last. For every call (when, which key, what was asked, how it was answered), View Log in Integrations: once a key has `results:read`, the Integrations page has a card for each list, Results: Campaigns, Results: Sends, Results: Recipients and Results: Suppressions.
 
-**Stop it for a while.** Pause on the card. That list answers *paused* (503) until you press Resume; the other lists go on. Nothing is lost: the other system reads what it missed when it is resumed.
+**Stop it for a while.** Pause on the list's row. That list answers *paused* (503) until you press Resume; the other lists go on. Nothing is lost: the other system reads what it missed when it is resumed.
 
 **Stop it for good.** Settings → API Keys → Revoke. The next call is refused.
 

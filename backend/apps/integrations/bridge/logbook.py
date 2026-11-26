@@ -97,10 +97,10 @@ def integration_for(tenant_id, *, kind: str, system: str, provider=None, create:
 
 
 RESULTS = {                                                  # the Results API: one record an endpoint, each with its own limit (api/v1/results_api.py)
-    "RESULTS_CAMPAIGNS": {"name": "Results: Campaigns", "per_minute": 60},
-    "RESULTS_RUNS": {"name": "Results: Sends", "per_minute": 60},
-    "RESULTS_MESSAGES": {"name": "Results: Recipients", "per_minute": 120},      # a page of rows a call: a large send is many calls
-    "RESULTS_SUPPRESSIONS": {"name": "Results: Suppressions", "per_minute": 60},
+    "RESULTS_CAMPAIGNS": {"name": "Results: Campaigns", "per_minute": 60, "path": "campaigns/"},
+    "RESULTS_RUNS": {"name": "Results: Sends", "per_minute": 60, "path": "runs/"},
+    "RESULTS_MESSAGES": {"name": "Results: Recipients", "per_minute": 120, "path": "messages/"},      # a page of rows a call: a large send is many calls
+    "RESULTS_SUPPRESSIONS": {"name": "Results: Suppressions", "per_minute": 60, "path": "suppressions/"},
 }
 RESULTS_SYSTEM, RESULTS_SCOPE = "Results API", "results:read"
 

@@ -37,6 +37,7 @@ export const HELP_CHAPTERS = {
   'settings-pos': { title: 'POS Receipts', load: () => import('../../../../../docs/manuals/user-guide/54-pos-receipts.md?raw').then((module) => module.default) },
   'settings-attribution': { title: 'Attribution', load: () => import('../../../../../docs/manuals/user-guide/56-attribution.md?raw').then((module) => module.default) },
   'settings-events': { title: 'Events', load: () => import('../../../../../docs/manuals/user-guide/58-events.md?raw').then((module) => module.default) },
+  'settings-results-api': { title: 'Results API', load: () => import('../../../../../docs/manuals/user-guide/53a-results-api.md?raw').then((module) => module.default) },
   'settings-ai-assistant': { title: 'AI Assistant', load: () => import('../../../../../docs/manuals/user-guide/61-ai-assistant.md?raw').then((module) => module.default) },
   'settings-fiscal-year': { title: 'Fiscal Year', load: () => import('../../../../../docs/manuals/user-guide/62-fiscal-year.md?raw').then((module) => module.default) },
   'settings-report-access': { title: 'Report Access', load: () => import('../../../../../docs/manuals/user-guide/63-report-access.md?raw').then((module) => module.default) },
@@ -84,5 +85,6 @@ export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
   '/settings/pos': 'settings-pos',
   '/settings/attribution': 'settings-attribution',
   '/settings/events': 'settings-events',
+  '/settings/results-api': 'settings-results-api',
   '/account/security': 'account-security',
 }

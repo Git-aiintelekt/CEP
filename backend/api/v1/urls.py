@@ -206,6 +206,7 @@ urlpatterns = [
     path("results/runs/", results_api.ResultsRunsView.as_view(), name="results-runs"),
     path("results/messages/", results_api.ResultsMessagesView.as_view(), name="results-messages"),
     path("results/suppressions/", results_api.ResultsSuppressionsView.as_view(), name="results-suppressions"),
+    path("workspace/results-api/", results_api.ResultsSettingsView.as_view(), name="workspace-results-api"),
     path("reports/summary/", reports_api.ReportSummaryView.as_view(), name="report-summary"),
     path("reports/campaigns.csv", reports_api.ReportCsvView.as_view(), name="report-csv"),
     path("reports/compare/", reports_api.ReportCompareView.as_view(), name="report-compare"),
