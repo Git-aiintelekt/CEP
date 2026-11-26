@@ -18,7 +18,7 @@ Every staff account reads.
 | Delivery | Sending engines (with their last check and whether a credential is stored; keys never shown), senders, every email and text sent with its status and the engine's id, provider callbacks as received, dead letters (messages that failed for good), tracking events and tracked links. |
 | Customers and lists | Customers, segments, contact lists and their members, uploads and their rows. |
 | Content | Templates and their versions. |
-| Integrations | Every tenant's integration records (throttle, retries, breaker and log policy are editable here: Pause, Resume, Close the circuit now) and the call log with request and answer, keys masked. |
+| Integrations | Every tenant's integration records (throttle, retries, breaker and log policy are editable here: Pause, Resume, Close the circuit now) and the call log with request and answer, keys masked. The Results API's lists are four of them a tenant (Results: Campaigns, Sends, Recipients, Suppressions), made when a key is given `results:read`: their Throttle is 60 calls a minute (120 for Recipients) unless changed here, and blank means that figure, never unlimited. |
 | Change audit trail | Who changed which definition, when, and which columns: every save in the app and the back-office. |
 
 ## How to

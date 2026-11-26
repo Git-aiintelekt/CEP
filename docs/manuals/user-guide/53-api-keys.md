@@ -26,7 +26,7 @@ Keys for systems that call C360's API: the point of sale sending receipts, a web
 | Field | What it is | What it changes |
 |---|---|---|
 | Name | Required, at least two characters, up to 100. The system that will use it, for example *POS integration*. | How the key appears in this table and in the call log, so you know which system to switch over before you revoke it. |
-| Scopes | At least one. The service scopes: `receipts:send` (the point of sale and the web shop), `orders:ingest` (the shop's orders, for attribution), `events:ingest` (the shop's and the loyalty system's events, for journeys), `coupons:issue` (C360 answering journeys' coupon requests), `lists:write`, `scores:write`, `customers:read`, `consent:write`. Also one scope per permission, written with a colon (for example `campaign:view`), which lets the key do what that permission allows. | What the key may call: anything else is refused. Give it only what it needs. |
+| Scopes | At least one. The service scopes: `receipts:send` (the point of sale and the web shop), `orders:ingest` (the shop's orders, for attribution), `events:ingest` (the shop's and the loyalty system's events, for journeys), `coupons:issue` (C360 answering journeys' coupon requests), `results:read` (another system reading campaign results and the suppression list: the Results API), `attributes:write` (another system sending customer attribute values), `lists:write`, `scores:write`, `customers:read`, `consent:write`. Also one scope per permission, written with a colon (for example `campaign:view`), which lets the key do what that permission allows. | What the key may call: anything else is refused. Give it only what it needs. |
 | Allowed IP Addresses | Optional. Addresses or CIDR ranges (for example `203.0.113.0/24`), separated by commas or new lines. Something that is not an address or range is refused. | A call from any other address is refused even with the right key (*IP address not allowed for this key*). Empty: any address may call. |
 | Expires | Optional, your local time, in the future. | From that moment the key is refused (*API key expired*) and shows as Expired. Empty: the key never expires. |
 
@@ -42,6 +42,8 @@ Shown once, right after Create Key.
 ## How to
 
 **A key for the point of sale.** New API Key → *POS integration* → tick `receipts:send` → the stores' outbound address under Allowed IP Addresses → Create Key → Copy the key into the register software → I Have Stored It. The POS Receipts page says which headers to send it in.
+
+**A key for a system that reads campaign results.** New API Key → name it after the system, for example *Data Warehouse* → tick `results:read` and nothing else → the system's outbound addresses under Allowed IP Addresses → an expiry → Create Key → pass the key on over a channel approved for secrets → I Have Stored It. The system then reads the campaigns, the sends, the recipients by party ID and the suppression list, and nothing else; it never gets a name, an address or a number. Its calls show under Settings → Integrations as Results: Campaigns, Results: Sends, Results: Recipients and Results: Suppressions. The User Guide's *Results API* chapter says what it can read and how to pause it.
 
 **Rotate a key.** Create the new one, switch the caller over, check that the old key's Last Used stops moving, then Revoke the old one. The call log shows which key each call used.
 

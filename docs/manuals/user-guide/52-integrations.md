@@ -18,12 +18,12 @@ Every exchange with an outside system goes through one gate: the point of sale p
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The card | One per integration: POS Receipts (in), and one per sending engine (out). Its health: healthy, degraded (5 percent failures or more), circuit open, paused, no calls; the last error under it when it is not healthy. The cards refresh every minute. | Nothing; it is a reading. Degraded or circuit open means receipts or sends through it are failing or waiting now. |
+| The card | One per integration: POS Receipts (in), one per sending engine (out), and, once an API key has the scope `results:read`, one per list of the Results API (in): Results: Campaigns, Results: Sends, Results: Recipients, Results: Suppressions. Its health: healthy, degraded (5 percent failures or more), circuit open, paused, no calls; the last error under it when it is not healthy. The cards refresh every minute. | Nothing; it is a reading. Degraded or circuit open means receipts or sends through it are failing or waiting now. |
 | Calls, 24 h, Failures, p95, Throttled | The last day's calls, the share that failed (amber above 0, red from 5%), the slow end of response times, the calls the pace limit held. | Nothing; a reading. Throttled calls are slowed, not lost. |
 | The chart | Calls per 15 minutes over 24 hours, with the failed and throttled share; the busiest quarter hour. | Nothing; it shows when the trouble started. |
 | Email Alerts | A switch per integration, on by default. Saved at once. | On: when this integration's circuit opens, the workspace is told by the channels set under Settings → Notifications. Off: this integration raises no such notification; the card still shows the trouble. The other integrations are not affected. |
 | View Log | A link on the card. | Sets the call log below to this integration, with Direction Both, Failures Only off and the search cleared, starting on page 1. Changes nothing in the integration. |
-| Pause / Resume | Pause asks first: *Pause {name}? …*. Resume needs no confirmation. | Pause on POS Receipts: every call from the point of sale is refused with a *paused* answer (HTTP 503) until it is resumed, so the registers try again later. Pause on an engine: every send through it waits; nothing is lost. Resume lets calls through again and closes an open circuit at once, without waiting for the cooldown. |
+| Pause / Resume | Pause asks first: *Pause {name}? …*. Resume needs no confirmation. | Pause on POS Receipts: every call from the point of sale is refused with a *paused* answer (HTTP 503) until it is resumed, so the registers try again later. Pause on an engine: every send through it waits; nothing is lost. Pause on a Results card: the system reading that list gets a *paused* answer (HTTP 503) and reads what it missed after Resume; the other lists go on. Resume lets calls through again and closes an open circuit at once, without waiting for the cooldown. |
 
 ### The call log
 
@@ -45,9 +45,11 @@ Every exchange with an outside system goes through one gate: the point of sale p
 
 **Pause the point of sale during maintenance.** Pause on POS Receipts. Registers get a paused answer and nothing is lost; Resume afterwards.
 
+**See what another system reads from C360, or stop it.** The Results cards show how often it calls and how many calls were held by the pace limit. View Log lists each call with the key that made it and the address asked; an answer that went well keeps only its size, a refusal keeps what was answered. Pause stops one list; to stop the system altogether, revoke its key under Settings → API Keys.
+
 ## What happens behind the scenes
 
-Each call is paced by a per-minute limit (an API key's own, the plan's inbound limit, the engine's Messages per Minute), guarded by a circuit breaker that opens after repeated failures and probes again after a cooldown, and written to the log with the request and the answer. The cards and charts read a per-minute roll-up, never the log itself. The log is kept three months.
+Each call is paced by a per-minute limit (an API key's own, the plan's inbound limit, the engine's Messages per Minute; a Results list has its own figure, 60 a minute or 120 for Recipients, and is never unlimited whatever the plan), guarded by a circuit breaker that opens after repeated failures and probes again after a cooldown, and written to the log with the request and the answer. The cards and charts read a per-minute roll-up, never the log itself. The log is kept three months.
 
 ## Things to know
 

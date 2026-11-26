@@ -689,7 +689,8 @@ Platform administrators.
 | attributes.nightly_max_people | number | 2000000 | The most people one nightly read of a source covers; the run says where it stopped. |
 | attributes.source_timeout_ms | number | 60000 | How long one query to an attribute source's database may take before it is stopped. |
 | lists.notify_email_rows | number | 1000000 | An upload with at least this many rows emails the person who started it when it has been checked, imported or has failed. |
-| integrations.inbound_per_minute | object | 60 / 600 / unlimited per plan | The inbound pace limit per plan code for the point of sale and other callers. |
+| integrations.inbound_per_minute | object | 60 / 600 / unlimited per plan | The inbound pace limit per plan code for the point of sale and other callers. The Results API's lists do not use it: each has its own figure (60 a minute; 120 for Recipients), set on its integration record, and is never unlimited. |
+| results.changes_tracked_from | text | set by patch 0102 | The moment the database began stamping when a message's result changes. The Results API serves "what changed since" from this moment on. Set once when the patch is applied: do not change it. |
 | integrations.log_body_max_bytes | number | 65536 | How much of a request or answer body the call log keeps. |
 | insights.report_db_read_only_required | yes/no | yes | Whether a workspace's Report Database account must hold SELECT only. Yes refuses an account that can write until it is fixed. No uses it, with a ! Can write warning on its card; C360 still opens every session on it read-only and runs SELECT only. Takes effect within a minute; test a refused connection again to use it. |
 | integrations.log_retention_days, integrations.metric_retention_months | number | 90, 13 | How long the call log and its roll-up are kept. |
@@ -1206,7 +1207,7 @@ Every staff account reads.
 | Delivery | Sending engines (with their last check and whether a credential is stored; keys never shown), senders, every email and text sent with its status and the engine's id, provider callbacks as received, dead letters (messages that failed for good), tracking events and tracked links. |
 | Customers and lists | Customers, segments, contact lists and their members, uploads and their rows. |
 | Content | Templates and their versions. |
-| Integrations | Every tenant's integration records (throttle, retries, breaker and log policy are editable here: Pause, Resume, Close the circuit now) and the call log with request and answer, keys masked. |
+| Integrations | Every tenant's integration records (throttle, retries, breaker and log policy are editable here: Pause, Resume, Close the circuit now) and the call log with request and answer, keys masked. The Results API's lists are four of them a tenant (Results: Campaigns, Sends, Recipients, Suppressions), made when a key is given `results:read`: their Throttle is 60 calls a minute (120 for Recipients) unless changed here, and blank means that figure, never unlimited. |
 | Change audit trail | Who changed which definition, when, and which columns: every save in the app and the back-office. |
 
 ## How to
