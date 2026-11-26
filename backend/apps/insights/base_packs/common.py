@@ -28,3 +28,19 @@ def lit(text: str) -> str:
     if not WORD.match(text or ""):
         raise OptionError(f"{text!r} cannot be used: up to 40 characters, without quotes, %, _ or backslashes.")
     return "'" + text + "'"
+
+
+def word(column: str, text: str) -> str:
+    """A condition true when `text` appears in `column` as a whole word, whatever the case or punctuation.
+
+    Plain substring matching is not safe for this. A campaign called "Hottest Designer Deals" contains "test", so
+    leaving tests out with LOCATE would quietly drop the biggest send of the year; "Important Update" contains
+    "import". Both sides are normalised instead - every run of anything but a letter or a digit becomes one space,
+    and the two are padded - so a word matches a word and nothing else. Normalising the word here rather than
+    escaping it keeps regular-expression characters out of the statement altogether.
+    """
+    cleaned = " ".join(re.sub(r"[^0-9a-z]+", " ", (text or "").lower()).split())
+    if not cleaned:
+        raise OptionError(f"{text!r} has no word to match on.")
+    return (f"LOCATE({lit(' ' + cleaned + ' ')}, "
+            f"CONCAT(' ', LOWER(REGEXP_REPLACE(COALESCE({column}, ''), '[^0-9a-zA-Z]+', ' ')), ' ')) > 0")

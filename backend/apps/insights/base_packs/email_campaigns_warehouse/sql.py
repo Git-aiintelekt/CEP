@@ -25,6 +25,7 @@ Options, all checked before they reach the SQL:
 from ..common import IDENT, WORD, OptionError  # noqa: F401  (named from here, as the Postal pack's sql is)
 from ..common import lit as _lit
 from ..common import q as _q
+from ..common import word as _word
 
 # A campaign row worth counting: it reached somebody, or it is a bounce that came back later (those carry no SENT_DATE).
 A_CAMPAIGN = "(m.SENT > 0 OR m.BOUNCED > 0 OR m.UNSUBSCRIBED > 0 OR m.OPENED > 0)"
@@ -134,7 +135,7 @@ def _roster(db: str) -> str:
 def _excluded(o: dict, column: str = "m.MARKETING_CAMPAIGN_NAME") -> str:
     """the campaigns this pack does not count: list imports always, and the words the person left out"""
     words = [*o["leave_out"], *o["imports"]]
-    return " AND ".join(f"LOCATE({_lit(w.lower())}, LOWER(COALESCE({column}, ''))) = 0" for w in words) or "1 = 1"
+    return " AND ".join(f"NOT {_word(column, w)}" for w in words) or "1 = 1"
 
 
 # --------------------------------------------------------------------------

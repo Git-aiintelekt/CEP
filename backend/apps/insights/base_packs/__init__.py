@@ -4,8 +4,10 @@ A pack names the suite components it needs ("components"): a workspace is offere
 back-office's Onboard a Tenant lists them for the components chosen there."""
 from .email_campaigns import PACK as EMAIL_CAMPAIGNS
 from .email_campaigns_warehouse import PACK as EMAIL_CAMPAIGNS_WAREHOUSE
+from .sms_ereceipts import PACK as SMS_ERECEIPTS
+from .sms_marketing import PACK as SMS_MARKETING
 
-PACKS = {p["key"]: p for p in (EMAIL_CAMPAIGNS, EMAIL_CAMPAIGNS_WAREHOUSE)}
+PACKS = {p["key"]: p for p in (EMAIL_CAMPAIGNS, EMAIL_CAMPAIGNS_WAREHOUSE, SMS_MARKETING, SMS_ERECEIPTS)}
 
 
 def needs(pack: dict) -> list[str]:
