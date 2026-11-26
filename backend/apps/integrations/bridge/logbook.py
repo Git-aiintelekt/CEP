@@ -50,8 +50,10 @@ def _alias() -> str:
     return ctx.db_alias if ctx else settings.CONTROL_PLANE_ALIAS
 
 
-def integration_for(tenant_id, *, kind: str, system: str, provider=None, create: bool = True) -> dict | None:
-    """The record for this call, made on first use with the platform defaults, cached for a minute."""
+def integration_for(tenant_id, *, kind: str, system: str, provider=None, create: bool = True, name: str | None = None, per_minute: int | None = None,
+                    log_level: str | None = None) -> dict | None:
+    """The record for this call, made on first use with the platform defaults, cached for a minute. `name`, `per_minute` and
+    `log_level` are what a record made here starts with; one that exists keeps its own."""
     provider_id = str(provider.pk) if provider is not None else None
     key = _cache_key(tenant_id, kind, provider_id)
     found = cache.get(key)
@@ -65,17 +67,19 @@ def integration_for(tenant_id, *, kind: str, system: str, provider=None, create:
                        [str(tenant_id), kind, provider_id])
         row = cursor.fetchone()
         if row is None and create:
-            name = provider.name if provider is not None else "POS receipts"
+            name = provider.name if provider is not None else name or "POS receipts"
             direction = "OUT" if kind == KIND_PROVIDER else "IN"
             try:
                 with transaction.atomic(using=alias):       # a savepoint: an engine row that does not exist must not abort the caller
-                    cursor.execute(f"""INSERT INTO integration (tenant_id, kind, name, direction, system, delivery_provider_id, log_body_max_bytes, log_retention_days)
-                                       VALUES (%s, %s, %s, %s, %s, %s::uuid, %s, %s)
+                    cursor.execute(f"""INSERT INTO integration (tenant_id, kind, name, direction, system, delivery_provider_id, log_body_max_bytes, log_retention_days,
+                                                                throttle_per_minute, log_level)
+                                       VALUES (%s, %s, %s, %s, %s, %s::uuid, %s, %s, %s, COALESCE(%s, 'FULL'))
                                        ON CONFLICT DO NOTHING RETURNING {', '.join(COLUMNS)}""",
                                    [str(tenant_id), kind, name[:100], direction, system, provider_id,
-                                    int(params.get("integrations.log_body_max_bytes", 65536)), int(params.get("integrations.log_retention_days", 90))])
+                                    int(params.get("integrations.log_body_max_bytes", 65536)), int(params.get("integrations.log_retention_days", 90)),
+                                    per_minute, log_level])
                     row = cursor.fetchone()
-            except IntegrityError as exc:                      # no such delivery_provider: the call is still logged, without a record
+            except IntegrityError as exc:                      # no such delivery_provider, or a kind this database does not know yet: logged without a record
                 log.warning("integration record not made for %s %s: %s", kind, provider_id, exc)
                 return None
             if row is None:                                    # a parallel first call made it a moment ago
@@ -92,20 +96,40 @@ def integration_for(tenant_id, *, kind: str, system: str, provider=None, create:
     return found
 
 
+RESULTS = {                                                  # the Results API: one record an endpoint, each with its own limit (api/v1/results_api.py)
+    "RESULTS_CAMPAIGNS": {"name": "Results: Campaigns", "per_minute": 60},
+    "RESULTS_RUNS": {"name": "Results: Sends", "per_minute": 60},
+}
+RESULTS_SYSTEM, RESULTS_SCOPE = "Results API", "results:read"
+
+
+def results_integration(tenant_id, kind: str) -> dict | None:
+    """A Results endpoint's record. Answers for reading keep their bodies out of the log unless the call failed."""
+    return integration_for(tenant_id, kind=kind, system=RESULTS_SYSTEM, name=RESULTS[kind]["name"], per_minute=RESULTS[kind]["per_minute"], log_level="ERRORS")
+
+
 def ensure_defaults(tenant_id) -> int:
-    """The records a workspace's settings page lists before any call was made: POS receipts, and one per sending engine."""
+    """The records a workspace's settings page lists before any call was made: POS receipts, one per sending engine, and the
+    Results endpoints once a key may read results."""
     from apps.delivery.models import DeliveryProvider
+    from apps.identity.models import ApiClient
     made = 0
     made += integration_for(tenant_id, kind=KIND_POS, system="POS") is not None
+    if ApiClient.objects.filter(tenant_id=tenant_id, revoked_at__isnull=True, scopes__contains=[RESULTS_SCOPE]).exists():
+        for kind in RESULTS:
+            made += results_integration(tenant_id, kind) is not None
     for provider in DeliveryProvider.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True):
         made += integration_for(tenant_id, kind=KIND_PROVIDER, system=provider.provider_type, provider=provider) is not None
     return made
 
 
-def inbound_limit(tenant_id, integration: dict | None) -> int | None:
-    """The workspace's inbound calls per minute: its own record, else the plan's default from the global parameter."""
+def inbound_limit(tenant_id, integration: dict | None, default: int | None = None) -> int | None:
+    """The workspace's inbound calls per minute: its own record, else the endpoint's own figure when it has one, else the
+    plan's default from the global parameter."""
     if integration and integration.get("throttle_per_minute"):
         return int(integration["throttle_per_minute"])
+    if default:
+        return int(default)
     table = params.get("integrations.inbound_per_minute", {}) or {}
     if isinstance(table, str):
         try:
