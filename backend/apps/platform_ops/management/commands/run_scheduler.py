@@ -50,7 +50,7 @@ def _runnable() -> dict:
             "send-weekly-reports": _send_weekly_reports,
             "enroll-journey-customers": journey.enroll_customers, "advance-journey-customers": journey.advance_customers,
             "rollup-journey-analytics": journey.rollup_analytics, "activate-scheduled-journeys": journey.activate_scheduled,
-            "process-list-imports": lists.process_imports, "outbox-relay": outbox.relay_pending_events,
+            "process-list-imports": lists.process_imports, "sync-customer-attributes": lists.sync_attributes, "outbox-relay": outbox.relay_pending_events,
             "ensure-monthly-partitions": maintenance.ensure_monthly_partitions, "apply-partition-retention": maintenance.apply_partition_retention}
 
 

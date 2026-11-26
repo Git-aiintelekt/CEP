@@ -3,7 +3,9 @@
 What each resolution source offers, as the back-office picker lists them and as a tag's source path is checked
 against. Two sources take a path of the person's own: a customer attribute (`custom_attributes.<key>`) and a column
 from a list upload (`custom_value_pairs.<column>`); everything else is a fixed set the renderer knows how to read
-(`apps/delivery/engine/render.py`, Renderer._value).
+(`apps/delivery/engine/render.py`, Renderer._value). CUSTOMER_ATTRIBUTE reads one of the workspace's own Customer Attributes
+(Settings -> Customer Attributes): its path is the attribute's key, and its points are the workspace's attributes, so it is a
+workspace source only (the platform catalogue cannot use it).
 """
 from __future__ import annotations
 
@@ -19,7 +21,9 @@ SOURCES = {
     "STORE": "Store (e-receipts)",
     "TRANSACTION": "Transaction (e-receipts from the point of sale)",
     "STATIC": "Static value",
+    "CUSTOMER_ATTRIBUTE": "Customer attribute",
 }
+WORKSPACE_ONLY = ("CUSTOMER_ATTRIBUTE",)
 
 CUSTOM_ATTRIBUTE = "custom_attributes."
 UPLOAD_COLUMN = "custom_value_pairs."
@@ -134,6 +138,7 @@ DATA_POINTS: dict[str, list[tuple[str, str, str]]] = {
         ("image_url", "Store Image URL", "STRING"),
     ],
     "STATIC": [],
+    "CUSTOMER_ATTRIBUTE": [],                                 # the workspace's attributes: apps/customers/attributes.py
 }
 
 STATIC_POINT = "STATIC|"
@@ -153,6 +158,8 @@ def choices() -> list[tuple[str, list[tuple[str, str]]]]:
     """Grouped choices for a select: every source with its data points, and Static as a value of its own."""
     grouped = []
     for source, name in SOURCES.items():
+        if source in WORKSPACE_ONLY:
+            continue
         if source == "STATIC":
             grouped.append((name, [(STATIC_POINT, "A fixed value, typed under Static value")]))
             continue
@@ -181,6 +188,11 @@ def problem(source: str, path: str | None, static_value: str | None) -> str | No
         if path:
             return "A static value has no data point: leave the path empty."
         return None if (static_value or "").strip() else "Type the static value."
+    if source == "CUSTOMER_ATTRIBUTE":
+        from apps.customers import attributes
+        if not attributes.KEY_RE.match(path):
+            return "Choose the customer attribute the tag reads."
+        return None if attributes.exists(path) else "No customer attribute has this key. Add it under Settings → Customer Attributes first."
     points = DATA_POINTS[source]
     if any(known == path for known, _, _ in points if not is_prefix(known)):
         return None

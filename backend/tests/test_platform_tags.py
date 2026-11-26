@@ -45,7 +45,8 @@ def test_platform_tags(check, admin_email):
           and "leave the path empty" in (datapoints.problem("STATIC", "x", "1") or "") and "Choose" in (datapoints.problem("NOPE", "x", None) or "")
           and datapoints.data_type_of("RECEIPT", "receipt.grand_total") == "NUMBER" and datapoints.data_type_of("CUSTOMER_MASTER", "custom_attributes.x") is None)
     groups = dict(datapoints.choices())
-    check("the picker lists every source with its points, and Static as one entry", set(groups) == set(datapoints.SOURCES.values()) and groups["Static value"] == [("STATIC|", "A fixed value, typed under Static value")]
+    check("the picker lists every source but the workspace-only ones, with its points, and Static as one entry",
+          set(groups) == {name for key, name in datapoints.SOURCES.items() if key not in datapoints.WORKSPACE_ONLY} and "Customer attribute" not in groups and groups["Static value"] == [("STATIC|", "A fixed value, typed under Static value")]
           and ("CUSTOMER_MASTER|first_name", "First Name") in groups["Customer"], str(list(groups)))
 
     # ---- the back-office form, no database

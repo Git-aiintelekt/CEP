@@ -87,6 +87,8 @@ interface AddListDialogProps {
   campaignChannel?: string
   /** "Review List" on the last screen: the page brings the new list into view */
   onReview?: (list: ContactList) => void
+  /** the campaign's template: an upload asks where each of its tags gets its value */
+  templateId?: string
   onAdd: (ids: string[]) => void
   onCreated: (list: ContactList) => void
   onClose: () => void
@@ -94,7 +96,7 @@ interface AddListDialogProps {
 
 const listChannelOf = (channel?: string): ListChannel | undefined => (channel === 'EMAIL' ? 'EMAIL' : channel === 'SMS' || channel === 'MMS' ? 'SMS' : undefined)
 
-export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, campaignChannel, onReview, onAdd, onCreated, onClose }: AddListDialogProps) {
+export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, campaignChannel, onReview, templateId, onAdd, onCreated, onClose }: AddListDialogProps) {
   const [tab, setTabNow] = useState<Tab>('existing')
   /** the wizard is on its first screen with nothing started: the way-in cards show; from the next step they would discard the upload */
   const [atStart, setAtStart] = useState(true)
@@ -191,7 +193,7 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, campai
         </div>
       )}
       {tab === 'upload' && (
-        <CreateListWizard embedded inCampaign initialSource="UPLOAD" sources={['UPLOAD']} defaultChannel={listChannelOf(campaignChannel)} onAtStart={setAtStart} onDone={setDone} onReview={(list) => { onReview?.(list); onClose() }} onClose={onClose} onCreated={onCreated} />
+        <CreateListWizard embedded inCampaign initialSource="UPLOAD" sources={['UPLOAD']} defaultChannel={listChannelOf(campaignChannel)} templateId={templateId || undefined} onAtStart={setAtStart} onDone={setDone} onReview={(list) => { onReview?.(list); onClose() }} onClose={onClose} onCreated={onCreated} />
       )}
       {tab === 'make' && (
         <CreateListWizard embedded inCampaign initialSource="BI" sources={['BI', 'CLONE']} defaultChannel={listChannelOf(campaignChannel)} onAtStart={setAtStart} onDone={setDone} onReview={(list) => { onReview?.(list); onClose() }} onClose={onClose} onCreated={onCreated} />

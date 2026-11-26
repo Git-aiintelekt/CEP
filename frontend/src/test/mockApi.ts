@@ -6,6 +6,7 @@ import { derived, handleCampaigns, listCampaigns, makeStep, moduleDefaults } fro
 import { starterFromTemplate } from '@/apps/cep/features/journeys/templates/templateApi'
 
 import { handleWorkspaceTools, workspaceToolsState, type WorkspaceToolsState } from './mockWorkspaceTools'
+import { ATTRIBUTE_SOURCES, CUSTOMER_ATTRIBUTES, FILL_RUN, TAG_CHECK, tagOptionsFor, tagResultFor } from './mockAttributes'
 import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
@@ -13,7 +14,7 @@ import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import { NO_WARM_UP, SAMPLE_WARM_UP, SAMPLE_WARM_UP_PLANS } from '@/apps/cep/features/warmup/sampleWarmUp'
 import type { GovernanceBlackout, GovernanceCap, GovernanceGap, GovernanceGapChannel, GovernanceOverview, GovernanceUnengaged, GovernanceUnengagedRule, GovernanceWindow, GovernanceWindowChannel, WarmUp, WarmUpOverview } from '@/lib/types'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
-              RunInterrupted, RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
+              AttributeRun, AttributeSource, CustomerAttribute, TagCheck, RunInterrupted, RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
   url: string
@@ -1051,6 +1052,11 @@ interface MockOptions {
   runVariants?: CampaignRunVariant[]
   /** reports schedule, suppressions, notifications and approvals as the backend would hold them */
   workspaceTools?: Partial<WorkspaceToolsState>
+  /** Settings → Customer Attributes: the attributes and sources (default: the CITI sample); null: patch 0100 not applied */
+  customerAttributes?: CustomerAttribute[] | null
+  attributeSources?: AttributeSource[]
+  /** the Tag Check's answer (default: two tags short) */
+  tagCheck?: TagCheck
 }
 
 /** the code the mock authenticator "shows" */
@@ -1102,6 +1108,8 @@ export function installMockApi(options: MockOptions = {}) {
   let setupNow: WorkspaceSetup = { ...SAMPLE_SETUP_READY, ...options.setup }
   let warmupNow: WarmUpOverview = structuredClone(options.warmup ?? NO_WARM_UP)
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
+  let attributesNow: CustomerAttribute[] = structuredClone(options.customerAttributes ?? CUSTOMER_ATTRIBUTES)
+  let sourcesNow: AttributeSource[] = structuredClone(options.attributeSources ?? ATTRIBUTE_SOURCES)
   const importDoneAt = new Map<string, number>()
   let journeyNow: Journey = makeJourney(options.journey)
   let journeySuppressionsNow: JourneySuppression[] = []
@@ -2331,6 +2339,65 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/receipt/versions/')) return json([{ version_number: receiptLayout.latest_version, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' }])
     if (path.endsWith('/receipt-layouts/')) return json([])
     if (path.endsWith('/field-rules/')) return json(fieldRules)
+    if (path.includes('/customer-attributes/')) {
+      if (options.customerAttributes === null) return json(path.endsWith('/sources/') ? { available: false, sources: [] } : { available: false, attributes: [], sources: 0, can_edit: false })
+      if (path.endsWith('/customer-attributes/tag-check/')) return json(options.tagCheck ?? { ...TAG_CHECK, template: { id: String(body?.template ?? ''), name: 'Black Friday Reminder' } })
+      if (path.endsWith('/customer-attributes/fill/')) return json(FILL_RUN, 202)
+      if (/\/customer-attributes\/runs\/[^/]+\/$/.test(path)) return json({ ...FILL_RUN, status: 'DONE', people_read: 12480, people_matched: 12100, finished_at: '2026-11-25T10:02:00Z' })
+      if (path.endsWith('/customer-attributes/databases/')) {
+        const params = new URL(url, 'http://test.local').searchParams
+        if (!params.get('id')) return json({ databases: [{ id: 'db-1', name: 'CITI OFBiz', engine: 'mysql80', database_name: 'ofbiz' }] })
+        if (params.get('field')) return json({ sample: ['1240', '0', '18450'] })
+        if (params.get('table')) return json({ columns: [{ name: 'PARTY_ID', type: 'string', key: true }, { name: 'POINTS_BALANCE', type: 'number', key: false }, { name: 'TIER_END_DATE', type: 'date', key: false }] })
+        return json({ tables: [{ name: 'LOYALTY_ACCOUNT', kind: 'table' }, { name: 'PARTY', kind: 'table' }] })
+      }
+      const sync = path.match(/\/customer-attributes\/sources\/([^/]+)\/sync\/$/)
+      if (sync && method === 'POST') {
+        const run: AttributeRun = { ...FILL_RUN, id: 'run-sync', trigger: 'MANUAL', trigger_label: 'Sync Now' }
+        sourcesNow = sourcesNow.map((item) => (item.id === sync[1] ? { ...item, last_run: run } : item))
+        return json(run, 202)
+      }
+      if (path.endsWith('/customer-attributes/sources/') && method === 'POST') {
+        const input = (body ?? {}) as Partial<AttributeSource>
+        const made: AttributeSource = { id: `src-${sourcesNow.length + 1}`, name: String(input.name), system: String(input.system), kind: input.kind ?? 'API',
+          kind_label: input.kind === 'DATABASE' ? 'Report Database' : input.kind === 'FILE' ? 'File' : 'API', report_connection_id: input.report_connection_id ?? null,
+          database_name: input.report_connection_id ? 'CITI OFBiz' : null, table_name: input.table_name ?? null, id_column: input.id_column ?? null,
+          is_active: true, last_sync_at: null, last_run: null, attribute_count: 0, row_version: 1 }
+        sourcesNow = [...sourcesNow, made]
+        return json(made, 201)
+      }
+      if (path.endsWith('/customer-attributes/sources/')) return json({ available: true, sources: sourcesNow })
+      const oneSource = path.match(/\/customer-attributes\/sources\/([^/]+)\/$/)
+      if (oneSource && method === 'DELETE') { sourcesNow = sourcesNow.filter((item) => item.id !== oneSource[1]); return new Response(null, { status: 204 }) }
+      if (oneSource && method === 'PATCH') {
+        sourcesNow = sourcesNow.map((item) => (item.id === oneSource[1] ? { ...item, ...(body as Partial<AttributeSource>) } : item))
+        return json(sourcesNow.find((item) => item.id === oneSource[1]))
+      }
+      if (path.endsWith('/customer-attributes/') && method === 'POST') {
+        const input = (body ?? {}) as Record<string, unknown>
+        if (attributesNow.some((item) => item.key === input.key)) return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { key: 'Another attribute already has this key.' } }, 400)
+        const source = sourcesNow.find((item) => item.id === input.source)
+        const made: CustomerAttribute = { id: `attr-${attributesNow.length + 1}`, key: String(input.key), label: String(input.label), data_type: (input.data_type as CustomerAttribute['data_type']) ?? 'TEXT',
+          data_type_label: String(input.data_type ?? 'TEXT') === 'NUMBER' ? 'Number' : 'Text', scope: (input.scope as CustomerAttribute['scope']) ?? 'CUSTOMER',
+          source: source ? { id: source.id, name: source.name, kind: source.kind, system: source.system, table_name: source.table_name } : null,
+          source_field: (input.source_field as string | null) ?? null, refresh: (input.refresh as CustomerAttribute['refresh']) ?? 'ON_IMPORT', refresh_label: 'Nightly',
+          is_pii: Boolean(input.is_pii), default_value: (input.default_value as string | null) ?? null, is_active: true, people_with_value: 0, tags: input.make_tag ? [String(input.key)] : [], row_version: 1 }
+        attributesNow = [...attributesNow, made]
+        return json(made, 201)
+      }
+      if (path.endsWith('/customer-attributes/')) return json({ available: true, attributes: attributesNow, sources: sourcesNow.length, can_edit: true })
+      const oneAttribute = path.match(/\/customer-attributes\/([^/]+)\/$/)
+      if (oneAttribute && method === 'DELETE') {
+        const found = attributesNow.find((item) => item.id === oneAttribute[1])
+        if (found?.tags.length) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: `The tag {{${found.tags[0]}}} reads this attribute. Change or remove the tag first.` }, 409)
+        attributesNow = attributesNow.filter((item) => item.id !== oneAttribute[1])
+        return new Response(null, { status: 204 })
+      }
+      if (oneAttribute && method === 'PATCH') {
+        attributesNow = attributesNow.map((item) => (item.id === oneAttribute[1] ? { ...item, ...(body as Partial<CustomerAttribute>), source: item.source } : item))
+        return json(attributesNow.find((item) => item.id === oneAttribute[1]))
+      }
+    }
     if (path.endsWith('/personalization-tags/data-points/')) return json(tagDataPoints)
     if (path.endsWith('/personalization-tags/') && method === 'POST') {
       const input = (body ?? {}) as Partial<PersonalizationTag>
@@ -2695,9 +2762,15 @@ export function installMockApi(options: MockOptions = {}) {
                            collected_at: String(body?.collected_at ?? '') || null, attested_by_name: 'Aby John', attested_at: '2026-09-21T10:01:00Z' }
         return json(put({ ...job, consent: declared }))
       }
+      if (job && path.endsWith('/tag-values/')) {                    // after the check, the TAGS job counts them (at once here)
+        const chosen = { ...job, tag_values: (body?.tag_values as ListImport['tag_values']) ?? null }
+        return json(put(job.status === 'REVIEW' ? { ...chosen, tag_values: tagResultFor(chosen) } : chosen))
+      }
+      if (job && path.endsWith('/tag-options/')) return json(tagOptionsFor(String(body?.template_id ?? ''), { ...job, mapping: (body?.mapping as Record<string, string>) ?? job.mapping }))
       if (job && path.endsWith('/review/')) {
+        const tagValues = body && 'tag_values' in body ? (body.tag_values as ListImport['tag_values']) : job.tag_values
         return json(put({ ...job, status: 'MATCHING', phase: 'Checking the rows', working: true, mapping_confirmed: true, mapping: body?.mapping as Record<string, string>, review: null,
-                          progress: { done: 3, total: 6, percent: 50, unit: 'rows' } }), 202)
+                          tag_values: tagValues ?? null, progress: { done: 3, total: 6, percent: 50, unit: 'rows' } }), 202)
       }
       if (job && path.endsWith('/apply/')) {
         if (job.consent?.required && !job.consent.attested_at) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'Say where these people agreed to marketing first.' }, 409)
@@ -2717,7 +2790,7 @@ export function installMockApi(options: MockOptions = {}) {
           const looked = job.lookup ? { lookup: { ...job.lookup, result: { ids: 6, found: 5, usable: 4, held: [{ reason: 'Customer ID not found', count: 1 }, { reason: 'No primary phone', count: 1 }],
                                                                             warnings: [{ reason: 'Customer not open to solicitation: imported with no text consent', count: 1 }],
                                                                             filled: { first_name: 4, mobile: 4, sms_consent_date: 3, email: 1 }, seconds: 2.4, finished_at: '2026-11-24T10:00:00Z' } } } : {}
-          return json(put({ ...job, ...looked, status: 'REVIEW', phase: 'Checked. Review it to continue', working: false, review: REVIEW, summary: uploadSummary, progress: { done: 6, total: 6, percent: 100, unit: 'rows' },
+          return json(put({ ...job, ...looked, tag_values: tagResultFor(job), status: 'REVIEW', phase: 'Checked. Review it to continue', working: false, review: REVIEW, summary: uploadSummary, progress: { done: 6, total: 6, percent: 100, unit: 'rows' },
                             issues: [{ line: 5, kind: 'error', message: 'Same email address as line 3', value: 'A@x.example' }, { line: 4, kind: 'warning', message: 'Mobile number not recognised: left out', value: 'b@x.example' }] }))
         }
         return json(jobsNow.find((item) => item.id === job.id))

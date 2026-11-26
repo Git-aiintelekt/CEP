@@ -16,7 +16,10 @@
     POST   /contact-lists/{id}/imports/             multipart `file`: store a CSV and queue it  (permission list.import);
                                                     with `lookup_connections` (ids, comma separated, in order) and `lookup_role`: a file of IDs
     GET    /contact-lists/{id}/imports/{import}/    status, progress, columns, mapping, review numbers: poll this
-    POST   /contact-lists/{id}/imports/{import}/review/   {mapping}: 202, the check runs in the background
+    POST   /contact-lists/{id}/imports/{import}/review/   {mapping, tag_values?}: 202, the check runs in the background
+    POST   /contact-lists/{id}/imports/{import}/tag-values/   {tag_values}: the Tag Values step on its own (Look Up in C360); null: skipped
+    POST   /contact-lists/{id}/imports/{import}/tag-options/   {template_id, mapping}: the Tag Values step (a template's tags, the file's
+                                                    free columns, the customer attributes, a suggested source for each tag)
     POST   /contact-lists/{id}/imports/{import}/apply/    202, the contacts are added in the background
     POST   /contact-lists/{id}/imports/{import}/cancel/
     GET    /contact-lists/{id}/imports/{import}/report/   CSV: every row of the file, what happened to it, its governance status
@@ -40,7 +43,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.contact_lists import consent, governance, imports, jobs, lists, lookup
+from apps.contact_lists import consent, governance, imports, jobs, lists, lookup, tag_values
 from apps.contact_lists.models import ContactList, ContactListImport
 from apps.identity import names
 from apps.tenants import context
@@ -133,6 +136,7 @@ class RemoveSerializer(serializers.Serializer):
 
 class MappingSerializer(serializers.Serializer):
     mapping = serializers.DictField(child=serializers.CharField(allow_blank=True, allow_null=True))
+    tag_values = serializers.DictField(required=False, allow_null=True, help_text="the Tag Values step: {template_id, tags: {key: {from, column, attribute}}}; null: skipped")
 
 
 class ConsentDeclarationSerializer(serializers.Serializer):
@@ -147,7 +151,8 @@ class ApprovalSerializer(serializers.Serializer):
 
 PHASE = {"UPLOADED": "Waiting to be read", "STAGING": "Reading the file", "STAGED": "Read. Match the columns to continue", "MATCHING": "Checking the rows",
          "REVIEW": "Checked. Review it to continue", "APPLYING": "Adding contacts to the list", "APPLIED": "Imported", "FAILED": "Failed", "CANCELLED": "Cancelled"}
-WAITING = {"STAGE": "Waiting to be read", "LOOKUP": "Waiting to be looked up", "REVIEW": "Waiting to be checked", "APPLY": "Waiting to be imported"}
+WAITING = {"STAGE": "Waiting to be read", "LOOKUP": "Waiting to be looked up", "REVIEW": "Waiting to be checked", "TAGS": "Waiting to read the tag values",
+           "APPLY": "Waiting to be imported"}
 
 
 def _lookup_payload(record: ContactListImport) -> dict | None:
@@ -167,10 +172,11 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
         "id": str(record.pk), "contact_list": str(record.contact_list_id), "list_name": record.contact_list.name, "list_status": record.contact_list.status,
         "file_name": record.file_name, "file_size": record.file_size, "status": record.status,
         "phase": WAITING[record.next_action] if record.next_action and record.status not in ("STAGING", "MATCHING", "APPLYING")
-                 else "Looking up in C360" if record.next_action == "LOOKUP" else PHASE.get(record.status, record.status),
+                 else "Looking up in C360" if record.next_action == "LOOKUP" else "Reading the tag values" if record.next_action == "TAGS" else PHASE.get(record.status, record.status),
         "working": working, "progress": {"done": record.progress_done, "total": total, "percent": percent,
                                                  "unit": "bytes" if record.status in ("UPLOADED", "STAGING") else "ids" if record.next_action == "LOOKUP" else "rows"},
         "lookup": _lookup_payload(record),
+        "tag_values": record.tag_values,
         "mapping_confirmed": record.mapping_confirmed, "error": record.error,
         "row_count": record.row_count, "columns": record.file_columns, "mapping": record.column_mapping, "properties": imports.catalogue(imports.channel_of(record.contact_list)),
         "list_channel": imports.channel_of(record.contact_list),
@@ -179,7 +185,7 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
         "created_at": record.created_at, "started_at": record.started_at, "completed_at": record.completed_at,
         "created_by_name": names.label_of(record, "created_by"),
     }
-    if record.status in ("REVIEW", "APPLYING", "APPLIED") and not (record.status == "REVIEW" and record.next_action == "REVIEW"):
+    if record.status in ("REVIEW", "APPLYING", "APPLIED", "MATCHING") and not (record.status in ("REVIEW", "MATCHING") and record.next_action in ("REVIEW", "LOOKUP")):
         held_back = record.duplicate_count + record.rejected_count
         data["review"] = {"ready": record.matched_count + record.unmatched_count, "held_back": held_back, "new": record.unmatched_count, "existing": record.matched_count,
                           "warnings": record.warning_count, "errors": held_back, "duplicates": record.duplicate_count, "rejected": record.rejected_count}
@@ -474,10 +480,32 @@ class ContactListViewSet(BaseTenantViewSet):
         body = MappingSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         try:
-            record = imports.confirm_mapping(record, body.validated_data["mapping"])
+            record = imports.confirm_mapping(record, body.validated_data["mapping"], body.validated_data.get("tag_values"), with_tags="tag_values" in request.data)
         except imports.ImportError_ as exc:
             raise ValidationError({"mapping": str(exc)}) from exc
         return Response(import_payload(record), status=202)
+
+    @extend_schema(request=None, responses=dict)
+    @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/tag-values", parser_classes=[JSONParser],
+            permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
+    def import_tag_values(self, request, pk=None, import_id=None, version=None):
+        """The Tag Values step answered on its own: kept, and read for the rows as soon as they have been checked."""
+        record = self._import(self.get_object(), import_id)
+        body = request.data.get("tag_values")
+        try:
+            record = imports.save_tag_values(record, body if isinstance(body, dict) else None)
+        except imports.ImportError_ as exc:
+            raise ValidationError({"tag_values": str(exc)}) from exc
+        return Response(import_payload(record))
+
+    @extend_schema(request=None, responses=dict)
+    @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/tag-options", parser_classes=[JSONParser],
+            permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
+    def import_tag_options(self, request, pk=None, import_id=None, version=None):
+        """The Tag Values step: the template's tags with a suggested source for each, the file's columns no property uses, the attributes."""
+        record = self._import(self.get_object(), import_id)
+        mapping = request.data.get("mapping")
+        return Response(tag_values.options(record, request.data.get("template_id"), mapping if isinstance(mapping, dict) else None))
 
     @extend_schema(request=ConsentDeclarationSerializer, responses=dict)
     @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/consent", parser_classes=[JSONParser],

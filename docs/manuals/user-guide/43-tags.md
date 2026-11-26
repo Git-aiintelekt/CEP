@@ -29,7 +29,7 @@ Tags are the words a template fills in for each person: `{{first_name}}`, `{{sto
 |---|---|---|
 | Tag Key | The word inside the braces: lower-case letters, digits and underscores, starting with a letter, up to 100 characters. Must not be in use by another tag (*Another tag already uses this key.*). | How the tag is typed in a template: `{{loyalty_tier}}`. Fixed once created, because templates keep the token. |
 | Label | The name people see, at least two characters, up to 150. | What the tag picker lists, and what its search finds. Shown under the key in this table. |
-| Reads From | Where the value comes from when a message is sent: Customer, List upload, Campaign, Campaign run, System, Receipt (e-receipts), Store (e-receipts), Transaction (e-receipts from the point of sale), or Static value. Default Customer. | Which record each recipient's value is taken from. Changing it clears the Data Point. Receipt, Store and Transaction values exist only in e-receipts; anywhere else such a tag counts as empty. |
+| Reads From | Where the value comes from when a message is sent: Customer, List upload, Campaign, Campaign run, System, Receipt (e-receipts), Store (e-receipts), Transaction (e-receipts from the point of sale), Customer attribute (once the workspace has some: Settings → Customer Attributes), or Static value. Default Customer. | Which record each recipient's value is taken from. Changing it clears the Data Point. Receipt, Store and Transaction values exist only in e-receipts; anywhere else such a tag counts as empty. |
 | Data Point | For a source: the field to read, from the list the source offers. Required. Choosing one sets Type to match. | The value each recipient gets. |
 | Key | Shown when the data point is an open-ended one, such as a customer attribute or a list upload column: the attribute name or the column's header. Letters, digits and underscores. | Completes the path: the tag reads that one attribute or column. A key that does not match the upload's header leaves the tag to its default. |
 | Static Value | For Static value: the text itself. Required. | Every recipient gets this same text. Change it here and every later send carries the new text, for example a new offer's end date. |
@@ -47,7 +47,7 @@ Tags are the words a template fills in for each person: `{{first_name}}`, `{{sto
 
 ## What happens behind the scenes
 
-At send time each tag is filled for each recipient: from its source in the catalogue; if that is empty, from the list member's uploaded column of the same name; then from the customer's attribute of that name; then the tag's default. Test sends and previews use the sample values instead. A tag a template uses that is not in the catalogue is a finding on save. When the platform team changes a platform tag, every workspace's copy follows; a workspace tag with the same key is left alone.
+At send time each tag is filled for each recipient: from its source in the catalogue; if that is empty, from the list member's own value of the same name (an uploaded column, a Tag Values choice); then from the customer's attributes (Settings → Customer Attributes) of that name; then from the customer record; then the tag's default. Test sends and previews use the sample values instead. A tag a template uses that is not in the catalogue is a finding on save. When the platform team changes a platform tag, every workspace's copy follows; a workspace tag with the same key is left alone.
 
 ## Things to know
 

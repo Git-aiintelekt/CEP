@@ -8,6 +8,10 @@ import { WorkspaceSetupPage } from '@/apps/cep/pages/settings/WorkspaceSetupPage
 import { AttributionPage } from '@/apps/cep/pages/settings/AttributionPage'
 import { DeliveryPage } from '@/apps/cep/pages/settings/DeliveryPage'
 import { GovernancePage } from '@/apps/cep/pages/settings/GovernancePage'
+import { CustomerAttributesPage } from '@/apps/cep/pages/settings/CustomerAttributesPage'
+import { TagCheckCard } from '@/apps/cep/features/attributes/TagCheckCard'
+import { TagValuesReview, TagValuesStep } from '@/apps/cep/features/contact-lists/TagValuesStep'
+import { ATTRIBUTE_SOURCES, CUSTOMER_ATTRIBUTES, TAG_CHECK } from '@/apps/cep/features/attributes/sampleAttributes'
 import { DOMAINS } from '@/apps/cep/pages/settings/sendingDomains'
 import { UtmTrackingPage } from '@/apps/cep/pages/settings/UtmTrackingPage'
 import { ReportDatabasesPage } from '@/apps/cep/pages/settings/ReportDatabasesPage'
@@ -16,7 +20,7 @@ import { DATABASES_KEY } from '@/apps/cep/pages/settings/reportDatabases'
 import type { ReportDatabase, SourceColumns, SourceList } from '@/apps/insights/types'
 import { UTM_KEY } from '@/apps/cep/pages/settings/utm'
 import { LinkTrackingRow } from '@/apps/cep/features/campaigns/wizard/LinkTrackingRow'
-import type { AttributedOrder, AttributionSettings, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, GovernanceBlackout, GovernanceOverview, ProviderType, SendingDomains, UtmSettings } from '@/lib/types'
+import type { ListImport, TagValueChoice, AttributedOrder, AttributionSettings, DeliveryProvider, DeliverySender, EngineHealth, EngineHealthCheck, GovernanceBlackout, GovernanceOverview, ProviderType, SendingDomains, UtmSettings } from '@/lib/types'
 import { SETTINGS_GROUPS, pageAt } from '@/apps/cep/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/apps/cep/features/setup/sampleSetup'
@@ -231,6 +235,76 @@ function SampleReportDatabases({ map = false }: { map?: boolean }) {
   return <QueryClientProvider client={client}>{map ? <Routes><Route path=":id/map" element={<MapDatasetPage />} /></Routes> : <ReportDatabasesPage />}</QueryClientProvider>
 }
 
+const SAMPLE_UPLOAD = {
+  id: 'imp-1', contact_list: 'cl-new', list_name: 'Black Friday file', file_name: 'black-friday.csv', status: 'STAGED', working: false, row_count: 9810,
+  columns: [{ name: 'Email', samples: ['maria.lopez@example.com'], guess: 'email' }, { name: 'First Name', samples: ['Maria'], guess: 'first_name' },
+            { name: 'Store', samples: ['Atlanta Midtown'], guess: null }, { name: 'Coupon', samples: ['BF25-7Q2K'], guess: null }, { name: 'Party ID', samples: ['10045821'], guess: 'party_id' }],
+  mapping: { email: 'Email', first_name: 'First Name', party_id: 'Party ID' },
+  tag_values: { template_id: 'tpl-bf', template_name: 'Black Friday Reminder', tags: { first_name: { from: 'CUSTOMER' }, store_name: { from: 'FILE', column: 'Store' },
+    offer_code: { from: 'FILE', column: 'Coupon' }, points_balance: { from: 'ATTRIBUTE', attribute: 'points_balance' }, tier_expiry: { from: 'DEFAULT' } },
+    result: { ready: 9810, tags: { first_name: { with_value: 9810, sample: 'Maria' }, store_name: { with_value: 9802, sample: 'Atlanta Midtown' }, offer_code: { with_value: 9810, sample: 'BF25-7Q2K' },
+      points_balance: { with_value: 9655, sample: '1240' }, tier_expiry: { with_value: 0, sample: null } } } },
+} as unknown as ListImport
+
+/** the upload's Tag Values step for a campaign's template, and the counts its review shows */
+function SampleTagValues() {
+  const [template, setTemplate] = useState('tpl-bf')
+  const [choices, setChoices] = useState<Record<string, TagValueChoice>>({})
+  return (
+    <div className="mt-8 grid max-w-[880px] gap-6">
+      <div className="rounded-lg border border-line bg-surface p-6">
+        <TagValuesStep upload={SAMPLE_UPLOAD} mapping={SAMPLE_UPLOAD.mapping} channel="SMS" campaignTemplate="tpl-bf" template={template} onTemplate={setTemplate} choices={choices} onChoices={setChoices} />
+      </div>
+      <TagValuesReview job={SAMPLE_UPLOAD} />
+    </div>
+  )
+}
+
+/** Customer Attributes as CITI has them (?empty=1: a new workspace), the Tag Check card a campaign shows (?card=1), the upload's Tag Values (?step=1) */
+function SampleCustomerAttributes() {
+  const [params] = useSearchParams()
+  const empty = params.get('empty') === '1'
+  const [client] = useState(() => {
+    const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchInterval: false } } })
+    seeded.setQueryData(['customer-attributes'], { available: true, attributes: empty ? [] : CUSTOMER_ATTRIBUTES, sources: empty ? 0 : ATTRIBUTE_SOURCES.length, can_edit: true })
+    seeded.setQueryData(['customer-attributes', 'sources'], { available: true, sources: empty ? [] : ATTRIBUTE_SOURCES })
+    seeded.setQueryData(['customer-attributes', 'databases'], { databases: [{ id: 'db-1', name: 'CITI OFBiz', engine: 'mysql80', database_name: 'ofbiz' }] })
+    seeded.setQueryData(['customer-attributes', 'tables', 'db-1'], { tables: [{ name: 'LOYALTY_ACCOUNT', kind: 'table' }, { name: 'PARTY', kind: 'table' }] })
+    seeded.setQueryData(['customer-attributes', 'columns', 'db-1', 'LOYALTY_ACCOUNT'], { columns: [{ name: 'PARTY_ID', type: 'string', key: true }, { name: 'POINTS_BALANCE', type: 'number', key: false }, { name: 'TIER_END_DATE', type: 'date', key: false }] })
+    seeded.setQueryData(['customer-attributes', 'sample', 'db-1', 'LOYALTY_ACCOUNT', 'POINTS_BALANCE'], { sample: ['1240', '0', '18450'] })
+    seeded.setQueryData(['customer-attributes', 'tag-check', 'tpl-short', 'cl-1', ''], TAG_CHECK)
+    seeded.setQueryData(['customer-attributes', 'tag-check', 'tpl-full', 'cl-1', ''], { ...TAG_CHECK, short: 0, fillable: [], tags: TAG_CHECK.tags.map((tag) => ({ ...tag, with_value: 12480, missing: 0, from: 'LIST' })) })
+    seeded.setQueryData(['templates', 'options', 'tag-values'], { results: [{ id: 'tpl-bf', name: 'Black Friday Reminder', channel: 'SMS', status: 'ACTIVE' }, { id: 'tpl-wb', name: 'Win-Back 2025', channel: 'SMS', status: 'ACTIVE' }] })
+    seeded.setQueryData(['contact-lists', 'tag-options', 'imp-1', 'tpl-bf', JSON.stringify(SAMPLE_UPLOAD.mapping)], {
+      template: { id: 'tpl-bf', name: 'Black Friday Reminder', channel: 'SMS' },
+      tags: [
+        { key: 'first_name', label: 'First Name', default: 'there', reads: 'CUSTOMER_MASTER', path: 'first_name', suggested: { from: 'CUSTOMER' }, chosen: null },
+        { key: 'store_name', label: 'Store Name', default: 'your nearest store', reads: null, path: null, suggested: { from: 'FILE', column: 'Store' }, chosen: null },
+        { key: 'offer_code', label: 'Offer Code', default: 'BF25', reads: 'CAMPAIGN_LIST_MEMBER', path: 'custom_value_pairs.offer_code', suggested: { from: 'DEFAULT' }, chosen: { from: 'FILE', column: 'Coupon' } },
+        { key: 'points_balance', label: 'Points Balance', default: 'your', reads: 'CUSTOMER_ATTRIBUTE', path: 'points_balance', suggested: { from: 'ATTRIBUTE', attribute: 'points_balance' }, chosen: null },
+        { key: 'tier_expiry', label: 'Tier Expiry', default: 'soon', reads: null, path: null, suggested: { from: 'ATTRIBUTE', attribute: 'tier_end' }, chosen: null },
+      ],
+      columns: [{ name: 'Store', sample: 'Atlanta Midtown' }, { name: 'Coupon', sample: 'BF25-7Q2K' }],
+      attributes: [{ key: 'points_balance', label: 'Points Balance', source: 'CITI iCRM', kind: 'DATABASE', reads_database: true },
+                   { key: 'tier_end', label: 'Tier End Date', source: 'CITI iCRM', kind: 'DATABASE', reads_database: true },
+                   { key: 'last_online_order', label: 'Last Online Order', source: 'Shopify', kind: 'API', reads_database: false }],
+    })
+    return seeded
+  })
+  return (
+    <QueryClientProvider client={client}>
+      <CustomerAttributesPage />
+      {params.get('card') === '1' && (
+        <div className="mt-8 grid max-w-[760px] gap-6 sm:grid-cols-2">
+          <TagCheckCard template="tpl-short" include={['cl-1']} exclude={[]} />
+          <TagCheckCard template="tpl-full" include={['cl-1']} exclude={[]} />
+        </div>
+      )}
+      {params.get('step') === '1' && <SampleTagValues />}
+    </QueryClientProvider>
+  )
+}
+
 const EVERY_DAY = [1, 2, 3, 4, 5, 6, 7]
 const blackoutDate = (id: string, name: string, from: string, to: string, rule: string, fields: Partial<GovernanceBlackout> = {}): GovernanceBlackout =>
   ({ id, name, from, to, yearly: true, rule, next: from, today: false, past: false, is_active: true, platform: false, row_version: 1, ...fields })
@@ -297,9 +371,10 @@ export default function SettingsPlayground() {
               <Route path="delivery" element={<SampleEngines />} />
               <Route path="utm-tracking" element={<SampleUtm />} />
               <Route path="governance" element={<SampleGovernance />} />
+              <Route path="customer-attributes" element={<SampleCustomerAttributes />} />
               <Route path="report-databases" element={<SampleReportDatabases />} />
               <Route path="report-databases/*" element={<SampleReportDatabases map />} />
-              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking', '/settings/report-databases', '/settings/governance'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
+              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => !['/settings/setup', '/settings/attribution', '/settings/delivery', '/settings/utm-tracking', '/settings/report-databases', '/settings/governance', '/settings/customer-attributes'].includes(page.to)).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
               <Route index element={<StandIn path="/settings/users" />} />
             </Route>
           </Routes>

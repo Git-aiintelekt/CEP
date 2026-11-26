@@ -68,6 +68,7 @@ function install(rows: number) {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.origin)
     const path = url.pathname
     const method = (init.method ?? 'GET').toUpperCase()
+    if (path.endsWith('/templates/')) return json({ results: [{ id: 'tpl-bf', name: 'Black Friday Reminder', channel: 'SMS', status: 'ACTIVE' }], next: null, previous: null })
     if (!path.includes('/contact-lists/')) return path.startsWith('/api/') ? json({ type: 'about:blank', title: 'Not here', status: 404 }, 404) : real(input, init)
     if (path.endsWith('/contact-lists/lookup-sources/')) return json({ sources: SOURCES.slice(0, Number(new URLSearchParams(window.location.search).get('databases') ?? 2)), roles: ROLES })
     if (path.endsWith('/contact-lists/imports/')) return json(job ? [current()] : [])
@@ -91,6 +92,21 @@ function install(rows: number) {
           policy: { without_consent: 'HOLD_BACK', texts_need_date: false, approval_before_send: false } },
         lookup: { databases: picked.map((id) => SOURCES.find((item) => item.id === id)?.name ?? id), role: role || null, role_label: ROLES.find((item) => item.key === role)?.label ?? null, id_label: idLabel, id_column: idLabel, result: null } }
       return json(job, 201)
+    }
+    if (job && path.endsWith('/tag-options/')) {
+      const body = JSON.parse(String(init.body ?? '{}')) as Record<string, string>
+      return json(body.template_id ? {
+        template: { id: 'tpl-bf', name: 'Black Friday Reminder', channel: 'SMS' }, columns: [],
+        tags: [{ key: 'first_name', label: 'First Name', default: 'there', reads: 'CUSTOMER_MASTER', path: 'first_name', suggested: { from: 'CUSTOMER' }, chosen: null },
+               { key: 'points_balance', label: 'Points Balance', default: 'your', reads: 'CUSTOMER_ATTRIBUTE', path: 'points_balance', suggested: { from: 'ATTRIBUTE', attribute: 'points_balance' }, chosen: null }],
+        attributes: [{ key: 'points_balance', label: 'Points Balance', source: 'Citi-iCRM Prod', kind: 'DATABASE', reads_database: true }],
+      } : { template: null, tags: [], columns: [], attributes: [] })
+    }
+    if (job && path.endsWith('/tag-values/')) {
+      const body = JSON.parse(String(init.body ?? '{}')) as { tag_values: ListImport['tag_values'] }
+      const ready = Math.round(rows * 0.71)
+      job = { ...job, tag_values: body.tag_values ? { ...body.tag_values, result: { ready, tags: { first_name: { with_value: ready, sample: 'Maria' }, points_balance: { with_value: Math.round(ready * 0.96), sample: '1240' } } } } : null }
+      return json(current())
     }
     if (job && path.endsWith('/consent/')) {
       const body = JSON.parse(String(init.body ?? '{}')) as Record<string, string>

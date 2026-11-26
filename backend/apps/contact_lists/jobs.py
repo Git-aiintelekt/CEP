@@ -42,8 +42,8 @@ log = logging.getLogger("cep.lists")
 P = settings.PLATFORM_ALIAS
 STALE = "3 minutes"
 MAX_ATTEMPTS = 3
-STATUS_WHILE = {"STAGE": "STAGING", "LOOKUP": "MATCHING", "REVIEW": "MATCHING", "APPLY": "APPLYING"}
-STATUS_BEFORE = {"STAGE": "UPLOADED", "LOOKUP": "STAGED", "REVIEW": "STAGED", "APPLY": "REVIEW"}
+STATUS_WHILE = {"STAGE": "STAGING", "LOOKUP": "MATCHING", "REVIEW": "MATCHING", "TAGS": "MATCHING", "APPLY": "APPLYING"}
+STATUS_BEFORE = {"STAGE": "UPLOADED", "LOOKUP": "STAGED", "REVIEW": "STAGED", "TAGS": "REVIEW", "APPLY": "REVIEW"}
 
 
 class TooManyUploads(Exception):
@@ -151,7 +151,7 @@ def claim(alias: str = P, tenant_id=None):
         cursor.execute("SELECT pg_advisory_xact_lock(hashtext('cep.contact_list_import.claim'))")
         cursor.execute(f"""UPDATE contact_list_import i
                               SET worker = %(worker)s, heartbeat_at = now(), started_at = COALESCE(i.started_at, now()), attempts = i.attempts + 1,
-                                  status = CASE i.next_action WHEN 'STAGE' THEN 'STAGING' WHEN 'LOOKUP' THEN 'MATCHING' WHEN 'REVIEW' THEN 'MATCHING' ELSE 'APPLYING' END,
+                                  status = CASE i.next_action WHEN 'STAGE' THEN 'STAGING' WHEN 'LOOKUP' THEN 'MATCHING' WHEN 'REVIEW' THEN 'MATCHING' WHEN 'TAGS' THEN 'MATCHING' ELSE 'APPLYING' END,
                                   progress_done = 0
                             WHERE i.id = (SELECT c.id FROM contact_list_import c JOIN tenant t ON t.id = c.tenant_id
                                            WHERE c.next_action IS NOT NULL AND t.status = 'ACTIVE' AND (%(tenant)s::uuid IS NULL OR c.tenant_id = %(tenant)s::uuid)
@@ -214,8 +214,17 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
                 with session.tx():
                     record = ContactListImport.objects.select_related("contact_list", "tenant").get(pk=import_id, tenant_id=tenant_id)
                 imports.review(record, chunk, beat)
-                finish(status="REVIEW", next_action=None)
+                with session.tx():
+                    again = imports.tags_waiting(import_id, tenant_id)          # the Tag Values step was answered while it ran
+                finish(status="REVIEW", next_action="TAGS" if again else None, queued_at=timezone.now())
                 notify(import_id, tenant_id, "REVIEW")
+            elif action == "TAGS":
+                with session.tx():
+                    record = ContactListImport.objects.select_related("contact_list", "tenant").get(pk=import_id, tenant_id=tenant_id)
+                imports.check_tags(record, beat)
+                with session.tx():
+                    again = imports.tags_waiting(import_id, tenant_id)
+                finish(status="REVIEW", next_action="TAGS" if again else None, queued_at=timezone.now())
             else:
                 imports.apply(record, chunk, beat, user_id=record.created_by_id)
                 # the staged rows stay: they are the row-by-row report of this upload (the partition retention policy ages them out)

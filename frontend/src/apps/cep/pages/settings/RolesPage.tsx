@@ -18,7 +18,7 @@ const AREA_LABEL: Record<string, string> = {
 }
 const ACTION_LABEL: Record<string, string> = { view: 'View', edit: 'Create and Edit', publish: 'Publish', activate: 'Activate', import: 'Import' }
 /** an "admin" permission means something different in each area */
-const PERMISSION_LABEL: Record<string, string> = { 'user.admin': 'Manage Users, Roles and API Keys', 'cost.view': 'View Message Costs', 'report.admin': 'Manage Every Report, Its Sharing and Report Access' }
+const PERMISSION_LABEL: Record<string, string> = { 'user.admin': 'Manage Users, Roles and API Keys', 'cost.view': 'View Message Costs', 'attribute.edit': 'Manage Customer Attributes', 'report.admin': 'Manage Every Report, Its Sharing and Report Access' }
 const permissionLabel = (permission: PermissionDef) => PERMISSION_LABEL[permission.code] ?? ACTION_LABEL[permission.code.split('.')[1]] ?? permission.description ?? permission.code
 
 type Editing = { role: Role | null } | null

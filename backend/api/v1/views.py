@@ -495,9 +495,13 @@ class PersonalizationTagViewSet(BaseTenantViewSet):
     @action(detail=False, methods=["get"], url_path="data-points")
     def data_points(self, request, version=None):
         """What a tag can read: every source with its data points (a path ending in "." takes a key of the person's own), and Static."""
+        from apps.customers import attributes
         sources = [{"key": source, "label": name, "points": [{"path": path, "label": label, "data_type": data_type, "prefix": datapoints.is_prefix(path)}
                                                               for path, label, data_type in datapoints.DATA_POINTS.get(source, [])]}
-                   for source, name in datapoints.SOURCES.items() if source != "STATIC"]
+                   for source, name in datapoints.SOURCES.items() if source not in ("STATIC", "CUSTOMER_ATTRIBUTE")]
+        offered = attributes.points()                       # the workspace's own attributes (Settings -> Customer Attributes), when it has any
+        if offered:
+            sources.append({"key": "CUSTOMER_ATTRIBUTE", "label": datapoints.SOURCES["CUSTOMER_ATTRIBUTE"], "points": offered})
         return Response({"sources": sources, "static": {"key": "STATIC", "label": datapoints.SOURCES["STATIC"]}})
 
 

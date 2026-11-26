@@ -79,7 +79,7 @@ test('create from a file: name and type, the file, the columns, the review, then
   await user.click(await screen.findByRole('button', { name: 'Create List' }))
 
   let dialog = await wizard('List Details')
-  expect(within(dialog).getByText(/^Step 1 of 6/)).toBeTruthy()
+  expect(within(dialog).getByText(/^Step 1 of 7/)).toBeTruthy()
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
   expect(within(dialog).getByRole('radio', { name: /Upload a File/ }).getAttribute('aria-checked')).toBe('true')
   await user.type(within(dialog).getByLabelText(/^List Name/), 'Trade show leads')
@@ -107,6 +107,11 @@ test('create from a file: name and type, the file, the columns, the review, then
   expect((within(dialog).getByLabelText('C360 Property for Notes') as HTMLSelectElement).value).toBe('')
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
 
+  // Tag Values: no campaign and no template chosen, so the step is skipped and the file's other columns are kept as they are
+  dialog = await wizard('Tag Values')
+  expect(within(dialog).getByLabelText(/^Check Against a Template/)).toBeTruthy()
+  await user.click(within(dialog).getByRole('button', { name: 'Skip' }))
+
   // where these people agreed, and the uploader's word that they did: the check already runs in the background meanwhile
   dialog = await wizard('Consent')
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
@@ -118,7 +123,7 @@ test('create from a file: name and type, the file, the columns, the review, then
   expect(calls.find((call) => call.url.endsWith('/consent/'))?.body).toEqual({ basis: 'WEB_FORM', collected_at: 'Booth sign-up sheet', attested: true })
 
   dialog = await wizard('Review')
-  expect(calls.find((call) => call.url.endsWith('/review/'))?.body).toEqual({ mapping: { first_name: 'First Name', email: 'Email Address' } })
+  expect(calls.find((call) => call.url.endsWith('/review/'))?.body).toEqual({ mapping: { first_name: 'First Name', email: 'Email Address' }, tag_values: null })
   expect(await within(dialog).findByText('4 contacts')).toBeTruthy()                           // checked in the background, then shown
   expect(within(dialog).getByText('2 rows held back')).toBeTruthy()
   expect(within(dialog).getByText('New').previousElementSibling?.textContent).toBe('3')
@@ -324,6 +329,8 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
   await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await vi.waitFor(() => expect(dialog.querySelector('[data-tag-values-step]')).not.toBeNull())          // Tag Values: the campaign has no template yet, so Skip
+  await user.click(within(dialog).getByRole('button', { name: /^(Skip|Next)$/ }))
   await within(dialog).findByRole('heading', { name: 'How did these people opt in?' })
   await user.click(within(dialog).getByRole('radio', { name: /Enrolled in store/ }))
   await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
@@ -359,6 +366,7 @@ test('a large upload runs in the background: progress in the wizard, leave it ru
   await within(dialog).findByText('leads.csv')
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))             // the columns are known from the first lines: no waiting for the whole file
   await user.click(within(await wizard('Match Columns')).getByRole('button', { name: 'Next' }))
+  await user.click(within(await wizard('Tag Values')).getByRole('button', { name: 'Skip' }))
   dialog = await wizard('Consent')
   await user.click(within(dialog).getByRole('radio', { name: /Asked us directly/ }))
   await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))

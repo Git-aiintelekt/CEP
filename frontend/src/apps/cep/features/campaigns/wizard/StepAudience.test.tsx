@@ -191,6 +191,8 @@ async function uploadList(user: ReturnType<typeof userEvent.setup>, name: string
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
   await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await vi.waitFor(() => expect(dialog.querySelector('[data-tag-values-step]')).not.toBeNull())          // Tag Values: the campaign has no template yet, so Skip
+  await user.click(within(dialog).getByRole('button', { name: /^(Skip|Next)$/ }))
   await within(dialog).findByRole('heading', { name: 'How did these people opt in?' })
   await user.click(within(dialog).getByRole('radio', { name: /Signed up on our website or app/ }))
   await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
@@ -252,8 +254,8 @@ test('Upload New: a stepper over the steps, the cards leave after the first one,
   await user.click(within(dialog).getByRole('radio', { name: 'Upload New' }))
 
   const progress = () => within(within(dialog).getByRole('list', { name: 'Progress' })).getAllByRole('listitem')
-  expect(progress().map((item) => item.textContent?.replace(/, done$/, ''))).toEqual(['Details', 'File', 'Columns', 'Consent', 'Review'])
-  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['current', 'ahead', 'ahead', 'ahead', 'ahead'])
+  expect(progress().map((item) => item.textContent?.replace(/, done$/, ''))).toEqual(['Details', 'File', 'Columns', 'Tags', 'Consent', 'Review'])
+  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['current', 'ahead', 'ahead', 'ahead', 'ahead', 'ahead'])
   expect(within(dialog).queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(within(dialog).getByRole('radiogroup', { name: 'Use For' }).querySelector('[aria-checked="true"]')!.textContent).toBe('Email')   // from the campaign's channel
   expect(within(dialog).getByText('Test lists are held out of live sends until you promote them.')).toBeTruthy()
@@ -262,7 +264,7 @@ test('Upload New: a stepper over the steps, the cards leave after the first one,
 
   await user.type(within(dialog).getByLabelText('List Name'), 'Booth scans{Enter}')                         // Enter continues
   await within(dialog).findByLabelText('CSV File')
-  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['done', 'current', 'ahead', 'ahead', 'ahead'])
+  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['done', 'current', 'ahead', 'ahead', 'ahead', 'ahead'])
   expect(within(dialog).queryByRole('radiogroup', { name: 'How to add a list' })).toBeNull()               // switching way in now would drop the upload
   expect(within(dialog).getByText('Up to 50 MB and 250,000 rows. An Email column is required.')).toBeTruthy()
   expect(within(dialog).getByRole('button', { name: 'Download Sample CSV' })).toBeTruthy()
@@ -276,7 +278,7 @@ test('Upload New: a stepper over the steps, the cards leave after the first one,
   const table = await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
   expect(within(dialog).getByText(/columns matched/)).toBeTruthy()
   expect(within(table).queryByText('Mapped')).toBeNull()
-  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['done', 'done', 'current', 'ahead', 'ahead'])
+  expect(progress().map((item) => item.getAttribute('data-step-state'))).toEqual(['done', 'done', 'current', 'ahead', 'ahead', 'ahead'])
 
   await user.click(within(dialog).getByRole('button', { name: 'Close' }))
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && /\/contact-lists\/[^/]+\/$/.test(call.url))).toBe(true))
@@ -293,6 +295,8 @@ test('Upload New, steps 4 to Done: opt-in rows gate Next, the review shows tiles
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
   await within(dialog).findByRole('table', { name: /Columns of leads\.csv/ })
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await vi.waitFor(() => expect(dialog.querySelector('[data-tag-values-step]')).not.toBeNull())          // Tag Values: the campaign has no template yet, so Skip
+  await user.click(within(dialog).getByRole('button', { name: /^(Skip|Next)$/ }))
 
   await within(dialog).findByRole('heading', { name: 'How did these people opt in?' })
   const next = () => within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement

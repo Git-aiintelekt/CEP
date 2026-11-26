@@ -19,6 +19,7 @@ import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, ContactList, Page } from '@/lib/types'
 
+import { TagCheckCard } from '../../attributes/TagCheckCard'
 import { CostEstimateCard } from '../../costs/CostEstimateCard'
 import { AudiencePicture } from '../AudiencePicture'
 import { estimateSummary, useAudienceEstimate } from '../audienceNumbers'
@@ -172,6 +173,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
           <div className="flex flex-col gap-6">
             <SummaryCard included={included.length} pending={pending.length ? pendingContacts : 0} estimate={estimate} noun={noun} />
             <CostEstimateCard campaignId={campaign?.id} include={included} exclude={excluded} enabled={included.length > 0 && !drip && channel !== 'EMAIL' && channel !== 'MULTI'} />
+            {!drip && <TagCheckCard template={watch('template')} include={included} exclude={excluded} campaignId={campaign?.id} showWithoutTemplate />}
           </div>
         </div>
 
@@ -238,7 +240,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
       )}
 
       {adding && (
-        <AddListDialog purpose={adding} lists={all} sendTo={[...included, ...pending.map((list) => list.id)]} leftOut={excluded} canMake={canMake} campaignChannel={channel} onReview={revealList} onClose={() => setAdding(null)}
+        <AddListDialog purpose={adding} lists={all} sendTo={[...included, ...pending.map((list) => list.id)]} leftOut={excluded} canMake={canMake} campaignChannel={channel} templateId={watch('template')} onReview={revealList} onClose={() => setAdding(null)}
           onAdd={(ids) => {
             if (adding === 'send') setValue('contact_lists', [...new Set([...included, ...ids])], touch)
             else setValue('excluded_lists', [...new Set([...excluded, ...ids])], touch)

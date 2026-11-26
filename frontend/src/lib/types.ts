@@ -1149,6 +1149,8 @@ export interface ListImport {
   progress: { done: number; total: number; percent: number; unit: 'bytes' | 'rows' | 'ids' }
   /** Look Up in C360: a file of IDs read from the workspace's list-generation databases */
   lookup?: ListLookup | null
+  /** the Tag Values step (patch 0100): the template checked against, each tag's source, and once checked who has a value */
+  tag_values?: ListTagValues | null
   mapping_confirmed: boolean
   error: string | null
   created_at: string
@@ -3491,4 +3493,104 @@ export interface CampaignActualCost {
   messages: number
   sending: boolean
   estimate: string | null
+}
+
+// ---------------------------------------------------------------------------------------------------- Customer Attributes (patch 0100)
+export type AttributeType = 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN'
+export type AttributeScope = 'CUSTOMER' | 'LIST'
+export type AttributeRefresh = 'NIGHTLY' | 'ON_IMPORT' | 'ON_CHANGE'
+export type AttributeSourceKind = 'DATABASE' | 'FILE' | 'API'
+
+export interface AttributeRun {
+  id: string
+  trigger: 'NIGHTLY' | 'MANUAL' | 'IMPORT' | 'FILL' | 'API'
+  trigger_label: string
+  status: 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'
+  people_read: number
+  people_matched: number
+  values_changed: number
+  error: string | null
+  queued_at: string
+  started_at: string | null
+  finished_at: string | null
+  params: { capped_at?: number; file?: string }
+}
+
+export interface CustomerAttribute {
+  id: string
+  key: string
+  label: string
+  data_type: AttributeType
+  data_type_label: string
+  scope: AttributeScope
+  source: { id: string; name: string; kind: AttributeSourceKind; system: string; table_name: string | null } | null
+  source_field: string | null
+  refresh: AttributeRefresh
+  refresh_label: string
+  is_pii: boolean
+  default_value: string | null
+  is_active: boolean
+  /** people with a value, over every source; null for a value of one list entry */
+  people_with_value: number | null
+  /** the tags that read it */
+  tags: string[]
+  row_version: number
+}
+
+export interface CustomerAttributes {
+  /** false until the database has patch 0100 */
+  available: boolean
+  attributes: CustomerAttribute[]
+  sources: number
+  can_edit: boolean
+}
+
+export interface AttributeSource {
+  id: string
+  name: string
+  system: string
+  kind: AttributeSourceKind
+  kind_label: string
+  report_connection_id: string | null
+  database_name: string | null
+  table_name: string | null
+  id_column: string | null
+  is_active: boolean
+  last_sync_at: string | null
+  last_run: AttributeRun | null
+  attribute_count: number
+  row_version: number
+}
+
+export interface AttributeDatabase { id: string; name: string; engine: string; database_name: string }
+
+export type TagValueFrom = 'FILE' | 'ATTRIBUTE' | 'CUSTOMER' | 'DEFAULT'
+export interface TagValueChoice { from: TagValueFrom; column?: string; attribute?: string }
+
+export interface ListTagValues {
+  template_id: string
+  template_name: string
+  tags: Record<string, TagValueChoice>
+  /** after the check: the rows that can be imported and, per tag, how many have a value and the first one */
+  result?: { ready?: number; tags?: Record<string, { with_value: number; sample: string | null }>; error?: string } | null
+}
+
+/** POST /contact-lists/{id}/imports/{import}/tag-options/ */
+export interface TagValueOptions {
+  template: { id: string; name: string; channel: string } | null
+  tags: { key: string; label: string; default: string | null; reads: string | null; path: string | null; suggested: TagValueChoice | null; chosen: TagValueChoice | null }[]
+  columns: { name: string; sample: string }[]
+  attributes: { key: string; label: string; source: string | null; kind: AttributeSourceKind | null; reads_database: boolean }[]
+}
+
+/** POST /customer-attributes/tag-check/ */
+export interface TagCheck {
+  template: { id: string; name: string }
+  people: number
+  sampled?: boolean
+  tags: { key: string; label: string; default: string | null; with_value: number; missing: number; from: 'LIST' | 'ATTRIBUTE' | 'CUSTOMER' | null;
+    by_source: Record<'LIST' | 'ATTRIBUTE' | 'CUSTOMER', number>; attribute: string | null }[]
+  short: number
+  fillable: { tag: string; attribute: string | null }[]
+  attributes: { key: string; label: string; source: string; field: string }[]
 }

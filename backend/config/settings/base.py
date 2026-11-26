@@ -219,6 +219,7 @@ CELERY_BEAT_SCHEDULE = {
     "plan-recurring-runs": {"task": "workers.campaign.plan_recurring_runs", "schedule": 300},          # recurring campaigns: one Run per occurrence
     "refresh-audience-lists": {"task": "workers.campaign.refresh_audience_lists", "schedule": 900},    # lists made from a BI / extraction audience
     "process-list-imports": {"task": "workers.lists.process_imports", "schedule": 30},                 # the net under the API's own hand-off
+    "sync-customer-attributes": {"task": "workers.lists.sync_attributes", "schedule": 60},             # nightly attribute reads, Sync Now, Fill From Database
     "rollup-integration-metrics": {"task": "workers.platform.rollup_integration_metrics", "schedule": 300},  # per-minute integration figures from the log
     "decide-ab-winners": {"task": "workers.campaign.decide_ab_winners", "schedule": 60},                 # subject-line tests whose decision time has come
     "run-delivery-warm-ups": {"task": "workers.campaign.run_warm_ups", "schedule": 60},                 # Delivery Warm-Up: the day, the hour's sends, the hourly limit

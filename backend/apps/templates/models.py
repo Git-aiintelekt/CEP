@@ -169,6 +169,7 @@ class PersonalizationTag(models.Model):
         INNER_TEMPLATE = 'INNER_TEMPLATE', 'Inner Template'
         RECEIPT = 'RECEIPT', 'Receipt'
         TRANSACTION = 'TRANSACTION', 'Transaction'
+        CUSTOMER_ATTRIBUTE = 'CUSTOMER_ATTRIBUTE', 'Customer Attribute'   # source_path: the attribute's key (patch 0100)
 
     class DataType(models.TextChoices):
         STRING = 'STRING', 'String'
