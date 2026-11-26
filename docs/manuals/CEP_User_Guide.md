@@ -216,6 +216,14 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How to
   - What happens behind the scenes
   - Things to know
+- Results API
+  - What this is for
+  - What it never gives
+  - Who can use it
+  - The limits
+  - How to
+  - What happens behind the scenes
+  - Things to know
 - POS Receipts
   - What this page is for
   - Who can use it
@@ -2774,7 +2782,7 @@ Everyone the workspace must not send to, in one list: people who unsubscribed or
 
 **An address bounced wrongly.** Reason: Bounced → search → Unblock → Unblock. The next run includes the person again.
 
-**Hand the list to another system.** Set the filters you need → Export CSV.
+**Hand the list to another system.** Set the filters you need → Export CSV. For a system that should keep itself up to date, give it an API key with the scope `results:read` instead: the Results API answers this list by party ID, without the addresses and numbers, and tells it when a block is removed or a person asks for messages again (the User Guide's *Results API* chapter).
 
 ## What happens behind the scenes
 
@@ -2890,12 +2898,12 @@ Every exchange with an outside system goes through one gate: the point of sale p
 
 | Control | What it is | What it changes |
 |---|---|---|
-| The card | One per integration: POS Receipts (in), and one per sending engine (out). Its health: healthy, degraded (5 percent failures or more), circuit open, paused, no calls; the last error under it when it is not healthy. The cards refresh every minute. | Nothing; it is a reading. Degraded or circuit open means receipts or sends through it are failing or waiting now. |
+| The card | One per integration: POS Receipts (in), one per sending engine (out), and, once an API key has the scope `results:read`, one per list of the Results API (in): Results: Campaigns, Results: Sends, Results: Recipients, Results: Suppressions. Its health: healthy, degraded (5 percent failures or more), circuit open, paused, no calls; the last error under it when it is not healthy. The cards refresh every minute. | Nothing; it is a reading. Degraded or circuit open means receipts or sends through it are failing or waiting now. |
 | Calls, 24 h, Failures, p95, Throttled | The last day's calls, the share that failed (amber above 0, red from 5%), the slow end of response times, the calls the pace limit held. | Nothing; a reading. Throttled calls are slowed, not lost. |
 | The chart | Calls per 15 minutes over 24 hours, with the failed and throttled share; the busiest quarter hour. | Nothing; it shows when the trouble started. |
 | Email Alerts | A switch per integration, on by default. Saved at once. | On: when this integration's circuit opens, the workspace is told by the channels set under Settings → Notifications. Off: this integration raises no such notification; the card still shows the trouble. The other integrations are not affected. |
 | View Log | A link on the card. | Sets the call log below to this integration, with Direction Both, Failures Only off and the search cleared, starting on page 1. Changes nothing in the integration. |
-| Pause / Resume | Pause asks first: *Pause {name}? …*. Resume needs no confirmation. | Pause on POS Receipts: every call from the point of sale is refused with a *paused* answer (HTTP 503) until it is resumed, so the registers try again later. Pause on an engine: every send through it waits; nothing is lost. Resume lets calls through again and closes an open circuit at once, without waiting for the cooldown. |
+| Pause / Resume | Pause asks first: *Pause {name}? …*. Resume needs no confirmation. | Pause on POS Receipts: every call from the point of sale is refused with a *paused* answer (HTTP 503) until it is resumed, so the registers try again later. Pause on an engine: every send through it waits; nothing is lost. Pause on a Results card: the system reading that list gets a *paused* answer (HTTP 503) and reads what it missed after Resume; the other lists go on. Resume lets calls through again and closes an open circuit at once, without waiting for the cooldown. |
 
 ### The call log
 
@@ -2917,9 +2925,11 @@ Every exchange with an outside system goes through one gate: the point of sale p
 
 **Pause the point of sale during maintenance.** Pause on POS Receipts. Registers get a paused answer and nothing is lost; Resume afterwards.
 
+**See what another system reads from C360, or stop it.** The Results cards show how often it calls and how many calls were held by the pace limit. View Log lists each call with the key that made it and the address asked; an answer that went well keeps only its size, a refusal keeps what was answered. Pause stops one list; to stop the system altogether, revoke its key under Settings → API Keys.
+
 ## What happens behind the scenes
 
-Each call is paced by a per-minute limit (an API key's own, the plan's inbound limit, the engine's Messages per Minute), guarded by a circuit breaker that opens after repeated failures and probes again after a cooldown, and written to the log with the request and the answer. The cards and charts read a per-minute roll-up, never the log itself. The log is kept three months.
+Each call is paced by a per-minute limit (an API key's own, the plan's inbound limit, the engine's Messages per Minute; a Results list has its own figure, 60 a minute or 120 for Recipients, and is never unlimited whatever the plan), guarded by a circuit breaker that opens after repeated failures and probes again after a cooldown, and written to the log with the request and the answer. The cards and charts read a per-minute roll-up, never the log itself. The log is kept three months.
 
 ## Things to know
 
@@ -2956,7 +2966,7 @@ Keys for systems that call C360's API: the point of sale sending receipts, a web
 | Field | What it is | What it changes |
 |---|---|---|
 | Name | Required, at least two characters, up to 100. The system that will use it, for example *POS integration*. | How the key appears in this table and in the call log, so you know which system to switch over before you revoke it. |
-| Scopes | At least one. The service scopes: `receipts:send` (the point of sale and the web shop), `orders:ingest` (the shop's orders, for attribution), `events:ingest` (the shop's and the loyalty system's events, for journeys), `coupons:issue` (C360 answering journeys' coupon requests), `lists:write`, `scores:write`, `customers:read`, `consent:write`. Also one scope per permission, written with a colon (for example `campaign:view`), which lets the key do what that permission allows. | What the key may call: anything else is refused. Give it only what it needs. |
+| Scopes | At least one. The service scopes: `receipts:send` (the point of sale and the web shop), `orders:ingest` (the shop's orders, for attribution), `events:ingest` (the shop's and the loyalty system's events, for journeys), `coupons:issue` (C360 answering journeys' coupon requests), `results:read` (another system reading campaign results and the suppression list: the Results API), `attributes:write` (another system sending customer attribute values), `lists:write`, `scores:write`, `customers:read`, `consent:write`. Also one scope per permission, written with a colon (for example `campaign:view`), which lets the key do what that permission allows. | What the key may call: anything else is refused. Give it only what it needs. |
 | Allowed IP Addresses | Optional. Addresses or CIDR ranges (for example `203.0.113.0/24`), separated by commas or new lines. Something that is not an address or range is refused. | A call from any other address is refused even with the right key (*IP address not allowed for this key*). Empty: any address may call. |
 | Expires | Optional, your local time, in the future. | From that moment the key is refused (*API key expired*) and shows as Expired. Empty: the key never expires. |
 
@@ -2973,6 +2983,8 @@ Shown once, right after Create Key.
 
 **A key for the point of sale.** New API Key → *POS integration* → tick `receipts:send` → the stores' outbound address under Allowed IP Addresses → Create Key → Copy the key into the register software → I Have Stored It. The POS Receipts page says which headers to send it in.
 
+**A key for a system that reads campaign results.** New API Key → name it after the system, for example *Data Warehouse* → tick `results:read` and nothing else → the system's outbound addresses under Allowed IP Addresses → an expiry → Create Key → pass the key on over a channel approved for secrets → I Have Stored It. The system then reads the campaigns, the sends, the recipients by party ID and the suppression list, and nothing else; it never gets a name, an address or a number. Its calls show under Settings → Integrations as Results: Campaigns, Results: Sends, Results: Recipients and Results: Suppressions. The User Guide's *Results API* chapter says what it can read and how to pause it.
+
 **Rotate a key.** Create the new one, switch the caller over, check that the old key's Last Used stops moving, then Revoke the old one. The call log shows which key each call used.
 
 ## What happens behind the scenes
@@ -2984,6 +2996,89 @@ Only a hash of the key is stored; the prefix identifies it in the log. Each call
 - A key belongs to this workspace only; the caller also names the workspace with the X-Tenant header.
 - Keys are never written to the audit trail or an export.
 - There is no scope for user administration: keys cannot add users, change roles or create keys.
+
+---
+
+# Results API
+
+**Where:** it has no page of its own. Its keys are under Settings → General → API Keys, and its activity under Settings → Engagement → Integrations.
+
+## What this is for
+
+Another system reading what your campaigns did, straight from C360: the customer system (iCRM), a BI tool, a data warehouse. The other system calls C360 whenever it wants the figures; C360 never calls it. You decide which system may read by giving it a key, you see every call it makes, and you can stop it at any moment.
+
+It answers four lists:
+
+| List | What it holds |
+|---|---|
+| Campaigns | Each campaign's counts (sent, delivered, opened, clicked, bounced, unsubscribed, replied), its rates, the people held back by reason, and the revenue and cost attributed to it. |
+| Sends | The same counts for each send: one message of a drip, one occurrence of a recurring campaign. |
+| Recipients | One row for each recipient of each send, and one for each person a send held back: the party ID, the status, and when each thing happened. |
+| Suppressions | Who must not be contacted: everyone who unsubscribed or replied STOP, and every customer whose address or number is blocked. The list on the Suppressions page, by party ID. |
+
+## What it never gives
+
+- A name, an email address or a phone number. A customer is a party ID and nothing else; the other system adds the name from its own records.
+- The content of a message.
+- Test sends.
+- A blocked address that belongs to no customer (an imported or registry address has no party ID). The other system is told how many were left out.
+
+## Who can use it
+
+| | |
+|---|---|
+| To give a system access | `user.admin`, on the API Keys page. The workspace needs the **api_access** feature. |
+| To watch or pause it | `provider.edit`, on the Integrations page. |
+| The other system | An API key of this workspace with the scope `results:read`. A person's sign-in is never accepted, whatever their role. |
+
+## The limits
+
+| Limit | Value | What the other system is told |
+|---|---|---|
+| How far back | Campaigns and sends: 13 months. Recipients: 90 days. | Refused, with the earliest day allowed. |
+| How much a call | 31 days. | Refused, with the latest day allowed. |
+| Calls a minute | Campaigns 60, Sends 60, Recipients 120, Suppressions 60, each counted for the whole workspace. | A *throttled* answer (429) and how long to wait. |
+| Calls in one second | 10. | The same. |
+
+The platform team can set a different calls-a-minute figure for your workspace. However the other system is written, it cannot slow C360 down for the people using it.
+
+## How to
+
+**Let a system read your results.**
+1. Ask its team for the public addresses it will call from.
+2. Settings → API Keys → New API Key. Name it after the system (for example *Data Warehouse*), tick `results:read` and nothing else, enter the addresses under Allowed IP Addresses, set an expiry, and Create Key.
+3. Copy the key and pass it on over a channel approved for secrets. It is shown once.
+4. Give the team your workspace ID and the integration specification (*CEP Results API: Integration Specification*, from the platform team): the addresses to call, every field, the limits and a test checklist.
+
+**See what it reads.** Settings → Integrations. Once a key has `results:read`, four cards appear: Results: Campaigns, Results: Sends, Results: Recipients and Results: Suppressions. Each shows the last day's calls, failures and throttled calls. View Log lists every call: when, which key, what was asked and how it was answered.
+
+**Stop it for a while.** Pause on the card. That list answers *paused* (503) until you press Resume; the other lists go on. Nothing is lost: the other system reads what it missed when it is resumed.
+
+**Stop it for good.** Settings → API Keys → Revoke. The next call is refused.
+
+**The other system says its calls are throttled.** It is calling faster than the limit. Its calls are slowed, not lost. If it truly needs more, ask the platform team to raise the figure for that list.
+
+**A figure does not match the campaign's Results tab.** The lists count the messages made in the days asked for. A campaign that never ends (e-receipts, a journey's messages) shows those days only, not its whole life. Ask for the same days as the tab shows.
+
+## What happens behind the scenes
+
+Each list is an integration of the workspace with its own pace limit, pause switch and call log. A call is checked for its key, the key's expiry and allowed addresses, and the scope; then counted against the list's minute.
+
+The counts are worked out when asked, from the same records the campaign's Results tab reads, and kept for 30 seconds. Only one such working-out runs at a time for a workspace, and a query that takes longer than 15 seconds is stopped, so a heavy read waits its turn instead of weighing on the app.
+
+Recipients and Suppressions can be read whole, or only what changed since the other system's last read. For recipients, C360 stamps a message each time its result moves: a delivery, an open, a click, a bounce, a reply, an unsubscribe. A person held back appears once. In Suppressions, someone who asks for messages again, or a block you remove, comes back marked as lifted, so the other system can clear its own flag.
+
+By default Suppressions holds what C360 learned first: an unsubscribe link, a STOP reply, the preference centre, a spam report, a bounce, a block made here. An opt-out that arrived with the customer record is left out, because the customer system is where it came from; the other system can ask for those too.
+
+Every list also answers as CSV, for tools that load files.
+
+## Things to know
+
+- A key with `results:read` reads all four lists of this workspace, and nothing of any other workspace.
+- Give the key no other scope: with more scopes the other system could do more than read results.
+- A sending engine's reason for a failure can contain the address it refused. C360 replaces any address or number in it before the row is answered.
+- Money (revenue, orders, cost) is per campaign, as Attribution last worked it out; it is empty until Attribution has run for the campaign.
+- A change to a suppression reaches the other system at its next read, at least five minutes after it happened.
 
 ---
 
