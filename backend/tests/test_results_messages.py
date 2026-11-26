@@ -197,6 +197,16 @@ def test_results_messages(check, admin_email):
               and ours.get("rates_delivery") and "money_revenue" in ours and ours.get("name") == "ZM Fall Launch"
               and sends_csv.status_code == 200 and sends_csv.content.decode().splitlines()[0].startswith("id,campaign_id,campaign_code") and len(sends_csv.content.decode().strip().splitlines()) == 2,
               f"{totals.status_code} {str(ours)[:300]}")
+        as_json_client = api("get", f"{ROWS}?campaign={first}&format=csv&page_size=4", h={**K, "HTTP_ACCEPT": "application/json"})
+        by_header = api("get", f"{ROWS}?campaign={first}&page_size=4", h={**K, "HTTP_ACCEPT": "text/csv"})
+        named_json = api("get", f"{ROWS}?campaign={first}&format=json&page_size=4", h={**K, "HTTP_ACCEPT": "text/csv"})
+        unknown = api("get", f"{ROWS}?campaign={first}&format=xml", h=K)
+        check("?format= decides whatever the Accept header says; without it Accept decides; an unknown format is not found",
+              as_json_client.status_code == 200 and as_json_client["Content-Type"].startswith("text/csv") and as_json_client.content == paged.content
+              and by_header.status_code == 200 and by_header["Content-Type"].startswith("text/csv")
+              and named_json.status_code == 200 and named_json["Content-Type"].startswith("application/json") and len(named_json.json()["results"]) == 4
+              and unknown.status_code == 404,
+              f"{as_json_client.status_code} {as_json_client['Content-Type']} | {by_header.status_code} {by_header['Content-Type']} | {named_json.status_code} {named_json['Content-Type']} | {unknown.status_code}")
         wrong = api("get", f"{ROWS}?format=csv&status=LOST", h=K)
         single = api("get", f"/api/v1/results/campaigns/{first}/?format=csv", h=K)
         check("a refusal asked for as CSV is still a problem document; one campaign has no CSV form",
