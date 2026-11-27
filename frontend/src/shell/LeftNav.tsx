@@ -3,6 +3,7 @@
  * top bar's toggle collapses it to a column of icons and opens it again; switching components happens in the launcher.
  * Everything is built from the manifests and GET /me/, with no request per click.
  */
+import { ArrowUpRight } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 
 import type { NavItem } from '@/components/navItems'
@@ -16,12 +17,13 @@ const ROW_CURRENT = 'bg-sidebar-selected font-semibold text-on-brand hover:bg-si
 
 function RailRow({ item, label = item.label, collapsed, onNavigate }: { item: NavItem; label?: string; collapsed: boolean; onNavigate?: () => void }) {
   const tooltip = useTooltip(collapsed)
+  const spoken = item.opens ? `${label}, opens ${item.opens}` : label
   return (
     <>
       <NavLink
         to={item.to}
         end={item.end}
-        aria-label={collapsed ? label : undefined}
+        aria-label={collapsed ? spoken : undefined}
         onClick={onNavigate}
         {...tooltip.props}
         className={({ isActive }) => `group ${ROW} ${collapsed ? 'w-10 justify-center' : 'px-3'} ${isActive ? ROW_CURRENT : ROW_QUIET}`}
@@ -30,10 +32,15 @@ function RailRow({ item, label = item.label, collapsed, onNavigate }: { item: Na
           <>
             <item.icon size={20} strokeWidth={1.5} aria-hidden className={`shrink-0 ${isActive ? 'text-on-brand' : 'text-sidebar-text group-hover:text-on-brand'}`} />
             {!collapsed && <span className="truncate">{label}</span>}
+            {!collapsed && item.opens && (
+              <span className="ml-auto flex shrink-0 items-center gap-0.5 text-xs font-medium text-sidebar-text group-hover:text-on-brand">
+                <span className="sr-only">opens </span>{item.opens}<ArrowUpRight size={14} strokeWidth={1.5} aria-hidden />
+              </span>
+            )}
           </>
         )}
       </NavLink>
-      {tooltip.shown && <RailTooltip at={tooltip.shown} label={label} />}
+      {tooltip.shown && <RailTooltip at={tooltip.shown} label={item.opens ? `${label} · Opens ${item.opens}` : label} />}
     </>
   )
 }

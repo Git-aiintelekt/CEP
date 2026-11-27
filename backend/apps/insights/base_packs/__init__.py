@@ -1,9 +1,11 @@
 """The platform's base packs (docs/mockups/base-reports.html): ready-made datasets, shared formulas, reports and dashboards a workspace
 adds as its own copies (apps/insights/base_reports.py). A pack ships with the release; a change to one is a new version here.
 A pack names the suite components it needs ("components"): a workspace is offered only the packs whose components it has, and the
-back-office's Onboard a Tenant lists them for the components chosen there."""
+back-office's Onboard a Tenant lists them for the components chosen there. A pack's "needs" is the database it reads through one of
+the workspace's connections (its engine, its tables); a pack on the platform's own datasets has none and is added as it is."""
 from .email_campaigns import PACK as EMAIL_CAMPAIGNS
 from .email_campaigns_warehouse import PACK as EMAIL_CAMPAIGNS_WAREHOUSE
+from .engagement import PACK as ENGAGEMENT
 from .ereceipts import PACK as ERECEIPTS
 from .service_requests import PACK as SERVICE_REQUESTS
 from .sms_ereceipts import PACK as SMS_ERECEIPTS
@@ -11,7 +13,7 @@ from .sms_marketing import PACK as SMS_MARKETING
 from .surveys import PACK as SURVEYS
 
 PACKS = {p["key"]: p for p in (EMAIL_CAMPAIGNS, EMAIL_CAMPAIGNS_WAREHOUSE, SMS_MARKETING, SMS_ERECEIPTS,
-                               ERECEIPTS, SERVICE_REQUESTS, SURVEYS)}
+                               ERECEIPTS, SERVICE_REQUESTS, SURVEYS, ENGAGEMENT)}
 
 
 def needs(pack: dict) -> list[str]:

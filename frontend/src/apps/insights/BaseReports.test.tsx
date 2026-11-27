@@ -102,3 +102,38 @@ test('with no Postal database connected, step 2 connects one inside the pop-up, 
   expect(await within(dialog).findByRole('checkbox', { name: /mailpostal-server-14/ }, { timeout: 5000 })).toBeTruthy()
   expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/workspace/report-databases/'))).toBe(true)
 })
+
+test('Engagement Reports has nothing to connect: Choose a Pack, then Check and Add, with no connection or options sent', async () => {
+  const calls = installMockApi({ me: withInsights as never, engagementPack: true })
+  signIn('/insights/reports')
+  vi.resetModules()
+  const { default: App } = await import('@/App').then(cepReady)
+  render(<App />)
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'New Report' }))
+  const create = await screen.findByRole('dialog', { name: 'Create Report' })
+  await user.click(within(create).getByRole('radio', { name: 'Use Base Reports' }))
+  await user.click(within(create).getByRole('button', { name: 'Choose a Pack' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Add Base Reports' })
+
+  await user.click(await within(dialog).findByRole('radio', { name: /Engagement Reports/ }))
+  expect(within(dialog).getByText('Step 1 of 2 · Choose a Pack')).toBeTruthy()
+  expect(within(dialog).getByRole('heading', { name: 'Engagement Reports' })).toBeTruthy()
+  expect(within(dialog).getByText('Nothing to Connect')).toBeTruthy()
+  expect(within(within(dialog).getByRole('list', { name: 'Dashboards' })).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Engagement Overview'])
+  expect(within(dialog).queryByRole('list', { name: 'Datasets' })).toBeNull()                            // it makes no dataset of its own
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+
+  expect(within(dialog).getByText('Step 2 of 2 · Check and Add')).toBeTruthy()                           // no Connect Your Email Data step
+  expect(await within(dialog).findByText(/there is nothing to connect/)).toBeTruthy()
+  expect(within(await within(dialog).findByRole('list', { name: 'Checks' })).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Journey Enrollmentsin this workspace', 'Messagesin this workspace'])
+  expect(calls.find((call) => call.url.endsWith('/insights/base-reports/engagement/check/'))?.body).toEqual({})
+  expect(calls.some((call) => call.url.includes('/sources/'))).toBe(false)
+  await user.click(within(dialog).getByRole('button', { name: 'Add 3 Reports and 1 Dashboard' }))
+
+  const done = await screen.findByRole('dialog', { name: 'Add Base Reports' })
+  expect(await within(done).findByRole('heading', { name: 'Engagement Reports Added' })).toBeTruthy()
+  expect(within(done).getByRole('button', { name: 'Open Engagement Overview' })).toBeTruthy()
+  expect(within(done).queryByText('Datasets')).toBeNull()
+  expect(calls.find((call) => call.url.endsWith('/insights/base-reports/engagement/add/'))?.body).toEqual({})
+})

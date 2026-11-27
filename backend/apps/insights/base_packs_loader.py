@@ -40,6 +40,7 @@ ALREADY = "already added"
 NO_DATABASE = "no database holds its tables"
 AMBIGUOUS = "more than one database could hold its tables"
 NOT_FITTING = "the workspace does not have the components it needs"
+NOT_FITTING_DATA = "the workspace's own datasets lack what it reads"
 UNREACHABLE = "its database could not be read"
 
 
@@ -89,6 +90,11 @@ def _connections(tenant, pack: dict) -> list[dict]:
 
 def resolve(tenant, pack: dict) -> dict:
     """{status, connection, options, why} - the connection and options a pack would be added with"""
+    if not pack.get("needs"):                                           # on the platform's own datasets (Engagement Reports): nothing to connect
+        checked = base_reports.check(tenant, pack, None, {})
+        if checked["ok"]:
+            return {"status": READY, "connection": None, "options": {}, "why": "reads the workspace's own records"}
+        return {"status": NOT_FITTING_DATA, "connection": None, "options": None, "why": " ".join(checked["problems"])[:200]}
     saved = mapped(tenant).get(pack["key"])
     if saved:
         try:
@@ -128,7 +134,9 @@ def plan(tenant, pack_keys: list[str] | None = None) -> list[dict]:
     have = {a["pack_key"]: a.get("folder_name") for a in base_reports._added(tenant.pk)}
     components = {p["key"] for p in fitting(catalog.components_of(tenant.pk))}
     out = []
-    for key in pack_keys or base_reports.chosen(tenant) or list(PACKS):
+    # With nothing named and nothing chosen, every pack that reads a database. A pack with nothing to connect (Engagement Reports)
+    # changes where Engagement's Reports leads once added, so it is loaded only when it is named or was chosen for the workspace.
+    for key in pack_keys or base_reports.chosen(tenant) or [k for k, p in PACKS.items() if p.get("needs")]:
         pack = PACKS.get(key)
         if pack is None:
             out.append({"pack": key, "status": "no such pack", "why": "", "name": key})

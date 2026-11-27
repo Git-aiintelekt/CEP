@@ -15,6 +15,8 @@ export interface NavItem {
   requires?: string
   /** shown only when AI can draft reports for this person (a provider with a key on, AI on for the workspace): AI Reports */
   ai?: boolean
+  /** the app this item leaves for (Insights): marked beside the label, and the path belongs to that app's menu, not this one */
+  opens?: string
 }
 
 /** The second group, below the divider: for workspace admins only */

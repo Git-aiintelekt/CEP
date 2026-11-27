@@ -172,6 +172,9 @@ function TileBody({ data, tile, onPick, onContext }: { data: TileResult; tile: D
     return (
       <div className="flex flex-col gap-0.5">
         <span className="cep-num font-display text-kpi font-semibold text-ink-900">{value}</span>
+        {data.line === 'first' && (data.label
+          ? <span className="truncate text-sm font-semibold text-ink-900" title={data.label}>{data.label}</span>
+          : <span className="text-sm text-ink-800">Nothing to rank in this period.</span>)}
         {data.compared && (
           <span className="cep-num text-xs font-semibold text-ink-800">
             {change === null ? 'No previous period to compare' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(change * 100).toFixed(1)}% vs previous`}

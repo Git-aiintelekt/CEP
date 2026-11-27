@@ -587,7 +587,8 @@ def test_api(check, world):
     cat = world.api("get", "/api/v1/insights/catalog/")
     body = cat.json() if cat.status_code == 200 else {}
     keys = [d["key"] for d in body.get("datasets", []) if "kind" not in d]          # the platform's; the workspace's own (uploads, its databases) carry a kind
-    check("the catalogue lists the first datasets with their fields and the engine", cat.status_code == 200 and keys == ["messages", "attributed_orders", "contacts", "journey_enrollments"]
+    check("the catalogue lists the first datasets with their fields and the engine", cat.status_code == 200 and keys[:4] == ["messages", "attributed_orders", "contacts", "journey_enrollments"]
+          and keys[4:] in ([], ["journey_steps"])                         # Journey Messages comes with database patch 0103
           and body["engine"]["engine"] == "postgresql" and body["engine"]["limits"]["preview_rows"] > 0, f"{cat.status_code} {keys}")
     messages = next(d for d in body["datasets"] if d["key"] == "messages")
     check("an administrator sees PII fields; the fields carry their operators and buckets", any(f["key"] == "party_id" for f in messages["fields"])

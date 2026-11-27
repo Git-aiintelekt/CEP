@@ -1,6 +1,7 @@
 /**
  * /dev/dashboard: a dashboard on sample data, with no backend, for design review and screenshots: viewing, or ?edit=1 for the
  * editor's bar, settings line and grid (?canvas=1 for a free canvas, ?phone=1 for the phone preview, ?theme=berry for a theme).
+ * ?board=engagement shows the Engagement Overview of the Engagement Reports pack (?sparse=1: a period with little sent).
  */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -76,6 +77,74 @@ const VIEWS: Record<string, { result: RunResult; across?: string; name: string; 
   t9: { result: BY_CHANNEL, name: 'Sends by Channel', chart: 'pie' }, t10: { result: JOURNEY, name: 'Journey Funnel', chart: 'funnel' },
 }
 
+/** ?board=engagement: the Engagement Overview dashboard as the Engagement Reports pack makes it, on sample figures */
+const ENGAGEMENT: DashboardLayout = {
+  rows: [
+    { width: '4', tiles: [
+      { id: 'e1', report_id: 'r1', show: 'figure', measure: 'sent', title: 'Sent' }, { id: 'e2', report_id: 'r1', show: 'figure', measure: 'delivered_rate', title: 'Delivered' },
+      { id: 'e3', report_id: 'r1', show: 'figure', measure: 'open_rate', title: 'Opened' }, { id: 'e4', report_id: 'r1', show: 'figure', measure: 'click_rate', title: 'Clicked' },
+    ] },
+    { width: '2-1', tiles: [{ id: 'e5', report_id: 'r2', show: 'chart', title: 'Sent and Opened by Day' }, { id: 'e6', report_id: 'r3', show: 'chart', title: 'Best by Open Rate' }] },
+    { width: '4', tiles: [
+      { id: 'e7', report_id: 'r3', show: 'figure', measure: 'c_open_rate', line: 'first', title: 'Highest Open Rate' }, { id: 'e8', report_id: 'r4', show: 'figure', measure: 'c_click_rate', line: 'first', title: 'Highest Click Rate' },
+      { id: 'e9', report_id: 'r5', show: 'figure', measure: 'c_unsubscribe_rate', line: 'first', title: 'Most Unsubscribes' }, { id: 'e10', report_id: 'r6', show: 'figure', measure: 'c_open_rate', line: 'first', title: 'Best Send Hour' },
+    ] },
+    { width: '1', tiles: [{ id: 'e11', report_id: 'r7', show: 'grid', title: 'Campaigns in the Period' }] },
+    { width: '1', tiles: [{ id: 'e12', report_id: 'r8', show: 'grid', title: 'Journeys in the Period' }] },
+  ],
+  slicers: [{ field: 'channel', label: 'Channel' }],
+}
+const RATE = (key: string, label: string) => col(key, label, 'number', 'percent', { aggregate: 'calc' })
+const CAMPAIGN = col('campaign_name', 'Campaign', 'string', null)
+Object.assign(FIGURES, {
+  e1: { value: 184220, previous: 171900, column: col('sent', 'Sent Count', 'number', 'integer', { aggregate: 'sum' }), name: 'Engagement Totals' },
+  e2: { value: 97.6, previous: 97.1, column: RATE('delivered_rate', 'Delivered Rate'), name: 'Engagement Totals' },
+  e3: { value: 31.4, previous: 29.8, column: RATE('open_rate', 'Open Rate'), name: 'Engagement Totals' },
+  e4: { value: 4.8, previous: 5.1, column: RATE('click_rate', 'Click Rate'), name: 'Engagement Totals' },
+})
+/** the figures read from a report's first line: the line's name, its value, and where they come from */
+const FIRST: Record<string, { value: number; label: string; column: ResultColumn; from: ResultColumn; name: string }> = {
+  e7: { value: 36.2, label: 'Winter Coat Launch', column: RATE('c_open_rate', 'Open Rate'), from: CAMPAIGN, name: 'Best Campaigns by Open Rate' },
+  e8: { value: 7.4, label: 'Weekend Flash Sale', column: RATE('c_click_rate', 'Click Rate'), from: CAMPAIGN, name: 'Best Campaigns by Click Rate' },
+  e9: { value: 0.9, label: 'Store Opening, Decatur', column: RATE('c_unsubscribe_rate', 'Unsubscribe Rate'), from: CAMPAIGN, name: 'Campaigns by Unsubscribe Rate' },
+  e10: { value: 34.1, label: '10 AM', column: RATE('c_open_rate', 'Open Rate'), from: col('c_send_hour', 'Send Hour', 'string', null), name: 'Open Rate by Send Hour' },
+}
+const DAILY = [5200, 6100, 4800, 7400, 9100, 3900, 2600, 5600, 6900, 5100, 8200, 11800, 4200, 2900, 6100, 7300, 5400, 9800, 14200, 5100, 3300, 6800, 8100, 5900, 10400, 12900, 4600, 3100, 7200, 8300]
+const BY_DAY: RunResult = {
+  columns: [col('submitted_at', 'Sent', 'date', 'datetime', { bucket: 'day' }), col('sent', 'Sent Count', 'number', 'integer', { aggregate: 'sum' }), col('opened', 'Opened', 'number', 'integer', { aggregate: 'sum' })],
+  rows: DAILY.map((sent, d) => [new Date(Date.UTC(2026, 8, 16 + d)).toISOString().slice(0, 10), sent, Math.round(sent * (0.27 + (d % 5) * 0.02))]),
+  row_count: DAILY.length, duration_ms: 58, truncated: false, offset: 0, limit: 200, freshness: 'LIVE', cached: false,
+}
+const BEST_OPEN: RunResult = {
+  columns: [CAMPAIGN, RATE('c_open_rate', 'Open Rate')],
+  rows: [['Winter Coat Launch', 36.2], ['Loyalty Double Points', 33.1], ['Black Friday Preview', 29.8], ['Store Opening, Decatur', 27.5], ['Weekly Newsletter', 24.9]],
+  row_count: 5, duration_ms: 44, truncated: false, offset: 0, limit: 200, freshness: 'LIVE', cached: false,
+}
+const CAMPAIGNS: RunResult = {
+  columns: [CAMPAIGN, col('campaign_channel', 'Channel', 'string', null), col('first_sent', 'First Sent', 'datetime', 'date', { aggregate: 'min' }), col('sent', 'Sent', 'number', 'integer', { aggregate: 'sum' }),
+    RATE('delivered_rate', 'Delivered'), RATE('open_rate', 'Open Rate'), RATE('click_rate', 'Click Rate'), RATE('unsubscribe_rate', 'Unsub.'),
+    col('attributed_orders.amount', 'Revenue', 'number', 'money', { aggregate: 'sum' })],
+  rows: [['Back in Stock Alerts', 'SMS', '2026-10-11T15:00:00Z', 20600, 95.8, null, 6.1, 0.5, 4180], ['Store Opening, Decatur', 'EMAIL', '2026-10-09T14:00:00Z', 9820, 97.2, 27.5, 3.2, 0.9, null],
+    ['Black Friday Preview', 'EMAIL', '2026-10-07T15:00:00Z', 51300, 98.1, 29.8, 4.1, 0.4, 22750], ['Weekend Flash Sale', 'SMS', '2026-09-28T16:30:00Z', 21400, 96.2, null, 7.4, 0.6, 9310],
+    ['Loyalty Double Points', 'EMAIL', '2026-09-26T15:00:00Z', 38900, 97.9, 33.1, 4.9, 0.3, 12960], ['Winter Coat Launch', 'EMAIL', '2026-09-22T15:00:00Z', 42180, 98.4, 36.2, 5.8, 0.2, 18420]],
+  row_count: 6, duration_ms: 73, truncated: false, offset: 0, limit: 200, freshness: 'LIVE', cached: false,
+}
+const JOURNEYS: RunResult = {
+  columns: [col('journey_name', 'Journey', 'string', null), col('journey_status', 'Status', 'string', null), col('enrollments', 'Entered', 'number', 'integer', { aggregate: 'count' }),
+    col('converted', 'Converted', 'number', 'integer', { aggregate: 'sum' }), RATE('conversion_rate', 'Conversion Rate'), col('revenue', 'Revenue', 'number', 'money', { aggregate: 'sum' }),
+    col('journey_steps.sent', 'Sent', 'number', 'integer', { aggregate: 'sum' }), RATE('journey_steps.delivered_rate', 'Delivered'), col('journey_steps.held_back', 'Held Back', 'number', 'integer', { aggregate: 'sum' })],
+  rows: [['Welcome Series', 'ACTIVE', 3240, 412, 12.7, 8900, 9410, 98.0, 86], ['Cart Reminder', 'ACTIVE', 1880, 301, 16.0, 11240, 3620, 97.4, 41], ['Win-Back 90 Days', 'PAUSED', 640, 22, 3.4, 510, 1150, 94.9, 12]],
+  row_count: 3, duration_ms: 51, truncated: false, offset: 0, limit: 200, freshness: 'LIVE', cached: false,
+}
+Object.assign(VIEWS, {
+  e5: { result: BY_DAY, name: 'Sent and Opened by Day' }, e6: { result: BEST_OPEN, name: 'Best Campaigns by Open Rate' },
+  e11: { result: CAMPAIGNS, name: 'Campaigns in the Period' }, e12: { result: JOURNEYS, name: 'Journeys in the Period' },
+})
+const SPARSE = new URLSearchParams(window.location.search).get('sparse') === '1'
+/** the four key figures of a period with one text campaign sent */
+const LITTLE: Record<string, number | null> = { e1: 20600, e2: 95.8, e3: null, e4: 6.1 }
+const few = (result: RunResult, keep: number): RunResult => ({ ...result, rows: result.rows.slice(0, keep), row_count: Math.min(keep, result.rows.length) })
+
 /** the Channel slicer's picks (a values slicer) */
 function channelOf(slicers?: SlicerSelection): unknown[] {
   const picked = slicers?.channel
@@ -104,6 +173,16 @@ async function load(tile: DashboardTile, period: Period, compare: boolean, slice
   const bounds = periodBounds(period, new Date('2026-10-15T12:00:00Z'))
   const figure = FIGURES[tile.id]
   const channelSlice = channelOf(slicers).length ? ['channel'] : []
+  const first = FIRST[tile.id]
+  if (first) {
+    return { kind: 'figure', line: 'first', value: SPARSE ? null : first.value, label: SPARSE ? null : first.label, label_column: first.from, previous: null, compared: false, column: first.column, own_dates: false, bounds,
+      report: report(tile.report_id, first.name), cached: false, sliced: channelSlice }
+  }
+  if (SPARSE && figure && tile.id in LITTLE) return { kind: 'figure', value: LITTLE[tile.id], previous: null, compared: false, column: figure.column, own_dates: false, bounds, report: report(tile.report_id, figure.name), cached: false, sliced: channelSlice }
+  if (SPARSE && tile.id in VIEWS && tile.id.startsWith('e')) {
+    const view = VIEWS[tile.id]
+    return { kind: 'view', view: { type: tile.show === 'chart' ? 'chart' : 'grid', chart: 'bar' }, result: few(view.result, tile.id === 'e11' ? 1 : 0), own_dates: false, bounds, report: report(tile.report_id, view.name), sliced: [] }
+  }
   if (figure) return { kind: 'figure', value: figure.value, previous: figure.previous, compared: compare, column: figure.column, own_dates: false, bounds, report: report(tile.report_id, figure.name), cached: false, sliced: channelSlice }
   const view = VIEWS[tile.id] ?? VIEWS.t6
   if (tile.id === 't5') {
@@ -120,7 +199,8 @@ async function load(tile: DashboardTile, period: Period, compare: boolean, slice
 export default function DashboardPlayground() {
   const [params] = useSearchParams()
   const editing = params.get('edit') === '1'
-  const [layout, setLayout] = useState<DashboardLayout>(() => (params.get('canvas') === '1' ? { ...LAYOUT, rows: [], canvas: true, cells: [...rowsToCells(LAYOUT.rows),
+  const engagement = params.get('board') === 'engagement'
+  const [layout, setLayout] = useState<DashboardLayout>(() => (engagement ? ENGAGEMENT : params.get('canvas') === '1' ? { ...LAYOUT, rows: [], canvas: true, cells: [...rowsToCells(LAYOUT.rows),
     { id: 'n1', report_id: '', show: 'text', title: 'How to Read This', text: 'Sends and revenue for the period above.\n\n- **Figures** compare with the period before\n- Click a bar to filter the other tiles', x: 0, y: bottom(rowsToCells(LAYOUT.rows)), w: 6, h: 2 },
     { id: 'b1', report_id: '', show: 'button', label: 'Email Only', action: { kind: 'view', id: 'v1' }, x: 6, y: bottom(rowsToCells(LAYOUT.rows)), w: 3, h: 1, hide_on_phone: true }] } : LAYOUT))
   const [period, setPeriod] = useState<Period>({ preset: '30d' })
@@ -169,8 +249,8 @@ export default function DashboardPlayground() {
       <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="mb-3 inline-flex items-center gap-1 text-helper text-brand-800"><ChevronLeft size={16} strokeWidth={1.5} aria-hidden /> Dashboards</p>
-          <h1 className="font-display text-page-title font-semibold text-ink-900">Marketing Weekly</h1>
-          <p className="mt-1 text-sm text-ink-800">Sends, revenue and the top campaigns, by week</p>
+          <h1 className="font-display text-page-title font-semibold text-ink-900">{engagement ? 'Engagement Overview' : 'Marketing Weekly'}</h1>
+          <p className="mt-1 text-sm text-ink-800">{engagement ? 'The workspace’s campaigns and journeys over a period.' : 'Sends, revenue and the top campaigns, by week'}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-helper text-ink-800">Updated just now</span>

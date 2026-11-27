@@ -2048,18 +2048,28 @@ SELECT x.tenant_id, 'EMAIL'::text AS channel, x.id AS message_id, x.campaign_id,
        x.created_at,
        (x.status NOT IN ('QUEUED', 'FAILED'))::int AS sent_n, (x.delivered_at IS NOT NULL)::int AS delivered_n, (x.opened_at IS NOT NULL)::int AS opened_n,
        (x.clicked_at IS NOT NULL)::int AS clicked_n, (x.bounced_at IS NOT NULL)::int AS bounced_n, (x.complained_at IS NOT NULL)::int AS complained_n,
-       (x.status = 'FAILED')::int AS failed_n
+       (x.status = 'FAILED')::int AS failed_n,
+       -- patch 0103, added at the end (a view keeps its columns' order): the campaign's own channel (EMAIL, SMS, MMS, MULTI), whether this
+       -- message's link or reply carried an opt-out, and the journey that made the campaign. Each joins a set with one row per key (a
+       -- message's id, a campaign's id: unique across workspaces), so a report that reads none of them does not pay for the join.
+       c.channel AS campaign_channel, (o.message_id IS NOT NULL)::int AS unsubscribed_n, g.journey_name
   FROM mailer_execution x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id
+  LEFT JOIN (SELECT mailer_execution_id AS message_id FROM consent_record WHERE action = 'OPT_OUT' AND mailer_execution_id IS NOT NULL GROUP BY 1) o ON o.message_id = x.id
+  LEFT JOIN (SELECT g.campaign_id, min(j.name) AS journey_name FROM journey_generated_campaign g JOIN journey j ON j.id = g.journey_id GROUP BY 1) g ON g.campaign_id = x.campaign_id
 UNION ALL
 SELECT x.tenant_id, 'SMS'::text, x.id, x.campaign_id, c.name, c.campaign_type, c.code, r.run_number, r.test_mode, x.party_id, x.status, x.status_reason,
        x.submitted_at, x.delivered_at, NULL::timestamptz, NULL::timestamptz, NULL::timestamptz, x.created_at,
-       (x.status NOT IN ('QUEUED', 'FAILED'))::int, (x.delivered_at IS NOT NULL)::int, 0, 0, 0, 0, (x.status = 'FAILED')::int
-  FROM sms_execution x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id;
+       (x.status NOT IN ('QUEUED', 'FAILED'))::int, (x.delivered_at IS NOT NULL)::int, 0, 0, 0, 0, (x.status = 'FAILED')::int,
+       c.channel, (o.message_id IS NOT NULL)::int, g.journey_name
+  FROM sms_execution x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id
+  LEFT JOIN (SELECT sms_execution_id AS message_id FROM consent_record WHERE action = 'OPT_OUT' AND sms_execution_id IS NOT NULL GROUP BY 1) o ON o.message_id = x.id
+  LEFT JOIN (SELECT g.campaign_id, min(j.name) AS journey_name FROM journey_generated_campaign g JOIN journey j ON j.id = g.journey_id GROUP BY 1) g ON g.campaign_id = x.campaign_id;
 
 CREATE OR REPLACE VIEW reporting.rpt_attributed_orders WITH (security_invoker = true) AS
 SELECT o.tenant_id, o.id AS order_id, o.order_ref, o.kind, o.source, o.amount, o.currency, o.ordered_at, o.channel, o.store_number, o.status,
        o.campaign_id, c.name AS campaign_name, o.touch_type, o.touch_at, o.attributed_at, o.received_at, o.items,
-       (o.status = 'ATTRIBUTED')::int AS attributed_n
+       (o.status = 'ATTRIBUTED')::int AS attributed_n,
+       c.channel AS campaign_channel                                      -- patch 0103: what Messages and these orders share besides the campaign's name
   FROM attributed_order o LEFT JOIN campaign c ON c.id = o.campaign_id;
 
 CREATE OR REPLACE VIEW reporting.rpt_contacts WITH (security_invoker = true) AS
@@ -2074,6 +2084,28 @@ SELECT e.tenant_id, e.id AS enrollment_id, e.journey_id, j.name AS journey_name,
        (e.converted_at IS NOT NULL)::int AS converted_n, (e.status = 'ACTIVE')::int AS active_n
   FROM journey_enrollment e JOIN journey j ON j.id = e.journey_id;
 
+-- patch 0103: what became of a journey's messages. A row per message a journey's campaigns sent (test runs left out), and a row per
+-- message step a customer did not get: held back by governance (SKIPPED) or failed. The Journeys report of Engagement, as rows.
+CREATE OR REPLACE VIEW reporting.rpt_journey_steps WITH (security_invoker = true) AS
+SELECT x.tenant_id, 'E' || x.id AS step_id, g.journey_id, j.name AS journey_name, j.code AS journey_code, j.status AS journey_status, 'EMAIL'::text AS channel,
+       x.party_id, x.status::text AS outcome, coalesce(x.submitted_at, x.created_at) AS occurred_at,
+       (x.status NOT IN ('QUEUED', 'FAILED'))::int AS sent_n, (x.delivered_at IS NOT NULL)::int AS delivered_n, (x.opened_at IS NOT NULL)::int AS opened_n,
+       (x.clicked_at IS NOT NULL)::int AS clicked_n, 0 AS held_back_n, 0 AS failed_n
+  FROM mailer_execution x JOIN campaign_run r ON r.id = x.campaign_run_id AND NOT r.test_mode
+  JOIN journey_generated_campaign g ON g.tenant_id = x.tenant_id AND g.campaign_id = x.campaign_id JOIN journey j ON j.id = g.journey_id
+UNION ALL
+SELECT x.tenant_id, 'T' || x.id, g.journey_id, j.name, j.code, j.status, 'SMS'::text, x.party_id, x.status::text, coalesce(x.submitted_at, x.created_at),
+       (x.status NOT IN ('QUEUED', 'FAILED'))::int, (x.delivered_at IS NOT NULL)::int, 0, 0, 0, 0
+  FROM sms_execution x JOIN campaign_run r ON r.id = x.campaign_run_id AND NOT r.test_mode
+  JOIN journey_generated_campaign g ON g.tenant_id = x.tenant_id AND g.campaign_id = x.campaign_id JOIN journey j ON j.id = g.journey_id
+UNION ALL
+SELECT x.tenant_id, 'S' || x.id, e.journey_id, j.name, j.code, j.status, NULL::text, x.party_id,
+       CASE x.execution_status WHEN 'SKIPPED' THEN 'HELD_BACK' ELSE 'FAILED' END, x.executed_at,
+       0, 0, 0, 0, (x.execution_status = 'SKIPPED')::int, (x.execution_status = 'FAILED')::int
+  FROM journey_node_execution x JOIN journey_enrollment e ON e.id = x.journey_enrollment_id AND e.tenant_id = x.tenant_id
+  JOIN journey_node n ON n.id = x.journey_node_id AND n.node_family = 'COMMUNICATION' JOIN journey j ON j.id = e.journey_id
+ WHERE x.execution_status IN ('SKIPPED', 'FAILED');
+
 -- ---- the reporting role: reads the views and the tables beneath them, nothing else; the engine runs every report as it
 DO $$
 BEGIN
@@ -2082,6 +2114,7 @@ END $$;
 GRANT USAGE ON SCHEMA reporting TO cep_reporting, cep_app, cep_admin;
 GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO cep_reporting, cep_app, cep_admin;
 GRANT SELECT ON mailer_execution, sms_execution, campaign_run, campaign, attributed_order, customer_master, contact_list_member, journey_enrollment, journey TO cep_reporting;
+GRANT SELECT ON consent_record, journey_generated_campaign, journey_node_execution, journey_node TO cep_reporting;      -- patch 0103: what the views read now
 GRANT cep_reporting TO cep_app;                                           -- the API's connection switches to it for the query (SET LOCAL ROLE)
 
 GRANT SELECT ON report_dataset, report_field, report_dataset_source, report_engine_setting TO cep_app;
@@ -2574,6 +2607,58 @@ INSERT INTO report_dataset_link (from_dataset, to_dataset, label, pairs, time_pa
     ('messages', 'attributed_orders', 'Orders credited to the campaign', '[["campaign_name", "campaign_name"], ["channel", "channel"]]', '["submitted_at", "ordered_at"]', 10),
     ('attributed_orders', 'messages', 'Messages of the campaign', '[["campaign_name", "campaign_name"], ["channel", "channel"]]', '["ordered_at", "submitted_at"]', 20)
 ON CONFLICT (from_dataset, to_dataset) DO NOTHING;
+
+-- ---- Engagement's own Reports as Insights reports (patch 0103): the figures the first datasets lacked
+INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity, sort_order) VALUES
+    ('messages', 'campaign_channel', 'Campaign Channel', 'campaign_channel', 'string',   'dimension', '[]', NULL, 'NORMAL', 45),
+    ('messages', 'journey_name',     'Journey',          'journey_name',     'string',   'dimension', '[]', NULL, 'NORMAL', 47),
+    ('messages', 'first_sent',       'First Sent',       'submitted_at',     'datetime', 'measure',   '["min"]', 'date', 'NORMAL', 172),
+    ('messages', 'unsubscribed',     'Unsubscribed',     'unsubscribed_n',   'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 175),
+    ('attributed_orders', 'campaign_channel', 'Campaign Channel', 'campaign_channel', 'string', 'dimension', '[]', NULL, 'NORMAL', 65)
+ON CONFLICT (dataset_key, key) DO NOTHING;
+INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity, sort_order, formula) VALUES
+    ('messages', 'unsubscribe_rate', 'Unsubscribe Rate', 'unsubscribe_rate', 'number', 'measure', '["calc"]', 'percent', 'NORMAL', 215,
+     '{"op": "ratio", "left": {"field": "unsubscribed", "aggregate": "sum"}, "right": {"field": "delivered", "aggregate": "sum"}, "scale": 100}')
+ON CONFLICT (dataset_key, key) DO NOTHING;
+
+INSERT INTO report_dataset (key, component_key, label, description, primary_key, time_field, sort_order) VALUES
+    ('journey_steps', 'cep', 'Journey Messages', 'Every message a journey sent, and every message step it held back or could not send', 'step_id', 'occurred_at', 50)
+ON CONFLICT (key) DO NOTHING;
+INSERT INTO report_dataset_source (dataset_key, engine, source_name) VALUES
+    ('journey_steps', 'postgresql', 'reporting.rpt_journey_steps'),
+    ('journey_steps', 'clickhouse', 'cep_reporting.rpt_journey_steps')
+ON CONFLICT (dataset_key, engine) DO NOTHING;
+INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity, sort_order) VALUES
+    ('journey_steps', 'journey_name',   'Journey',        'journey_name',   'string',   'dimension', '[]', NULL, 'NORMAL', 10),
+    ('journey_steps', 'journey_code',   'Journey Code',   'journey_code',   'string',   'dimension', '[]', NULL, 'NORMAL', 20),
+    ('journey_steps', 'journey_status', 'Journey Status', 'journey_status', 'string',   'dimension', '[]', NULL, 'NORMAL', 30),
+    ('journey_steps', 'channel',        'Channel',        'channel',        'string',   'dimension', '[]', NULL, 'NORMAL', 40),
+    ('journey_steps', 'outcome',        'Outcome',        'outcome',        'string',   'dimension', '[]', NULL, 'NORMAL', 50),
+    ('journey_steps', 'occurred_at',    'When',           'occurred_at',    'datetime', 'dimension', '[]', 'datetime', 'NORMAL', 60),
+    ('journey_steps', 'party_id',       'Customer',       'party_id',       'string',   'dimension', '[]', NULL, 'PII', 70),
+    ('journey_steps', 'sent',           'Sent',           'sent_n',         'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 80),
+    ('journey_steps', 'delivered',      'Delivered',      'delivered_n',    'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 90),
+    ('journey_steps', 'opened',         'Opened',         'opened_n',       'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 100),
+    ('journey_steps', 'clicked',        'Clicked',        'clicked_n',      'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 110),
+    ('journey_steps', 'held_back',      'Held Back',      'held_back_n',    'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 120),
+    ('journey_steps', 'failed',         'Failed',         'failed_n',       'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 130)
+ON CONFLICT (dataset_key, key) DO NOTHING;
+INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity, sort_order, formula) VALUES
+    ('journey_steps', 'delivered_rate', 'Delivered Rate', 'delivered_rate', 'number', 'measure', '["calc"]', 'percent', 'NORMAL', 140,
+     '{"op": "ratio", "left": {"field": "delivered", "aggregate": "sum"}, "right": {"field": "sent", "aggregate": "sum"}, "scale": 100}')
+ON CONFLICT (dataset_key, key) DO NOTHING;
+
+INSERT INTO report_dataset_link (from_dataset, to_dataset, label, pairs, time_pair, sort_order) VALUES
+    ('journey_enrollments', 'journey_steps', 'Messages of the journey', '[["journey_name", "journey_name"], ["journey_code", "journey_code"], ["journey_status", "journey_status"]]',
+     '["enrolled_at", "occurred_at"]', 30),
+    ('journey_steps', 'journey_enrollments', 'Customers the journey took in', '[["journey_name", "journey_name"], ["journey_code", "journey_code"], ["journey_status", "journey_status"]]',
+     '["occurred_at", "enrolled_at"]', 40)
+ON CONFLICT (from_dataset, to_dataset) DO NOTHING;
+-- Messages and Attributed Orders were linked on "channel" too, which never matched: a message's channel is EMAIL or SMS, an order's is
+-- where it was placed (ONLINE, STORE..). They share the campaign's own channel instead. Only the seeded pairs are replaced.
+UPDATE report_dataset_link SET pairs = '[["campaign_name", "campaign_name"], ["campaign_channel", "campaign_channel"]]'
+ WHERE ((from_dataset = 'messages' AND to_dataset = 'attributed_orders') OR (from_dataset = 'attributed_orders' AND to_dataset = 'messages'))
+   AND pairs::jsonb = '[["campaign_name", "campaign_name"], ["channel", "channel"]]'::jsonb;
 
 -- ---- the Insights global parameters (Platform admin -> Global Parameters)
 INSERT INTO platform_setting (key, value, value_type, category, description) VALUES

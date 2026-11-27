@@ -4,7 +4,8 @@
  * Data: the connection reaching the pack's tables (connected here when the workspace has none), the databases on it holding
  * campaign mail (ticked for you), and More Options (where campaign names live, words to leave out, the unsubscribe link).
  * 3 Check and Add: each dataset is test-run as the step opens, then Add makes everything in one go. Then what was made.
- * Later versions of a pack never change what was added; adding it again makes new copies.
+ * Later versions of a pack never change what was added; adding it again makes new copies. A pack on the platform's own datasets
+ * (Engagement Reports) has nothing to connect: Choose a Pack, then Check and Add.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronDown, FileBarChart, Info, LayoutDashboard, Mails, ShieldCheck, Table2, X } from 'lucide-react'
@@ -30,6 +31,7 @@ import { useConnectionStep } from './connectDatabase'
 
 const NO_NAMES = ''
 const STEPS = ['Choose a Pack', 'Connect Your Email Data', 'Check and Add']
+const DIRECT_STEPS = ['Choose a Pack', 'Check and Add']
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /** pack: the pack to start on (a dashboard template's), else the first */
@@ -53,9 +55,12 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
 
   const packs = catalog.data?.packs ?? []
   const pack: BasePack | undefined = packs.find((p) => p.key === packKey) ?? packs[0]
-  const readable = (catalog.data?.connections ?? []).filter((c) => pack && c.engine.startsWith(pack.needs.engine))
+  const needs = pack?.needs ?? null
+  /** nothing to connect: the pack reads the workspace's own campaign and journey records */
+  const direct = Boolean(pack) && !needs
+  const readable = (catalog.data?.connections ?? []).filter((c) => needs && c.engine.startsWith(needs.engine))
   // a new connection can only be one the pack reads: MySQL 5.7 or 8.0 for the Postal pack
-  const packEngines = pack ? (Object.keys(ENGINE_LABEL) as DatabaseEngine[]).filter((engine) => engine.startsWith(pack.needs.engine)) : undefined
+  const packEngines = needs ? (Object.keys(ENGINE_LABEL) as DatabaseEngine[]).filter((engine) => engine.startsWith(needs.engine)) : undefined
   const connection = readable.find((c) => c.id === connectionId) ?? readable.find((c) => c.usable) ?? null
   const showConnect = connecting || (step === 2 && !connection)
   const sources = useQuery({
@@ -84,13 +89,13 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
     setNames(null)
   })
   const check = useMutation({
-    mutationFn: () => baseReportsApi.check((pack as BasePack).key, (connection as { id: string }).id, options),
+    mutationFn: () => baseReportsApi.check((pack as BasePack).key, direct ? null : (connection as { id: string }).id, options),
     onSuccess: setChecked,
     onError: (error) => toast.failure(error, 'The check did not run'),
   })
   const add = useMutation({
-    mutationFn: () => baseReportsApi.add((pack as BasePack).key, (connection as { id: string }).id, options),
-    onSuccess: (made) => { void client.invalidateQueries({ queryKey: ['insights'] }); setAdded(made) },
+    mutationFn: () => baseReportsApi.add((pack as BasePack).key, direct ? null : (connection as { id: string }).id, options),
+    onSuccess: (made) => { void client.invalidateQueries({ queryKey: ['insights'] }); void client.invalidateQueries({ queryKey: ['me'] }); setAdded(made) },
     onError: (error) => toast.failure(error, `${pack?.name} was not added`),
   })
 
@@ -98,7 +103,7 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
   const toStep3 = () => { setStep(3); setChecked(null); check.mutate() }
   const back = () => {
     if (step === 2 && connecting && connection) setConnecting(false)
-    else setStep(step - 1)
+    else setStep(direct ? 1 : step - 1)
   }
   const canAdd = Boolean(catalog.data?.can_add)
 
@@ -114,7 +119,7 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
           <p className="max-w-md text-sm text-ink-800">They are yours to edit, filed in the {added.folder.name} folder. Later versions of the pack never change them.</p>
         </div>
         <dl className="flex flex-col rounded-lg border border-line text-sm">
-          {([['Dashboards', added.dashboards.map((d) => d.name)], ['Reports', added.reports.map((r) => r.name)], ['Datasets', added.datasets.map((d) => d.label)], ['Folder', [added.folder.name]]] as [string, string[]][]).map(([label, items]) => (
+          {([['Dashboards', added.dashboards.map((d) => d.name)], ['Reports', added.reports.map((r) => r.name)], ['Datasets', added.datasets.map((d) => d.label)], ['Folder', [added.folder.name]]] as [string, string[]][]).filter(([, items]) => items.length > 0).map(([label, items]) => (
             <div key={label} className="flex gap-3 border-b border-line-subtle px-3.5 py-2.5 last:border-b-0">
               <dt className="w-24 shrink-0 text-label font-medium text-ink-800">{label}</dt>
               <dd className="min-w-0 flex-1 text-ink-900">{items.join(', ')}</dd>
@@ -128,14 +133,14 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
   }
 
   const primary: SetupPrimary =
-    step === 1 ? { label: pack?.added[0] ? 'Add Again' : 'Next', disabled: !pack || !canAdd, onClick: () => setStep(2) }
+    step === 1 ? { label: pack?.added[0] ? 'Add Again' : 'Next', disabled: !pack || !canAdd, onClick: direct ? toStep3 : () => setStep(2) }
     : step === 2 && showConnect ? { label: 'Save and Continue', form: 'base-reports-connect', disabled: !connect.usable, busy: connect.save.isPending, busyLabel: 'Saving' }
     : step === 2 ? { label: 'Next', disabled: !connection || databases.length === 0 || sources.isPending, onClick: toStep3 }
     : checked?.ok ? { label: `Add ${plural(pack?.contents.reports.length ?? 0, 'Report')} and ${plural(pack?.contents.dashboards.length ?? 0, 'Dashboard')}`, busy: add.isPending, busyLabel: 'Adding', onClick: () => add.mutate() }
     : { label: 'Check Again', busy: check.isPending, busyLabel: 'Checking', disabled: check.isPending, onClick: () => check.mutate() }
 
   return (
-    <SetupDialog title="Add Base Reports" steps={STEPS} step={step} onClose={onClose} onBack={step > 1 ? back : undefined} primary={primary} locked={add.isPending}
+    <SetupDialog title="Add Base Reports" steps={direct ? DIRECT_STEPS : STEPS} step={direct && step === 3 ? 2 : step} onClose={onClose} onBack={step > 1 ? back : undefined} primary={primary} locked={add.isPending}
       extraActions={step === 2 && showConnect ? <Button variant="secondary" loading={connect.test.isPending} onClick={() => connect.test.mutate()}>Test Connection</Button> : undefined}>
       {catalog.isPending ? <Spinner label="Loading the base reports" /> : catalog.isError ? <ErrorState error={catalog.error} onRetry={() => catalog.refetch()} /> : !pack ? (
         <p className="text-sm text-ink-800">No base reports are offered yet.</p>
@@ -149,7 +154,7 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
           )}
           <PackDetail pack={pack} />
           {!canAdd && <Notice tone="info">A report administrator adds base reports.</Notice>}
-          {canAdd && pack.added[0] && <p className="text-helper text-ink-800">Already added. Adding it again makes a second set of copies{tenant ? ` for ${tenant}` : ''}, on the data you connect now.</p>}
+          {canAdd && pack.added[0] && <p className="text-helper text-ink-800">Already added. Adding it again makes a second set of copies{tenant ? ` for ${tenant}` : ''}{direct ? '.' : ', on the data you connect now.'}</p>}
         </>
       ) : step === 2 && showConnect ? (
         <>
@@ -178,7 +183,7 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
               <fieldset className="flex flex-col gap-2">
                 <legend className="text-sm font-semibold text-ink-900">Which Databases Hold Your Campaign Mail?</legend>
                 <p className="-mt-1 text-helper text-ink-800">Insights looked for Postal's tables and ticked the ones with campaign emails.</p>
-                {found.databases.length === 0 && <p className="text-sm text-ink-800">No database on this connection holds every table the pack reads ({pack.needs.tables.join(', ')}).</p>}
+                {found.databases.length === 0 && <p className="text-sm text-ink-800">No database on this connection holds every table the pack reads ({(needs?.tables ?? []).join(', ')}).</p>}
                 {found.databases.filter((d) => everyDatabase || (d.marketing ?? 1) > 0 || databases.includes(d.name)).map((d) => {
                   const on = databases.includes(d.name)
                   return (
@@ -225,13 +230,16 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
         </>
       ) : (
         <>
-          <p className="text-sm text-ink-800">Each dataset runs once on your data before anything is added. Nothing is made unless every check passes.</p>
-          <ul aria-label="Checks" className="flex flex-col rounded-lg border border-line">
+          <p className="text-sm text-ink-800">{direct
+            ? 'These reports read the campaign and journey records this workspace already has: there is nothing to connect. Nothing is made unless every check passes.'
+            : 'Each dataset runs once on your data before anything is added. Nothing is made unless every check passes.'}</p>
+          {direct && !checked && check.isPending && <Spinner size="sm" label="Checking the datasets" />}
+          <ul aria-label="Checks" className="flex flex-col rounded-lg border border-line empty:hidden">
             {(checked?.datasets ?? pack.contents.datasets.map((label) => ({ label, ok: false, seconds: 0, error: undefined as string | undefined, waiting: true }))).map((d) => (
               <li key={d.label} className="flex items-center gap-3 border-b border-line-subtle px-3.5 py-2.5 text-sm last:border-b-0">
                 {'waiting' in d ? <Spinner size="sm" label={`Checking ${d.label}`} /> : d.ok ? <Check size={16} strokeWidth={2} aria-hidden className="shrink-0 text-success-text" /> : <X size={16} strokeWidth={2} aria-hidden className="shrink-0 text-danger-text" />}
                 <span className="text-ink-900">{d.label}</span>
-                <span className="ml-auto text-helper text-ink-800">{'waiting' in d ? (check.isPending ? 'Checking' : '') : d.ok ? `ran in ${d.seconds} s` : d.error ?? 'does not fit'}</span>
+                <span className="ml-auto text-helper text-ink-800">{'waiting' in d ? (check.isPending ? 'Checking' : '') : d.ok ? (direct ? 'in this workspace' : `ran in ${d.seconds} s`) : d.error ?? 'does not fit'}</span>
               </li>
             ))}
           </ul>
@@ -241,11 +249,11 @@ export function BaseReportsDialog({ pack: startPack, onClose }: { pack?: string;
               <Check size={16} strokeWidth={2} aria-hidden />{checked.campaigns === 0 ? `No campaign sent in the last ${checked.days} days: the reports will be empty until one is.` : `${plural(checked.campaigns, 'campaign')} sent in the last ${checked.days} days.`}
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div className={`grid grid-cols-2 gap-2.5 ${direct ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
             <Count label="Folder" value={pack.name} small="New, for these reports" />
             <Count label="Dashboards" value={pack.contents.dashboards.length} />
             <Count label="Reports" value={pack.contents.reports.length} />
-            <Count label="Datasets" value={pack.contents.datasets.length} />
+            {!direct && <Count label="Datasets" value={pack.contents.datasets.length} />}
           </div>
         </>
       )}
@@ -264,13 +272,13 @@ function PackDetail({ pack }: { pack: BasePack }) {
         <Tag tone="neutral">{`Version ${pack.version}`}</Tag>
         {pack.source && <Tag tone="neutral">{`From ${pack.source}`}</Tag>}
         {pack.chosen && !latest && <Tag tone="neutral">Chosen at Onboarding</Tag>}
-        {latest ? <Tag tone="success">{`Added ${formatDate(latest.at)} · Version ${latest.version}`}</Tag> : <Tag tone="neutral">{`Needs ${pack.needs.label}`}</Tag>}
+        {latest ? <Tag tone="success">{`Added ${formatDate(latest.at)} · Version ${latest.version}`}</Tag> : <Tag tone="neutral">{pack.needs ? `Needs ${pack.needs.label}` : 'Nothing to Connect'}</Tag>}
       </div>
       <p className="text-sm text-ink-800">{pack.summary}</p>
-      <div className="grid gap-2.5 sm:grid-cols-3">
+      <div className={`grid gap-2.5 ${pack.contents.datasets.length ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <Contents icon={<LayoutDashboard size={16} strokeWidth={1.5} />} label="Dashboards" items={pack.contents.dashboards} />
         <Contents icon={<FileBarChart size={16} strokeWidth={1.5} />} label="Reports" items={pack.contents.reports} />
-        <Contents icon={<Table2 size={16} strokeWidth={1.5} />} label="Datasets" items={pack.contents.datasets} />
+        {pack.contents.datasets.length > 0 && <Contents icon={<Table2 size={16} strokeWidth={1.5} />} label="Datasets" items={pack.contents.datasets} />}
       </div>
     </section>
   )

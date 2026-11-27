@@ -5,7 +5,7 @@ PostgreSQL reporting views, the loader that copies a workspace's rows into them,
                                                      else the server environment CLICKHOUSE_URL/USER/PASSWORD/DATABASE
     configured(tenant_id=None) -> bool
     query(sql, params, *, conn, timeout_s, readonly=True) -> rows      a SELECT with {name:Type} placeholders, FORMAT JSONCompact
-    ensure_schema(conn)                                              the database and the four tables, idempotent
+    ensure_schema(conn)                                              the database, the tables and any column added since, idempotent
     load(tenant_id, dataset_key, *, conn, recent_days=None) -> rows loaded   from the PostgreSQL view, in the tenant scope
     backfill(tenant_id, conn) -> {dataset: rows};  refresh(tenant_id, conn);  reconcile(tenant_id, conn)
     test(conn) -> (ok, message)                                      the server's version, or why not
@@ -34,7 +34,8 @@ TABLES = {
                     ("party_id", "Nullable(String)"), ("status", "Nullable(String)"), ("status_reason", "Nullable(String)"), ("submitted_at", "Nullable(DateTime64(3, 'UTC'))"),
                     ("delivered_at", "Nullable(DateTime64(3, 'UTC'))"), ("opened_at", "Nullable(DateTime64(3, 'UTC'))"), ("clicked_at", "Nullable(DateTime64(3, 'UTC'))"),
                     ("bounced_at", "Nullable(DateTime64(3, 'UTC'))"), ("created_at", "DateTime64(3, 'UTC')"), ("sent_n", "Int32"), ("delivered_n", "Int32"), ("opened_n", "Int32"),
-                    ("clicked_n", "Int32"), ("bounced_n", "Int32"), ("complained_n", "Int32"), ("failed_n", "Int32")],
+                    ("clicked_n", "Int32"), ("bounced_n", "Int32"), ("complained_n", "Int32"), ("failed_n", "Int32"),
+                    ("campaign_channel", "Nullable(String)"), ("unsubscribed_n", "Int32"), ("journey_name", "Nullable(String)")],     # patch 0103
     },
     "attributed_orders": {
         "view": "reporting.rpt_attributed_orders", "key": ("order_id",), "recent": "received_at",
@@ -42,7 +43,7 @@ TABLES = {
                     ("amount", "Nullable(Float64)"), ("currency", "Nullable(String)"), ("ordered_at", "Nullable(DateTime64(3, 'UTC'))"), ("channel", "Nullable(String)"),
                     ("store_number", "Nullable(String)"), ("status", "Nullable(String)"), ("campaign_id", "Nullable(String)"), ("campaign_name", "Nullable(String)"),
                     ("touch_type", "Nullable(String)"), ("touch_at", "Nullable(DateTime64(3, 'UTC'))"), ("attributed_at", "Nullable(DateTime64(3, 'UTC'))"),
-                    ("received_at", "Nullable(DateTime64(3, 'UTC'))"), ("items", "Nullable(String)"), ("attributed_n", "Int32")],
+                    ("received_at", "Nullable(DateTime64(3, 'UTC'))"), ("items", "Nullable(String)"), ("attributed_n", "Int32"), ("campaign_channel", "Nullable(String)")],
     },
     "contacts": {
         "view": "reporting.rpt_contacts", "key": ("party_id",), "recent": None,
@@ -56,6 +57,13 @@ TABLES = {
                     ("journey_status", "Nullable(String)"), ("party_id", "Nullable(String)"), ("status", "Nullable(String)"), ("enrolled_at", "Nullable(DateTime64(3, 'UTC'))"),
                     ("exited_at", "Nullable(DateTime64(3, 'UTC'))"), ("exit_reason", "Nullable(String)"), ("converted_at", "Nullable(DateTime64(3, 'UTC'))"),
                     ("attributed_revenue", "Nullable(Float64)"), ("converted_n", "Int32"), ("active_n", "Int32")],
+    },
+    "journey_steps": {                                                 # patch 0103: a journey's messages, and the message steps it held back or could not send
+        "view": "reporting.rpt_journey_steps", "key": ("step_id",), "recent": "occurred_at",
+        "columns": [("tenant_id", "UUID"), ("step_id", "String"), ("journey_id", "Nullable(String)"), ("journey_name", "Nullable(String)"), ("journey_code", "Nullable(String)"),
+                    ("journey_status", "Nullable(String)"), ("channel", "Nullable(String)"), ("party_id", "Nullable(String)"), ("outcome", "Nullable(String)"),
+                    ("occurred_at", "Nullable(DateTime64(3, 'UTC'))"), ("sent_n", "Int32"), ("delivered_n", "Int32"), ("opened_n", "Int32"), ("clicked_n", "Int32"),
+                    ("held_back_n", "Int32"), ("failed_n", "Int32")],
     },
 }
 BATCH = 5_000
@@ -199,6 +207,8 @@ def ensure_schema(conn: Connection | None = None) -> None:
         columns = ", ".join(f"{name} {type_}" for name, type_ in spec["columns"]) + ", _version UInt64"
         order = ", ".join(("tenant_id", *spec["key"]))
         execute(f"CREATE TABLE IF NOT EXISTS {table(key, conn)} ({columns}) ENGINE = ReplacingMergeTree(_version) ORDER BY ({order})", conn=conn)
+        added = ", ".join(f"ADD COLUMN IF NOT EXISTS {name} {type_}" for name, type_ in spec["columns"] if name not in ("tenant_id", *spec["key"]))
+        execute(f"ALTER TABLE {table(key, conn)} {added}", conn=conn)      # a table made before a column was added to its view gains it
 
 
 # ---------------------------------------------------------------------------------------------------- the loader
@@ -254,6 +264,7 @@ def backfill(tenant_id, conn: Connection | None = None) -> dict:
 def refresh(tenant_id, conn: Connection | None = None, recent_days: int = 7) -> dict:
     """The recent window of every dataset, and contacts whole (they have no load column)."""
     conn = conn or from_environment()
+    ensure_schema(conn)                                               # a view that gained a column since the tables were made
     return {key: load(tenant_id, key, conn=conn, recent_days=recent_days if spec["recent"] else None) for key, spec in TABLES.items()}
 
 

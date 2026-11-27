@@ -16,7 +16,7 @@
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap">
             <div style="font-size:15px;font-weight:600;color:var(--cep-text-strong)">{{ item.pack.name }}</div>
             <span class="cep-pill" data-kind="info">Version {{ item.pack.version }}</span>
-            <span class="cep-pill" data-kind="info">Needs {{ item.pack.needs.label }}</span>
+            {% if item.pack.needs %}<span class="cep-pill" data-kind="info">Needs {{ item.pack.needs.label }}</span>{% endif %}
             {% if item.pack.source %}<span class="cep-muted" style="font-size:12px">From {{ item.pack.source }}</span>{% endif %}
         </div>
         <p class="cep-muted" style="font-size:13px;margin-bottom:0.75rem">{{ item.pack.summary }}</p>

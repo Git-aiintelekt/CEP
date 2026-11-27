@@ -216,6 +216,8 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
             if tile.get("compared") and previous not in (None, 0) and value is not None:
                 change = (float(value) - float(previous)) / abs(float(previous))
                 lines.append(f"{'Up' if change >= 0 else 'Down'} {abs(change) * 100:.1f}% on the previous period")
+            if tile.get("label"):                                      # a figure read from a report's first line: the line's name
+                lines.append(str(tile["label"]))
             _figure(slide, tile["column"]["label"], _number(tile["column"], value), lines)
         elif kind == "view":
             result = tile["result"]
