@@ -161,3 +161,22 @@ test('/cep/... is Engagement’s alias: it lands on the same page, query and all
   await vi.waitFor(() => expect(window.location.pathname + window.location.search).toBe('/campaigns?status=DRAFT'))
   await vi.waitFor(() => expect(within(nav()).getByRole('link', { name: 'Campaigns' }).getAttribute('aria-current')).toBe('page'))
 })
+
+test('with an Engagement Overview in Insights, Reports in Engagement’s rail leads to it and says it opens Insights', async () => {
+  const withOverview = { ...me, components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }],
+    insights: { mode: 'integrated', standalone_path: '/insights', engagement_overview: 'dash-eo' } }
+  installMockApi({ me: withOverview as never })
+  await renderAppAt('/campaigns')
+  const reports = within(await screen.findByRole('navigation', { name: 'Main' })).getByRole('link', { name: /Reports/ })
+  expect(reports.getAttribute('href')).toBe('/insights/dashboards/dash-eo')
+  expect(reports.textContent).toBe('Reportsopens Insights')
+  expect(within(nav()).getByRole('link', { name: 'Campaigns' }).textContent).toBe('Campaigns')            // no other item is marked
+})
+
+test('until Engagement Reports is added, Reports opens Engagement’s own page, unmarked', async () => {
+  installMockApi()
+  await renderAppAt('/campaigns')
+  const reports = within(await screen.findByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Reports' })
+  expect(reports.getAttribute('href')).toBe('/reports')
+  expect(reports.textContent).toBe('Reports')
+})

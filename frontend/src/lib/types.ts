@@ -58,7 +58,14 @@ export interface Me {
   /** components that exist but are not released yet, for the launcher's line */
   coming?: { key: string; name: string; tagline: string }[]
   /** how Insights is offered (platform admin): an item in each component's menu, its own app, or both */
-  insights?: { mode: 'integrated' | 'standalone' | 'both'; standalone_path: string; /** AI Reports is in the menu: AI can draft reports for this person */ ai_reports?: boolean }
+  insights?: {
+    mode: 'integrated' | 'standalone' | 'both'
+    standalone_path: string
+    /** AI Reports is in the menu: AI can draft reports for this person */
+    ai_reports?: boolean
+    /** the Engagement Overview dashboard (Engagement Reports pack) this person can open: where Engagement's Reports leads; null until the pack is added */
+    engagement_overview?: string | null
+  }
   /** true while the only thing this session may do is enrol in multi-factor authentication */
   mfa_setup_required?: boolean
   /** set when platform support is acting as this user */

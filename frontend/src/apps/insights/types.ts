@@ -1097,9 +1097,11 @@ export interface BasePack {
   components?: { key: string; name: string }[]
   /** picked for this workspace in the back-office's Onboard a Tenant */
   chosen?: boolean
-  needs: { label: string; engine: string; tables: string[] }
+  /** the database the pack reads through a connection; null for a pack on the platform's own datasets (Engagement Reports): nothing to connect */
+  needs: { label: string; engine: string; tables: string[] } | null
   contents: { datasets: string[]; reports: string[]; dashboards: string[] }
-  added: { version: number; at: string; folder_id: string | null; folder_name: string | null; by: string | null }[]
+  /** each addition, newest first, with the dashboards it made that the workspace still has */
+  added: { version: number; at: string; folder_id: string | null; folder_name: string | null; by: string | null; dashboards?: { id: string; name: string }[] }[]
 }
 
 export interface BaseReportsCatalog {

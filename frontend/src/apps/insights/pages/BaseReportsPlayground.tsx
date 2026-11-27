@@ -1,7 +1,8 @@
 /**
  * /dev/base-reports: Add Base Reports without a backend, for the guide's screenshots. The catalogue is primed into the query cache and
  * the sources, check and add calls are answered here with City HT's Postal databases. ?step=data opens the second step, &check=1 runs
- * the check there; ?step=done adds the pack; ?state=empty has no MySQL connection (the sparse case).
+ * the check there; ?step=done adds the pack; ?state=empty has no MySQL connection (the sparse case). ?pack=engagement shows Engagement
+ * Reports instead: the pack with nothing to connect.
  */
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -34,6 +35,20 @@ const CHECK: BasePackCheck = { ok: true, campaigns: 22, days: 90, problems: [], 
 const ADDED: BasePackAdded = { version: 1, recorded: true, folder: { id: 'fold-1', name: 'Email Campaign Reports' }, datasets: DATASETS.map((label, i) => ({ key: `x_${i}`, label })),
   reports: REPORTS.map((name, i) => ({ id: `r${i}`, name })), dashboards: DASHBOARDS.map((name, i) => ({ id: `d${i}`, name })) }
 
+const ENGAGEMENT_REPORTS = ['Engagement Totals', 'Sent and Opened by Day', 'Campaigns in the Period', 'Best Campaigns by Open Rate', 'Best Campaigns by Click Rate', 'Compare Campaigns',
+  'Journeys in the Period']
+const ENGAGEMENT: BaseReportsCatalog = {
+  can_add: true, recorded: true, connections: [],
+  packs: [{
+    key: 'engagement', version: 1, name: 'Engagement Reports', source: 'Engagement',
+    summary: 'What Engagement’s Reports page shows, as reports you can change: totals, sent and opened by day, each campaign, the best campaigns, a comparison and the journeys; and the Engagement Overview dashboard.',
+    needs: null, contents: { datasets: [], reports: ENGAGEMENT_REPORTS, dashboards: ['Engagement Overview'] }, added: [],
+  }],
+}
+const ENGAGEMENT_CHECK: BasePackCheck = { ok: true, campaigns: null, days: 90, problems: [], datasets: ['Journey Enrollments', 'Messages'].map((label) => ({ label, ok: true, seconds: 0 })) }
+const ENGAGEMENT_ADDED: BasePackAdded = { version: 1, recorded: true, folder: { id: 'fold-2', name: 'Engagement Reports' }, datasets: [],
+  reports: ENGAGEMENT_REPORTS.map((name, i) => ({ id: `e${i}`, name })), dashboards: [{ id: 'd-eo', name: 'Engagement Overview' }] }
+
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
 const press = (name: string) => [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === name || b.textContent?.trim().startsWith(name))?.click()
 
@@ -41,20 +56,21 @@ export default function BaseReportsPlayground() {
   const client = useQueryClient()
   const [params] = useSearchParams()
   const step = params.get('step')
-  const [primed] = useState(() => { client.setQueryData(['insights', 'base-reports'], catalog(params.get('state') === 'empty')); return true })
+  const engagement = params.get('pack') === 'engagement'
+  const [primed] = useState(() => { client.setQueryData(['insights', 'base-reports'], engagement ? ENGAGEMENT : catalog(params.get('state') === 'empty')); return true })
   const [open, setOpen] = useState(true)
   useEffect(() => {
     const real = window.fetch
     window.fetch = async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       if (url.includes('/sources/')) return reply(SOURCES)
-      if (url.includes('/check/')) { await new Promise((resolve) => setTimeout(resolve, 500)); return reply(CHECK) }
-      if (url.includes('/add/')) { await new Promise((resolve) => setTimeout(resolve, 800)); return reply(ADDED) }
-      if (url.includes('/insights/base-reports/')) return reply(catalog(params.get('state') === 'empty'))
+      if (url.includes('/check/')) { await new Promise((resolve) => setTimeout(resolve, 500)); return reply(engagement ? ENGAGEMENT_CHECK : CHECK) }
+      if (url.includes('/add/')) { await new Promise((resolve) => setTimeout(resolve, 800)); return reply(engagement ? ENGAGEMENT_ADDED : ADDED) }
+      if (url.includes('/insights/base-reports/')) return reply(engagement ? ENGAGEMENT : catalog(params.get('state') === 'empty'))
       return real(input, init)
     }
     return () => { window.fetch = real }
-  }, [params])
+  }, [params, engagement])
   useEffect(() => {
     if (step !== 'data' && step !== 'done') return
     const timers = [setTimeout(() => press('Add to'), 300)]

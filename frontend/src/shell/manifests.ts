@@ -15,12 +15,21 @@ export interface EntitledComponent extends ComponentManifest {
   until: string | null
 }
 
-/** The components this person's workspace can open, in suite order. An older API that says nothing means Engagement alone. */
+const REPORTS = '/reports'
+
+/**
+ * The components this person's workspace can open, in suite order. An older API that says nothing means Engagement alone.
+ * Engagement's Reports leads to the Engagement Overview dashboard in Insights once the workspace has both and has added
+ * Engagement Reports (docs/mockups/reports-into-insights.html, option A); until then it opens Engagement's own page.
+ */
 export function entitled(me: Me | null): EntitledComponent[] {
   const list = me?.components ?? [{ key: 'cep', name: 'Engagement', tagline: 'Customer Engagement', access: 'PLAN', until: null } satisfies SuiteComponent]
+  const overview = list.some((item) => item.key === 'insights') ? me?.insights?.engagement_overview : null
   return list.flatMap((item) => {
     const manifest = MANIFESTS[item.key]
-    return manifest ? [{ ...manifest, access: item.access, until: item.until }] : []
+    if (!manifest) return []
+    const menu = item.key === 'cep' && overview ? manifest.menu.map((page) => (page.to === REPORTS ? { ...page, to: `/insights/dashboards/${overview}`, opens: 'Insights' } : page)) : manifest.menu
+    return [{ ...manifest, menu, access: item.access, until: item.until }]
   })
 }
 
@@ -30,9 +39,9 @@ export const hasComponent = (me: Me | null, key: string): boolean => entitled(me
 /** the first component's home: where "/" takes someone whose workspace has no Engagement */
 export const firstHome = (me: Me | null): string | null => entitled(me)[0]?.home ?? null
 
-/** the component whose menu owns a path; Engagement owns everything it has no better owner for */
+/** the component whose menu owns a path (an item that opens another app owns nothing); Engagement owns everything it has no better owner for */
 export function componentAt(pathname: string, components: EntitledComponent[]): EntitledComponent | null {
-  const owner = components.find((component) => component.menu.some((item) => item.to !== '/' && (pathname === item.to || pathname.startsWith(`${item.to}/`))))
+  const owner = components.find((component) => component.menu.some((item) => !item.opens && item.to !== '/' && (pathname === item.to || pathname.startsWith(`${item.to}/`))))
   return owner ?? components.find((component) => component.key === 'cep') ?? components[0] ?? null
 }
 

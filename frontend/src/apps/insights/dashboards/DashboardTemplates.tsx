@@ -147,7 +147,7 @@ export function DashboardTemplatePreview({ template, canCreate, onClose, onUse }
           <p className="text-sm text-ink-900">{pack.summary}</p>
         </div>
         <p className="text-sm text-ink-800">
-          It comes with the {pack.name} pack, which reads {pack.needs.label}. Adding the pack makes your own copies of all of it; later versions never change them.
+          It comes with the {pack.name} pack{pack.needs ? `, which reads ${pack.needs.label}` : ''}. Adding the pack makes your own copies of all of it; later versions never change them.
           {pack.added[0] && ' It is added already: adding it again makes new copies.'}
         </p>
         <div className="grid gap-5 sm:grid-cols-3">

@@ -256,3 +256,90 @@ def test_a_percent_is_worked_out_in_percent(check):
           percent and all(f["expression"].replace(" ", "").endswith("*100") for f in percent), [f["label"] for f in percent if not f["expression"].replace(" ", "").endswith("*100")])
     check("a ratio that is not a percent is left alone", all(not f["expression"].replace(" ", "").endswith("*100") for f in PACK["formulas"] if f["format"] != "percent"))
     check.done()
+
+
+# ---------------------------------------------------------------------------------------------------- Engagement Reports: on the platform's own datasets
+ENGAGEMENT = PACKS["engagement"]
+
+
+def test_engagement_reports_fit_the_catalogue(check, world):
+    catalogue = {d["key"]: d for d in world.api("get", "/api/v1/insights/catalog/").json()["datasets"]}
+    for report in ENGAGEMENT["reports"]:
+        dataset = catalogue.get(report["dataset"])
+        check(f"{report['name']}: reads a dataset this workspace has", dataset is not None, report["dataset"])
+        if dataset is None:
+            continue
+        fields = {f["key"]: f for f in dataset["fields"]}
+        definition = report["definition"]
+        named = {c["field"] for c in definition["columns"]} | {o["field"] for o in definition["orderBy"]} | {r["field"] for r in definition["filters"]["rules"]} | \
+                {p["field"] for p in definition["parameters"]}
+        check(f"{report['name']}: every field it names is in {dataset['label']}", named <= set(fields), named - set(fields))
+        wrong = [(c["field"], c["aggregate"]) for c in definition["columns"] if c.get("aggregate") and c["field"] in fields and c["aggregate"] not in fields[c["field"]]["aggregates"]]
+        check(f"{report['name']}: every total is one its field takes", not wrong, wrong)
+        check(f"{report['name']}: asks a period on the dataset's own time field", definition["parameters"][-1] == {**definition["parameters"][-1], "operator": "period", "field": dataset["time_field"]})
+    messages = [r for r in ENGAGEMENT["reports"] if r["dataset"] == "messages"]
+    check("every report on Messages leaves test sends out", all({"field": "test_mode", "operator": "=", "value": False} in r["definition"]["filters"]["rules"] for r in messages))
+    ids = {r["id"]: r for r in ENGAGEMENT["reports"]}
+    for tile in [t for row in ENGAGEMENT["dashboards"][0]["layout"]["rows"] for t in row["tiles"]]:
+        report = ids.get(tile["report"])
+        check(f"Engagement Overview · {tile['title']}: names a report of the pack", report is not None, tile)
+        if tile["show"] == "figure" and report:
+            check(f"Engagement Overview · {tile['title']}: its figure is one of the report's totals", any(c["field"] == tile["measure"] and c.get("aggregate") for c in report["definition"]["columns"]))
+    check.done()
+
+
+def test_adding_engagement_reports(check, world):
+    listed = world.api("get", "/api/v1/insights/base-reports/").json()
+    pack = next((p for p in listed["packs"] if p["key"] == "engagement"), None)
+    check("a workspace with Engagement and Insights is offered the pack, with no database to connect", pack is not None and pack["needs"] is None and pack["contents"]["datasets"] == []
+          and {c["key"] for c in pack["components"]} == {"cep", "insights"}, pack)
+    checked = world.api("post", "/api/v1/insights/base-reports/engagement/check/", {})
+    check("the check needs no connection and finds the datasets", checked.status_code == 200 and checked.json()["ok"] and {d["label"] for d in checked.json()["datasets"]} == {"Messages", "Journey Enrollments"},
+          checked.content[:300])
+    names = [r["name"] for r in ENGAGEMENT["reports"]]
+
+    def counts():
+        return (world.sql("SELECT count(*) FROM report WHERE name = ANY(%s) AND deleted_at IS NULL", [names], fetch=True)[0][0],
+                world.sql("SELECT count(*) FROM dashboard WHERE name = %s AND deleted_at IS NULL", ["Engagement Overview"], fetch=True)[0][0],
+                world.sql("SELECT count(*) FROM report_dataset_custom", fetch=True)[0][0] if _table("report_dataset_custom") else 0)
+    before = counts()
+    check("until it is added, Engagement's Reports has no dashboard to open", world.api("get", "/api/v1/me/").json()["insights"]["engagement_overview"] is None)
+    added = world.api("post", "/api/v1/insights/base-reports/engagement/add/", {})
+    out = added.json()
+    check("adding makes the reports and the dashboard, and no dataset", added.status_code == 201 and out["datasets"] == [] and len(out["reports"]) == len(names) and len(out["dashboards"]) == 1,
+          str(added.content[:400]))
+    check("all of it in the workspace", counts() == (before[0] + len(names), before[1] + 1, before[2]), (before, counts()))
+    check("filed in the pack's folder", out["folder"]["name"].startswith("Engagement Reports"), out["folder"])
+    totals = world.api("get", f"/api/v1/insights/reports/{next(r['id'] for r in out['reports'] if r['name'] == 'Engagement Totals')}/").json()
+    check("a report reads the platform's Messages dataset, for the workspace to see", totals["dataset"] == "messages" and totals["visibility"] == "WORKSPACE", (totals.get("dataset"), totals.get("visibility")))
+    board = world.api("get", f"/api/v1/insights/dashboards/{out['dashboards'][0]['id']}/").json()
+    tiles = [t for row in board["layout"]["rows"] for t in row["tiles"]]
+    check("the dashboard's tiles point at the new reports, with the channel slicer and the last 30 days",
+          {t["report_id"] for t in tiles} <= {r["id"] for r in out["reports"]} and board["layout"]["slicers"][0]["field"] == "channel" and board["period"] == {"preset": "30d"},
+          (board["layout"].get("slicers"), board["period"]))
+    for tile_id in ("sent", "by-day", "campaigns", "journeys"):
+        ran = world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/{tile_id}/run/", {})
+        check(f"the {tile_id} tile runs", ran.status_code == 200 and ran.json().get("kind") not in ("missing", "error"), ran.content[:300])
+    sliced = world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/campaigns/run/", {"slicers": {"channel": ["SMS"]}})
+    check("and narrows to a channel", sliced.status_code == 200, sliced.content[:300])
+    if _table("report_base_install"):
+        mine = next(p for p in world.api("get", "/api/v1/insights/base-reports/").json()["packs"] if p["key"] == "engagement")["added"]
+        check("the addition names the dashboard it made, for Engagement's Reports to open", out["recorded"] and mine[0]["dashboards"] == [{"id": board["id"], "name": "Engagement Overview"}], mine)
+        stored = world.sql("SELECT connection_id FROM report_base_install WHERE pack_key = 'engagement' ORDER BY created_at DESC LIMIT 1", fetch=True)[0][0]
+        check("recorded with no connection", stored is None, stored)
+        check("and GET /me/ says where Engagement's Reports leads", world.api("get", "/api/v1/me/").json()["insights"]["engagement_overview"] == board["id"])
+        world.api("delete", f"/api/v1/insights/dashboards/{board['id']}/")
+        mine = next(p for p in world.api("get", "/api/v1/insights/base-reports/").json()["packs"] if p["key"] == "engagement")["added"]
+        check("a dashboard deleted since is no longer named", mine[0]["dashboards"] == [], mine)
+        check("and Reports goes back to Engagement's own page", world.api("get", "/api/v1/me/").json()["insights"]["engagement_overview"] is None)
+    check.done()
+
+
+def test_engagement_reports_need_engagement(check, world, monkeypatch):
+    from apps.insights import catalog
+    monkeypatch.setattr(catalog, "components_of", lambda tenant_id: ["insights"])
+    listed = world.api("get", "/api/v1/insights/base-reports/").json()
+    check("a workspace with Insights alone is not offered the pack", all(p["key"] != "engagement" for p in listed["packs"]), [p["key"] for p in listed["packs"]])
+    refused = world.api("post", "/api/v1/insights/base-reports/engagement/add/", {})
+    check("and cannot add it", refused.status_code == 400 and "Engagement" in str(refused.json()), refused.content[:300])
+    check.done()

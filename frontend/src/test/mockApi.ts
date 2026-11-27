@@ -1060,6 +1060,8 @@ interface MockOptions {
   attributeSources?: AttributeSource[]
   /** the Tag Check's answer (default: two tags short) */
   tagCheck?: TagCheck
+  /** the Engagement Reports pack is offered beside the email one (a workspace with Engagement and Insights) */
+  engagementPack?: boolean
 }
 
 /** the code the mock authenticator "shows" */
@@ -2096,7 +2098,18 @@ export function installMockApi(options: MockOptions = {}) {
           packs: [{ key: 'email-campaigns', version: 1, name: 'Email Campaign Reports', source: 'CmpReport', summary: 'Campaign KPIs, delivery, opens by device and comparisons.',
             needs: { label: 'a Postal database', engine: 'mysql', tables: ['messages', 'deliveries', 'loads', 'clicks', 'links'] },
             contents: { datasets: ['Email Messages', 'Email Campaigns', 'Email Link Clicks', 'Email Opens'], reports: ['Campaign KPIs', 'Link Clicks'], dashboards: ['Management Dashboard', 'Campaign Performance'] },
-            components: [{ key: 'insights', name: 'Insights' }], chosen: true, added: [] }] })
+            components: [{ key: 'insights', name: 'Insights' }], chosen: true, added: [] },
+            ...(options.engagementPack ? [{ key: 'engagement', version: 1, name: 'Engagement Reports', source: 'Engagement', summary: "What Engagement’s Reports page shows, as reports you can change.",
+              needs: null, contents: { datasets: [], reports: ['Engagement Totals', 'Sent and Opened by Day', 'Campaigns in the Period'], dashboards: ['Engagement Overview'] },
+              components: [{ key: 'cep', name: 'Engagement' }, { key: 'insights', name: 'Insights' }], chosen: false, added: [] }] : [])] })
+      }
+      if (path.endsWith('/insights/base-reports/engagement/check/')) {
+        return json({ ok: true, campaigns: null, days: 90, problems: [], datasets: ['Journey Enrollments', 'Messages'].map((label) => ({ label, ok: true, seconds: 0 })) })
+      }
+      if (path.endsWith('/insights/base-reports/engagement/add/')) {
+        return json({ version: 1, recorded: true, folder: { id: 'fold-engagement', name: 'Engagement Reports' }, datasets: [],
+          reports: [{ id: 'rep-eo-1', name: 'Engagement Totals' }, { id: 'rep-eo-2', name: 'Sent and Opened by Day' }, { id: 'rep-eo-3', name: 'Campaigns in the Period' }],
+          dashboards: [{ id: 'dash-eo', name: 'Engagement Overview' }] }, 201)
       }
       if (path.endsWith('/insights/base-reports/email-campaigns/sources/')) {
         return json({ databases: [{ name: 'mailpostal-server-14', messages: 26458, marketing: 919 }, { name: 'txpostalprod-server-10', messages: 17853, marketing: 41 }, { name: 'txpostalprod-server-7', messages: 900, marketing: 0 }],
