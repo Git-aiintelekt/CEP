@@ -429,6 +429,14 @@ LONG_MESSAGE_SEGMENTS = 3
 MMS_MEDIA_TYPES = ("image/jpeg", "image/png", "image/gif")          # WebP is not reliably delivered over MMS
 MMS_MEDIA_WARN_BYTES = 600 * 1024            # above this some carriers transcode or drop the attachment
 MMS_MEDIA_MAX_BYTES = 1024 * 1024
+MMS_MEDIA_MIN_PX = 600                       # each side; larger pictures are fine (carriers scale them down)
+
+
+def mms_too_small(width_px, height_px) -> str | None:
+    """The problem with an MMS picture under the minimum size; None when it is large enough or its size is not known."""
+    if width_px is None or height_px is None or (width_px >= MMS_MEDIA_MIN_PX and height_px >= MMS_MEDIA_MIN_PX):
+        return None
+    return f"The picture is {width_px} × {height_px} pixels. MMS pictures must be at least {MMS_MEDIA_MIN_PX} × {MMS_MEDIA_MIN_PX}."
 # the opt-out wording, or the {{opt_out_text}} tag that carries it (a platform tag: back-office, Personalization Tags)
 OPT_OUT_RE = re.compile(r"\b(stop|unsubscribe|opt[\s-]?out)\b|(\{\{|\$\{)\s*opt_out_text\s*\}", re.I)
 URL_RE = re.compile(r"https?://\S+", re.I)
@@ -572,6 +580,8 @@ def save_message(template: TemplateMaster, user_id, *, sms_body: str, subject_li
                 errors["media_asset"] = "MMS pictures must be JPEG, PNG or GIF."
             elif media.byte_size > MMS_MEDIA_MAX_BYTES:
                 errors["media_asset"] = "MMS pictures can be at most 1 MB; most carriers deliver up to 600 KB reliably."
+            elif small := mms_too_small(media.width_px, media.height_px):
+                errors["media_asset"] = small
     if subject_line.strip() and template.channel != "MMS":
         errors["subject_line"] = "Only MMS messages have a subject."
     if errors:
@@ -613,6 +623,9 @@ def message_blockers(template: TemplateMaster) -> dict:
     findings, blockers = payload["findings"], {}
     if findings["unknown_tags"]:
         blockers["tags"] = "Unknown personalization tags: " + ", ".join("{{" + key + "}}" for key in findings["unknown_tags"])
+    picture = payload["media_asset"]
     if findings["missing_media"]:
         blockers["media_asset"] = "An MMS template needs a picture. Use an SMS template for text only."
+    elif template.channel == "MMS" and picture and (small := mms_too_small(picture["width_px"], picture["height_px"])):
+        blockers["media_asset"] = small               # a picture saved before the minimum size: choose a larger one
     return blockers

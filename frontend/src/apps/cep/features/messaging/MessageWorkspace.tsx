@@ -22,6 +22,7 @@ import type { DesignVersion, MediaAsset, Message, MessageSaveInput, Personalizat
 
 import { useUtmSettings, withShortLinks } from '@/apps/cep/pages/settings/utm'
 
+import { MMS_MAX_BYTES, MMS_MIN_PX, MMS_RULES, MMS_TYPES, MMS_WARN_BYTES, tooSmall, tooSmallText } from './mmsPicture'
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
 import { PasteNote, PlainPunctuationNotice } from './PlainText'
 import { TextCostLine } from '../costs/TemplateCostLine'
@@ -59,9 +60,6 @@ type Notice = { tone: 'ok' | 'warn' | 'error'; title: string; items?: string[] }
 type Media = Message['media_asset']
 
 const MAX_CHARS = 1600
-const MMS_TYPES = ['image/jpeg', 'image/png', 'image/gif']
-const MMS_WARN_BYTES = 600 * 1024
-const MMS_MAX_BYTES = 1024 * 1024
 const NOTICE_TONE = { ok: 'border-success bg-surface-subtle text-success-text', warn: 'border-warning bg-warning-bg text-warning-text', error: 'border-danger bg-danger-bg text-danger-text' }
 
 const kb = (bytes: number) => `${Math.round(bytes / 1024)} KB`
@@ -110,7 +108,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   const shortened = counted !== sample
   const metrics = useMemo(() => smsMetrics(counted), [counted])
   const tooLong = body.trim().length > MAX_CHARS
-  const usableImages = assets.filter((asset) => MMS_TYPES.includes(asset.mime_type) && asset.byte_size <= MMS_MAX_BYTES)
+  const usableImages = assets.filter((asset) => MMS_TYPES.includes(asset.mime_type) && asset.byte_size <= MMS_MAX_BYTES && !tooSmall(asset))
 
   const warnings: string[] = []
   if (metrics.encoding === 'UCS-2') {
@@ -131,6 +129,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
     ? `No opt-out wording. Marketing messages must say how to stop them: add the Opt-Out Text tag (${asToken(OPT_OUT_TAG)}, “${optOutTag.static_value ?? optOutTag.sample_value ?? 'Reply STOP to opt out. HELP for help. Msg&data rates may apply.'}”), or write your own.`
     : 'No opt-out wording. Marketing messages must say how to stop them, for example: Reply STOP to opt out. HELP for help. Msg&data rates may apply.')
   if (isMms && !media) warnings.push('No picture yet. An MMS template needs one before it can be activated.')
+  if (media && tooSmall(media)) warnings.push(`${tooSmallText(media)} Choose a larger one before saving.`)
   if (media && media.byte_size > MMS_WARN_BYTES) warnings.push(`The picture is ${kb(media.byte_size)}. Some carriers shrink or drop attachments over 600 KB.`)
 
   // set once Save & Return has saved: the tab closes before the next render takes the warning away
@@ -265,6 +264,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
     try {
       const asset = await backend.uploadMedia(file)
       setAssets((current) => (current.some((item) => item.id === asset.id) ? current : [asset, ...current]))
+      if (tooSmall(asset)) return setNotice({ tone: 'error', title: tooSmallText(asset) })
       setMedia(asMedia(asset))
       setPickerOpen(false)
     } catch (error) {
@@ -415,7 +415,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                   </div>
                 )}
               </div>
-              <p className="mt-1 text-xs text-ink-800">JPEG, PNG or GIF, up to 1 MB. Under 600 KB is delivered reliably by every carrier.</p>
+              <p className="mt-1 text-xs text-ink-800">{MMS_RULES}</p>
               {fieldErrors.media_asset && <p className="mt-2 text-xs font-medium text-danger-text">{fieldErrors.media_asset}</p>}
               {media ? (
                 <div className="mt-3 flex items-center gap-3 rounded-lg border border-line p-2.5">
@@ -432,7 +432,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
               {pickerOpen && (
                 <div className="mt-3">
                   {usableImages.length === 0 ? (
-                    <p className="text-sm text-ink-800">No suitable pictures in the library yet. Upload one.</p>
+                    <p className="text-sm text-ink-800">No suitable pictures in the library yet: MMS pictures are at least {MMS_MIN_PX} × {MMS_MIN_PX} pixels and up to 1 MB. Upload one.</p>
                   ) : (
                     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                       {usableImages.map((asset) => (

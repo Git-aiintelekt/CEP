@@ -163,8 +163,8 @@ class CampaignViewSet(BaseTenantViewSet):
             elif (campaign.solicitation_type == Campaign.SolicitationType.MARKETING and campaign.template.channel in design.MESSAGE_CHANNELS
                   and not design.OPT_OUT_RE.search(body)):
                 missing["template"] = "Marketing text messages must say how to opt out, for example: Reply STOP to unsubscribe."
-            elif campaign.template.channel == "MMS" and design.message_blockers(campaign.template).get("media_asset"):
-                missing["template"] = "This MMS template has no picture."
+            elif campaign.template.channel == "MMS" and (picture := design.message_blockers(campaign.template).get("media_asset")):
+                missing["template"] = "This MMS template has no picture." if picture.startswith("An MMS template needs") else picture
             elif campaign.template.channel == "WHATSAPP":
                 from apps.templates import whatsapp
                 blocked = next(iter(whatsapp.blockers(campaign.template).values()), None)
