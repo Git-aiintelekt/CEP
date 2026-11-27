@@ -286,8 +286,8 @@ def content_problem(template, solicitation_type: str) -> str | None:
         return "Marketing email must contain the {{unsubscribe_url}} link."
     if marketing and template.channel in design.MESSAGE_CHANNELS and not design.OPT_OUT_RE.search(body):
         return "Marketing text messages must say how to opt out, for example: Reply STOP to unsubscribe."
-    if template.channel == "MMS" and design.message_blockers(template).get("media_asset"):
-        return "This MMS template has no picture."
+    if template.channel == "MMS" and (picture := design.message_blockers(template).get("media_asset")):
+        return "This MMS template has no picture." if picture.startswith("An MMS template needs") else picture
     if template.channel == "WHATSAPP":
         from apps.templates import whatsapp
         return next(iter(whatsapp.blockers(template).values()), None)

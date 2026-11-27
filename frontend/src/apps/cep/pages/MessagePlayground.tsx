@@ -18,11 +18,24 @@ const TAGS = [tag('first_name', 'First name', 'STANDARD', 'Jordan'), tag('loyalt
               tag('discount_pct', 'Discount %', 'CUSTOM', '20'), tag('shop_url', 'Shop URL', 'SYSTEM', 'https://nwa.example/s/9x2'),
               { ...tag('opt_out_text', 'Opt-Out Text', 'STANDARD', 'Reply STOP to opt out'), static_value: 'Reply STOP to opt out' }]
 
-const image = (id: string, label: string, color: string, byte_size: number): MediaAsset => ({
-  id, file_name: `${label.toLowerCase()}.png`, mime_type: 'image/png', byte_size, width_px: 600, height_px: 400, created_at: new Date().toISOString(),
-  url: `https://placehold.co/600x400/${color}/ffffff/png?text=${label}`,
+const image = (id: string, label: string, color: string, byte_size: number, width = 1200, height = 1200): MediaAsset => ({
+  id, file_name: `${label.toLowerCase()}.png`, mime_type: 'image/png', byte_size, width_px: width, height_px: height, created_at: new Date().toISOString(),
+  url: `https://placehold.co/${width}x${height}/${color}/ffffff/png?text=${label}`,
 })
-const LIBRARY = [image('m1', 'Lookbook', '2753e4', 180_000), image('m2', 'Sale', 'be123c', 720_000)]
+// the thumbnail is under 600 × 600: the picker leaves it out
+const LIBRARY = [image('m1', 'Lookbook', '2753e4', 180_000), image('m2', 'Sale', 'be123c', 720_000, 1200, 800), image('m3', 'Thumbnail', '0f766e', 40_000, 320, 240)]
+
+/** The uploaded picture's size as the server measures it: read in the browser; in tests, from a name like small-400x300.png */
+async function measured(file: File): Promise<{ width: number; height: number }> {
+  const named = /(\d+)x(\d+)/.exec(file.name)
+  if (named) return { width: Number(named[1]), height: Number(named[2]) }
+  try {
+    const bitmap = await createImageBitmap(file)
+    return { width: bitmap.width, height: bitmap.height }
+  } catch {
+    return { width: 1200, height: 1200 }
+  }
+}
 
 export default function MessagePlayground() {
   const [params] = useSearchParams()
@@ -55,7 +68,10 @@ export default function MessagePlayground() {
       },
       loadVersion: async (number) => ({ ...versions.current[number - 1], latest_version: versions.current.length }),
       listVersions: async () => [...versions.current].reverse().map((item) => ({ version_number: item.version_number, saved_at: item.saved_at ?? '', saved_by: item.saved_by })),
-      uploadMedia: async (file) => ({ ...image(`up-${file.name}`, 'Upload', '0f766e', file.size), file_name: file.name, mime_type: file.type, url: URL.createObjectURL(file) }),
+      uploadMedia: async (file) => {
+        const { width, height } = await measured(file)
+        return { ...image(`up-${file.name}`, 'Upload', '0f766e', file.size, width, height), file_name: file.name, mime_type: file.type, url: URL.createObjectURL(file) }
+      },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [channel],

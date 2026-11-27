@@ -643,8 +643,9 @@ export const presetTags: PersonalizationTag[] = [...tags, tag('discount_pct', 'D
   tag('loyalty_tier', 'Loyalty tier', 'STANDARD', 'Gold')]
 
 export const mediaLibrary: MediaAsset[] = [
-  { id: 'img-1', file_name: 'lookbook.jpg', mime_type: 'image/jpeg', byte_size: 180_000, width_px: 600, height_px: 400, url: 'http://cdn.test/lookbook.jpg', created_at: '2026-09-01T10:00:00Z' },
-  { id: 'img-webp', file_name: 'modern.webp', mime_type: 'image/webp', byte_size: 90_000, width_px: 600, height_px: 400, url: 'http://cdn.test/modern.webp', created_at: '2026-09-01T10:00:00Z' },
+  { id: 'img-1', file_name: 'lookbook.jpg', mime_type: 'image/jpeg', byte_size: 180_000, width_px: 1200, height_px: 1200, url: 'http://cdn.test/lookbook.jpg', created_at: '2026-09-01T10:00:00Z' },
+  { id: 'img-webp', file_name: 'modern.webp', mime_type: 'image/webp', byte_size: 90_000, width_px: 1200, height_px: 1200, url: 'http://cdn.test/modern.webp', created_at: '2026-09-01T10:00:00Z' },
+  { id: 'img-thumb', file_name: 'thumbnail.jpg', mime_type: 'image/jpeg', byte_size: 30_000, width_px: 320, height_px: 240, url: 'http://cdn.test/thumbnail.jpg', created_at: '2026-09-01T10:00:00Z' },
 ]
 
 export const roles: Role[] = [

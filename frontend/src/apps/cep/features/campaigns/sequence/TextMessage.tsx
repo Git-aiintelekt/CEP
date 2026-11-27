@@ -13,6 +13,7 @@ import { asToken, groupTags } from '@/apps/cep/features/designer/tags'
 import { BUBBLE, PhoneFrame } from '@/apps/cep/features/messaging/PhoneFrame'
 import { PasteNote, PlainPunctuationNotice } from '@/apps/cep/features/messaging/PlainText'
 import { optOutSuggestion, plainPunctuation, renderWithSamples } from '@/apps/cep/features/messaging/sms'
+import { MMS_MAX_BYTES, MMS_RULES, MMS_TYPES, tooSmall, tooSmallText } from '@/apps/cep/features/messaging/mmsPicture'
 import { usePlainPaste } from '@/apps/cep/features/messaging/usePlainPaste'
 import { api, ApiError } from '@/lib/api'
 import type { MediaAsset } from '@/lib/types'
@@ -21,8 +22,6 @@ import { useTextSave } from './useSequence'
 
 import { counterText, usePersonalizationTags, useTemplateMessage } from './textContent'
 
-const MMS_TYPES = ['image/jpeg', 'image/png', 'image/gif']
-const MMS_MAX_BYTES = 1024 * 1024
 const kb = (bytes: number) => `${Math.round(bytes / 1024)} KB`
 
 const failure = (error: unknown) => (error instanceof ApiError ? Object.values(error.fieldErrors)[0] ?? error.message : error instanceof Error ? error.message : 'Not saved.')
@@ -54,7 +53,9 @@ export function TextView({ campaignId, templateId, mms, onEdit }: { campaignId: 
     if (chosen.size > MMS_MAX_BYTES) return setProblem(`The picture is ${kb(chosen.size)}. Pictures can be up to 1 MB.`)
     setUploading(true)
     try {
-      await setPicture(await api.upload<MediaAsset>('/media-assets/', chosen))
+      const asset = await api.upload<MediaAsset>('/media-assets/', chosen)
+      if (tooSmall(asset)) return setProblem(tooSmallText(asset))
+      await setPicture(asset)
     } catch (error) {
       setProblem(failure(error))
     } finally {
@@ -86,7 +87,7 @@ export function TextView({ campaignId, templateId, mms, onEdit }: { campaignId: 
             </button>
           )}
           <input ref={file} type="file" accept={MMS_TYPES.join(',')} className="sr-only" aria-label="Upload an Image" onChange={(event) => void upload(event.target.files?.[0])} />
-          <span className="text-helper text-ink-800">JPEG, PNG or GIF, up to 1 MB. Under 600 KB is delivered reliably by every carrier.</span>
+          <span className="text-helper text-ink-800">{MMS_RULES}</span>
         </div>
       )}
       <div className="flex flex-col gap-2">
