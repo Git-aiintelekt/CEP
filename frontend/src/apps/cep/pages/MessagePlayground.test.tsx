@@ -37,3 +37,26 @@ test('text pasted from a document lands in plain punctuation, says so, and Keep 
   expect(screen.getByText('UCS-2')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Use Plain Punctuation' })).toBeTruthy()
 })
+
+test('an MMS picture must be at least 600 × 600: a smaller upload is refused with its size, the picker leaves small ones out, a larger one is fine', async () => {
+  const user = userEvent.setup()
+  render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={['/dev/message?channel=MMS']}><MessagePlayground /></MemoryRouter></QueryClientProvider>)
+  expect(screen.getByText(/at least 600 × 600 pixels and up to 1 MB/)).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: 'Choose from Library' }))
+  expect(screen.getByRole('button', { name: 'Use lookbook.png' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Use sale.png' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Use thumbnail.png' })).toBeNull()
+
+  const input = screen.getByLabelText('Upload a Picture')
+  await user.upload(input, new File(['x'.repeat(2000)], 'small-400x300.png', { type: 'image/png' }))
+  expect(await screen.findByText('The picture is 400 × 300 pixels. MMS pictures must be at least 600 × 600.')).toBeTruthy()
+  expect(screen.getByText('No picture attached.')).toBeTruthy()
+
+  await user.upload(input, new File(['x'.repeat(2000)], 'wide-1600x900.png', { type: 'image/png' }))
+  expect(await screen.findByText('wide-1600x900.png')).toBeTruthy()
+  expect(screen.queryByText('No picture attached.')).toBeNull()
+
+  await user.upload(input, new File(['x'.repeat(1100 * 1024)], 'heavy-1200x1200.png', { type: 'image/png' }))
+  expect(await screen.findByText(/MMS pictures can be at most 1 MB/)).toBeTruthy()
+})
