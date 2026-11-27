@@ -185,20 +185,45 @@ def _options(pack: dict, body: dict) -> dict:
         raise ValidationError({"options": str(exc)}) from None
 
 
+def _platform_fields(pack: dict) -> dict[str, set]:
+    """the catalogue fields a pack on the platform's datasets reads, by dataset: each report's columns, sorts, rules and questions
+    (its own custom fields apart), and the measures it takes from a linked dataset"""
+    wanted: dict[str, set] = {}
+    for report in pack["reports"]:
+        definition = report["definition"]
+        own = {d["key"] for d in definition.get("derived") or []}
+        named = {c["field"] for c in definition["columns"]} | {o["field"] for o in definition.get("orderBy") or []} | \
+                {r["field"] for r in definition["filters"]["rules"] if "field" in r} | {p["field"] for p in definition.get("parameters") or []}
+        wanted.setdefault(report["dataset"], set()).update(f for f in named - own if "." not in f)
+        blend = definition.get("blend")
+        if blend:
+            wanted.setdefault(blend["dataset"], set()).update(c["field"] for c in blend["columns"])
+    return wanted
+
+
 def check(tenant, pack: dict, row: dict, options: dict) -> dict:
     """each dataset's SQL run for its first rows, its columns held to the pack's fields; the campaigns sent in the last CHECK_DAYS.
     A pack on the platform's datasets: each dataset its reports name is one this workspace has, with the fields they read."""
     out, problems = [], []
     if row is None:
-        for key in sorted({r["dataset"] for r in pack["reports"]}):
+        wanted = _platform_fields(pack)
+        for key in sorted(wanted):
             dataset = catalog.dataset(tenant.pk, key, True)
-            fields = {f["key"] for f in dataset["fields"]} if dataset else set()
-            named = {c["field"] for r in pack["reports"] if r["dataset"] == key for c in r["definition"]["columns"]}
+            missing = sorted(wanted[key] - {f["key"] for f in dataset["fields"]}) if dataset else []
             if dataset is None:
                 problems.append(f"This workspace has no {key} dataset.")
-            elif named - fields:
-                problems.append(f"{dataset['label']} has no {', '.join(sorted(named - fields))}.")
-            out.append({"label": dataset["label"] if dataset else key, "ok": dataset is not None and named <= fields, "seconds": 0})
+            elif missing:
+                problems.append(f"{dataset['label']} has no {', '.join(missing)}.")
+            out.append({"label": dataset["label"] if dataset else key, "ok": dataset is not None and not missing, "seconds": 0})
+        if not problems:                                               # the fields are there: each report as the engine itself checks it
+            from apps.insights.definition import DefinitionError, validate
+            for report in pack["reports"]:
+                try:
+                    validate(catalog.dataset(tenant.pk, report["dataset"], True), report["definition"])
+                except DefinitionError as exc:
+                    problems.append(f"{report['name']}: {exc} ({exc.field})")
+        elif pack.get("requires"):
+            problems.append(f"This installation needs {pack['requires']} before the pack can be added.")
         return {"ok": not problems, "datasets": out, "campaigns": None, "days": CHECK_DAYS, "problems": problems}
     for dataset in pack["datasets"]:
         started = time.monotonic()
@@ -357,4 +382,8 @@ class AddView(_PackView):
     @extend_schema(request=None, responses={201: None})
     def post(self, request, version=None, pack=None):
         tenant, found, row, body = self._given(request, pack)
+        if row is None:                                                # on the platform's datasets: nothing is made unless every report fits them
+            checked = check(tenant, found, None, {})
+            if not checked["ok"]:
+                raise ValidationError({"detail": " ".join(checked["problems"])})
         return Response(add(request, tenant, found, row, _options(found, body)), status=status.HTTP_201_CREATED)

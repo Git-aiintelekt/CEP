@@ -6,6 +6,7 @@ import copy
 
 import pytest
 from django.conf import settings
+from django.core.cache import cache
 from django.db import connections
 from django.utils.text import slugify
 
@@ -260,42 +261,78 @@ def test_a_percent_is_worked_out_in_percent(check):
 
 # ---------------------------------------------------------------------------------------------------- Engagement Reports: on the platform's own datasets
 ENGAGEMENT = PACKS["engagement"]
+WIDE = {"preset": "custom", "from": "2026-01-01", "to": "2027-12-31"}       # a period that holds whatever the local copy has
 
 
-def test_engagement_reports_fit_the_catalogue(check, world):
-    catalogue = {d["key"]: d for d in world.api("get", "/api/v1/insights/catalog/").json()["datasets"]}
-    for report in ENGAGEMENT["reports"]:
-        dataset = catalogue.get(report["dataset"])
-        check(f"{report['name']}: reads a dataset this workspace has", dataset is not None, report["dataset"])
-        if dataset is None:
-            continue
-        fields = {f["key"]: f for f in dataset["fields"]}
-        definition = report["definition"]
-        named = {c["field"] for c in definition["columns"]} | {o["field"] for o in definition["orderBy"]} | {r["field"] for r in definition["filters"]["rules"]} | \
-                {p["field"] for p in definition["parameters"]}
-        check(f"{report['name']}: every field it names is in {dataset['label']}", named <= set(fields), named - set(fields))
-        wrong = [(c["field"], c["aggregate"]) for c in definition["columns"] if c.get("aggregate") and c["field"] in fields and c["aggregate"] not in fields[c["field"]]["aggregates"]]
-        check(f"{report['name']}: every total is one its field takes", not wrong, wrong)
-        check(f"{report['name']}: asks a period on the dataset's own time field", definition["parameters"][-1] == {**definition["parameters"][-1], "operator": "period", "field": dataset["time_field"]})
+def _patch_0103() -> bool:
+    """database patch 0103 is here: the views and catalogue fields the pack reads. Without it the pack cannot be added."""
+    with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
+        cursor.execute("""SELECT EXISTS (SELECT 1 FROM pg_views WHERE schemaname = 'reporting' AND viewname = 'rpt_journey_steps')
+                             AND EXISTS (SELECT 1 FROM report_field WHERE dataset_key = 'messages' AND key = 'unsubscribed')""")
+        return cursor.fetchone()[0]
+
+
+def test_engagement_reports_hold_together(check, world):
+    reports = {r["id"]: r for r in ENGAGEMENT["reports"]}
     messages = [r for r in ENGAGEMENT["reports"] if r["dataset"] == "messages"]
     check("every report on Messages leaves test sends out", all({"field": "test_mode", "operator": "=", "value": False} in r["definition"]["filters"]["rules"] for r in messages))
-    ids = {r["id"]: r for r in ENGAGEMENT["reports"]}
+    check("every report on Messages asks Campaigns with no default, so a report made from it reads every campaign and not the latest one",
+          all(r["definition"]["parameters"][0]["field"] == "campaign_name" and "default" not in r["definition"]["parameters"][0] for r in messages),
+          [r["name"] for r in messages if r["definition"]["parameters"][0].get("field") != "campaign_name"])
+    check("every report asks a period last, 30 days by default", all(r["definition"]["parameters"][-1]["operator"] == "period" and r["definition"]["parameters"][-1]["default"] == "30d"
+                                                                     for r in ENGAGEMENT["reports"]))
+    rated = [f for r in ENGAGEMENT["reports"] for f in r["definition"].get("derived", []) if f["kind"] == "measure"]
+    check("a best or worst list rates a campaign only from 50 sends, an hour from 50 delivered",
+          len(rated) == 4 and all(f["expression"].startswith(("IF(SUM([Sent Count]) >= 50, ", "IF(SUM([Delivered Count]) >= 50, ")) for f in rated), [f["expression"] for f in rated])
     for tile in [t for row in ENGAGEMENT["dashboards"][0]["layout"]["rows"] for t in row["tiles"]]:
-        report = ids.get(tile["report"])
+        report = reports.get(tile["report"])
         check(f"Engagement Overview · {tile['title']}: names a report of the pack", report is not None, tile)
         if tile["show"] == "figure" and report:
             check(f"Engagement Overview · {tile['title']}: its figure is one of the report's totals", any(c["field"] == tile["measure"] and c.get("aggregate") for c in report["definition"]["columns"]))
+        if tile.get("line") == "first" and report:
+            check(f"Engagement Overview · {tile['title']}: its report is sorted by that figure, the highest first, lines without one left out",
+                  report["definition"]["orderBy"] == [{"field": tile["measure"], "direction": "desc"}] and report["definition"]["hideZero"] == [tile["measure"]], report["definition"]["orderBy"])
+    wanted = base_reports._platform_fields(ENGAGEMENT)
+    check("the pack reads four of the platform's datasets, two of them for the measures it blends in", set(wanted) == {"messages", "journey_enrollments", "attributed_orders", "journey_steps"}
+          and wanted["attributed_orders"] == {"amount"} and wanted["journey_steps"] == {"sent", "delivered_rate", "held_back"}, {k: sorted(v) for k, v in wanted.items()})
+    checked = world.api("post", "/api/v1/insights/base-reports/engagement/check/", {})
+    answer = checked.json()
+    if _patch_0103():
+        check("with patch 0103 the check needs no connection, finds the four datasets and every report fits them",
+              checked.status_code == 200 and answer["ok"] and {d["label"] for d in answer["datasets"]} == {"Messages", "Journey Enrollments", "Attributed Orders", "Journey Messages"}, checked.content[:500])
+    else:
+        check("without patch 0103 the check names what the datasets lack and the patch that brings it",
+              checked.status_code == 200 and not answer["ok"] and any("has no" in p or "no journey_steps" in p for p in answer["problems"]) and "database patch 0103" in answer["problems"][-1], checked.content[:500])
+        refused = world.api("post", "/api/v1/insights/base-reports/engagement/add/", {})
+        check("and nothing is added", refused.status_code == 400 and "database patch 0103" in str(refused.json())
+              and world.sql("SELECT count(*) FROM report WHERE name = 'Engagement Totals' AND deleted_at IS NULL", fetch=True)[0][0] == 0, refused.content[:300])
+    check.done()
+
+
+def test_engagement_reports_wait_for_their_fields(check, world, monkeypatch):
+    from apps.insights import catalog
+    real = catalog.dataset
+
+    def without_unsubscribed(tenant_id, key, can_see_pii=False):
+        dataset = real(tenant_id, key, can_see_pii)
+        return {**dataset, "fields": [f for f in dataset["fields"] if f["key"] != "unsubscribed"]} if dataset and key == "messages" else dataset
+    monkeypatch.setattr(catalog, "dataset", without_unsubscribed)
+    checked = world.api("post", "/api/v1/insights/base-reports/engagement/check/", {}).json()
+    check("a catalogue without one of the pack's fields: the check says which dataset lacks it, and what the installation needs",
+          not checked["ok"] and any(p.startswith("Messages has no ") and "unsubscribed" in p for p in checked["problems"]) and "database patch 0103" in checked["problems"][-1], checked["problems"])
+    refused = world.api("post", "/api/v1/insights/base-reports/engagement/add/", {})
+    check("and adding is refused before anything is made", refused.status_code == 400 and world.sql("SELECT count(*) FROM report WHERE name = 'Engagement Totals' AND deleted_at IS NULL", fetch=True)[0][0] == 0,
+          refused.content[:300])
     check.done()
 
 
 def test_adding_engagement_reports(check, world):
+    if not _patch_0103():
+        pytest.skip("patch 0103 is not on this database: the pack cannot be added here (test_engagement_reports_hold_together checks that it says so)")
     listed = world.api("get", "/api/v1/insights/base-reports/").json()
     pack = next((p for p in listed["packs"] if p["key"] == "engagement"), None)
     check("a workspace with Engagement and Insights is offered the pack, with no database to connect", pack is not None and pack["needs"] is None and pack["contents"]["datasets"] == []
           and {c["key"] for c in pack["components"]} == {"cep", "insights"}, pack)
-    checked = world.api("post", "/api/v1/insights/base-reports/engagement/check/", {})
-    check("the check needs no connection and finds the datasets", checked.status_code == 200 and checked.json()["ok"] and {d["label"] for d in checked.json()["datasets"]} == {"Messages", "Journey Enrollments"},
-          checked.content[:300])
     names = [r["name"] for r in ENGAGEMENT["reports"]]
 
     def counts():
@@ -306,22 +343,71 @@ def test_adding_engagement_reports(check, world):
     check("until it is added, Engagement's Reports has no dashboard to open", world.api("get", "/api/v1/me/").json()["insights"]["engagement_overview"] is None)
     added = world.api("post", "/api/v1/insights/base-reports/engagement/add/", {})
     out = added.json()
-    check("adding makes the reports and the dashboard, and no dataset", added.status_code == 201 and out["datasets"] == [] and len(out["reports"]) == len(names) and len(out["dashboards"]) == 1,
+    check("adding makes the nine reports and the dashboard, and no dataset", added.status_code == 201 and out["datasets"] == [] and len(out["reports"]) == len(names) == 9 and len(out["dashboards"]) == 1,
           str(added.content[:400]))
     check("all of it in the workspace", counts() == (before[0] + len(names), before[1] + 1, before[2]), (before, counts()))
     check("filed in the pack's folder", out["folder"]["name"].startswith("Engagement Reports"), out["folder"])
-    totals = world.api("get", f"/api/v1/insights/reports/{next(r['id'] for r in out['reports'] if r['name'] == 'Engagement Totals')}/").json()
+    ids = {r["name"]: r["id"] for r in out["reports"]}
+    totals = world.api("get", f"/api/v1/insights/reports/{ids['Engagement Totals']}/").json()
     check("a report reads the platform's Messages dataset, for the workspace to see", totals["dataset"] == "messages" and totals["visibility"] == "WORKSPACE", (totals.get("dataset"), totals.get("visibility")))
+    asked = {name: world.api("get", f"/api/v1/insights/reports/{ids[name]}/").json()["definition"]["parameters"] for name in names if name != "Journeys in the Period"}
+    check("each report on Messages is saved asking Campaigns with no default: it reads every campaign of the period, on its own and on the dashboard",
+          all(next(p for p in parameters if p["field"] == "campaign_name").get("default") is None for parameters in asked.values()),
+          {name: [p for p in parameters if p["field"] == "campaign_name"] for name, parameters in asked.items()})
     board = world.api("get", f"/api/v1/insights/dashboards/{out['dashboards'][0]['id']}/").json()
     tiles = [t for row in board["layout"]["rows"] for t in row["tiles"]]
     check("the dashboard's tiles point at the new reports, with the channel slicer and the last 30 days",
           {t["report_id"] for t in tiles} <= {r["id"] for r in out["reports"]} and board["layout"]["slicers"][0]["field"] == "channel" and board["period"] == {"preset": "30d"},
           (board["layout"].get("slicers"), board["period"]))
-    for tile_id in ("sent", "by-day", "campaigns", "journeys"):
-        ran = world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/{tile_id}/run/", {})
-        check(f"the {tile_id} tile runs", ran.status_code == 200 and ran.json().get("kind") not in ("missing", "error"), ran.content[:300])
-    sliced = world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/campaigns/run/", {"slicers": {"channel": ["SMS"]}})
-    check("and narrows to a channel", sliced.status_code == 200, sliced.content[:300])
+    check("four of its figures read a report's first line", [t["id"] for t in tiles if t.get("line") == "first"] == ["highest-open", "highest-click", "most-unsubscribes", "best-hour"], tiles)
+
+    def run(tile_id, **body):
+        return world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/{tile_id}/run/", {"period": WIDE, **body})
+    ran = {t["id"]: run(t["id"]) for t in tiles}
+    for tile_id, answer in ran.items():
+        check(f"the {tile_id} tile runs", answer.status_code == 200 and answer.json().get("kind") in ("figure", "view"), answer.content[:300])
+    labels = {tile_id: [c["label"] for c in ran[tile_id].json()["result"]["columns"]] for tile_id in ("campaigns", "journeys")}
+    check("Campaigns in the Period has the mockup's columns, the revenue from Attributed Orders",
+          labels["campaigns"] == ["Campaign", "Channel", "First Sent", "Sent", "Delivered", "Open Rate", "Click Rate", "Unsub.", "Revenue"], labels["campaigns"])
+    check("Journeys in the Period has what became of the journey's messages beside who entered",
+          labels["journeys"] == ["Journey", "Status", "Entered", "Converted", "Conversion Rate", "Revenue", "Sent", "Delivered", "Held Back"], labels["journeys"])
+
+    # the figures against the tables themselves
+    sent, journey_sent = (world.sql(statement, fetch=True)[0][0] for statement in (
+        """SELECT count(*) FROM (SELECT x.status, x.submitted_at, x.campaign_run_id FROM mailer_execution x UNION ALL SELECT x.status, x.submitted_at, x.campaign_run_id FROM sms_execution x) x
+             JOIN campaign_run r ON r.id = x.campaign_run_id WHERE NOT r.test_mode AND x.status NOT IN ('QUEUED', 'FAILED') AND x.submitted_at >= '2026-01-01' AND x.submitted_at < '2028-01-01'""",
+        """SELECT count(*) FROM (SELECT x.status, x.campaign_id, x.campaign_run_id FROM mailer_execution x UNION ALL SELECT x.status, x.campaign_id, x.campaign_run_id FROM sms_execution x) x
+             JOIN campaign_run r ON r.id = x.campaign_run_id JOIN journey_generated_campaign g ON g.campaign_id = x.campaign_id WHERE NOT r.test_mode AND x.status NOT IN ('QUEUED', 'FAILED')"""))
+    check("Sent is every campaign's messages of the period, not the latest campaign's", (ran["sent"].json()["value"] or 0) == sent, (ran["sent"].json()["value"], sent))
+    journeys = ran["journeys"].json()["result"]
+    check("a journey's Sent is its campaigns' messages", sum(row[6] or 0 for row in journeys["rows"]) <= journey_sent and (journey_sent == 0 or any(row[6] for row in journeys["rows"])),
+          (journeys["rows"], journey_sent))
+    best, first = ran["best"].json()["result"], ran["highest-open"].json()
+    check("Highest Open Rate is the first line of Best Campaigns by Open Rate: its name and its rate",
+          first["line"] == "first" and not first["compared"] and (first["label"], first["value"]) == ((best["rows"][0][0], best["rows"][0][1]) if best["rows"] else (None, None)), (first, best["rows"][:1]))
+    hour = ran["best-hour"].json()
+    check("Best Send Hour names an hour of the day", hour["label"] is None or hour["label"].endswith((" AM", " PM")), hour.get("label"))
+
+    # an opt-out a message carried counts on that message's campaign
+    message = world.sql("""SELECT x.id, x.party_id, c.id::text, c.name FROM mailer_execution x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id
+                            WHERE NOT r.test_mode AND x.delivered_at IS NOT NULL AND x.submitted_at >= '2026-01-01'
+                              AND NOT EXISTS (SELECT 1 FROM consent_record o WHERE o.mailer_execution_id = x.id) ORDER BY x.submitted_at DESC LIMIT 1""", fetch=True)
+    if message:
+        message_id, party, campaign_id, campaign = message[0]
+
+        def unsubscribed():
+            rows = world.api("post", "/api/v1/insights/reports/preview/", {"dataset": "messages", "definition": {
+                "columns": [{"field": "campaign_name"}, {"field": "unsubscribed", "aggregate": "sum"}, {"field": "unsubscribe_rate", "aggregate": "calc"}],
+                "filters": {"combinator": "and", "rules": [{"field": "campaign_name", "operator": "=", "value": campaign}, {"field": "submitted_at", "operator": "between", "value": ["2026-01-01", "2027-12-31"]}]}}}).json()["rows"]
+            return rows[0][1:] if rows else [0, None]
+        was = unsubscribed()
+        world.sql("""INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, campaign_id, mailer_execution_id, occurred_at)
+                     VALUES (current_setting('app.current_tenant')::uuid, %s, 'EMAIL', 'OPT_OUT', 'UNSUBSCRIBE_LINK', '{}', %s, %s, now())""", [party, campaign_id, message_id])
+        cache.clear()                                                  # a report's rows are kept a minute: read them again
+        now = unsubscribed()
+        check("an opt-out carried by a message is one more Unsubscribed for its campaign, and moves its rate", now[0] == was[0] + 1 and now[1] and now[1] > (was[1] or 0), (was, now))
+    sliced = run("campaigns", slicers={"channel": ["SMS"]})
+    check("the channel slicer narrows the messages, and the blended revenue stays the campaign's", sliced.status_code == 200 and sliced.json()["kind"] == "view" and sliced.json()["sliced"] == ["channel"], sliced.content[:300])
     if _table("report_base_install"):
         mine = next(p for p in world.api("get", "/api/v1/insights/base-reports/").json()["packs"] if p["key"] == "engagement")["added"]
         check("the addition names the dashboard it made, for Engagement's Reports to open", out["recorded"] and mine[0]["dashboards"] == [{"id": board["id"], "name": "Engagement Overview"}], mine)
@@ -342,4 +428,66 @@ def test_engagement_reports_need_engagement(check, world, monkeypatch):
     check("a workspace with Insights alone is not offered the pack", all(p["key"] != "engagement" for p in listed["packs"]), [p["key"] for p in listed["packs"]])
     refused = world.api("post", "/api/v1/insights/base-reports/engagement/add/", {})
     check("and cannot add it", refused.status_code == 400 and "Engagement" in str(refused.json()), refused.content[:300])
+    check.done()
+
+
+def test_the_reporting_tables_keep_the_views_columns(check):
+    """the ClickHouse tables are loaded column by column from the PostgreSQL views: a column the loader names must be in its view"""
+    from apps.insights import clickhouse
+    with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
+        cursor.execute("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'reporting'")
+        found: dict[str, set] = {}
+        for view, column in cursor.fetchall():
+            found.setdefault(view, set()).add(column)
+    if not found:
+        pytest.skip("this login cannot read the reporting views' columns")
+    patched = _patch_0103()
+    for key, spec in clickhouse.TABLES.items():
+        view = spec["view"].split(".")[1]
+        if view not in found and not patched and key == "journey_steps":
+            continue                                                   # the view patch 0103 makes
+        named = {name for name, _ in spec["columns"]}
+        new = {"campaign_channel", "unsubscribed_n", "journey_name"} if not patched else set()
+        check(f"{key}: every column the loader copies is in {spec['view']}", named - new <= found.get(view, set()), sorted(named - new - found.get(view, set())))
+        check(f"{key}: its key and its recent column are among them", {*spec["key"], *([spec["recent"]] if spec["recent"] else [])} <= named)
+    statements = []
+    original = clickhouse.execute
+    clickhouse.execute = lambda sql, **_: statements.append(sql)
+    try:
+        clickhouse.ensure_schema(clickhouse.Connection(url="http://ch.test", user="u", password="p", database="cep_reporting"))
+    finally:
+        clickhouse.execute = original
+    altered = [s for s in statements if s.startswith("ALTER TABLE cep_reporting.rpt_messages ")]
+    check("a table made before a column was added gains it: one ALTER per table, each column added only if it is missing",
+          len(altered) == 1 and "ADD COLUMN IF NOT EXISTS unsubscribed_n Int32" in altered[0] and "ADD COLUMN IF NOT EXISTS tenant_id" not in altered[0]
+          and sum(s.startswith("CREATE TABLE IF NOT EXISTS") for s in statements) == len(clickhouse.TABLES) == 5, statements[:3])
+    check.done()
+
+
+def test_a_figure_reads_its_reports_first_line(check, world):
+    """a dashboard figure with line "first": the name and the figure of the report's first line, as the report sorts it (no patch needed)"""
+    definition = {"columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}, {"field": "open_rate", "aggregate": "calc"}],
+                  "filters": {"combinator": "and", "rules": [{"field": "test_mode", "operator": "=", "value": False}]}, "orderBy": [{"field": "sent", "direction": "desc"}],
+                  "parameters": [{"key": "campaign", "field": "campaign_name", "label": "Campaigns", "operator": "in", "required": False}], "limit": 100}
+    report = world.api("post", "/api/v1/insights/reports/", {"name": "ZZ Largest Campaigns", "dataset": "messages", "definition": definition, "visibility": "WORKSPACE"})
+    check("the report is made", report.status_code == 201, report.content[:300])
+    tile = {"id": "largest", "report_id": report.json()["id"], "show": "figure", "measure": "sent", "line": "first", "title": "Largest Campaign"}
+    board = world.api("post", "/api/v1/insights/dashboards/", {"name": "ZZ First Lines", "period": WIDE, "compare": True, "layout": {"rows": [
+        {"width": "2", "tiles": [tile, {"id": "total", "report_id": report.json()["id"], "show": "figure", "measure": "sent", "title": "Sent"}]}]}})
+    check("a dashboard keeps the figure's line", board.status_code == 201 and board.json()["layout"]["rows"][0]["tiles"][0]["line"] == "first"
+          and "line" not in board.json()["layout"]["rows"][0]["tiles"][1], board.content[:400])
+    largest = world.sql("""SELECT c.name, count(*) FROM mailer_execution x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id
+                            WHERE NOT r.test_mode AND x.status NOT IN ('QUEUED', 'FAILED') AND x.submitted_at >= '2026-01-01' AND x.submitted_at < '2028-01-01' GROUP BY 1 ORDER BY 2 DESC LIMIT 2""", fetch=True)
+    first = world.api("post", f"/api/v1/insights/dashboards/{board.json()['id']}/tiles/largest/run/", {}).json()
+    total = world.api("post", f"/api/v1/insights/dashboards/{board.json()['id']}/tiles/total/run/", {}).json()
+    check("the figure is a figure, never compared with the period before, and says which column names its line",
+          first["kind"] == "figure" and first["line"] == "first" and first["compared"] is False and first["previous"] is None and first["column"]["key"] == "sent"
+          and (first["label_column"] or {}).get("key") == "campaign_name", first)
+    if largest and (len(largest) == 1 or largest[0][1] > largest[1][1]):          # one campaign clearly ahead (texts aside): the first line is that one
+        check("it reads the first line of the report as the report sorts it", first["label"] == largest[0][0] and first["value"] >= largest[0][1], (first["label"], first["value"], largest))
+    if not largest:
+        check("a period with no line gives no name and no figure", first["label"] is None and first["value"] is None, first)
+    check("the plain figure beside it is still the period's total", total["kind"] == "figure" and "line" not in total and (not largest or total["value"] >= (first["value"] or 0)), total)
+    sliced = world.api("post", f"/api/v1/insights/dashboards/{board.json()['id']}/tiles/largest/run/", {"period": {"preset": "custom", "from": "2001-01-01", "to": "2001-01-31"}}).json()
+    check("a period with nothing sent: no name, no figure, no error", sliced["kind"] == "figure" and sliced["label"] is None and sliced["value"] is None, sliced)
     check.done()

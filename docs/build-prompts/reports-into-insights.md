@@ -66,20 +66,59 @@ folder, seven reports and the dashboard in one transaction; a workspace without 
 Done when: on a workspace with the pack added, Reports in Engagement's menu opens Engagement Overview with real figures;
 on one without, Reports opens the old page.
 
-## R2 · The missing figures
+## R2 · The missing figures (built)
 
-Database patch `0103_engagement_reports.sql` (applied only on the word "apply patch 0103", server by server; the ClickHouse
-mirror in `apps/insights/clickhouse.py` gets the same columns).
+**What the code showed.** Insights could already work out three of the figures with no new column: First Sent (the earliest send
+of a campaign's messages in the period, a "min" total), Send Hour (a custom field of the report, `HOUR` in the workspace's own
+time) and Revenue (Attributed Orders blended into the Messages report). So the patch is smaller than planned above.
 
-- `reporting.rpt_messages`: `campaign_id`, `unsubscribed_n` (an opt-out recorded against the campaign by that customer),
-  `send_hour` (workspace time), `journey_name` (the campaign's origin journey), and the campaign's first send.
-- A campaign's **Revenue** and **Conversions** beside its message figures.
-- `reporting.rpt_journey_steps` (new): message steps held back by governance or failed, per journey per day.
-- Catalogue rows for the new fields; new measures Unsubscribed, Unsubscribe Rate, Held Back.
-- The pack gains: First Sent, Unsub. and Revenue in Campaigns in the Period; Sent, Delivered and Held Back in Journeys in
-  the Period; **Best and Worst** as in the mockup (Highest Open Rate, Highest Click Rate, Most Unsubscribes, Best Send Hour),
-  which needs a four-line tile the dashboard does not have yet. The pack stays version 1: R1 and R2 ship together, before
-  any server adds it.
+Database patch `0103_engagement_reports.sql` (applied only on the word "apply patch 0103", server by server). It replaces views
+with their columns added at the end; no table is altered and no row is rewritten.
+
+- `reporting.rpt_messages` gains `campaign_channel` (the campaign's own channel: EMAIL, SMS, MMS, MULTI), `unsubscribed_n` (an
+  opt-out that this message's link or reply carried) and `journey_name` (the journey that made the campaign). A report that reads
+  none of them does not pay for the joins (checked on the query plan).
+- `reporting.rpt_attributed_orders` gains `campaign_channel`.
+- `reporting.rpt_journey_steps` (new), dataset **Journey Messages**: a row per message a journey's campaigns sent (test runs
+  left out) and a row per message step held back by governance or failed. Linked to Journey Enrollments by the journey.
+- Catalogue: Campaign Channel, Journey, First Sent, Unsubscribed and Unsubscribe Rate on Messages; Campaign Channel on
+  Attributed Orders; the Journey Messages fields.
+- **A correction to what is there.** Messages and Attributed Orders were linked on "channel" as well as the campaign's name.
+  That never matched: a message's channel is EMAIL or SMS, an order's is where it was placed (ONLINE, STORE). A report grouped
+  by campaign and channel showed no revenue. They are now linked on the campaign's own channel. Only the seeded pairs change. A
+  saved report that blends the two and groups by the message's Channel will ask to be grouped by Campaign Channel instead.
+- The reporting role may read `consent_record`, `journey_generated_campaign`, `journey_node_execution` and `journey_node`.
+- ClickHouse (`apps/insights/clickhouse.py`): the same columns and the new table; a table made earlier gains a missing column
+  the next time the workspace's data is refreshed. Not run against a live ClickHouse server here.
+
+The pack (still version 1; nine reports):
+- **Campaigns in the Period**: Campaign, Channel (the campaign's), First Sent, Sent, Delivered, Open Rate, Click Rate, Unsub.,
+  Revenue: the mockup's columns. One line per campaign, newest first.
+- **Journeys in the Period**: Journey, Status, Entered, Converted, Conversion Rate, Revenue, Sent, Delivered, Held Back.
+- **Best Campaigns by Open Rate**, **by Click Rate**, **Campaigns by Unsubscribe Rate**: the five highest. A campaign is rated
+  only from 50 sends, as on the old page (the old page fell back to every campaign when none had 50; here the list is empty).
+- **Open Rate by Send Hour**: emails by the hour they went out, the best hour first; an hour counts from 50 delivered.
+- **Best and Worst**: four figures in a row (Highest Open Rate, Highest Click Rate, Most Unsubscribes, Best Send Hour), each
+  the first line of one of the reports above: its figure, and its name under it.
+
+Engine: a dashboard figure may read a report's first line (`line: "first"` on a figure tile) in place of the period's total.
+The PDF, the slides and a tile's "Show the Numbers" print the line's name.
+
+**A fault of R1, corrected here.** Insights gives every new report on a dataset with a campaign a Campaign filter, the latest
+campaign by default. The pack's reports did not ask for campaigns themselves, so each got that filter and the dashboard would
+have counted the latest campaign only. Every report on Messages now asks Campaigns with no default.
+
+**Where this differs from the mockup, and what is not built** (raised, not decided):
+- Best and Worst is four figures in a row, not one tile of four lines: a dashboard tile reads one report, and the four lines
+  come from four. One tile of four lines needs a tile that reads several reports.
+- The dashboard editor's Add panel cannot make a first-line figure by hand yet; the pack makes them, and the editor keeps them.
+- Unsubscribes are counted on the message whose link or reply carried the opt-out, on the day it was sent. The old page counts
+  an opt-out by the campaign recorded on it, on the day it happened. An opt-out with no message (the preference centre) is
+  not in the dashboard's count.
+- A campaign's Revenue is its orders placed in the period (Attributed Orders). The old page shows the campaign's whole
+  attributed revenue whatever the period.
+- In a tile of nine columns the campaign's name is cut short at a normal window width: the grid gives every column the same
+  width (columns can be dragged wider). Changing the grid's widths is a change to every Insights report, so it is left.
 
 ## R3 · Compare from the tile, links and help
 

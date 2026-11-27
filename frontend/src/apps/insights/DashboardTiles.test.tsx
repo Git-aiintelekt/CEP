@@ -87,3 +87,38 @@ test('the CSV: a header of labels, values as they are, quotes where needed', () 
     result: { columns: [{ key: 'c', label: 'Campaign', type: 'string' }, { key: 's', label: 'Sent', type: 'number' }], rows: [['Fall, "Launch"', 1200], [null, 3]], row_count: 2, duration_ms: 1, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: false } } as never)
   expect(toCsv(table!)).toBe('Campaign,Sent\r\n"Fall, ""Launch""",1200\r\n,3')
 })
+
+const firstLine = (label: string | null, value: number | null) => ({ kind: 'figure', line: 'first', value, label, label_column: { key: 'campaign_name', label: 'Campaign', type: 'string', format: null }, previous: null, compared: false,
+  column: { key: 'c_open_rate', label: 'Open Rate', type: 'number', format: 'percent', aggregate: 'calc' }, own_dates: false, bounds: { from: '2026-10-01', to: '2026-10-30', previous_from: '2026-09-01', previous_to: '2026-09-30' },
+  report: { id: 'rep-1', name: 'Best Campaigns by Open Rate', version: 1 }, cached: false, sliced: [] })
+
+async function renderWithFigure(answer: unknown) {
+  installMockApi({ me: withInsights as never })
+  const real = globalThis.fetch
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => String(input).includes('/tiles/t2/run/')
+    ? Promise.resolve(new Response(JSON.stringify(answer), { status: 200, headers: { 'Content-Type': 'application/json' } })) : real(input, init))
+  signIn('/insights/dashboards/dash-1')
+  vi.resetModules()
+  const { default: App } = await import('@/App').then(cepReady)
+  render(<App />)
+  return screen.findByRole('region', { name: 'Best Campaigns by Open Rate' })
+}
+
+test('a figure read from a report\'s first line shows that line\'s name under its figure, with no comparison', async () => {
+  const figure = await renderWithFigure(firstLine('Winter Coat Launch', 36.2))
+  await vi.waitFor(() => expect(within(figure).getByText('Winter Coat Launch')).toBeTruthy())
+  expect(within(figure).getByText('36.2%')).toBeTruthy()
+  expect(within(figure).getByText('Open Rate')).toBeTruthy()
+  expect(within(figure).queryByText(/vs previous|No previous period/)).toBeNull()
+})
+
+test('a first-line figure with no line in the period says so in place of a name', async () => {
+  const figure = await renderWithFigure(firstLine(null, null))
+  await vi.waitFor(() => expect(within(figure).getByText('Nothing to rank in this period.')).toBeTruthy())
+  expect(within(figure).getByText('—')).toBeTruthy()
+})
+
+test('the numbers of a first-line figure: the line\'s name beside its figure', () => {
+  const table = tileTable(firstLine('Fall Launch', 31.5) as never)
+  expect(toCsv(table!)).toBe('Campaign,Open Rate\r\nFall Launch,31.5')
+})

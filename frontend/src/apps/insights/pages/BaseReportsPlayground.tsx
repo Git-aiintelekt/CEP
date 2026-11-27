@@ -35,13 +35,13 @@ const CHECK: BasePackCheck = { ok: true, campaigns: 22, days: 90, problems: [], 
 const ADDED: BasePackAdded = { version: 1, recorded: true, folder: { id: 'fold-1', name: 'Email Campaign Reports' }, datasets: DATASETS.map((label, i) => ({ key: `x_${i}`, label })),
   reports: REPORTS.map((name, i) => ({ id: `r${i}`, name })), dashboards: DASHBOARDS.map((name, i) => ({ id: `d${i}`, name })) }
 
-const ENGAGEMENT_REPORTS = ['Engagement Totals', 'Sent and Opened by Day', 'Campaigns in the Period', 'Best Campaigns by Open Rate', 'Best Campaigns by Click Rate', 'Compare Campaigns',
-  'Journeys in the Period']
+const ENGAGEMENT_REPORTS = ['Engagement Totals', 'Sent and Opened by Day', 'Campaigns in the Period', 'Best Campaigns by Open Rate', 'Best Campaigns by Click Rate', 'Campaigns by Unsubscribe Rate',
+  'Open Rate by Send Hour', 'Compare Campaigns', 'Journeys in the Period']
 const ENGAGEMENT: BaseReportsCatalog = {
   can_add: true, recorded: true, connections: [],
   packs: [{
     key: 'engagement', version: 1, name: 'Engagement Reports', source: 'Engagement',
-    summary: 'What Engagement’s Reports page shows, as reports you can change: totals, sent and opened by day, each campaign, the best campaigns, a comparison and the journeys; and the Engagement Overview dashboard.',
+    summary: 'What Engagement’s Reports page shows, as reports you can change: totals, sent and opened by day, each campaign with its revenue, the best and worst campaigns, the best send hour, a comparison and the journeys; and the Engagement Overview dashboard.',
     needs: null, contents: { datasets: [], reports: ENGAGEMENT_REPORTS, dashboards: ['Engagement Overview'] }, added: [],
   }],
 }
