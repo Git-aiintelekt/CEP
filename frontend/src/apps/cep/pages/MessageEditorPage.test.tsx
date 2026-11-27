@@ -83,6 +83,7 @@ test('MMS: only MMS-safe pictures are offered, the chosen one is previewed and s
 
   await user.click(screen.getByRole('button', { name: 'Choose from Library' }))
   expect(screen.queryByRole('button', { name: 'Use modern.webp' })).toBeNull() // WebP is not reliably delivered over MMS
+  expect(screen.queryByRole('button', { name: 'Use thumbnail.jpg' })).toBeNull() // under 600 × 600 pixels
   await user.click(await screen.findByRole('button', { name: 'Use lookbook.jpg' }))
   expect(screen.queryByText(/No picture yet/)).toBeNull()
   expect(within(screen.getByLabelText('Preview')).getByAltText('Attached picture').getAttribute('src')).toBe('http://cdn.test/lookbook.jpg')
