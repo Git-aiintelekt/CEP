@@ -1,0 +1,12 @@
+-- 0103 (2026-11-27): Engagement's own Reports as Insights reports (docs/build-prompts/reports-into-insights.md, R2). The reporting
+-- views gain what the Engagement Reports pack reads: reporting.rpt_messages the campaign's own channel, whether the message carried an
+-- opt-out, and the journey that made its campaign; reporting.rpt_attributed_orders the campaign's own channel; and a new view,
+-- reporting.rpt_journey_steps (the messages a journey sent, and the message steps it held back or could not send), with its dataset
+-- Journey Messages, linked to Journey Enrollments. The catalogue gains Campaign Channel, Journey, First Sent, Unsubscribed and
+-- Unsubscribe Rate on Messages. The reporting role may read consent_record and the journey tables the views read now.
+-- One correction to what is there: Messages and Attributed Orders were linked on "channel" as well as the campaign's name, which
+-- never matched (EMAIL or SMS against ONLINE or STORE); the link now uses the campaign's own channel. Only the seeded pairs are changed.
+-- Views are replaced with their columns added at the end; no table is altered and no row is rewritten. Re-runs the Platform
+-- Operations layer, which is idempotent. The code works before this patch, but the Engagement Reports pack cannot be added until it
+-- is applied (its check names the missing fields). Apply with database/apply_patch.sh 0103_engagement_reports.sql.
+\ir ../CEP_Database_Schema_Platform_Operations.sql

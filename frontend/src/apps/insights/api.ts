@@ -103,8 +103,9 @@ export const benchmarksApi = {
 export const baseReportsApi = {
   list: (signal?: AbortSignal) => api.get<BaseReportsCatalog>('/insights/base-reports/', undefined, signal),
   sources: (pack: string, connectionId: string) => api.post<BasePackSources>(`/insights/base-reports/${pack}/sources/`, { connection_id: connectionId }),
-  check: (pack: string, connectionId: string, options: BasePackOptions) => api.post<BasePackCheck>(`/insights/base-reports/${pack}/check/`, { connection_id: connectionId, options }),
-  add: (pack: string, connectionId: string, options: BasePackOptions) => api.post<BasePackAdded>(`/insights/base-reports/${pack}/add/`, { connection_id: connectionId, options }),
+  /** connectionId null: a pack on the platform's own datasets, with nothing to connect and no options */
+  check: (pack: string, connectionId: string | null, options: BasePackOptions) => api.post<BasePackCheck>(`/insights/base-reports/${pack}/check/`, connectionId ? { connection_id: connectionId, options } : {}),
+  add: (pack: string, connectionId: string | null, options: BasePackOptions) => api.post<BasePackAdded>(`/insights/base-reports/${pack}/add/`, connectionId ? { connection_id: connectionId, options } : {}),
 }
 
 export const dashboardsApi = {

@@ -9,7 +9,8 @@ in one of its views or one of its figures, on one period applied to every tile t
 
 A row holds one to four tiles of equal width, or a wide and a narrow one ("2-1"). A tile shows a report as a grid, chart,
 hierarchy or pivot, or as a figure: one of its measures totalled over the period, with the previous period beside it when
-the dashboard compares. A report with its own rule on the time field keeps it (`own_dates`).
+the dashboard compares. A figure with `line: "first"` reads the report's first line instead (its name and that measure): the
+best campaign of a report sorted best first. A report with its own rule on the time field keeps it (`own_dates`).
 
 Pages (`layout.pages`: [{id, title, rows}], up to 10) are tabs of rows; a one-page dashboard keeps `layout.rows`. Every
 page's tiles run, export and deliver; the PDF names a tile's page before its title. Saved views
@@ -291,7 +292,8 @@ def _checked_tile(tile, where: str, ids: set, wanted: dict) -> dict:
         return {**out, "label": label, "action": {"kind": action["kind"], "id": target}}
     report_id = str(tile.get("report_id") or "")
     wanted.setdefault(report_id, []).append((where, tile))
-    return {**out, "report_id": report_id, **({"measure": str(tile["measure"])} if tile["show"] == "figure" else {})}
+    return {**out, "report_id": report_id, **({"measure": str(tile["measure"])} if tile["show"] == "figure" else {}),
+            **({"line": "first"} if tile["show"] == "figure" and tile.get("line") == "first" else {})}
 
 
 def _checked_rows(rows, base: str, ids: set, wanted: dict) -> list[dict]:
@@ -512,7 +514,7 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
         shaped = raw if own_dates or not time_field else _with_period(raw, time_field, start, end)
         if sliced_rules:
             shaped = _with_rules(shaped, sliced_rules)
-        if tile["show"] == "figure":
+        if tile["show"] == "figure" and tile.get("line") != "first":
             shaped = {**shaped, "columns": [c for c in raw.get("columns", []) if c.get("field") == tile.get("measure") and c.get("aggregate")], "orderBy": [], "limit": 1}
             shaped.pop("view", None)
             shaped.pop("hideZero", None)                                # one figure, the whole total: no lines to hide
@@ -522,6 +524,8 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
             raise RunProblem(f"The report behind this tile no longer fits its dataset ({exc.field}: {exc}).") from None
 
     try:
+        if tile["show"] == "figure" and tile.get("line") == "first":
+            return _first_line(tenant, user, dataset, report, tile, prepared(bounds["from"], bounds["to"]), mask, own_dates, bounds, about, sliced), 200
         if tile["show"] == "figure":
             now = runner.run(tenant, user, dataset, prepared(bounds["from"], bounds["to"]), "run", limit=1, report_id=report["id"], report_version=report["version"], mask_pii=mask)
             previous = None
@@ -540,6 +544,22 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
         return {"kind": "refused", "detail": str(exc), "outcome": "FAILED"}, 422
     except runner.RunRefused as exc:
         return {"kind": "refused", "detail": exc.reason, "outcome": exc.outcome}, 422
+
+
+def _first_line(tenant, user, dataset: dict, report: dict, tile: dict, definition: dict, mask: bool, own_dates: bool, bounds: dict, about: dict, sliced: list) -> dict:
+    """a figure from the report's first line as the report sorts it: that line's measure, and its name (the first column that is
+    not a total); nothing when the period has no line"""
+    result = runner.run(tenant, user, dataset, definition, "run", limit=1, report_id=report["id"], report_version=report["version"], mask_pii=mask)
+    keys = [c["key"] for c in result["columns"]]
+    name_key = next((c["field"] for c in definition["columns"] if "aggregate" not in c), None)
+    if tile.get("measure") not in keys:
+        raise RunProblem("The report behind this tile no longer has the figure it shows.")
+    at, name_at = keys.index(tile["measure"]), keys.index(name_key) if name_key in keys else None
+    row = result["rows"][0] if result["rows"] else None
+    return {"kind": "figure", "value": row[at] if row else None, "previous": None, "compared": False, "column": result["columns"][at], "line": "first",
+            "label": None if row is None or name_at is None or row[name_at] is None else str(row[name_at]),
+            "label_column": result["columns"][name_at] if name_at is not None else None,
+            "own_dates": own_dates, "bounds": bounds, "report": about, "cached": result["cached"], "sliced": sliced}
 
 
 def _summary_tile(tenant, user, report: dict, definition: dict, dataset: dict, bounds: dict, about: dict, sliced: list, mask: bool, ai: bool) -> dict:

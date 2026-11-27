@@ -2,7 +2,8 @@
 workspace as its own copies. Adding one asks only what the pack needs from this workspace (a connection, the databases on it
 holding the pack's tables, its options), checks it, test-runs each dataset, then makes the folder, the datasets, their shared
 formulas, the reports and the dashboards through the same endpoints as by hand, in one transaction: all or nothing. Later
-versions of a pack never change what a workspace has; adding it again makes new copies.
+versions of a pack never change what a workspace has; adding it again makes new copies. A pack on the platform's own datasets
+(Engagement Reports) needs no connection: it is checked against the workspace's catalogue and its reports and dashboards are made.
 
     GET   /insights/base-reports/                        the packs this workspace's components fit (those chosen at onboarding marked),
                                                          what it added, and the connections a pack can read
@@ -68,7 +69,7 @@ def chosen(tenant) -> list[str]:
 def _added(tenant_id) -> list[dict]:
     if not present():
         return []
-    return _q("""SELECT i.pack_key, i.version, i.created_at, i.folder_id::text, f.name AS folder_name, u.display_name AS added_by
+    return _q("""SELECT i.pack_key, i.version, i.created_at, i.folder_id::text, f.name AS folder_name, u.display_name AS added_by, i.made
                    FROM report_base_install i LEFT JOIN report_folder f ON f.id = i.folder_id AND f.deleted_at IS NULL
                    LEFT JOIN app_user u ON u.id = i.created_by
                   WHERE i.tenant_id = %s ORDER BY i.created_at DESC""", [str(tenant_id)])
@@ -78,13 +79,40 @@ def _fits(pack: dict, row: dict) -> bool:
     return row["engine"].startswith(pack["needs"]["engine"])
 
 
-def describe(pack: dict, added: list[dict] | None = None, picked: list[str] | None = None) -> dict:
+def _made(row: dict, kind: str) -> list[str]:
+    made = row.get("made") or {}
+    made = json.loads(made) if isinstance(made, str) else made
+    return [str(item) for item in made.get(kind) or []]
+
+
+def _live_dashboards(added: list[dict]) -> dict:
+    """the dashboards the additions made that this workspace still has, by id"""
+    ids = [pk for row in added for pk in _made(row, "dashboards")]
+    if not ids:
+        return {}
+    return {r["id"]: r["name"] for r in _q("SELECT id::text, name FROM dashboard WHERE id::text = ANY(%s) AND deleted_at IS NULL", [ids])}
+
+
+def engagement_overview(tenant_id, user_id) -> str | None:
+    """the Engagement Overview dashboard this person can open, the newest addition's first: where Engagement's Reports leads"""
+    if not present():
+        return None
+    rows = _q("""SELECT d.id::text FROM report_base_install i
+                   JOIN dashboard d ON d.tenant_id = i.tenant_id AND d.deleted_at IS NULL AND i.made -> 'dashboards' ? d.id::text
+                  WHERE i.tenant_id = %s AND i.pack_key = 'engagement' AND (d.visibility = 'WORKSPACE' OR d.owner_user_id = %s)
+                  ORDER BY i.created_at DESC LIMIT 1""", [str(tenant_id), str(user_id)])
+    return rows[0]["id"] if rows else None
+
+
+def describe(pack: dict, added: list[dict] | None = None, picked: list[str] | None = None, dashboards: dict | None = None) -> dict:
     mine = [a for a in added or [] if a["pack_key"] == pack["key"]]
+    live = dashboards or {}
     return {"key": pack["key"], "version": pack["version"], "name": pack["name"], "summary": pack["summary"], "source": pack.get("source"),
             "components": [{"key": k, "name": catalog.component_name(k)} for k in needs(pack)], "chosen": pack["key"] in (picked or []),
-            "needs": {"label": pack["needs"]["label"], "engine": pack["needs"]["engine"], "tables": pack["needs"]["tables"]},
+            "needs": {"label": pack["needs"]["label"], "engine": pack["needs"]["engine"], "tables": pack["needs"]["tables"]} if pack.get("needs") else None,
             "contents": {"datasets": [d["label"] for d in pack["datasets"]], "reports": [r["name"] for r in pack["reports"]], "dashboards": [d["name"] for d in pack["dashboards"]]},
-            "added": [{"version": a["version"], "at": a["created_at"], "folder_id": a["folder_id"], "folder_name": a["folder_name"], "by": a["added_by"]} for a in mine]}
+            "added": [{"version": a["version"], "at": a["created_at"], "folder_id": a["folder_id"], "folder_name": a["folder_name"], "by": a["added_by"],
+                       "dashboards": [{"id": pk, "name": live[pk]} for pk in _made(a, "dashboards") if pk in live]} for a in mine]}
 
 
 def _connection(tenant, pack: dict, connection_id) -> dict:
@@ -149,15 +177,54 @@ def name_tables(rows) -> list[dict]:
 
 
 def _options(pack: dict, body: dict) -> dict:
+    if not pack.get("checked"):
+        return {}
     try:
         return pack["checked"](body.get("options") or {})
     except OptionError as exc:
         raise ValidationError({"options": str(exc)}) from None
 
 
+def _platform_fields(pack: dict) -> dict[str, set]:
+    """the catalogue fields a pack on the platform's datasets reads, by dataset: each report's columns, sorts, rules and questions
+    (its own custom fields apart), and the measures it takes from a linked dataset"""
+    wanted: dict[str, set] = {}
+    for report in pack["reports"]:
+        definition = report["definition"]
+        own = {d["key"] for d in definition.get("derived") or []}
+        named = {c["field"] for c in definition["columns"]} | {o["field"] for o in definition.get("orderBy") or []} | \
+                {r["field"] for r in definition["filters"]["rules"] if "field" in r} | {p["field"] for p in definition.get("parameters") or []}
+        wanted.setdefault(report["dataset"], set()).update(f for f in named - own if "." not in f)
+        blend = definition.get("blend")
+        if blend:
+            wanted.setdefault(blend["dataset"], set()).update(c["field"] for c in blend["columns"])
+    return wanted
+
+
 def check(tenant, pack: dict, row: dict, options: dict) -> dict:
-    """each dataset's SQL run for its first rows, its columns held to the pack's fields; the campaigns sent in the last CHECK_DAYS"""
+    """each dataset's SQL run for its first rows, its columns held to the pack's fields; the campaigns sent in the last CHECK_DAYS.
+    A pack on the platform's datasets: each dataset its reports name is one this workspace has, with the fields they read."""
     out, problems = [], []
+    if row is None:
+        wanted = _platform_fields(pack)
+        for key in sorted(wanted):
+            dataset = catalog.dataset(tenant.pk, key, True)
+            missing = sorted(wanted[key] - {f["key"] for f in dataset["fields"]}) if dataset else []
+            if dataset is None:
+                problems.append(f"This workspace has no {key} dataset.")
+            elif missing:
+                problems.append(f"{dataset['label']} has no {', '.join(missing)}.")
+            out.append({"label": dataset["label"] if dataset else key, "ok": dataset is not None and not missing, "seconds": 0})
+        if not problems:                                               # the fields are there: each report as the engine itself checks it
+            from apps.insights.definition import DefinitionError, validate
+            for report in pack["reports"]:
+                try:
+                    validate(catalog.dataset(tenant.pk, report["dataset"], True), report["definition"])
+                except DefinitionError as exc:
+                    problems.append(f"{report['name']}: {exc} ({exc.field})")
+        elif pack.get("requires"):
+            problems.append(f"This installation needs {pack['requires']} before the pack can be added.")
+        return {"ok": not problems, "datasets": out, "campaigns": None, "days": CHECK_DAYS, "problems": problems}
     for dataset in pack["datasets"]:
         started = time.monotonic()
         try:
@@ -232,7 +299,7 @@ def add(request, tenant, pack: dict, row: dict, options: dict) -> dict:
             for dataset in pack["datasets"]:
                 out = _call(request, databases.QueryDatasetView, "post", f"the dataset {dataset['label']}",
                             {"label": dataset["label"], "description": dataset["description"], "sql": dataset["sql"](options), "fields": dataset["fields"],
-                             "time_field": dataset["time_field"], "primary_key": dataset["primary_key"]}, connection_id=row["id"])
+                             "time_field": dataset["time_field"], "primary_key": dataset["primary_key"]}, connection_id=row["id"])     # a pack with datasets has a connection
                 keys[dataset["id"]] = out["key"]
                 made["datasets"].append({"key": out["key"], "label": out["label"]})
             for formula in pack["formulas"]:
@@ -241,7 +308,7 @@ def add(request, tenant, pack: dict, row: dict, options: dict) -> dict:
             report_ids = {}
             for report in pack["reports"]:
                 out = _call(request, api.ReportListView, "post", f"the report {report['name']}",
-                            {"name": report["name"], "dataset": keys[report["dataset"]], "definition": report["definition"], "description": report["description"], "visibility": "WORKSPACE"})
+                            {"name": report["name"], "dataset": keys.get(report["dataset"], report["dataset"]), "definition": report["definition"], "description": report["description"], "visibility": "WORKSPACE"})
                 _call(request, api.ReportView, "put", f"filing {report['name']}", {"row_version": out["row_version"], "folder_id": folder["id"]}, report_id=out["id"])
                 report_ids[report["id"]] = out["id"]
                 made["reports"].append({"id": out["id"], "name": out["name"]})
@@ -253,7 +320,7 @@ def add(request, tenant, pack: dict, row: dict, options: dict) -> dict:
             if present():
                 _q("""INSERT INTO report_base_install (tenant_id, pack_key, version, connection_id, options, folder_id, made, created_by)
                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                   [str(tenant.pk), pack["key"], pack["version"], row["id"], json.dumps(options), folder["id"],
+                   [str(tenant.pk), pack["key"], pack["version"], row["id"] if row else None, json.dumps(options), folder["id"],
                     json.dumps({"datasets": [d["key"] for d in made["datasets"]], "reports": [r["id"] for r in made["reports"]], "dashboards": [d["id"] for d in made["dashboards"]]}),
                     str(request.user.pk)])
     except Refused as exc:
@@ -276,7 +343,8 @@ class BaseReportsView(APIView):
         may_add = _has(request, "report.admin") or _has(request, "user.admin")
         picked = chosen(tenant)
         packs = sorted(fitting(catalog.components_of(tenant.pk)), key=lambda p: p["key"] not in picked)       # the chosen ones first
-        return Response({"packs": [describe(p, added, picked) for p in packs], "can_add": may_add, "recorded": present(),
+        live = _live_dashboards(added)
+        return Response({"packs": [describe(p, added, picked, live) for p in packs], "can_add": may_add, "recorded": present(),
                          "connections": [{"id": r["id"], "name": r["name"], "engine": r["engine"], "database": r["database_name"],
                                           "usable": r["status"] == "ACTIVE" and r["read_only"] is not None and (r["read_only"] is not False or not databases.read_only_required())}
                                          for r in rows] if may_add else []})
@@ -289,6 +357,8 @@ class _PackView(APIView):
         tenant = _tenant()
         pack = _pack(pack_key, tenant)
         body = request.data if isinstance(request.data, dict) else {}
+        if not pack.get("needs"):                                         # on the platform's own datasets: nothing to connect
+            return tenant, pack, None, body
         if not body.get("connection_id"):
             raise ValidationError({"connection_id": "Pick the connection that holds the pack's tables."})
         return tenant, pack, _connection(tenant, pack, body["connection_id"]), body
@@ -298,7 +368,7 @@ class SourcesView(_PackView):
     @extend_schema(request=None, responses={200: None})
     def post(self, request, version=None, pack=None):
         tenant, found, row, _body = self._given(request, pack)
-        return Response(sources(tenant, found, row))
+        return Response(sources(tenant, found, row) if row else {"databases": [], "names": []})
 
 
 class CheckView(_PackView):
@@ -312,4 +382,8 @@ class AddView(_PackView):
     @extend_schema(request=None, responses={201: None})
     def post(self, request, version=None, pack=None):
         tenant, found, row, body = self._given(request, pack)
+        if row is None:                                                # on the platform's datasets: nothing is made unless every report fits them
+            checked = check(tenant, found, None, {})
+            if not checked["ok"]:
+                raise ValidationError({"detail": " ".join(checked["problems"])})
         return Response(add(request, tenant, found, row, _options(found, body)), status=status.HTTP_201_CREATED)

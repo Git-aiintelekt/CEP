@@ -485,6 +485,8 @@ export interface DashboardTile {
   title?: string
   /** a figure: the report's totalled column it shows */
   measure?: string
+  /** a figure that reads the report's first line (its name and that column) in place of the period's total: the best campaign of a report sorted best first */
+  line?: 'first'
   /** a text tile's words: paragraphs, lines starting "- " as bullets, **bold** */
   text?: string
   /** a button's label and what it does */
@@ -541,7 +543,9 @@ export interface Dashboard extends Omit<DashboardSummary, 'tiles' | 'favourite'>
 }
 
 export type TileResult =
-  | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean; sliced?: string[] }
+  | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean; sliced?: string[]
+      /** a figure read from the report's first line: that line's name (null when the period has no line) and the column it comes from */
+      line?: 'first'; label?: string | null; label_column?: ResultColumn | null }
   | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number; dataset?: string }; sliced?: string[]; drill?: DrillInfo }
   | { kind: 'summary'; summary: string | null; points?: string[]; caution?: string; detail?: string; model?: { label: string }; cached?: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; sliced?: string[] }
   | { kind: 'missing'; detail: string }
@@ -1097,9 +1101,11 @@ export interface BasePack {
   components?: { key: string; name: string }[]
   /** picked for this workspace in the back-office's Onboard a Tenant */
   chosen?: boolean
-  needs: { label: string; engine: string; tables: string[] }
+  /** the database the pack reads through a connection; null for a pack on the platform's own datasets (Engagement Reports): nothing to connect */
+  needs: { label: string; engine: string; tables: string[] } | null
   contents: { datasets: string[]; reports: string[]; dashboards: string[] }
-  added: { version: number; at: string; folder_id: string | null; folder_name: string | null; by: string | null }[]
+  /** each addition, newest first, with the dashboards it made that the workspace still has */
+  added: { version: number; at: string; folder_id: string | null; folder_name: string | null; by: string | null; dashboards?: { id: string; name: string }[] }[]
 }
 
 export interface BaseReportsCatalog {

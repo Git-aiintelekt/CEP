@@ -464,7 +464,7 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
                     change = f"{'Up' if delta >= 0 else 'Down'} {abs(delta) * 100:.1f}% vs previous"
                 except (TypeError, ValueError, ZeroDivisionError):
                     change = ""
-            line.append([Paragraph(tile["title"], SMALL), Paragraph(value, FIGURE), Paragraph(change or " ", SMALL)])
+            line.append([Paragraph(tile["title"], SMALL), Paragraph(value, FIGURE), Paragraph(escape(tile["label"]) if tile.get("label") else change or " ", SMALL)])
             if len(line) == 4:
                 cells.append(line); line = []
         if line:
