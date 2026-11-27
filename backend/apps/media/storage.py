@@ -1,13 +1,21 @@
 """Tenant-prefixed object storage behind the CDN (see CEP_SaaS_Tenancy_and_CDN_Setup.md §3)."""
 from django.conf import settings
+from django.db import connections, transaction
 from storages.backends.s3 import S3Storage
 
 from apps.tenants import context
 
 
 def _cfg():
+    """The workspace's record, read with the workspace set for the read (the table has forced row-level security): a request
+    has it set already, a background worker sets it only inside its own short transactions."""
     from apps.tenants.models import TenantStorageConfig
-    return TenantStorageConfig.objects.using(settings.CONTROL_PLANE_ALIAS).get(tenant_id=context.require().tenant_id)
+    tenant_id = str(context.require().tenant_id)
+    alias = settings.CONTROL_PLANE_ALIAS
+    with transaction.atomic(using=alias):
+        with connections[alias].cursor() as cursor:
+            cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [tenant_id])
+        return TenantStorageConfig.objects.using(alias).get(tenant_id=tenant_id)
 
 
 class TenantPublicStorage(S3Storage):
