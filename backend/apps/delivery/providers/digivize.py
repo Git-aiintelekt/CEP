@@ -78,7 +78,9 @@ class DigivizeProvider(SmsProvider):
     description = "Digivize SMS aggregator over its External API: one signed batch per identical text. Delivery receipts through the callback address."
     supports_webhooks = True
     supports_mms = True
-    default_rate_limit_per_minute = 60                       # Digivize's own limit per API key; a batch is one request
+    # texts a minute when the engine's Messages per Minute is empty: what the old count (60 batches of up to 100) allowed,
+    # so an engine without a figure sends as fast as before. Digivize's real limit for an API key is theirs to confirm.
+    default_rate_limit_per_minute = 6000
     max_batch = 100
     config_fields = (
         ConfigField("endpoint", "API Address", kind="url", placeholder=DEFAULT_ENDPOINT, required=False,

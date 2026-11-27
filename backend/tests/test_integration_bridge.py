@@ -133,7 +133,7 @@ def test_integration_bridge(check, admin_email):
         FakePostal.transport.queue = []
         cache.delete_many([k for k in [f"{throttle.PREFIX}:provider:{provider.pk}:m:{int(time.time() // 60)}", f"{throttle.PREFIX}:provider:{provider.pk}:s:{int(time.time())}"]])  # the minute's earlier sends
         real_wait = throttle.wait
-        with mock.patch.object(outbound.throttle, "wait", lambda scope, per_minute, burst=None: real_wait(scope, per_minute, burst, sleep=lambda s: None)), adapter:
+        with mock.patch.object(outbound.throttle, "wait", lambda scope, per_minute, burst=None, **kw: real_wait(scope, per_minute, burst, sleep=lambda s: None, **kw)), adapter:
             first = adapter.send_guarded(message, related_ref="mailer_execution:5")
             try:
                 adapter.send_guarded(message, related_ref="mailer_execution:6")
