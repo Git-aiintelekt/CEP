@@ -107,7 +107,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
           )
         })}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Messages per Minute" error={errors.rate_limit_per_minute} hint="Optional pace limit. Leave empty to send as fast as the provider accepts." help="A pace for every run on this engine. A number spreads a run over time: for a provider's rate limit, or a gentle ramp on a new sending domain. It never changes which people are sent to.">
+          <Field label="Messages per Minute" error={errors.rate_limit_per_minute} hint="Optional. Every message counts, texts sent in one batch included. Empty uses the engine's own pace." help="A pace for every run on this engine. A number spreads a run over time: for a provider's rate limit, or a gentle ramp on a new sending domain. It never changes which people are sent to.">
             {(ids) => <TextInput {...ids} type="number" min={1} value={rate} onChange={(event) => setRate(event.target.value)} />}
           </Field>
           <div className="space-y-2 self-end pb-1 text-sm text-ink-900">

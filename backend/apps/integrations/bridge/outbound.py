@@ -195,10 +195,10 @@ def guarded_send_many(adapter, messages: list, related_ref: str | None = None) -
         summary_result.results = results
         return summary_result
 
-    return _guarded(adapter, first, summary, call, related_ref).results
+    return _guarded(adapter, first, summary, call, related_ref, cost=len(messages)).results
 
 
-def _guarded(adapter, message, summary: dict, call, related_ref: str | None):
+def _guarded(adapter, message, summary: dict, call, related_ref: str | None, cost: int = 1):
     from apps.delivery.providers.base import Outcome, ProviderError, RateLimited
 
     guard = getattr(adapter, "guard", None)
@@ -217,7 +217,7 @@ def _guarded(adapter, message, summary: dict, call, related_ref: str | None):
         raise ProviderError(f"{guard.system}: the circuit is open after repeated failures; retried in {int(until - time.time())}s.", retryable=True)
     per_minute, burst = guard.rate()
     try:
-        throttle.wait(guard.scope(message), per_minute, burst)
+        throttle.wait(guard.scope(message), per_minute, burst, cost=cost)              # a batch counts every message in it
     except throttle.Throttled as exc:
         guard.log(method="SEND", url=synthetic_url, request_body=summary, outcome="THROTTLED", error_message=str(exc))
         raise RateLimited(f"{guard.system}: {exc}", limit=exc.decision.limit, retry_after=exc.decision.retry_after) from None
