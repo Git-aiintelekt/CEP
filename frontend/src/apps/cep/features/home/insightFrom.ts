@@ -14,7 +14,7 @@ export interface Insight {
  * The opportunity card: the channel whose delivered messages convert best, against the others. Only when two channels
  * have delivered something in the period and one of them reports conversions; otherwise there is nothing honest to say.
  */
-export function insightFrom(channels: FunnelChannel[]): Insight | null {
+export function insightFrom(channels: FunnelChannel[], reportsHref = '/reports'): Insight | null {
   const live = channels.filter((channel) => channel.delivered > 0)
   if (live.length < 2) return null
   const rated = live.map((channel) => ({ channel, rate: channel.converted === null ? null : channel.converted / channel.delivered }))
@@ -26,6 +26,6 @@ export function insightFrom(channels: FunnelChannel[]): Insight | null {
   return {
     title: `Opportunity: ${CHANNEL_LABEL[best.channel]} is driving strongest conversion`,
     detail: `${engagement}; ${others.join(' and ')} engagement is lower.`,
-    href: '/reports',
+    href: reportsHref,
   }
 }

@@ -6,24 +6,30 @@
  * up) instead of filtering the other tiles. Under the title a line says what the tile reads (its own dates, a click filtering the
  * others, or its report); viewing, its ⋯ opens the report, shows the numbers, exports them as CSV or starts a comment. A run
  * refused because the workspace is busy is tried again a few times before the tile says so.
+ * A grid tile may let its lines be ticked (`tick`): its header then has a button that opens another report with the ticked
+ * lines' values picked (Compare Campaigns). A campaign's or a journey's name carries an arrow to it in Engagement when the
+ * run says which it is (`links`). A tile with `empty` says so in its own words when the period has no line.
  */
 import { useQuery } from '@tanstack/react-query'
 import { ChevronsDown, Download, ExternalLink, MessageSquare, Table2 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
+import { buttonPrimary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
-import { ErrorState, Spinner } from '@/components/States'
+import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { ApiError } from '@/lib/api'
 import { canDrill, deeper, throughable } from '../components/drill'
 import { DrillBar } from '../components/DrillBar'
 import { DrillThroughMenu, type ThroughTarget } from '../components/DrillThroughMenu'
 import { AiPill } from '../components/AskForReport'
 import { ReportResult } from '../components/ReportViews'
+import type { GridLinks, GridTick } from '../components/ResultGrid'
 import { formatCell } from '../components/resultWords'
 import { RowMenu } from '../components/RowMenu'
 import type { DashboardSlicer, DashboardTile, DrillStep, Period, ResultColumn, SlicerSelection, TileResult, ViewType } from '../types'
 import { activeSlicers, crossFilterable, periodWords } from './layout'
+import { gridLinks, stillThere, tickedPath, tickWords } from './tileActions'
 import { downloadCsv, tileTable } from './tileExport'
 
 export type TileLoader = (tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection, drill?: DrillStep[]) => Promise<TileResult>
@@ -102,10 +108,18 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
   const reads = !data || data.kind === 'missing' || data.kind === 'refused' ? null
     : 'own_dates' in data && data.own_dates ? `Own dates · ${periodWords(data.bounds)}`
     : drilling ? 'A click drills this tile'
+    : tile.empty && data.kind === 'view' && data.result.rows.length === 0 ? null                       // nothing to click: the tile says so in its own words
     : onPick && CLICKABLE.includes(tile.show) ? clickWords(data)
     : tile.title && tile.title !== data.report.name ? data.report.name : null
   const table = data ? tileTable(data) : null
   const report = data && 'report' in data ? data.report : null
+  const [everTicked, setTicked] = useState<unknown[]>([])
+  const viewed = data?.kind === 'view' ? data : null
+  const ticking = tile.show === 'grid' && tile.tick && !onTitle && viewed && viewed.result.rows.length > 0 ? tile.tick : null
+  const tick = useMemo<GridTick | undefined>(() => (ticking ? { column: ticking.field, onChange: setTicked } : undefined), [ticking])
+  const links = useMemo(() => gridLinks(viewed?.links), [viewed?.links])
+  const ticked = ticking && viewed ? stillThere(everTicked, viewed.result, ticking.field) : []
+  const enough = ticking ? ticked.length >= ticking.min && ticked.length <= ticking.max : false
   const menu = onComment && !onTitle ? (
     <RowMenu label={`Actions for ${name || 'this tile'}`} groups={[
       [
@@ -139,6 +153,12 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
             <ChevronsDown size={14} strokeWidth={1.5} aria-hidden />Drill Down
           </button>
         )}
+        {ticking && (
+          <button type="button" disabled={!enough} title={enough ? undefined : tickWords(ticking)} onClick={() => navigate(tickedPath(ticking, ticked, viewed && !viewed.own_dates ? viewed.bounds : null))}
+            className="inline-flex h-6 shrink-0 items-center rounded-control-sm px-1.5 text-xs font-semibold text-brand-800 transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:text-ink-700 disabled:hover:bg-transparent">
+            {ticking.label}{ticked.length > 0 ? ` (${ticked.length})` : ''}
+          </button>
+        )}
         {controls}
         {menu}
       </header>
@@ -148,7 +168,7 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
           : (
             <div className="flex flex-col gap-1.5">
               {drilling && info && <DrillBar info={info} onPath={setPath} compact />}
-              <TileBody data={data as TileResult} tile={tile} onPick={onPick || drilling ? pick : undefined} onContext={context} />
+              <TileBody data={data as TileResult} tile={tile} onPick={onPick || drilling ? pick : undefined} onContext={context} tick={tick} links={links} />
             </div>
           )}
         {through && <DrillThroughMenu target={through} onClose={() => setThrough(null)} />}
@@ -162,7 +182,7 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
   )
 }
 
-function TileBody({ data, tile, onPick, onContext }: { data: TileResult; tile: DashboardTile; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void }) {
+function TileBody({ data, tile, onPick, onContext, tick, links }: { data: TileResult; tile: DashboardTile; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; tick?: GridTick; links?: GridLinks }) {
   if (data.kind === 'missing' || data.kind === 'refused') {
     return <p className="flex min-h-24 items-center justify-center text-center text-sm text-ink-800">{data.detail}</p>
   }
@@ -195,7 +215,12 @@ function TileBody({ data, tile, onPick, onContext }: { data: TileResult; tile: D
       </div>
     )
   }
-  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show as ViewType }} label={`${tile.title || data.report.name} rows`} minHeight={200} onPick={onPick} onContext={onContext} />
+  if (tile.empty && data.result.rows.length === 0) {
+    const { title, text, label, to } = tile.empty
+    return <EmptyState variant="plain" title={title} hint={text} action={label && to ? <Link to={to} className={buttonPrimary}>{label}</Link> : undefined} />
+  }
+  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show as ViewType }} label={`${tile.title || data.report.name} rows`} minHeight={200} onPick={onPick} onContext={onContext}
+    tick={tile.show === 'grid' ? tick : undefined} links={tile.show === 'grid' ? links : undefined} />
 }
 
 function NumbersTable({ table, label }: { table: ReturnType<typeof tileTable> & object; label: string }) {

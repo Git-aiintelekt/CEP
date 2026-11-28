@@ -2,6 +2,8 @@
 
 **Where:** Reports, in the main menu.
 
+> **Reports marked Insights ↗?** Then the workspace has Insights and has added Engagement Reports: Reports opens the **Engagement Overview** dashboard instead of this page, and links to Reports from Home and from the weekly email lead there too. See the chapter *Engagement Overview: Campaign and Journey Results*. This page is still at `/reports`.
+
 ## What this page is for
 
 Reports shows how the workspace performed over a period, from the figures C360 already records: sends, deliveries, opens, clicks, bounces, complaints, unsubscribes and attributed revenue. Nothing is collected here that the campaigns and journeys do not already keep. Two datasets share the page: **Campaigns** (the default) and **Journeys**.

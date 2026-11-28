@@ -93,15 +93,25 @@ def _live_dashboards(added: list[dict]) -> dict:
     return {r["id"]: r["name"] for r in _q("SELECT id::text, name FROM dashboard WHERE id::text = ANY(%s) AND deleted_at IS NULL", [ids])}
 
 
-def engagement_overview(tenant_id, user_id) -> str | None:
-    """the Engagement Overview dashboard this person can open, the newest addition's first: where Engagement's Reports leads"""
+def engagement_overview(tenant_id, user_id=None) -> str | None:
+    """the Engagement Overview dashboard this person can open, the newest addition's first: where Engagement's Reports leads.
+    With no person (an email to a list of addresses): the one the whole workspace can open."""
     if not present():
         return None
-    rows = _q("""SELECT d.id::text FROM report_base_install i
+    mine, args = ("OR d.owner_user_id = %s", [str(user_id)]) if user_id else ("", [])
+    rows = _q(f"""SELECT d.id::text FROM report_base_install i
                    JOIN dashboard d ON d.tenant_id = i.tenant_id AND d.deleted_at IS NULL AND i.made -> 'dashboards' ? d.id::text
-                  WHERE i.tenant_id = %s AND i.pack_key = 'engagement' AND (d.visibility = 'WORKSPACE' OR d.owner_user_id = %s)
-                  ORDER BY i.created_at DESC LIMIT 1""", [str(tenant_id), str(user_id)])
+                  WHERE i.tenant_id = %s AND i.pack_key = 'engagement' AND (d.visibility = 'WORKSPACE' {mine})
+                  ORDER BY i.created_at DESC LIMIT 1""", [str(tenant_id), *args])
     return rows[0]["id"] if rows else None
+
+
+def reports_path(tenant_id) -> str:
+    """where a link to Engagement's reports leads for a workspace: the Engagement Overview dashboard when it has Engagement,
+    Insights and the dashboard, else Engagement's own page"""
+    has = set(catalog.components_of(tenant_id))
+    overview = engagement_overview(tenant_id) if {"cep", "insights"} <= has else None
+    return f"/insights/dashboards/{overview}" if overview else "/reports"
 
 
 def describe(pack: dict, added: list[dict] | None = None, picked: list[str] | None = None, dashboards: dict | None = None) -> dict:
@@ -285,6 +295,8 @@ def _folder_name(pack: dict) -> str:
 def _layout(layout: dict, report_ids: dict) -> dict:
     def tile(t: dict) -> dict:
         out = {k: v for k, v in t.items() if k != "report"}
+        if "tick" in out:                                             # the report the ticked lines open is one of the pack's too
+            out["tick"] = {**{k: v for k, v in out["tick"].items() if k != "report"}, "report_id": report_ids[out["tick"]["report"]]}
         return {**out, "report_id": report_ids[t["report"]]} if "report" in t else out
     return {**layout, "rows": [{**row, "tiles": [tile(t) for t in row["tiles"]]} for row in layout["rows"]]}
 

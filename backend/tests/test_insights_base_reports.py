@@ -292,6 +292,14 @@ def test_engagement_reports_hold_together(check, world):
         if tile.get("line") == "first" and report:
             check(f"Engagement Overview · {tile['title']}: its report is sorted by that figure, the highest first, lines without one left out",
                   report["definition"]["orderBy"] == [{"field": tile["measure"], "direction": "desc"}] and report["definition"]["hideZero"] == [tile["measure"]], report["definition"]["orderBy"])
+        tick = tile.get("tick")
+        if tick and report:
+            opened = reports.get(tick["report"], {"definition": {"parameters": []}})["definition"]["parameters"]
+            check(f"Engagement Overview · {tile['title']}: the ticked column is one its report groups by, and the report opened asks for several of it and for a period",
+                  tile["show"] == "grid" and any(c["field"] == tick["field"] and "aggregate" not in c for c in report["definition"]["columns"])
+                  and any(p["key"] == tick["parameter"] and p["field"] == tick["field"] and p["operator"] == "in" for p in opened)
+                  and any(p["key"] == tick["period"] and p["operator"] == "period" for p in opened), tick)
+    check("the pack is version 2 since its dashboard gained ticking and its empty words", ENGAGEMENT["version"] == 2)
     wanted = base_reports._platform_fields(ENGAGEMENT)
     check("the pack reads four of the platform's datasets, two of them for the measures it blends in", set(wanted) == {"messages", "journey_enrollments", "attributed_orders", "journey_steps"}
           and wanted["attributed_orders"] == {"amount"} and wanted["journey_steps"] == {"sent", "delivered_rate", "held_back"}, {k: sorted(v) for k, v in wanted.items()})
@@ -360,6 +368,14 @@ def test_adding_engagement_reports(check, world):
           {t["report_id"] for t in tiles} <= {r["id"] for r in out["reports"]} and board["layout"]["slicers"][0]["field"] == "channel" and board["period"] == {"preset": "30d"},
           (board["layout"].get("slicers"), board["period"]))
     check("four of its figures read a report's first line", [t["id"] for t in tiles if t.get("line") == "first"] == ["highest-open", "highest-click", "most-unsubscribes", "best-hour"], tiles)
+    campaigns_tile = next(t for t in tiles if t["id"] == "campaigns")
+    check("Campaigns in the Period lets two to six campaigns be ticked, and Compare Campaigns opens the pack's own comparison with them and the dashboard's dates",
+          campaigns_tile.get("tick") == {"field": "campaign_name", "report_id": ids["Compare Campaigns"], "parameter": "campaign", "period": "period", "label": "Compare Campaigns", "min": 2, "max": 6},
+          campaigns_tile.get("tick"))
+    check("and says in its own words when nothing was sent, with the way to Campaigns",
+          campaigns_tile.get("empty") == {"title": "No Campaign Sent in This Period", "text": "Results show here from the first send. Try a longer period, or send a campaign.",
+                                          "label": "Go to Campaigns", "to": "/campaigns"}, campaigns_tile.get("empty"))
+    check("no other tile is ticked", [t["id"] for t in tiles if "tick" in t] == ["campaigns"])
 
     def run(tile_id, **body):
         return world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/{tile_id}/run/", {"period": WIDE, **body})
@@ -379,6 +395,22 @@ def test_adding_engagement_reports(check, world):
         """SELECT count(*) FROM (SELECT x.status, x.campaign_id, x.campaign_run_id FROM mailer_execution x UNION ALL SELECT x.status, x.campaign_id, x.campaign_run_id FROM sms_execution x) x
              JOIN campaign_run r ON r.id = x.campaign_run_id JOIN journey_generated_campaign g ON g.campaign_id = x.campaign_id WHERE NOT r.test_mode AND x.status NOT IN ('QUEUED', 'FAILED')"""))
     check("Sent is every campaign's messages of the period, not the latest campaign's", (ran["sent"].json()["value"] or 0) == sent, (ran["sent"].json()["value"], sent))
+    named = {link["column"]: link for link in ran["campaigns"].json().get("links", [])}
+    shown = [row[0] for row in ran["campaigns"].json()["result"]["rows"] if row[0]]
+    alone = dict(world.sql("SELECT name, min(id::text) FROM campaign WHERE deleted_at IS NULL AND name = ANY(%s) GROUP BY name HAVING count(*) = 1", [shown], fetch=True))
+    check("a campaign's name in the tile leads to that campaign; a name two campaigns share leads nowhere",
+          (named.get("campaign_name", {}).get("ids") or {}) == alone and (not alone or named["campaign_name"]["kind"] == "campaign"), (named, alone))
+    journeys_named = {link["column"]: link for link in ran["journeys"].json().get("links", [])}
+    journey_rows = [row[0] for row in ran["journeys"].json()["result"]["rows"] if row[0]]
+    journeys_alone = dict(world.sql("SELECT name, min(id::text) FROM journey WHERE deleted_at IS NULL AND name = ANY(%s) GROUP BY name HAVING count(*) = 1", [journey_rows], fetch=True))
+    check("a journey's name leads to that journey", (journeys_named.get("journey_name", {}).get("ids") or {}) == journeys_alone and (not journeys_alone or journeys_named["journey_name"]["kind"] == "journey"),
+          (journeys_named, journeys_alone))
+    check("a chart and a figure carry no links", "links" not in ran["best"].json() and "links" not in ran["sent"].json())
+    nothing = run("campaigns", period={"preset": "custom", "from": "2001-01-01", "to": "2001-01-31"}).json()
+    check("a period with nothing sent: no line and no link, for the tile's own words", nothing["kind"] == "view" and nothing["result"]["rows"] == [] and "links" not in nothing, nothing)
+    compare = world.api("post", f"/api/v1/insights/reports/{ids['Compare Campaigns']}/run/", {"params": {"campaign": shown[:2], "period": ["2026-01-01", "2027-12-31"]}})
+    check("Compare Campaigns runs with the ticked campaigns and the tile's dates as its answers",
+          compare.status_code == 200 and {row[0] for row in compare.json()["rows"]} <= set(shown[:2]) and (not shown or compare.json()["rows"]), compare.content[:300])
     journeys = ran["journeys"].json()["result"]
     check("a journey's Sent is its campaigns' messages", sum(row[6] or 0 for row in journeys["rows"]) <= journey_sent and (journey_sent == 0 or any(row[6] for row in journeys["rows"])),
           (journeys["rows"], journey_sent))
@@ -414,10 +446,23 @@ def test_adding_engagement_reports(check, world):
         stored = world.sql("SELECT connection_id FROM report_base_install WHERE pack_key = 'engagement' ORDER BY created_at DESC LIMIT 1", fetch=True)[0][0]
         check("recorded with no connection", stored is None, stored)
         check("and GET /me/ says where Engagement's Reports leads", world.api("get", "/api/v1/me/").json()["insights"]["engagement_overview"] == board["id"])
+        from apps.delivery.engine import session
+        from apps.insights import catalog
+        from workers import reports as weekly
+        with session.tenant_scope(world.tenant):
+            check("the weekly email's Open Reports leads to the dashboard too", weekly._reports_path(world.tenant) == f"/insights/dashboards/{board['id']}", weekly._reports_path(world.tenant))
+            has = catalog.components_of
+            catalog.components_of = lambda tenant_id: ["cep"]
+            try:
+                check("but not for a workspace that no longer has Insights", weekly._reports_path(world.tenant) == "/reports")
+            finally:
+                catalog.components_of = has
         world.api("delete", f"/api/v1/insights/dashboards/{board['id']}/")
         mine = next(p for p in world.api("get", "/api/v1/insights/base-reports/").json()["packs"] if p["key"] == "engagement")["added"]
         check("a dashboard deleted since is no longer named", mine[0]["dashboards"] == [], mine)
         check("and Reports goes back to Engagement's own page", world.api("get", "/api/v1/me/").json()["insights"]["engagement_overview"] is None)
+        with session.tenant_scope(world.tenant):
+            check("and so does the weekly email", weekly._reports_path(world.tenant) == "/reports")
     check.done()
 
 
@@ -490,4 +535,72 @@ def test_a_figure_reads_its_reports_first_line(check, world):
     check("the plain figure beside it is still the period's total", total["kind"] == "figure" and "line" not in total and (not largest or total["value"] >= (first["value"] or 0)), total)
     sliced = world.api("post", f"/api/v1/insights/dashboards/{board.json()['id']}/tiles/largest/run/", {"period": {"preset": "custom", "from": "2001-01-01", "to": "2001-01-31"}}).json()
     check("a period with nothing sent: no name, no figure, no error", sliced["kind"] == "figure" and sliced["label"] is None and sliced["value"] is None, sliced)
+    check.done()
+
+
+def test_a_grid_tile_ticks_lines_and_says_when_it_is_empty(check, world):
+    """a grid tile's `tick` (lines ticked open another report with them picked) and `empty` (its own words for a period with no
+    line), on any dashboard: what is kept, and what is refused (no patch needed)"""
+    columns = [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}]
+    rules = {"combinator": "and", "rules": [{"field": "test_mode", "operator": "=", "value": False}]}
+    campaign = {"key": "campaign", "field": "campaign_name", "label": "Campaigns", "operator": "in", "required": False}
+    period = {"key": "period", "field": "submitted_at", "label": "Period", "operator": "period", "required": True, "default": "30d"}
+
+    def report(name, parameters, cols=columns):
+        made = world.api("post", "/api/v1/insights/reports/", {"name": name, "dataset": "messages", "visibility": "WORKSPACE",
+                                                              "definition": {"columns": cols, "filters": rules, "orderBy": [], "parameters": parameters, "limit": 100}})
+        assert made.status_code == 201, made.content[:300]
+        return made.json()["id"]
+    listed, compared = report("ZZ Campaigns Listed", [campaign, period]), report("ZZ Campaigns Compared", [campaign, period])
+    by_channel = report("ZZ Sent by Channel", [campaign, period], [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}])
+    one_at_a_time = report("ZZ One Campaign", [{**campaign, "operator": "="}, period])
+    tick = {"field": "campaign_name", "report_id": compared, "parameter": "campaign", "period": "period", "label": "  Compare   Campaigns ", "min": 2, "max": 6}
+    empty = {"title": "No Campaign Sent in This Period", "text": "Try a longer period.", "label": "Go to Campaigns", "to": "/campaigns"}
+
+    def board(tile, name="ZZ Ticked"):
+        return world.api("post", "/api/v1/insights/dashboards/", {"name": name, "period": WIDE, "compare": False, "layout": {"rows": [{"width": "1", "tiles": [tile]}]}})
+    grid = {"id": "listed", "report_id": listed, "show": "grid", "title": "Campaigns"}
+    made = board({**grid, "tick": tick, "empty": empty})
+    kept = made.json()["layout"]["rows"][0]["tiles"][0] if made.status_code == 201 else {}
+    check("a grid tile keeps its ticking, the label tidied, and its words for an empty period", made.status_code == 201 and kept.get("tick") == {**tick, "label": "Compare Campaigns"} and kept.get("empty") == empty,
+          made.content[:400])
+    plain = board({**grid, "tick": {k: v for k, v in tick.items() if k not in ("period", "min", "max")}, "empty": {"title": "Nothing Yet"}}, "ZZ Ticked Plainly")
+    kept = plain.json()["layout"]["rows"][0]["tiles"][0] if plain.status_code == 201 else {}
+    check("the period, the least and the most may be left out (1 to 20), and the empty words may be a title alone",
+          plain.status_code == 201 and "period" not in kept["tick"] and (kept["tick"]["min"], kept["tick"]["max"]) == (1, 20) and kept["empty"] == {"title": "Nothing Yet"}, plain.content[:400])
+    chart = board({**grid, "show": "chart", "tick": tick, "empty": empty}, "ZZ Ticked Chart")
+    kept = chart.json()["layout"]["rows"][0]["tiles"][0] if chart.status_code == 201 else {}
+    check("a chart tile has no lines to tick, and keeps its empty words", chart.status_code == 201 and "tick" not in kept and kept.get("empty") == empty, chart.content[:400])
+    figure = board({**grid, "show": "figure", "measure": "sent", "tick": tick, "empty": empty}, "ZZ Ticked Figure")
+    kept = figure.json()["layout"]["rows"][0]["tiles"][0] if figure.status_code == 201 else {}
+    check("a figure keeps neither", figure.status_code == 201 and "tick" not in kept and "empty" not in kept, figure.content[:400])
+
+    refused = {
+        "a report this person cannot open": {**tick, "report_id": "00000000-0000-0000-0000-000000000000"},
+        "a question the report does not ask": {**tick, "parameter": "no_such_question"},
+        "a question that takes one value": {**tick, "report_id": one_at_a_time},
+        "a period the report does not ask under that name": {**tick, "period": "campaign"},
+        "a column the tile's report does not group by": {**tick, "field": "channel"},
+        "no label": {**tick, "label": " "},
+        "a least above the most": {**tick, "min": 7, "max": 6},
+        "more than twenty": {**tick, "max": 21},
+        "no report named": {k: v for k, v in tick.items() if k != "report_id"},
+    }
+    for words, bad in refused.items():
+        answer = board({**grid, "tick": bad}, f"ZZ Refused {words}"[:60])
+        check(f"ticking is refused with {words}", answer.status_code == 400, answer.content[:200])
+    answer = board({"id": "by-channel", "report_id": by_channel, "show": "grid", "tick": tick}, "ZZ Refused Other Report")
+    check("ticking is refused when the tile's own report has no such column", answer.status_code == 400 and "groups by" in str(answer.json()), answer.content[:200])
+    for words, bad in {"a page outside the app": {**empty, "to": "https://example.com/campaigns"}, "a page of another site by its address": {**empty, "to": "//example.com"},
+                       "a label with no page": {"title": "Nothing Yet", "label": "Go"}, "a page with no label": {"title": "Nothing Yet", "to": "/campaigns"},
+                       "no title": {"text": "Nothing."}, "a title too long": {"title": "N" * 81}}.items():
+        answer = board({**grid, "empty": bad}, f"ZZ Refused {words}"[:60])
+        check(f"the empty words are refused with {words}", answer.status_code == 400, answer.content[:200])
+
+    ran = world.api("post", f"/api/v1/insights/dashboards/{made.json()['id']}/tiles/listed/run/", {}).json()
+    names = [row[0] for row in ran["result"]["rows"] if row[0]]
+    alone = dict(world.sql("SELECT name, min(id::text) FROM campaign WHERE deleted_at IS NULL AND name = ANY(%s) GROUP BY name HAVING count(*) = 1", [names], fetch=True))
+    links = ran.get("links", [])
+    check("the tile's run names the campaign behind each name that one campaign alone has", (links[0]["ids"] if links else {}) == alone and (not links or (links[0]["column"], links[0]["kind"]) == ("campaign_name", "campaign")),
+          (links, alone))
     check.done()

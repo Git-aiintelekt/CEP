@@ -9,6 +9,8 @@ import { formatNumber } from '@/lib/format'
 import { SeverityTag } from '../components/HomeTags'
 import { SectionHeader } from '../components/SectionHeader'
 import type { Attention, AttentionGroup, FunnelChannel, SectionResult } from '../data/types'
+import { useOptionalAuth } from '@/auth/AuthContext'
+import { reportsPath } from '@/shell/manifests'
 import { insightFrom, type Insight } from '../insightFrom'
 import { rankGroups } from '../rankGroups'
 
@@ -85,7 +87,8 @@ export function NeedsAttention({ result, funnel }: { result: SectionResult<Atten
   const titleId = useId()
   const gridId = useId()
   const groups = result.status === 'ready' ? rankGroups(result.data.groups) : []
-  const insight = funnel?.status === 'ready' ? insightFrom(funnel.data) : null
+  const reports = reportsPath(useOptionalAuth()?.me ?? null)                 // the Engagement Overview dashboard once the workspace has it
+  const insight = funnel?.status === 'ready' ? insightFrom(funnel.data, reports) : null
   // the opportunity takes one of the four slots when there is one
   const room = insight ? SHOWN - 1 : SHOWN
   const more = groups.length > room

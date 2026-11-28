@@ -137,7 +137,7 @@ export function DashboardPage() {
           <Link to="/insights/dashboards" className="mb-3 inline-flex items-center gap-1 text-helper text-brand-800 hover:underline">
             <ChevronLeft {...ICON} /> Dashboards
           </Link>
-          <div className="flex items-center gap-2"><h1 className="font-display text-page-title font-semibold text-ink-900">{data.name}</h1><PageHelp chapter="insights" /></div>
+          <div className="flex items-center gap-2"><h1 className="font-display text-page-title font-semibold text-ink-900">{data.name}</h1><PageHelp chapter={me?.insights?.engagement_overview === id ? 'engagement-overview' : 'insights'} /></div>
           <p className="mt-1 max-w-2xl text-sm text-ink-800">{data.description ?? `${tiles(data.layout).length} tile${tiles(data.layout).length === 1 ? '' : 's'} · ${periodWords(data.bounds)}`}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

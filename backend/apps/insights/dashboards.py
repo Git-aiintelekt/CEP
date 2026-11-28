@@ -34,7 +34,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.insights import access, catalog, drill, fiscal, runner
+from apps.insights import access, catalog, drill, entity_links, fiscal, runner
 from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _tenant, _visible_sql, favourite_sql
 from apps.insights.definition import DefinitionError, validate
 from apps.reporting import reports
@@ -55,6 +55,9 @@ SLICER_TYPES = ("string", "boolean", "number")
 RANGE_TYPES = ("number", "date", "datetime")
 MAX_PAGES, MAX_VIEWS, MAX_VIEW_STATE = 10, 50, 20_000
 TILE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+APP_PATH = re.compile(r"^/[a-z0-9][a-z0-9/_-]{0,79}$")                     # a page of the app: "/campaigns"
+MAX_TICKS = 20
+EMPTY_SHOWS = ("grid", "chart", "hierarchy", "pivot")
 TILE_ROWS = 200
 
 
@@ -293,7 +296,51 @@ def _checked_tile(tile, where: str, ids: set, wanted: dict) -> dict:
     report_id = str(tile.get("report_id") or "")
     wanted.setdefault(report_id, []).append((where, tile))
     return {**out, "report_id": report_id, **({"measure": str(tile["measure"])} if tile["show"] == "figure" else {}),
-            **({"line": "first"} if tile["show"] == "figure" and tile.get("line") == "first" else {})}
+            **({"line": "first"} if tile["show"] == "figure" and tile.get("line") == "first" else {}), **_tick(tile, where, wanted), **_empty(tile, where)}
+
+
+def _words(value, most: int) -> str:
+    return " ".join(str(value or "").split())[:most + 1]
+
+
+def _tick(tile: dict, where: str, wanted: dict) -> dict:
+    """a grid tile whose lines can be ticked, and the report the ticked ones open: their values of one column answer one of that
+    report's questions (Compare Campaigns from the campaigns ticked)"""
+    raw = tile.get("tick")
+    if raw is None or tile["show"] != "grid":
+        return {}
+    at = f"{where}.tick"
+    if not isinstance(raw, dict) or not all(isinstance(raw.get(k), str) and raw[k].strip() for k in ("field", "report_id", "parameter")):
+        raise ValidationError({at: "Ticking names the column ticked, the report to open and the question of that report it answers."})
+    label = _words(raw.get("label"), MAX_LABEL)
+    if not label or len(label) > MAX_LABEL:
+        raise ValidationError({f"{at}.label": f"The button has a label of up to {MAX_LABEL} characters."})
+    least, most = raw.get("min", 1), raw.get("max", MAX_TICKS)
+    if any(isinstance(n, bool) or not isinstance(n, int) for n in (least, most)) or not 1 <= least <= most <= MAX_TICKS:
+        raise ValidationError({at: f"The lines ticked are counted from 1 to {MAX_TICKS}, the least no more than the most."})
+    period = raw.get("period")
+    if period is not None and (not isinstance(period, str) or not period.strip()):
+        raise ValidationError({f"{at}.period": "The period names the question of that report the tile's dates answer."})
+    tick = {"field": raw["field"].strip()[:60], "report_id": raw["report_id"].strip()[:40], "parameter": raw["parameter"].strip()[:40],
+            **({"period": period.strip()[:40]} if period else {}), "label": label, "min": least, "max": most}
+    wanted.setdefault(tick["report_id"], []).append((at, {"show": "tick", "tick": tick, "from": str(tile.get("report_id") or "")}))
+    return {"tick": tick}
+
+
+def _empty(tile: dict, where: str) -> dict:
+    """what a tile says when its report has no line in the period: a title, a sentence, and a button to a page of the app"""
+    raw = tile.get("empty")
+    if raw is None or tile["show"] not in EMPTY_SHOWS:
+        return {}
+    at = f"{where}.empty"
+    if not isinstance(raw, dict):
+        raise ValidationError({at: "An empty tile has a title, and may have a sentence and a button."})
+    title, text, label, to = _words(raw.get("title"), 80), _words(raw.get("text"), 240), _words(raw.get("label"), MAX_LABEL), str(raw.get("to") or "").strip()
+    if not title or len(title) > 80 or len(text) > 240:
+        raise ValidationError({at: "An empty tile has a title of up to 80 characters and a sentence of up to 240."})
+    if bool(label) != bool(to) or len(label) > MAX_LABEL or (to and not APP_PATH.match(to)):
+        raise ValidationError({at: f"The button has a label of up to {MAX_LABEL} characters and a page of the app, like /campaigns."})
+    return {"empty": {"title": title, **({"text": text} if text else {}), **({"label": label, "to": to} if label else {})}}
 
 
 def _checked_rows(rows, base: str, ids: set, wanted: dict) -> list[dict]:
@@ -333,6 +380,15 @@ def _checked_reports(raw: dict, request, layout: dict, ids: set, wanted: dict) -
                     columns = _json(found[report_id]["definition"]).get("columns", [])
                     if not any(c.get("field") == tile.get("measure") and c.get("aggregate") for c in columns):
                         raise ValidationError({f"{where}.measure": "A figure is one of the report's totalled columns."})
+                if tile.get("show") == "tick":
+                    tick, source = tile["tick"], found.get(tile["from"])
+                    if source and not any(c.get("field") == tick["field"] and not c.get("aggregate") for c in _json(source["definition"]).get("columns", [])):
+                        raise ValidationError({f"{where}.field": "The column ticked is one the tile's report groups by."})
+                    asked = _json(found[report_id]["definition"]).get("parameters") or []
+                    if not any(p.get("key") == tick["parameter"] and p.get("field") == tick["field"] and p.get("operator") == "in" for p in asked):
+                        raise ValidationError({f"{where}.parameter": "The report opened asks for several values of the column ticked."})
+                    if tick.get("period") and not any(p.get("key") == tick["period"] and p.get("operator") == "period" for p in asked):
+                        raise ValidationError({f"{where}.period": "The report opened asks for a period under that name."})
     slicers = []
     if raw.get("slicers"):
         tenant_id = _tenant().pk
@@ -658,6 +714,11 @@ class TileRunView(APIView):
             raise ValidationError({"drill": str(exc)}) from None
         payload, status_code = tile_result(tenant, request.user, report, tile, period, compare, not _can_see_pii(request), limit=int(body.get("limit") or TILE_ROWS),
                                            slicers=_slicers_body(body.get("slicers")), drill_path=path, ai=True)
+        if payload.get("kind") == "view" and tile["show"] == "grid":   # a campaign's or a journey's name leads to it in Engagement
+            dataset = catalog.dataset(tenant.pk, report["dataset_key"], True)
+            found = entity_links.for_result(tenant.pk, dataset, payload["result"]) if dataset else []
+            if found:
+                payload = {**payload, "links": found}
         return Response(payload, status=status_code)
 
 

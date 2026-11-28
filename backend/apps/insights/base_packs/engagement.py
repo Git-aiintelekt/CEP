@@ -1,4 +1,4 @@
-"""Engagement Reports, version 1 (docs/mockups/reports-into-insights.html, option A): what Engagement's own Reports page shows,
+"""Engagement Reports, version 2 (docs/mockups/reports-into-insights.html, option A): what Engagement's own Reports page shows,
 as Insights reports on the platform's datasets (Messages, Journey Enrollments, with Attributed Orders and Journey Messages
 blended in) and one dashboard, Engagement Overview. The pack makes no dataset and needs no connection: a report names a
 platform dataset by its key. Test sends are left out of every report. It reads the fields of database patch 0103; on a
@@ -102,8 +102,13 @@ def _first(id_, report, measure, title):
     return {"id": id_, "report": report, "show": "figure", "measure": measure, "line": "first", "title": title}
 
 
-def _tile(id_, report, show, title):
-    return {"id": id_, "report": report, "show": show, "title": title}
+def _tile(id_, report, show, title, **more):
+    return {"id": id_, "report": report, "show": show, "title": title, **more}
+
+
+COMPARE = {"field": "campaign_name", "report": "compare", "parameter": ANY_CAMPAIGN["key"], "period": "period", "label": "Compare Campaigns", "min": 2, "max": 6}
+NOTHING_SENT = {"title": "No Campaign Sent in This Period", "text": "Results show here from the first send. Try a longer period, or send a campaign.",
+                "label": "Go to Campaigns", "to": "/campaigns"}
 
 
 DASHBOARDS = [
@@ -116,14 +121,14 @@ DASHBOARDS = [
          {"width": "4", "tiles": [_first("highest-open", "best_open", "c_open_rate", "Highest Open Rate"), _first("highest-click", "best_click", "c_click_rate", "Highest Click Rate"),
                                   _first("most-unsubscribes", "most_unsubscribes", "c_unsubscribe_rate", "Most Unsubscribes"),
                                   _first("best-hour", "send_hours", "c_open_rate", "Best Send Hour")]},
-         {"width": "1", "tiles": [_tile("campaigns", "campaigns", "grid", "Campaigns in the Period")]},
+         {"width": "1", "tiles": [_tile("campaigns", "campaigns", "grid", "Campaigns in the Period", tick=COMPARE, empty=NOTHING_SENT)]},
          {"width": "1", "tiles": [_tile("journeys", "journeys", "grid", "Journeys in the Period")]},
      ], "slicers": [{"field": "channel", "label": "Channel"}]}},
 ]
 
 PACK = {
     "key": "engagement",
-    "version": 1,
+    "version": 2,
     "name": "Engagement Reports",
     "summary": ("What Engagement's Reports page shows, as reports you can change: totals, sent and opened by day, each campaign with its revenue, the best "
                 "and worst campaigns, the best send hour, a comparison and the journeys; and the Engagement Overview dashboard."),

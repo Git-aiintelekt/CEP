@@ -24,13 +24,19 @@ const REPORTS = '/reports'
  */
 export function entitled(me: Me | null): EntitledComponent[] {
   const list = me?.components ?? [{ key: 'cep', name: 'Engagement', tagline: 'Customer Engagement', access: 'PLAN', until: null } satisfies SuiteComponent]
-  const overview = list.some((item) => item.key === 'insights') ? me?.insights?.engagement_overview : null
+  const reports = reportsPath(me)
   return list.flatMap((item) => {
     const manifest = MANIFESTS[item.key]
     if (!manifest) return []
-    const menu = item.key === 'cep' && overview ? manifest.menu.map((page) => (page.to === REPORTS ? { ...page, to: `/insights/dashboards/${overview}`, opens: 'Insights' } : page)) : manifest.menu
+    const menu = item.key === 'cep' && reports !== REPORTS ? manifest.menu.map((page) => (page.to === REPORTS ? { ...page, to: reports, opens: 'Insights' } : page)) : manifest.menu
     return [{ ...manifest, menu, access: item.access, until: item.until }]
   })
+}
+
+/** where a link to Engagement's reports leads: the Engagement Overview dashboard when the workspace has Insights and has added it, else Engagement's own page */
+export function reportsPath(me: Me | null): string {
+  const overview = me?.components?.some((item) => item.key === 'insights') ? me?.insights?.engagement_overview : null
+  return overview ? `/insights/dashboards/${overview}` : REPORTS
 }
 
 /** whether the workspace has a component (an older API that says nothing means Engagement alone) */
