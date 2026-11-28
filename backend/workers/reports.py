@@ -29,6 +29,17 @@ def due_tenants() -> list[tuple[str, str, dict]]:
     return due
 
 
+def _reports_path(tenant_id: str) -> str:
+    """the Engagement Overview dashboard for a workspace that has it, else Engagement's own Reports page; the email goes either way"""
+    try:
+        from apps.insights import base_reports
+        with session.tx():                                 # its own transaction: trouble here must not undo the report's
+            return base_reports.reports_path(tenant_id)
+    except Exception:                                      # noqa: BLE001
+        log.exception("the reports link for tenant %s fell back to /reports", tenant_id)
+        return "/reports"
+
+
 def send_for(tenant_id: str, weekly: dict) -> dict:
     """Must run inside session.tenant_scope(tenant_id)."""
     with session.tx():
@@ -39,8 +50,9 @@ def send_for(tenant_id: str, weekly: dict) -> dict:
         config = notifications.prepare(tenant)
         reports.mark_weekly_sent(tenant, today)
         name = tenant.name
+    path = _reports_path(tenant_id)
     outcome = notifications.deliver(config, tenant_id, "weekly_report", title=f"{name}: last week in numbers", lines=reports.weekly_lines(report),
-                                    link=settings.FRONTEND_URL.rstrip("/") + "/reports", link_label="Open Reports", to=weekly["recipients"])
+                                    link=settings.FRONTEND_URL.rstrip("/") + path, link_label="Open Reports", to=weekly["recipients"])
     return {"sent": report["totals"]["sent"], **outcome}
 
 

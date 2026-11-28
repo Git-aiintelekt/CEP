@@ -1,7 +1,8 @@
 /**
  * /dev/dashboard: a dashboard on sample data, with no backend, for design review and screenshots: viewing, or ?edit=1 for the
  * editor's bar, settings line and grid (?canvas=1 for a free canvas, ?phone=1 for the phone preview, ?theme=berry for a theme).
- * ?board=engagement shows the Engagement Overview of the Engagement Reports pack (?sparse=1: a period with little sent).
+ * ?board=engagement shows the Engagement Overview of the Engagement Reports pack (?sparse=1: a period with little sent;
+ * ?sparse=2: nothing sent).
  */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -89,7 +90,9 @@ const ENGAGEMENT: DashboardLayout = {
       { id: 'e7', report_id: 'r3', show: 'figure', measure: 'c_open_rate', line: 'first', title: 'Highest Open Rate' }, { id: 'e8', report_id: 'r4', show: 'figure', measure: 'c_click_rate', line: 'first', title: 'Highest Click Rate' },
       { id: 'e9', report_id: 'r5', show: 'figure', measure: 'c_unsubscribe_rate', line: 'first', title: 'Most Unsubscribes' }, { id: 'e10', report_id: 'r6', show: 'figure', measure: 'c_open_rate', line: 'first', title: 'Best Send Hour' },
     ] },
-    { width: '1', tiles: [{ id: 'e11', report_id: 'r7', show: 'grid', title: 'Campaigns in the Period' }] },
+    { width: '1', tiles: [{ id: 'e11', report_id: 'r7', show: 'grid', title: 'Campaigns in the Period',
+      tick: { field: 'campaign_name', report_id: 'r9', parameter: 'campaign', period: 'period', label: 'Compare Campaigns', min: 2, max: 6 },
+      empty: { title: 'No Campaign Sent in This Period', text: 'Results show here from the first send. Try a longer period, or send a campaign.', label: 'Go to Campaigns', to: '/campaigns' } }] },
     { width: '1', tiles: [{ id: 'e12', report_id: 'r8', show: 'grid', title: 'Journeys in the Period' }] },
   ],
   slicers: [{ field: 'channel', label: 'Channel' }],
@@ -140,7 +143,12 @@ Object.assign(VIEWS, {
   e5: { result: BY_DAY, name: 'Sent and Opened by Day' }, e6: { result: BEST_OPEN, name: 'Best Campaigns by Open Rate' },
   e11: { result: CAMPAIGNS, name: 'Campaigns in the Period' }, e12: { result: JOURNEYS, name: 'Journeys in the Period' },
 })
-const SPARSE = new URLSearchParams(window.location.search).get('sparse') === '1'
+const SPARSENESS = new URLSearchParams(window.location.search).get('sparse')
+const SPARSE = SPARSENESS === '1' || SPARSENESS === '2'
+const NOTHING = SPARSENESS === '2'
+/** the campaign or the journey behind each name of a sample grid, as a tile run names them */
+const LINKS: Record<string, { column: string; kind: 'campaign' | 'journey' }> = { e11: { column: 'campaign_name', kind: 'campaign' }, e12: { column: 'journey_name', kind: 'journey' } }
+const linksOf = (tileId: string, result: RunResult) => (LINKS[tileId] ? [{ ...LINKS[tileId], ids: Object.fromEntries(result.rows.map((row, at) => [String(row[0]), `sample-${at + 1}`])) }] : undefined)
 /** the four key figures of a period with one text campaign sent */
 const LITTLE: Record<string, number | null> = { e1: 20600, e2: 95.8, e3: null, e4: 6.1 }
 const few = (result: RunResult, keep: number): RunResult => ({ ...result, rows: result.rows.slice(0, keep), row_count: Math.min(keep, result.rows.length) })
@@ -178,10 +186,11 @@ async function load(tile: DashboardTile, period: Period, compare: boolean, slice
     return { kind: 'figure', line: 'first', value: SPARSE ? null : first.value, label: SPARSE ? null : first.label, label_column: first.from, previous: null, compared: false, column: first.column, own_dates: false, bounds,
       report: report(tile.report_id, first.name), cached: false, sliced: channelSlice }
   }
-  if (SPARSE && figure && tile.id in LITTLE) return { kind: 'figure', value: LITTLE[tile.id], previous: null, compared: false, column: figure.column, own_dates: false, bounds, report: report(tile.report_id, figure.name), cached: false, sliced: channelSlice }
+  if (SPARSE && figure && tile.id in LITTLE) return { kind: 'figure', value: NOTHING ? (tile.id === 'e1' ? 0 : null) : LITTLE[tile.id], previous: null, compared: false, column: figure.column, own_dates: false, bounds, report: report(tile.report_id, figure.name), cached: false, sliced: channelSlice }
   if (SPARSE && tile.id in VIEWS && tile.id.startsWith('e')) {
     const view = VIEWS[tile.id]
-    return { kind: 'view', view: { type: tile.show === 'chart' ? 'chart' : 'grid', chart: 'bar' }, result: few(view.result, tile.id === 'e11' ? 1 : 0), own_dates: false, bounds, report: report(tile.report_id, view.name), sliced: [] }
+    return { kind: 'view', view: { type: tile.show === 'chart' ? 'chart' : 'grid', chart: 'bar' }, result: few(view.result, tile.id === 'e11' && !NOTHING ? 1 : 0), own_dates: false, bounds, report: report(tile.report_id, view.name), sliced: [],
+      links: linksOf(tile.id, few(view.result, tile.id === 'e11' && !NOTHING ? 1 : 0)) }
   }
   if (figure) return { kind: 'figure', value: figure.value, previous: figure.previous, compared: compare, column: figure.column, own_dates: false, bounds, report: report(tile.report_id, figure.name), cached: false, sliced: channelSlice }
   const view = VIEWS[tile.id] ?? VIEWS.t6
@@ -193,7 +202,7 @@ async function load(tile: DashboardTile, period: Period, compare: boolean, slice
   }
   const has = view.result.columns.some((column) => column.key === 'channel')
   return { kind: 'view', view: { type: tile.show === 'figure' || tile.show === 'summary' || tile.show === 'text' || tile.show === 'button' ? 'grid' : tile.show, chart: view.chart ?? 'bar', across: view.across }, result: sliced(view.result, slicers), own_dates: Boolean(view.own), bounds,
-    report: report(tile.report_id, view.name), sliced: has ? channelSlice : [] }
+    report: report(tile.report_id, view.name), sliced: has ? channelSlice : [], links: linksOf(tile.id, view.result) }
 }
 
 export default function DashboardPlayground() {

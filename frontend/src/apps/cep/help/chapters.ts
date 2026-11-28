@@ -14,6 +14,7 @@ export const HELP_CHAPTERS = {
   'email-designer': { title: 'The Email Designer', load: () => import('../../../../../docs/manuals/user-guide/36-email-designer.md?raw').then((module) => module.default) },
   journeys: { title: 'Journeys', load: () => import('../../../../../docs/manuals/user-guide/57-journeys.md?raw').then((module) => module.default) },
   insights: { title: 'Insights: Reports, Dashboards and Scheduled Delivery', load: () => import('../../../../../docs/manuals/user-guide/59-insights.md?raw').then((module) => module.default) },
+  'engagement-overview': { title: 'Engagement Overview: Campaign and Journey Results', load: () => import('../../../../../docs/manuals/user-guide/59a-engagement-overview.md?raw').then((module) => module.default) },
   'report-databases': { title: 'Report Databases', load: () => import('../../../../../docs/manuals/user-guide/60-report-databases.md?raw').then((module) => module.default) },
   'settings-sending-engines': { title: 'Sending Engines and Senders', load: () => import('../../../../../docs/manuals/user-guide/40-settings-sending-engines.md?raw').then((module) => module.default) },
   'settings-utm-tracking': { title: 'UTM Tracking', load: () => import('../../../../../docs/manuals/user-guide/40a-settings-utm-tracking.md?raw').then((module) => module.default) },
