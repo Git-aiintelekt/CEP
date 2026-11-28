@@ -28,7 +28,7 @@ import { Sparkline } from '../visuals/Sparkline'
 import { Treemap } from '../visuals/Treemap'
 import { Waterfall } from '../visuals/Waterfall'
 import { fillOf, formatOf, rangeOf, toneClass } from './formats'
-import { ResultGrid } from './ResultGrid'
+import { ResultGrid, type GridLinks, type GridTick } from './ResultGrid'
 import { formatCell } from './resultWords'
 import { chartShape, distinct, hierarchyShape, pivotShape, split, type HierarchyNode } from './shape'
 import { anomalies, flagWords, forecast, HORIZON, MIN_FLAGS, MIN_FORECAST, nextDates, signalsApply, WINDOW } from './signals'
@@ -261,7 +261,7 @@ function Reason({ children, minHeight }: { children: string; minHeight: number }
 
 /** The result in the chosen view. `onPick` (a dashboard's cross-filter) gets the dimension and the value clicked on a chart or a grid cell;
  * `analysis` is where Key Influencers and the Decomposition Tree read from (the saved report, or the editor's draft). */
-export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick, onContext, analysis, notes, tooltips = false, inCard = false, fold }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; analysis?: AnalysisSource
+export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick, onContext, analysis, notes, tooltips = false, inCard = false, fold, tick, links }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; analysis?: AnalysisSource
   /** comments pinned to values: a chart marks them */
   notes?: Note[]
   /** a chart's tooltip report shows on hover (the viewer and dashboards) */
@@ -269,14 +269,16 @@ export function ReportResult({ result, view, label = 'Report rows', minHeight = 
   /** inside a ResultCard: the toolbar holds a pivot's Value and a hierarchy's Expand All, the footer their captions, and a chart drops its own frame */
   inCard?: boolean
   /** a hierarchy's last Expand All (open) or Collapse All, counted so each press applies again */
-  fold?: { open: boolean; count: number } }) {
+  fold?: { open: boolean; count: number }
+  /** a grid's ticked lines and the links of its names (a dashboard tile) */
+  tick?: GridTick; links?: GridLinks }) {
   switch (view.type) {
     case 'chart': return view.multiples ? <SmallMultiples result={result} view={view} minHeight={minHeight} onPick={onPick} /> : <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} onContext={onContext} notes={notes} tooltips={tooltips} bare={inCard} />
     case 'influencers': return <Influencers source={analysis} view={view} result={result} minHeight={Math.min(minHeight, 280)} />
     case 'decomposition': return <DecompositionTree key={view.measure ?? ''} source={analysis} view={view} result={result} minHeight={Math.min(minHeight, 280)} />
     case 'hierarchy': return <Hierarchy key={fold?.count ?? 0} result={result} label={label} minHeight={minHeight} formats={view.formats} onPick={onPick} inCard={inCard} folded={fold ? (fold.open ? 'open' : 'closed') : null} />
     case 'pivot': return <Pivot result={result} view={view} label={label} minHeight={minHeight} onPick={onPick} inCard={inCard} />
-    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} totals={view.totals} onContext={onContext} />
+    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} totals={view.totals} onContext={onContext} tick={tick} links={links} />
   }
 }
 

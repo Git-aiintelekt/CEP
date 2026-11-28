@@ -492,9 +492,16 @@ export interface DashboardTile {
   /** a button's label and what it does */
   label?: string
   action?: { kind: 'view' | 'page' | 'report'; id: string }
+  /** a grid whose lines can be ticked, and the report the ticked ones open: their values of `field` answer that report's question `parameter` (and the tile's dates its `period`) */
+  tick?: TileTick
+  /** what the tile says when its report has no line in the period: a title, a sentence, a button to a page of the app */
+  empty?: { title: string; text?: string; label?: string; to?: string }
   /** left out on a phone */
   hide_on_phone?: boolean
 }
+export interface TileTick { field: string; report_id: string; parameter: string; period?: string; label: string; min: number; max: number }
+/** a column whose values are things of Engagement: the id behind each name, so the tile can open it */
+export interface TileLinks { column: string; kind: 'campaign' | 'journey'; ids: Record<string, string> }
 /** a tile on a free canvas: its column (0-11), its row, its width in columns and its height in rows */
 export interface DashboardCell extends DashboardTile { x: number; y: number; w: number; h: number }
 export type DashboardTheme = 'default' | 'navy' | 'earth' | 'berry' | 'greyscale'
@@ -546,7 +553,7 @@ export type TileResult =
   | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean; sliced?: string[]
       /** a figure read from the report's first line: that line's name (null when the period has no line) and the column it comes from */
       line?: 'first'; label?: string | null; label_column?: ResultColumn | null }
-  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number; dataset?: string }; sliced?: string[]; drill?: DrillInfo }
+  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number; dataset?: string }; sliced?: string[]; drill?: DrillInfo; links?: TileLinks[] }
   | { kind: 'summary'; summary: string | null; points?: string[]; caution?: string; detail?: string; model?: { label: string }; cached?: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; sliced?: string[] }
   | { kind: 'missing'; detail: string }
   | { kind: 'refused'; detail: string; outcome: string }

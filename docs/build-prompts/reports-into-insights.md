@@ -120,13 +120,49 @@ have counted the latest campaign only. Every report on Messages now asks Campaig
 - In a tile of nine columns the campaign's name is cut short at a normal window width: the grid gives every column the same
   width (columns can be dragged wider). Changing the grid's widths is a change to every Insights report, so it is left.
 
-## R3 · Compare from the tile, links and help
+## R3 · Compare from the tile, links and help (built)
 
-- Tick two to six campaigns in the Campaigns in the Period tile, then **Compare Campaigns** opens that report with them picked.
-- A campaign's name in the tile opens the campaign in Engagement; a journey's name opens the journey.
-- Links to `/reports` from Home, help and emails open the dashboard when the workspace has it.
-- The Reports help chapter is rewritten for the dashboard and listed under Insights.
-- The sparse state: "No Campaign Sent in This Period" with **Go to Campaigns**, as in the mockup.
+No database change. Branch `reports-into-insights-r3`.
+
+Engine (any dashboard can use these; the pack is the first to):
+- **Ticking.** A grid tile may carry `tick`: the column ticked, the report to open, the question of that report the ticked values
+  answer, optionally its period question, a label, and the least and the most lines (1 to 20). Each line gets a checkbox; the
+  tile's header gets a button with the label and the count, on between the least and the most. It opens the report with the
+  ticked values picked and the tile's own dates as its period. Saving checks that the tile's report groups by the column, and
+  that the report opened asks for several values of it (`dashboards.py`, `ResultGrid.tsx`, `TileCard.tsx`, `tileActions.ts`).
+- **Names that lead somewhere.** A grid tile's run says which campaign or journey is behind each name of a Campaign or Journey
+  column of the platform's own datasets (`entity_links.py`, one query a tile). The grid shows an arrow after the name; it opens
+  the campaign or the journey in Engagement. A name two campaigns share has no arrow: its line counts both.
+- **Empty words.** A grid, chart, hierarchy or pivot tile may carry `empty`: a title, a sentence, and a button to a page of the
+  app. It shows in place of the view when the period has no line.
+
+The pack (version 2: its dashboard changed; reports unchanged):
+- Campaigns in the Period: tick two to six, **Compare Campaigns** opens the pack's Compare Campaigns report with them. Empty:
+  "No Campaign Sent in This Period", "Results show here from the first send. Try a longer period, or send a campaign.",
+  **Go to Campaigns**.
+- A workspace that added version 1 keeps its dashboard as it is (a pack never changes what was added); adding the pack again
+  makes new copies. No workspace on .51 or .68 had added it when this was built.
+
+Links to `/reports`:
+- Home's opportunity card (View Insight) and the weekly email's Open Reports lead to the dashboard when the workspace has
+  Engagement, Insights and a dashboard the whole workspace can open; otherwise to `/reports` as before.
+- The dashboard's help icon opens a new chapter, **Engagement Overview: Campaign and Journey Results**
+  (`docs/manuals/user-guide/59a-engagement-overview.md`), filed after the Insights chapter. The Reports chapter stays for the
+  old page and says at its top where Reports leads once it is marked Insights ↗.
+
+**Where this differs from the plan, and what is not built** (raised, not decided):
+- **The name is not itself the link.** On a dashboard a click on a value filters the other tiles; a campaign's name already does
+  that. So the name keeps that click and an arrow after it opens the campaign. Making the name the link would take the filter
+  away from that column.
+- The Reports help chapter is not rewritten: the old page is still there for workspaces without the dashboard, so it keeps its
+  chapter until R4 retires the page.
+- The four key figures say "0" and "—" when nothing was sent; the mockup's small lines under them ("Nothing sent yet") are not
+  built. The two charts say "Nothing to show yet." rather than drawing a flat line.
+- In a grid with ticks or name links, the name's column is half as wide again as the others and the others may narrow to 100
+  pixels (120 elsewhere), so a name with its arrow stays readable at a normal window width. Other grids are unchanged.
+- The dashboard editor's Add panel cannot set ticking or empty words by hand yet; the pack sets them, and the editor keeps them.
+- A campaign or journey deleted since has no arrow. A ticked campaign that drops out of the rows (a new period) is no longer
+  counted.
 
 ## R4 · The weekly email, and retiring the old page
 
